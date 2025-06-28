@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Reader</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to Smart Reader 📖✨</h1>
+    <p>Your AI-powered reading buddy~ Let’s read something awesome today!</p>
+    
+    <div class="button-group">
+      <button onclick="startReading()">📚 Start Reading</button>
+      <button onclick="showAbout()">💡 About</button>
+      <button onclick="openSettings()">⚙️ Settings</button>
+    </div>
+
+    <div id="reader-controls">
+      <textarea id="input-text" placeholder="Paste your novel/chapter text here..."></textarea>
+      <button onclick="generateSummary()">🔍 Generate Summary</button>
+      <p id="loading-message" style="display: none;">Analyzing... 🧠💫</p>
+      <div id="summary-output"></div>
+    </div>
+  </div>
+
+  <!-- ABOUT MODAL -->
+<div id="aboutModal" class="modal hidden">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeAbout()">&times;</span>
+    <h2>About Smart Reader</h2>
+    <p>Smart Reader is your AI companion for novels and webtoons! 🧠✨<br>
+    We summarize your chapters in seconds and make reading feel like magic.</p>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="settingsModal" class="modal hidden">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeSettings()">&times;</span>
+    <h2>Settings</h2>
+    <p><strong>Theme:</strong> Light | Dark (Coming soon!)<br>
+    <strong>Voice style:</strong> Kawaii / Cool / Narrator (Coming soon!)<br>
+    <strong>Language:</strong> English / Japanese (Coming soon!)</p>
+  </div>
+</div>
+
+</body>
+
+</html>

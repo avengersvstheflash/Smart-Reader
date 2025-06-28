@@ -1,0 +1,138 @@
+body {
+  font-family: sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #f9f9f9;
+  margin: 0;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  text-align: center;
+}
+
+
+h1 {
+  font-size: 2.5em;
+  margin-top: 40px;
+  text-align: center;
+}
+
+p {
+  font-size: 1.2em;
+  margin-bottom: 20px;
+}
+
+.button-group button {
+  margin: 5px;
+  padding: 10px 20px;
+  font-size: 1em;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background-color: #ffd6e8;
+  transition: background 0.3s ease;
+}
+
+.button-group button:hover {
+  background-color: #ff9fc2;
+}
+
+#reader-controls {
+  display: none;
+}
+
+
+button {
+  background-color: #f48fb1;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 18px;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+button:hover {
+  background-color: #ec407a;
+}
+
+#summary-output {
+  margin-top: 20px;
+  font-size: 18px;
+  font-weight: 500;
+  color: #444;
+}
+
+#reader-controls {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#input-text {
+  width: 80%;
+  height: 150px;
+  padding: 10px;
+  font-size: 1em;
+  border: 2px dashed #888;
+  margin-bottom: 15px;
+  resize: vertical;
+}
+
+#loading-message {
+  font-style: italic;
+  color: #555;
+  margin: 10px 0;
+}
+
+#summary-output {
+  background: #f4f4f4;
+  border-left: 4px solid #0077cc;
+  padding: 15px;
+  width: 80%;
+  margin-top: 10px;
+  font-size: 1.1em;
+}
+
+/* Modal styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 999;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+  background-color: #fff;
+  margin: 10% auto;
+  padding: 20px;
+  width: 80%;
+  max-width: 400px;
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  text-align: center;
+}
+
+.close-btn {
+  float: right;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* Show modal when not hidden */
+.modal:not(.hidden) {
+  display: block;
+}
+
+.hidden {
+  display: none;
+}
