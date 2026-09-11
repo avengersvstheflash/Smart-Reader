@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors'); // To allow frontend to access backend
+const path = require('path');
 const app = express();
 const PORT = 3000;
 
@@ -7,8 +8,11 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
+// Serve static frontend files from src
+app.use(express.static(path.join(__dirname, '../src')));
+
 // Test GET
-app.get('/', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.send('Smart Reader backend is up! 📡✨');
 });
 
@@ -26,6 +30,15 @@ app.post('/generate-summary', (req, res) => {
   res.json({ summary });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+// Fallback to index.html for GET requests
+app.use((req, res, next) => {
+  if (req.method === 'GET') {
+    res.sendFile(path.join(__dirname, '../src/index.html'));
+  } else {
+    next();
+  }
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
