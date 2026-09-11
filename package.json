@@ -1,0 +1,15 @@
+{
+  "name": "smart-reader",
+  "version": "1.0.0",
+  "description": "AI-powered manga and novel reader with summaries and anime-style voiceovers!",
+  "main": "backend/server.js",
+  "scripts": {
+    "dev": "node backend/server.js",
+    "start": "node backend/server.js",
+    "build": "node -e \"console.log('Build complete')\""
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0"
+  }
+}
