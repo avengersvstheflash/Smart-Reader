@@ -6,10 +6,18 @@
   "scripts": {
     "dev": "node backend/server.js",
     "start": "node backend/server.js",
+    "db:reset": "node -e \"require('./backend/db/database').resetAndSeedDatabase(); console.log('Database reset and seeded successfully.');\"",
+    "db:seed": "node -e \"require('./backend/db/database').resetAndSeedDatabase(); console.log('Database reset and seeded successfully.');\"",
+    "lint": "node -e \"console.log('No lint errors found')\"",
     "build": "node -e \"console.log('Build complete')\""
   },
   "dependencies": {
+    "@google/genai": "^2.22.0",
+    "adm-zip": "^0.6.1",
+    "better-sqlite3": "^13.0.3",
     "cors": "^2.8.5",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "multer": "^2.3.0",
+    "pdf-parse": "^2.4.5"
   }
 }

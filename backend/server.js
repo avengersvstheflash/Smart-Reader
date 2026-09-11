@@ -1,44 +1,94 @@
 const express = require('express');
-const cors = require('cors'); // To allow frontend to access backend
+const cors = require('cors');
 const path = require('path');
+const config = require('./config');
+const { getDatabase } = require('./db/database');
+
+const bookRoutes = require('./routes/bookRoutes');
+const chapterRoutes = require('./routes/chapterRoutes');
+const jobRoutes = require('./routes/jobRoutes');
+const aiRoutes = require('./routes/aiRoutes');
+const aiService = require('./services/ai/aiService');
+const bookService = require('./services/bookService');
+
 const app = express();
-const PORT = 3000;
+
+// Initialize DB schema
+getDatabase();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-// Serve static frontend files from src
+// Static frontend assets
 app.use(express.static(path.join(__dirname, '../src')));
 
-// Test GET
+// Health check
 app.get('/api/health', (req, res) => {
-  res.send('Smart Reader backend is up! 📡✨');
+  res.json({
+    status: 'ok',
+    name: 'Smart Reader API',
+    version: '1.0.0',
+    aiProvider: config.AI_PROVIDER,
+  });
 });
 
-// Mock summary generator
-app.post('/generate-summary', (req, res) => {
-  const { text } = req.body;
+// Modular API Routes
+app.use('/api/books', bookRoutes);
+app.use('/api/chapters', chapterRoutes);
+app.use('/api/jobs', jobRoutes);
+app.use('/api/ai', aiRoutes);
 
+// Development Reset & Sample Seed Endpoint
+app.post('/api/dev/reset', (req, res, next) => {
+  try {
+    const result = bookService.resetDevelopmentData();
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Legacy backward-compatible endpoint refactored through AI service abstraction
+app.post('/generate-summary', async (req, res) => {
+  const { text, title } = req.body;
   if (!text || text.trim() === '') {
     return res.status(400).json({ error: 'No text provided!' });
   }
 
-  // FAKE summary logic for now
-  const summary = `✨ Summary: In this chapter, amazing stuff happens and the plot thickens! Stay tuned~ ✨`;
-
-  res.json({ summary });
+  try {
+    const result = await aiService.summarizeText(text, title);
+    res.json({ summary: result.summary, provider: result.provider, model: result.model });
+  } catch (err) {
+    res.status(502).json({
+      error: err.message,
+      provider: 'ollama',
+      summary: null,
+    });
+  }
 });
 
-// Fallback to index.html for GET requests
+// Centralized error handling
+app.use((err, req, res, next) => {
+  console.error('[API Error]:', err);
+  const status = err.status || 500;
+  res.status(status).json({
+    error: err.message || 'Internal Server Error',
+  });
+});
+
+// Fallback to index.html for client-side navigation
 app.use((req, res, next) => {
-  if (req.method === 'GET') {
+  if (req.method === 'GET' && !req.path.startsWith('/api/')) {
     res.sendFile(path.join(__dirname, '../src/index.html'));
   } else {
     next();
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on http://0.0.0.0:${PORT}`);
+app.listen(config.PORT, '0.0.0.0', () => {
+  console.log(`Smart Reader backend running on http://0.0.0.0:${config.PORT}`);
 });
+
+module.exports = app;

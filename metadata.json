@@ -1,6 +1,6 @@
 {
   "name": "Smart Reader",
-  "description": "AI-powered manga and novel reader with summaries and anime-style voiceovers!",
+  "description": "AI-powered personal digital library with chapter summaries and reading intelligence.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
