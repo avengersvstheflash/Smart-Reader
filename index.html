@@ -4,51 +4,597 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Smart Reader</title>
-  <meta name="description" content="AI-powered manga and novel reader with summaries and anime-style voiceovers!">
+  <meta name="description" content="AI-powered personal digital library with chapter summaries and reading intelligence.">
   <meta property="og:title" content="Smart Reader">
-  <meta property="og:description" content="AI-powered manga and novel reader with summaries and anime-style voiceovers!">
-  <link rel="stylesheet" href="src/style.css">
-  <script src="src/script.js" defer></script>
+  <meta property="og:description" content="AI-powered personal digital library with chapter summaries and reading intelligence.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
 </head>
-<body>
-  <div class="container">
-    <h1>Welcome to Smart Reader 📖✨</h1>
-    <p>Your AI-powered reading buddy~ Let’s read something awesome today!</p>
-    
-    <div class="button-group">
-      <button onclick="startReading()">📚 Start Reading</button>
-      <button onclick="showAbout()">💡 About</button>
-      <button onclick="openSettings()">⚙️ Settings</button>
-    </div>
+<body class="theme-light">
+  <!-- APP HEADER / NAV -->
+  <header id="main-header" class="app-header">
+    <div class="header-inner">
+      <div class="brand-group" id="brand-group" onclick="navigateTo('library')">
+        <span class="brand-icon" id="brand-icon">📖</span>
+        <div class="brand-text">
+          <span class="brand-title" id="brand-title">Smart Reader</span>
+          <span class="brand-subtitle" id="brand-subtitle">Personal Digital Library</span>
+        </div>
+      </div>
 
-    <div id="reader-controls">
-      <textarea id="input-text" placeholder="Paste your novel/chapter text here..."></textarea>
-      <button onclick="generateSummary()">🔍 Generate Summary</button>
-      <p id="loading-message" style="display: none;">Analyzing... 🧠💫</p>
-      <div id="summary-output"></div>
+      <nav class="nav-links" id="nav-links">
+        <button id="nav-library-btn" class="nav-btn active" onclick="navigateTo('library')">
+          <span class="nav-icon">📚</span> Library
+        </button>
+        <button id="nav-reader-btn" class="nav-btn" onclick="navigateTo('reader')" style="display: none;">
+          <span class="nav-icon">📖</span> Reading
+        </button>
+        <button id="nav-jobs-btn" class="nav-btn" onclick="openJobsModal()">
+          <span class="nav-icon">⚡</span> Processing <span id="jobs-count-badge" class="badge-count">0</span>
+        </button>
+      </nav>
+
+      <div class="header-actions" id="header-actions">
+        <div id="ai-status-indicator" class="status-pill checking" onclick="openAIStatusModal()" title="View AI status and configuration">
+          <span class="status-dot"></span>
+          <span id="ai-status-label" class="status-label">Checking AI...</span>
+        </div>
+        <button id="btn-add-book-header" class="btn btn-primary" onclick="openAddBookModal()">
+          <span>+ Add Book</span>
+        </button>
+        <button id="btn-settings-header" class="btn btn-icon" onclick="openSettings()" title="Settings">
+          ⚙️
+        </button>
+        <button id="btn-about-header" class="btn btn-icon" onclick="showAbout()" title="About Smart Reader">
+          💡
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT CONTAINER -->
+  <main id="app-main" class="app-main">
+
+    <!-- ==================== VIEW 1: LIBRARY ==================== -->
+    <section id="view-library" class="view-section active">
+      <!-- HERO BANNER -->
+      <div class="library-hero-banner" id="library-hero-banner">
+        <div class="library-hero-content">
+          <span class="library-eyebrow">Personal Library</span>
+          <h1 class="library-hero-title">Your collection of stories, ideas, knowledge, and things worth remembering.</h1>
+          <p class="library-hero-desc">Bring your novels, manga, textbooks, research papers, and notes into an intelligent, distraction-free reading sanctuary.</p>
+        </div>
+        <div class="library-hero-actions">
+          <button id="btn-hero-add-book" class="btn btn-primary btn-lg" onclick="openAddBookModal()">
+            <span>+ Add Book</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- CONTINUE READING SECTION (CONDITIONAL) -->
+      <div id="continue-reading-container" class="continue-reading-wrap" style="display: none;">
+        <h2 class="sub-heading">Continue Reading</h2>
+        <div id="continue-reading-card" class="continue-card">
+          <!-- Populated by script.js -->
+        </div>
+      </div>
+
+      <!-- YOUR LIBRARY TOOLBAR & FILTERS -->
+      <div class="library-toolbar">
+        <div class="collection-header">
+          <div>
+            <h2 id="books-grid-heading" class="sub-heading">Your Library</h2>
+            <p class="section-desc">Browse your digital shelves or search across authors and genres.</p>
+          </div>
+          <span id="books-total-count" class="item-count">0 items</span>
+        </div>
+
+        <div class="toolbar-controls">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="library-search-input" placeholder="Search by title, author, or description..." oninput="handleSearch(this.value)">
+            <button id="btn-clear-search" class="btn-clear-search" onclick="clearSearch()" style="display:none;" title="Clear search">&times;</button>
+          </div>
+          <div class="filter-chips" id="content-type-filters">
+            <button class="filter-chip active" data-type="all" onclick="filterByContentType('all')">All</button>
+            <button class="filter-chip" data-type="novel" onclick="filterByContentType('novel')">Novels</button>
+            <button class="filter-chip" data-type="manga" onclick="filterByContentType('manga')">Manga / Comics</button>
+            <button class="filter-chip" data-type="textbook" onclick="filterByContentType('textbook')">Textbooks</button>
+            <button class="filter-chip" data-type="document" onclick="filterByContentType('document')">Documents</button>
+            <button class="filter-chip" data-type="research" onclick="filterByContentType('research')">Research</button>
+            <button class="filter-chip" data-type="notes" onclick="filterByContentType('notes')">Notes</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOOK COLLECTION GRID -->
+      <div id="books-grid" class="books-grid">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- EMPTY STATE (NO BOOKS) -->
+      <div id="library-empty-state" class="empty-state" style="display: none;">
+        <div class="empty-icon">📖</div>
+        <h3 id="empty-state-title">Your library is waiting</h3>
+        <p id="empty-state-text">Bring in a novel, textbook, research paper, or anything you want Smart Reader to understand and remember.</p>
+        <div class="empty-actions">
+          <button id="btn-empty-add-book" class="btn btn-primary" onclick="openAddBookModal()">+ Add Your First Book</button>
+          <button id="btn-empty-seed-book" class="btn btn-secondary" onclick="seedSampleLibrary()">Load Sample Collection</button>
+        </div>
+      </div>
+
+      <!-- EMPTY STATE (NO SEARCH RESULTS) -->
+      <div id="library-search-empty-state" class="empty-state search-empty-state" style="display: none;">
+        <div class="empty-icon">🔍</div>
+        <h3>No matching books found</h3>
+        <p>We couldn't find any books or documents matching your active search or filters.</p>
+        <div class="empty-actions">
+          <button class="btn btn-secondary" onclick="clearSearchAndFilters()">Clear Search & Filters</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: BOOK DETAILS ==================== -->
+    <section id="view-book-details" class="view-section" style="display: none;">
+      <div class="back-bar">
+        <button id="btn-back-to-library" class="btn btn-secondary btn-sm" onclick="navigateTo('library')">
+          ← Back to Library
+        </button>
+      </div>
+
+      <div id="book-details-hero" class="book-details-hero">
+        <!-- Populated dynamically -->
+      </div>
+
+      <div class="chapters-section">
+        <div class="chapters-header">
+          <div>
+            <h2 id="chapters-list-title" class="sub-heading">Table of Contents</h2>
+            <p class="section-desc">Select any chapter to begin reading or generate chapter summaries.</p>
+          </div>
+          <div class="chapters-actions">
+            <button id="btn-add-chapter" class="btn btn-secondary btn-sm" onclick="openAddChapterModal()">
+              + Add Chapter
+            </button>
+          </div>
+        </div>
+
+        <div id="chapters-list" class="chapters-list">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 3: READER ==================== -->
+    <section id="view-reader" class="view-section" style="display: none;">
+      <!-- Top Reader Header -->
+      <div id="reader-top-bar" class="reader-top-bar">
+        <div class="reader-top-left">
+          <button id="btn-reader-back" class="btn btn-secondary btn-sm" onclick="navigateTo('book-details')">
+            ← Chapters
+          </button>
+          <div class="reader-breadcrumb">
+            <span id="reader-book-title" class="crumb-book">Book Title</span>
+            <span class="crumb-sep">/</span>
+            <span id="reader-crumb-chapter" class="crumb-chapter">Chapter 1</span>
+          </div>
+        </div>
+
+        <div class="reader-top-center">
+          <select id="reader-chapter-select" class="reader-select" onchange="handleChapterSelect(this.value)">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <div class="reader-top-right">
+          <div class="typography-controls">
+            <button id="btn-font-smaller" class="btn btn-icon btn-sm" onclick="adjustFontSize(-1)" title="Decrease font size">A-</button>
+            <span id="font-size-display" class="font-size-label">18px</span>
+            <button id="btn-font-larger" class="btn btn-icon btn-sm" onclick="adjustFontSize(1)" title="Increase font size">A+</button>
+            <button id="btn-font-family" class="btn btn-secondary btn-sm" onclick="toggleReaderFont()" title="Toggle Serif / Sans">Serif</button>
+          </div>
+          <button id="btn-toggle-ai-panel" class="btn btn-primary btn-sm" onclick="toggleAIPanel()">
+            🧠 AI Summary <span id="ai-panel-badge" class="pill-dot"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Reading Scroll Progress Bar -->
+      <div class="reading-progress-track">
+        <div id="reading-progress-fill" class="reading-progress-fill" style="width: 0%;"></div>
+      </div>
+
+      <!-- Reader Workspace (split or centered layout) -->
+      <div id="reader-layout" class="reader-layout">
+        <!-- Main Reading Scroll Canvas -->
+        <article id="reader-canvas" class="reader-canvas">
+          <div class="reader-canvas-inner">
+            <header class="reader-article-header">
+              <span id="reader-chapter-number" class="chapter-eyebrow">Chapter 1</span>
+              <h1 id="reader-chapter-heading" class="reader-chapter-title">Chapter Title</h1>
+              <div class="reader-meta">
+                <span id="reader-word-count">0 words</span>
+                <span>•</span>
+                <span id="reader-est-time">0 min read</span>
+                <span>•</span>
+                <span id="reader-status-badge" class="badge-status">unread</span>
+              </div>
+            </header>
+
+            <div id="reader-content-body" class="reader-content-body font-serif">
+              <!-- Raw chapter content rendered with proper paragraphs -->
+            </div>
+
+            <!-- Bottom Chapter Navigation -->
+            <footer class="reader-article-footer">
+              <button id="btn-prev-chapter" class="btn btn-secondary" onclick="navigateChapter('prev')">
+                ← Previous Chapter
+              </button>
+              <button id="btn-mark-read" class="btn btn-secondary" onclick="toggleChapterReadStatus()">
+                ✓ Mark as Completed
+              </button>
+              <button id="btn-next-chapter" class="btn btn-primary" onclick="navigateChapter('next')">
+                Next Chapter →
+              </button>
+            </footer>
+          </div>
+        </article>
+
+        <!-- Contextual AI Workspace Panel (Grounded in Content, Separate from Original) -->
+        <aside id="reader-ai-panel" class="reader-ai-panel">
+          <div class="ai-panel-inner">
+            <div class="ai-panel-header">
+              <div class="ai-header-title-wrap">
+                <span class="ai-badge">AI Assistant</span>
+                <h3 id="ai-panel-title" class="ai-panel-title">Chapter Summary</h3>
+              </div>
+              <button id="btn-close-ai-panel" class="btn-close-panel" onclick="toggleAIPanel(false)" title="Close panel">&times;</button>
+            </div>
+
+            <div class="ai-disclaimer-banner">
+              <span>🔒 Generated Representation — Original book content is preserved untouched.</span>
+            </div>
+
+            <div class="ai-action-area">
+              <div class="ai-action-row">
+                <button id="btn-generate-summary" class="btn btn-primary btn-block" onclick="triggerChapterSummary()">
+                  🔍 Generate Chapter Summary
+                </button>
+              </div>
+              <div class="ai-provider-info">
+                <span id="ai-active-provider-name">Provider: Ollama</span>
+                <span id="ai-active-model-name">Model: llama3</span>
+              </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="ai-loading-box" class="ai-state-box loading" style="display: none;">
+              <div class="spinner"></div>
+              <p id="ai-loading-status" class="state-title">Analyzing chapter content...</p>
+              <p class="state-sub">Communicating with Ollama AI provider. This may take a few seconds.</p>
+            </div>
+
+            <!-- Error State with Diagnostic & Retry -->
+            <div id="ai-error-box" class="ai-state-box error" style="display: none;">
+              <div class="error-icon">⚠️</div>
+              <p id="ai-error-title" class="state-title">Summarization Failed</p>
+              <p id="ai-error-detail" class="state-sub">Could not connect to Ollama.</p>
+              <div class="troubleshoot-box">
+                <strong>How to fix:</strong>
+                <ol>
+                  <li>Ensure Ollama is installed on your machine.</li>
+                  <li>Run <code>ollama run llama3</code> in your terminal.</li>
+                  <li>Or set <code>OLLAMA_BASE_URL</code> if hosted on another port.</li>
+                </ol>
+              </div>
+              <button id="btn-retry-ai" class="btn btn-secondary btn-sm" onclick="triggerChapterSummary()">
+                🔄 Retry Summarization
+              </button>
+            </div>
+
+            <!-- Summary Output (Generated Representation) -->
+            <div id="ai-summary-output" class="ai-summary-output" style="display: none;">
+              <div class="summary-meta-header">
+                <span class="meta-label">Generated Summary</span>
+                <span id="summary-meta-time" class="meta-time">Just now</span>
+              </div>
+
+              <div id="summary-text-container" class="summary-text-container">
+                <!-- Formatted summary paragraphs & key takeaways -->
+              </div>
+
+              <div class="summary-footer-actions">
+                <button id="btn-re-summarize" class="btn btn-secondary btn-xs" onclick="triggerChapterSummary()">
+                  Regenerate
+                </button>
+                <button id="btn-copy-summary" class="btn btn-secondary btn-xs" onclick="copySummaryText()">
+                  Copy Summary
+                </button>
+              </div>
+            </div>
+
+            <!-- Empty Prompt state when no summary yet -->
+            <div id="ai-empty-prompt" class="ai-state-box prompt">
+              <div class="prompt-icon">💡</div>
+              <p class="state-title">No summary generated yet</p>
+              <p class="state-sub">Click "Generate Chapter Summary" above to have Ollama distill key story developments and character milestones.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- ADD BOOK MODAL -->
+  <div id="addBookModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeAddBookModal()"></div>
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2 id="add-book-modal-title">Add Book to Library</h2>
+        <button class="close-btn" onclick="closeAddBookModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="tab-bar">
+          <button id="tab-import-file" class="tab-btn active" onclick="switchAddBookTab('file')">Import File (.txt, .md)</button>
+          <button id="tab-paste-text" class="tab-btn" onclick="switchAddBookTab('paste')">Paste Text / Manual</button>
+        </div>
+
+        <form id="form-add-book" onsubmit="handleAddBookSubmit(event)">
+          <!-- TAB 1: File Import -->
+          <div id="tab-pane-file" class="tab-pane active">
+            <div class="drop-zone" id="file-drop-zone">
+              <input type="file" id="book-file-input" accept=".txt,.md,.text" onchange="handleFileSelected(this.files)">
+              <div class="drop-zone-content">
+                <span class="upload-icon">📄</span>
+                <p class="drop-title">Drop your book file here or <span class="highlight">browse</span></p>
+                <p class="drop-sub">Supported formats: Plain Text (.txt), Markdown (.md). Chapters are detected automatically.</p>
+                <div id="selected-file-info" class="selected-file-pill" style="display: none;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: Manual Paste -->
+          <div id="tab-pane-paste" class="tab-pane" style="display: none;">
+            <div class="form-group">
+              <label for="book-paste-content">Chapter or Book Text *</label>
+              <textarea id="book-paste-content" rows="7" placeholder="Paste your chapters or story text here... (Chapter 1, Chapter 2, etc. will be detected)"></textarea>
+            </div>
+          </div>
+
+          <!-- Common Book Metadata -->
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label for="book-input-title">Title *</label>
+              <input type="text" id="book-input-title" required placeholder="e.g. The Clockwork Chronicles">
+            </div>
+            <div class="form-group flex-1">
+              <label for="book-input-content-type">Content Type</label>
+              <select id="book-input-content-type">
+                <option value="novel">Novel / Light Novel</option>
+                <option value="manga">Manga / Webtoon</option>
+                <option value="comic">Comic Book</option>
+                <option value="textbook">Textbook</option>
+                <option value="document">Document / Article</option>
+                <option value="research">Research Paper</option>
+                <option value="notes">Personal Notes</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="book-input-author">Author / Source</label>
+              <input type="text" id="book-input-author" placeholder="e.g. Arthur Conan Doyle">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="book-input-desc">Description / Synopsis</label>
+            <textarea id="book-input-desc" rows="2" placeholder="Brief premise or notes about this book..."></textarea>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeAddBookModal()">Cancel</button>
+            <button type="submit" id="btn-submit-book" class="btn btn-primary">
+              <span id="btn-submit-book-text">Import Book</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD CHAPTER MODAL -->
+  <div id="addChapterModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeAddChapterModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="add-chapter-modal-title">Add Chapter</h2>
+        <button class="close-btn" onclick="closeAddChapterModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-add-chapter" onsubmit="handleAddChapterSubmit(event)">
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="chapter-input-number">Chapter #</label>
+              <input type="number" id="chapter-input-number" min="1" placeholder="Auto">
+            </div>
+            <div class="form-group flex-3">
+              <label for="chapter-input-title">Chapter Title *</label>
+              <input type="text" id="chapter-input-title" required placeholder="e.g. Chapter 3: Shadows on the Wall">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="chapter-input-content">Chapter Content *</label>
+            <textarea id="chapter-input-content" rows="10" required placeholder="Paste the text of this chapter here..."></textarea>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeAddChapterModal()">Cancel</button>
+            <button type="submit" id="btn-submit-chapter" class="btn btn-primary">Save Chapter</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROCESSING JOBS MODAL -->
+  <div id="jobsModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeJobsModal()"></div>
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <h2>Processing Jobs Queue</h2>
+        <button class="close-btn" onclick="closeJobsModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="section-desc">Track asynchronous content ingestion and AI summarization tasks.</p>
+        <div id="jobs-list-container" class="jobs-list-container">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" onclick="fetchJobs()">🔄 Refresh Jobs</button>
+        <button class="btn btn-primary btn-sm" onclick="closeJobsModal()">Done</button>
+      </div>
     </div>
   </div>
 
   <!-- ABOUT MODAL -->
-<div id="aboutModal" class="modal hidden">
-  <div class="modal-content">
-    <span class="close-btn" onclick="closeAbout()">&times;</span>
-    <h2>About Smart Reader</h2>
-    <p>Smart Reader is your AI companion for novels and webtoons! 🧠✨<br>
-    We summarize your chapters in seconds and make reading feel like magic.</p>
+  <div id="aboutModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeAbout()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>About Smart Reader</h2>
+        <button class="close-btn" onclick="closeAbout()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Smart Reader</strong> is evolving into a personal intelligent digital library for novels, webtoons, manga, textbooks, research materials, and notes.</p>
+        <div class="about-architecture-card">
+          <h4>Architecture & Build 1 Features</h4>
+          <ul>
+            <li><strong>Modular Architecture:</strong> Clear separation between UI, API, Business Services, Repositories, and AI Providers.</li>
+            <li><strong>AI Provider Abstraction:</strong> Independent of Ollama implementation details, ready for future Gemini models.</li>
+            <li><strong>Separation of Concerns:</strong> AI summaries are stored as generated representations and never mutate original user content.</li>
+            <li><strong>Local-First Persistence:</strong> SQLite structured storage for zero-dollar, private local execution.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary btn-sm" onclick="closeAbout()">Close</button>
+      </div>
+    </div>
   </div>
-</div>
 
-<!-- SETTINGS MODAL -->
-<div id="settingsModal" class="modal hidden">
-  <div class="modal-content">
-    <span class="close-btn" onclick="closeSettings()">&times;</span>
-    <h2>Settings</h2>
-    <p><strong>Theme:</strong> Light | Dark (Coming soon!)<br>
-    <strong>Voice style:</strong> Kawaii / Cool / Narrator (Coming soon!)<br>
-    <strong>Language:</strong> English / Japanese (Coming soon!)</p>
+  <!-- SETTINGS MODAL -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeSettings()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings & AI Configuration</h2>
+        <button class="close-btn" onclick="closeSettings()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-group">
+          <label>Theme</label>
+          <div class="theme-picker">
+            <button class="btn btn-secondary btn-sm active" onclick="setTheme('light')">☀️ Light Paper</button>
+            <button class="btn btn-secondary btn-sm" onclick="setTheme('warm')">🕯️ Warm Sepia</button>
+            <button class="btn btn-secondary btn-sm" onclick="setTheme('dark')">🌙 Night Slate</button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <label>Active AI Provider</label>
+          <div class="provider-badge-row">
+            <span class="provider-chip active">Ollama (Local)</span>
+            <span class="provider-chip disabled">Gemini (Build 2)</span>
+          </div>
+          <p class="setting-hint">Configure <code>OLLAMA_BASE_URL</code> (default <code>http://127.0.0.1:11434</code>) and <code>OLLAMA_MODEL</code> (default <code>llama3</code>) in your environment variables.</p>
+        </div>
+
+        <div class="settings-group">
+          <label>AI Connection Health</label>
+          <div id="settings-ai-status-detail" class="status-detail-card">
+            Checking status...
+          </div>
+          <button class="btn btn-secondary btn-xs" onclick="checkAIStatus(true)" style="margin-top: 8px;">
+            Test Connection Now
+          </button>
+        </div>
+
+        <div class="settings-group">
+          <label>Development & Test Data</label>
+          <div class="dev-tools-card">
+            <div class="dev-tools-info">
+              <span class="dev-tools-title">Reset to Sample Library</span>
+              <p class="setting-hint">Rebuilds local SQLite database with clean sample books (Novels, Textbooks, Markdown research documents) and pre-generated AI representations.</p>
+            </div>
+            <button id="btn-reset-dev-data" class="btn btn-secondary btn-sm" onclick="handleDevReset()">
+              🔄 Reset Sample Data
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary btn-sm" onclick="closeSettings()">Save & Close</button>
+      </div>
+    </div>
   </div>
-</div>
 
+  <!-- AI INTELLIGENCE & STATUS MODAL -->
+  <div id="aiStatusModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeAIStatusModal()"></div>
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <h2>Intelligence & AI Status</h2>
+        <button class="close-btn" onclick="closeAIStatusModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="ai-modal-hero-status" class="ai-status-hero-card">
+          <!-- Populated dynamically by checkAIStatus() -->
+        </div>
+
+        <div class="ai-architecture-explainer">
+          <h4>How Smart Reader AI Works</h4>
+          <p>
+            Smart Reader is engineered with a <strong>Private Local AI</strong> architecture. When active, it connects to your local Ollama daemon (<code>llama3</code>) to generate chapter breakdowns, summaries, and reading intelligence.
+          </p>
+          <p>
+            Your books, chapters, and research notes stay on your machine and are never transmitted to external third-party cloud services.
+          </p>
+          <div class="ai-offline-safe-notice">
+            <span class="notice-icon">🛡️</span>
+            <div>
+              <strong>Full Offline Guarantee:</strong> All core library management, chapter reading, structured canonical formatting, typography preferences, and search features function completely without AI.
+            </div>
+          </div>
+        </div>
+
+        <div class="ai-setup-guide">
+          <h4>Local AI Setup (Optional)</h4>
+          <p>To enable local AI chapter summaries, install Ollama and run:</p>
+          <div class="code-copy-row">
+            <code>ollama run llama3</code>
+            <button class="btn btn-secondary btn-xs" onclick="copyCommand('ollama run llama3')">Copy</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-test-ai-connection" class="btn btn-secondary btn-sm" onclick="checkAIStatus(true)">
+          🔄 Test Connection Now
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="closeAIStatusModal()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="toast-container"></div>
 </body>
 </html>
