@@ -149,6 +149,15 @@ function initSchema(db) {
   if (!chapterCols.some(c => c.name === 'canonical_content')) {
     db.exec(`ALTER TABLE chapters ADD COLUMN canonical_content TEXT;`);
   }
+  if (!chapterCols.some(c => c.name === 'structural_role')) {
+    db.exec(`ALTER TABLE chapters ADD COLUMN structural_role TEXT DEFAULT 'chapter';`);
+  }
+  if (!chapterCols.some(c => c.name === 'section_count')) {
+    db.exec(`ALTER TABLE chapters ADD COLUMN section_count INTEGER DEFAULT 0;`);
+  }
+  if (!chapterCols.some(c => c.name === 'metadata_json')) {
+    db.exec(`ALTER TABLE chapters ADD COLUMN metadata_json TEXT DEFAULT '{}';`);
+  }
 
   // Ensure metadata columns exist on books table
   const bookCols = db.prepare(`PRAGMA table_info(books)`).all();
@@ -170,6 +179,15 @@ function initSchema(db) {
   if (!bookCols.some(c => c.name === 'source_site')) {
     db.exec(`ALTER TABLE books ADD COLUMN source_site TEXT DEFAULT '';`);
   }
+  if (!bookCols.some(c => c.name === 'section_count')) {
+    db.exec(`ALTER TABLE books ADD COLUMN section_count INTEGER DEFAULT 0;`);
+  }
+  if (!bookCols.some(c => c.name === 'integrity_status')) {
+    db.exec(`ALTER TABLE books ADD COLUMN integrity_status TEXT DEFAULT 'valid';`);
+  }
+  if (!bookCols.some(c => c.name === 'integrity_warning')) {
+    db.exec(`ALTER TABLE books ADD COLUMN integrity_warning TEXT DEFAULT '';`);
+  }
   if (!bookCols.some(c => c.name === 'semantic_status')) {
     db.exec(`ALTER TABLE books ADD COLUMN semantic_status TEXT DEFAULT 'unindexed';`);
   }
@@ -178,6 +196,15 @@ function initSchema(db) {
   }
   if (!bookCols.some(c => c.name === 'semantic_indexed_at')) {
     db.exec(`ALTER TABLE books ADD COLUMN semantic_indexed_at TEXT;`);
+  }
+
+  // Ensure provenance columns exist on semantic_chunks table
+  const chunkCols = db.prepare(`PRAGMA table_info(semantic_chunks)`).all();
+  if (!chunkCols.some(c => c.name === 'source_page')) {
+    db.exec(`ALTER TABLE semantic_chunks ADD COLUMN source_page INTEGER;`);
+  }
+  if (!chunkCols.some(c => c.name === 'structural_role')) {
+    db.exec(`ALTER TABLE semantic_chunks ADD COLUMN structural_role TEXT DEFAULT 'body';`);
   }
 
   seedDefaultBookIfEmpty(db);

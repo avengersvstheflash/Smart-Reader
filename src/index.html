@@ -609,6 +609,11 @@
             </div>
           </div>
 
+          <div id="result-integrity-banner" class="modal-warning-banner" style="display: none; margin: 12px 0; padding: 10px 14px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; color: #92400e; font-size: 0.85rem;">
+            <strong>⚠️ Content Integrity Notice:</strong>
+            <span id="result-integrity-text"></span>
+          </div>
+
           <div class="result-preview-box">
             <div class="preview-label">First Chapter Preview:</div>
             <div id="result-chapter-preview" class="preview-snippet">...</div>
@@ -619,6 +624,23 @@
             <button type="button" id="btn-open-imported-book" class="btn btn-primary" onclick="handleOpenImportedBook()">
               Open in Reader →
             </button>
+          </div>
+        </div>
+
+        <!-- Ingestion Error Panel -->
+        <div id="ingestion-error-panel" class="ingestion-error-panel" style="display: none; padding: 16px 0;">
+          <div style="padding: 16px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; color: #991b1b;">
+            <div style="font-weight: 600; font-size: 1rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span>❌ Ingestion Failed</span>
+            </div>
+            <p id="ingestion-error-text" style="font-size: 0.875rem; line-height: 1.5; margin: 0 0 12px 0;"></p>
+            <div style="font-size: 0.8rem; color: #7f1d1d;">
+              Supported formats include searchable PDF (.pdf), EPUB (.epub), Markdown (.md), and plain text (.txt). If this document is a scanned image PDF, text cannot be selected or extracted.
+            </div>
+          </div>
+          <div class="modal-footer" style="padding: 16px 0 0 0; margin-top: 12px;">
+            <button type="button" class="btn btn-secondary" onclick="resetAddBookForm()">Try Again</button>
+            <button type="button" class="btn btn-secondary" onclick="closeAddBookModal()">Close</button>
           </div>
         </div>
 

@@ -26,6 +26,7 @@ class Preprocessor {
       chapterId: chapter.id,
       chapterNumber: chapter.number,
       chapterTitle: chapter.title,
+      structuralRole: chapter.structural_role || chapter.structuralRole || 'chapter',
     });
   }
 
@@ -43,6 +44,9 @@ class Preprocessor {
       const block = blocks[i];
       if (!block) continue;
 
+      const sourcePage = block.sourcePage || (block.metadata && block.metadata.sourcePage) || null;
+      const structuralRole = context.structuralRole || 'chapter';
+
       if (block.type === 'heading') {
         const headingText = (block.text || '').trim();
         if (headingText) {
@@ -57,7 +61,9 @@ class Preprocessor {
           contentType: 'heading',
           textContent: headingText,
           canonicalBlock: block,
-          sourceReference: this.buildSourceRef(context, currentHeading),
+          sourceReference: this.buildSourceRef(context, currentHeading, sourcePage),
+          sourcePage,
+          structuralRole,
           tokenCount: this.estimateTokens(headingText),
           contentHash: this.hashContent(`heading:${currentHeading}:${headingText}`),
         });
@@ -76,7 +82,9 @@ class Preprocessor {
           contentType: 'paragraph',
           textContent: text,
           canonicalBlock: block,
-          sourceReference: this.buildSourceRef(context, currentHeading),
+          sourceReference: this.buildSourceRef(context, currentHeading, sourcePage),
+          sourcePage,
+          structuralRole,
           tokenCount: this.estimateTokens(text),
           contentHash: this.hashContent(`para:${currentHeading}:${text}`),
         });
@@ -96,7 +104,9 @@ class Preprocessor {
           contentType: 'list',
           textContent: listText,
           canonicalBlock: block,
-          sourceReference: this.buildSourceRef(context, currentHeading),
+          sourceReference: this.buildSourceRef(context, currentHeading, sourcePage),
+          sourcePage,
+          structuralRole,
           tokenCount: this.estimateTokens(listText),
           contentHash: this.hashContent(`list:${currentHeading}:${listText}`),
         });
@@ -117,7 +127,9 @@ class Preprocessor {
           contentType: 'quote',
           textContent: fullQuote,
           canonicalBlock: block,
-          sourceReference: this.buildSourceRef(context, currentHeading),
+          sourceReference: this.buildSourceRef(context, currentHeading, sourcePage),
+          sourcePage,
+          structuralRole,
           tokenCount: this.estimateTokens(fullQuote),
           contentHash: this.hashContent(`quote:${currentHeading}:${fullQuote}`),
         });
@@ -148,7 +160,9 @@ class Preprocessor {
             contentType: 'table',
             textContent: tableText.trim(),
             canonicalBlock: block,
-            sourceReference: this.buildSourceRef(context, currentHeading),
+            sourceReference: this.buildSourceRef(context, currentHeading, sourcePage),
+            sourcePage,
+            structuralRole,
             tokenCount: this.estimateTokens(tableText),
             contentHash: this.hashContent(`table:${currentHeading}:${tableText}`),
           });
@@ -170,7 +184,9 @@ class Preprocessor {
           contentType: 'callout',
           textContent: formatted,
           canonicalBlock: block,
-          sourceReference: this.buildSourceRef(context, currentHeading),
+          sourceReference: this.buildSourceRef(context, currentHeading, sourcePage),
+          sourcePage,
+          structuralRole,
           tokenCount: this.estimateTokens(formatted),
           contentHash: this.hashContent(`callout:${currentHeading}:${formatted}`),
         });
@@ -188,7 +204,9 @@ class Preprocessor {
           contentType: block.type || 'unknown',
           textContent: fallbackText,
           canonicalBlock: block,
-          sourceReference: this.buildSourceRef(context, currentHeading),
+          sourceReference: this.buildSourceRef(context, currentHeading, sourcePage),
+          sourcePage,
+          structuralRole,
           tokenCount: this.estimateTokens(fallbackText),
           contentHash: this.hashContent(`custom:${currentHeading}:${fallbackText}`),
         });
@@ -223,12 +241,16 @@ class Preprocessor {
     return blocks;
   }
 
-  buildSourceRef(context, heading) {
+  buildSourceRef(context, heading, sourcePage = null) {
     const parts = [];
     if (context.bookTitle) parts.push(context.bookTitle);
     if (context.chapterTitle) parts.push(context.chapterTitle);
     if (heading && heading !== context.chapterTitle) parts.push(heading);
-    return parts.join(' > ');
+    let ref = parts.join(' > ');
+    if (sourcePage) {
+      ref += ` (p. ${sourcePage})`;
+    }
+    return ref;
   }
 
   estimateTokens(text) {
