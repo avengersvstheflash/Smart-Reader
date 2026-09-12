@@ -551,8 +551,8 @@ class DocumentStructureAnalyzer {
     const totalWordCount = doc.calculateWordCount();
     const isZeroContent = totalWordCount === 0 || cleanedBlocks.length === 0;
 
-    // If fewer than 2 major headings or short article (< 1500 words), keep as a single unified reading item
-    if (majorHeadings.length < 2 || totalWordCount < 1500) {
+    // If fewer than 2 major headings, keep as a single unified reading item
+    if (majorHeadings.length < 2) {
       const sections = cleanedBlocks
         .filter(b => b.type === 'heading' && b.level >= 2)
         .map(b => ({ title: b.text, level: b.level }));
@@ -621,7 +621,7 @@ class DocumentStructureAnalyzer {
       const chapterDoc = new CanonicalDocument(chapterBlocks);
       const wordCount = chapterDoc.calculateWordCount();
 
-      if (wordCount < 30) continue; // Skip trivial sections
+      if (wordCount < 10 && chapterBlocks.length <= 1) continue; // Skip empty headings
 
       const sections = chapterBlocks
         .filter(b => b.type === 'heading' && b.level >= 2 && b !== curr.block)
