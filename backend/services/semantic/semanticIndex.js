@@ -154,6 +154,8 @@ class SemanticIndex {
     return {
       bookId,
       chunkCount: count,
+      totalChunks: count,
+      dimensions: 256,
       status: book ? book.semantic_status : 'unknown',
       indexedAt: book ? book.semantic_indexed_at : null,
       provider: embeddingService.getProviderName(),

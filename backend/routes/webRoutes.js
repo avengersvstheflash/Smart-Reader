@@ -74,6 +74,14 @@ router.post('/import', async (req, res, next) => {
     res.status(201).json({
       success: true,
       book: result.book,
+      format: result.format || 'web',
+      chapterCount: result.chapterCount,
+      pageCount: result.pageCount,
+      sectionCount: result.sectionCount,
+      tablesCount: result.tablesCount || 0,
+      totalWordCount: result.totalWordCount,
+      integrityStatus: result.integrityStatus || 'valid',
+      integrityWarning: result.integrityWarning || '',
       chapters: result.chapters,
       job: result.job,
     });
@@ -105,6 +113,14 @@ router.post('/import-multi', async (req, res, next) => {
     res.status(201).json({
       success: true,
       book: result.book,
+      format: result.format || 'web',
+      chapterCount: result.chapterCount,
+      pageCount: result.pageCount,
+      sectionCount: result.sectionCount || 0,
+      tablesCount: result.tablesCount || 0,
+      totalWordCount: result.totalWordCount,
+      integrityStatus: result.integrityStatus || 'valid',
+      integrityWarning: result.integrityWarning || '',
       chapters: result.chapters,
       sourcesCount: result.sourcesCount,
     });

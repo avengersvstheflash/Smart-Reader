@@ -252,7 +252,7 @@ class BookService {
       }
 
       return {
-        book,
+        book: bookRepository.getById(book.id) || book,
         format: ingestionResult.format,
         chapterCount: chapterEntities.length,
         pageCount: ingestionResult.pageCount || 1,

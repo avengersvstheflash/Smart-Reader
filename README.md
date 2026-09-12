@@ -145,3 +145,8 @@ node backend/tests/build3b_finalization_test.js
 # Web intelligence & research dossier tests (Build 3A)
 node backend/tests/build3a_test.js
 ```
+
+### Multi-Source Dossier Aggregation & Semantic Lifecycle
+- **Word Count Aggregation**: Multi-source dossiers aggregate individual chapter word counts dynamically via SQLite (`SUM(c.word_count)`) and pipeline responses (`totalWordCount`), accurately reflecting multi-source research volumes.
+- **Synchronized Semantic Indexing**: Web acquisition pipelines await `semanticLifecycle.indexBook()` upon completion, ensuring vector embeddings (256d) and chunk counts are immediately available upon acquisition.
+- **Status Alignment**: Semantic status endpoints report both `chunkCount` and `totalChunks` to guarantee immediate UI status badge synchronization.
