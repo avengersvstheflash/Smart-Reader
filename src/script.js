@@ -479,7 +479,7 @@ function renderLibrary() {
           <p class="book-card-author">By ${escapeHtml(book.author || 'Unknown Author')}</p>
           <p class="book-card-desc">${escapeHtml(book.description || 'No synopsis provided.')}</p>
           <div class="book-card-footer">
-            <span class="book-chapter-stat">${totalChapters} chapter${totalChapters === 1 ? '' : 's'}</span>
+            <span class="book-chapter-stat">${totalChapters} chapter${totalChapters === 1 ? '' : 's'}${book.total_words ? ` • ${Number(book.total_words).toLocaleString()} words` : ''}</span>
             <span class="book-chapter-stat">${progressPct}% read</span>
           </div>
         </div>
@@ -673,6 +673,7 @@ function renderBookDetailsHero() {
       <div class="hero-badges">
         <span class="badge-tag">${escapeHtml(book.content_type || 'novel')}</span>
         <span class="badge-tag">${state.chapters.length} chapters</span>
+        ${book.total_words ? `<span class="badge-tag">${Number(book.total_words).toLocaleString()} words</span>` : ''}
         ${book.integrity_status === 'empty_content' ? `<span class="badge-tag" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">⚠️ Empty Content</span>` : ''}
         ${isWebAcquired ? `<span class="badge-tag badge-web">🌐 ${escapeHtml(book.source_site || 'Web')}</span>` : ''}
       </div>
@@ -2581,12 +2582,12 @@ async function runWebIngestionPipeline(importFn) {
         if (statChapters) statChapters.textContent = result.chapterCount || 1;
         if (statPages) statPages.textContent = result.pageCount || book.page_count || 1;
         if (statTables) statTables.textContent = result.tablesCount || 0;
-        if (statWords) statWords.textContent = (result.totalWordCount || 0).toLocaleString();
+        if (statWords) statWords.textContent = (result.totalWordCount || book.total_words || 0).toLocaleString();
 
         if (previewEl && result.chapters && result.chapters.length > 0) {
           previewEl.innerHTML = result.chapters
             .slice(0, 5)
-            .map((c) => `<li>Chapter ${c.number}: ${escapeHtml(c.title || 'Untitled')} (${c.wordCount || 0} words)</li>`)
+            .map((c) => `<li>Chapter ${c.number}: ${escapeHtml(c.title || 'Untitled')} (${(c.word_count || 0).toLocaleString()} words)</li>`)
             .join('');
         }
       }
@@ -2854,9 +2855,10 @@ async function renderSemanticIntelligence(bookId) {
   try {
     const statusData = await api.getSemanticStatus(bookId);
     if (statusData && statsBadge) {
-      statsBadge.textContent = `${statusData.totalChunks || 0} chunks indexed (${statusData.dimensions || 256}d)`;
+      const chunkCount = Number(statusData.chunkCount ?? statusData.totalChunks ?? 0);
+      statsBadge.textContent = `${chunkCount} chunks indexed (${statusData.dimensions || 256}d)`;
       if (statusPill) {
-        statusPill.textContent = statusData.totalChunks > 0 ? 'Vector Memory Ready' : 'Semantic Index Active';
+        statusPill.textContent = chunkCount > 0 ? 'Vector Memory Ready' : 'Semantic Index Active';
       }
     }
   } catch (e) {

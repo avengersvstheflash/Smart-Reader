@@ -157,12 +157,22 @@ class WebAcquisitionService {
       if (!isZeroContent) {
         try {
           const semanticLifecycle = require('../semantic/semanticLifecycle');
-          semanticLifecycle.indexBook(bookId, { skipJob: true }).catch((e) => console.warn('Web book indexing warning:', e.message));
-        } catch (e) {}
+          await semanticLifecycle.indexBook(bookId, { skipJob: true });
+        } catch (e) {
+          console.warn('Web book indexing warning:', e.message);
+        }
       }
 
       return {
-        book,
+        book: bookRepository.getById(bookId) || book,
+        format: 'web',
+        chapterCount: savedChapters.length,
+        pageCount: estPages,
+        sectionCount: totalSections,
+        tablesCount: 0,
+        totalWordCount: totalWords,
+        integrityStatus: isZeroContent ? 'empty_content' : 'valid',
+        integrityWarning: isZeroContent ? 'Content extraction incomplete: web page contained no readable article body.' : '',
         chapters: savedChapters,
         job: jobRepository.getById(job.id),
       };
@@ -296,12 +306,22 @@ class WebAcquisitionService {
     if (totalWords > 0) {
       try {
         const semanticLifecycle = require('../semantic/semanticLifecycle');
-        semanticLifecycle.indexBook(bookId, { skipJob: true }).catch((e) => console.warn('Dossier indexing warning:', e.message));
-      } catch (e) {}
+        await semanticLifecycle.indexBook(bookId, { skipJob: true });
+      } catch (e) {
+        console.warn('Dossier indexing warning:', e.message);
+      }
     }
 
     return {
-      book,
+      book: bookRepository.getById(bookId) || book,
+      format: 'web',
+      chapterCount: savedChapters.length,
+      pageCount: estPages,
+      sectionCount: 0,
+      tablesCount: 0,
+      totalWordCount: totalWords,
+      integrityStatus: totalWords === 0 ? 'empty_content' : 'valid',
+      integrityWarning: totalWords === 0 ? 'Multi-source dossier contains no readable text across any of the provided sources.' : '',
       chapters: savedChapters,
       sourcesCount: sourceProvenanceList.length,
     };

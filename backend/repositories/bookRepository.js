@@ -6,7 +6,8 @@ class BookRepository {
     const books = db.prepare(`
       SELECT b.*, 
         (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id) as chapter_count,
-        (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id AND c.status = 'read') as read_chapter_count
+        (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id AND c.status = 'read') as read_chapter_count,
+        (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
       FROM books b
       ORDER BY b.updated_at DESC
     `).all();
@@ -18,7 +19,8 @@ class BookRepository {
     const book = db.prepare(`
       SELECT b.*, 
         (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id) as chapter_count,
-        (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id AND c.status = 'read') as read_chapter_count
+        (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id AND c.status = 'read') as read_chapter_count,
+        (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
       FROM books b
       WHERE b.id = ?
     `).get(id);
