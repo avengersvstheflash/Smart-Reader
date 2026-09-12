@@ -22,6 +22,19 @@ class WebAcquisitionService {
   }
 
   /**
+   * Alias for acquireFromUrl used by ingestionService
+   */
+  async acquireFromUrl(url, options = {}) {
+    return this.importSingle({
+      url,
+      customTitle: options.title,
+      customAuthor: options.author,
+      description: options.description,
+      contentType: options.contentType,
+    });
+  }
+
+  /**
    * Previews an accessible web source without importing yet
    */
   async preview(url) {
@@ -88,6 +101,8 @@ class WebAcquisitionService {
 
       const totalWords = detectedChapters.reduce((sum, c) => sum + (c.wordCount || 0), 0);
       const estPages = Math.max(1, Math.ceil(totalWords / 250));
+      const isZeroContent = totalWords === 0 || detectedChapters.length === 0;
+      const totalSections = detectedChapters.reduce((sum, c) => sum + (c.sectionCount || (c.sections ? c.sections.length : 0)), 0);
 
       const book = bookRepository.create({
         id: bookId,
@@ -100,12 +115,15 @@ class WebAcquisitionService {
         source_url: url,
         source_site: metadata.siteName || '',
         page_count: estPages,
+        section_count: totalSections,
+        integrity_status: isZeroContent ? 'empty_content' : 'valid',
+        integrity_warning: isZeroContent ? 'Content extraction incomplete: web page contained no readable article body.' : '',
         metadata_json: {
           ...metadata,
           sourceUrl: url,
           sourceSite: metadata.siteName,
           retrievalDate: metadata.retrievalDate,
-          detectedSectionsCount: detectedChapters.length,
+          detectedSectionsCount: totalSections,
           importedVia: 'Smart Reader Web Intelligence',
         },
       });
@@ -119,9 +137,12 @@ class WebAcquisitionService {
           book_id: bookId,
           number: ch.number,
           title: ch.title,
+          structural_role: ch.structuralRole || 'chapter',
+          section_count: ch.sectionCount || (ch.sections ? ch.sections.length : 0),
           content: ch.content,
           word_count: ch.wordCount,
           canonical_content: ch.canonicalBlocks,
+          metadata_json: ch.metadata || {},
         });
         savedChapters.push(savedCh);
       }
@@ -131,6 +152,14 @@ class WebAcquisitionService {
         progress: 100,
         completed_at: new Date().toISOString(),
       });
+
+      // 7. Auto-index imported book into Semantic Memory if content is valid
+      if (!isZeroContent) {
+        try {
+          const semanticLifecycle = require('../semantic/semanticLifecycle');
+          semanticLifecycle.indexBook(bookId, { skipJob: true }).catch((e) => console.warn('Web book indexing warning:', e.message));
+        } catch (e) {}
+      }
 
       return {
         book,
@@ -220,6 +249,7 @@ class WebAcquisitionService {
     }
 
     const estPages = Math.max(1, Math.ceil(totalWords / 250));
+    const totalSections = allChapters.reduce((sum, c) => sum + (c.sectionCount || (c.sections ? c.sections.length : 0)), 0);
 
     // Create container book
     const book = bookRepository.create({
@@ -233,6 +263,9 @@ class WebAcquisitionService {
       source_url: sourceProvenanceList[0]?.url || '',
       source_site: 'Multi-Source Dossier',
       page_count: estPages,
+      section_count: totalSections,
+      integrity_status: totalWords === 0 ? 'empty_content' : 'valid',
+      integrity_warning: totalWords === 0 ? 'Content extraction incomplete: sources contained no readable text.' : '',
       metadata_json: {
         isMultiSource: true,
         sourcesCount: sourceProvenanceList.length,
@@ -250,11 +283,21 @@ class WebAcquisitionService {
         book_id: bookId,
         number: ch.number,
         title: ch.title,
+        structural_role: ch.structuralRole || 'chapter',
+        section_count: ch.sectionCount || (ch.sections ? ch.sections.length : 0),
         content: ch.content,
         word_count: ch.wordCount,
         canonical_content: ch.canonicalBlocks,
+        metadata_json: ch.metadata || {},
       });
       savedChapters.push(saved);
+    }
+
+    if (totalWords > 0) {
+      try {
+        const semanticLifecycle = require('../semantic/semanticLifecycle');
+        semanticLifecycle.indexBook(bookId, { skipJob: true }).catch((e) => console.warn('Dossier indexing warning:', e.message));
+      } catch (e) {}
     }
 
     return {

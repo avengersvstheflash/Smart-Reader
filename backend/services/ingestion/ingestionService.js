@@ -71,14 +71,19 @@ class IngestionService {
         originalFilename,
       });
 
+      const totalWords = pdfResult.totalWordCount || pdfResult.chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
+
       return {
         format: 'pdf',
         title: pdfResult.title || title || path.basename(originalFilename, '.pdf'),
         author: pdfResult.author || author || 'Unknown Author',
         pageCount: pdfResult.pageCount || 1,
+        sectionCount: pdfResult.sectionCount || 0,
         tablesCount: pdfResult.tablesCount || 0,
         chapters: pdfResult.chapters,
-        totalWordCount: pdfResult.chapters.reduce((sum, ch) => sum + ch.wordCount, 0),
+        totalWordCount: totalWords,
+        integrityStatus: pdfResult.integrityStatus || (totalWords === 0 ? 'empty_content' : 'valid'),
+        integrityWarning: pdfResult.integrityWarning || (totalWords === 0 ? 'Content extraction incomplete: no selectable text found in the PDF source.' : ''),
       };
     }
 
@@ -95,20 +100,30 @@ class IngestionService {
 
       // Count extracted tables across chapters
       let tablesCount = 0;
+      let totalSections = 0;
       for (const ch of epubResult.chapters) {
         if (Array.isArray(ch.canonicalBlocks)) {
           tablesCount += ch.canonicalBlocks.filter((b) => b.type === 'table').length;
+          const sections = ch.canonicalBlocks.filter((b) => b.type === 'heading' && b.level >= 2);
+          ch.sectionCount = sections.length;
+          ch.structuralRole = ch.structuralRole || 'chapter';
+          totalSections += sections.length;
         }
       }
+
+      const totalWords = epubResult.totalWordCount || epubResult.chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
 
       return {
         format: 'epub',
         title: epubResult.title || title || path.basename(originalFilename, '.epub'),
         author: epubResult.author || author || 'Unknown Author',
         pageCount: epubResult.chapters.length, // logical chapter pagination
+        sectionCount: totalSections,
         tablesCount,
         chapters: epubResult.chapters,
-        totalWordCount: epubResult.totalWordCount,
+        totalWordCount: totalWords,
+        integrityStatus: totalWords === 0 ? 'empty_content' : 'valid',
+        integrityWarning: totalWords === 0 ? 'Content extraction incomplete: EPUB archive contained no readable chapter text.' : '',
       };
     }
 
@@ -132,6 +147,7 @@ class IngestionService {
     });
 
     let tablesCount = 0;
+    let totalSections = 0;
 
     // Canonical Content Parsing per Chapter
     const chapters = detectedSegments.map((seg, index) => {
@@ -151,23 +167,46 @@ class IngestionService {
       tablesCount += blocks.filter((b) => b.type === 'table').length;
       const wordCount = canonicalDoc.calculateWordCount() || seg.rawContent.split(/\s+/).filter(Boolean).length;
 
+      const sections = blocks
+        .filter((b) => b.type === 'heading' && b.level >= 2)
+        .map((b) => ({ title: b.text, level: b.level }));
+      totalSections += sections.length;
+
+      // Determine structural role
+      const lowerTitle = (seg.title || '').toLowerCase();
+      let structuralRole = 'chapter';
+      if (/^(?:prologue|preface|foreword|introduction|abstract|front\s*matter)/i.test(lowerTitle)) {
+        structuralRole = 'front_matter';
+      } else if (/^(?:epilogue|afterword|appendix|references|bibliography|index|back\s*matter)/i.test(lowerTitle)) {
+        structuralRole = /appendix/i.test(lowerTitle) ? 'appendix' : 'back_matter';
+      }
+
       return {
         number: index + 1,
         title: seg.title || `Chapter ${index + 1}`,
+        structuralRole,
         content: seg.rawContent, // original source preserved immutable
         canonicalBlocks: blocks,
+        sections,
+        sectionCount: sections.length,
         wordCount,
       };
     });
+
+    const totalWordCount = chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
+    const isZero = totalWordCount === 0;
 
     return {
       format,
       title: title || (chapters[0] ? chapters[0].title : 'Document'),
       author: author || 'Unknown Author',
       pageCount: 1,
+      sectionCount: totalSections,
       tablesCount,
       chapters,
-      totalWordCount: chapters.reduce((sum, ch) => sum + ch.wordCount, 0),
+      totalWordCount,
+      integrityStatus: isZero ? 'empty_content' : 'valid',
+      integrityWarning: isZero ? 'Content extraction incomplete: document contained no readable text.' : '',
     };
   }
 

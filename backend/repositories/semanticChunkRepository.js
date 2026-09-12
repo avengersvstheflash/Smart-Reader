@@ -9,10 +9,12 @@ class SemanticChunkRepository {
       INSERT INTO semantic_chunks (
         id, book_id, chapter_id, sequence, section_heading,
         content_type, text_content, canonical_json, source_reference,
+        source_page, structural_role,
         token_count, content_hash, embedding_json, created_at, updated_at
       ) VALUES (
         @id, @book_id, @chapter_id, @sequence, @section_heading,
         @content_type, @text_content, @canonical_json, @source_reference,
+        @source_page, @structural_role,
         @token_count, @content_hash, @embedding_json, @created_at, @updated_at
       )
     `);
@@ -40,6 +42,8 @@ class SemanticChunkRepository {
             ? item.canonical_json
             : JSON.stringify(item.canonical_json || item.canonicalBlock || null),
           source_reference: item.source_reference || item.sourceReference || '',
+          source_page: item.source_page !== undefined ? item.source_page : (item.sourcePage !== undefined ? item.sourcePage : null),
+          structural_role: item.structural_role || item.structuralRole || 'chapter',
           token_count: item.token_count || item.tokenCount || 0,
           content_hash: item.content_hash || item.contentHash || '',
           embedding_json: typeof item.embedding_json === 'string'
@@ -136,6 +140,8 @@ class SemanticChunkRepository {
       textContent: row.text_content,
       canonicalBlock: canonical,
       sourceReference: row.source_reference,
+      sourcePage: row.source_page || null,
+      structuralRole: row.structural_role || 'chapter',
       tokenCount: row.token_count,
       contentHash: row.content_hash,
       embedding,

@@ -42,8 +42,8 @@ class ChapterRepository {
     }
 
     const stmt = db.prepare(`
-      INSERT INTO chapters (id, book_id, number, title, content, canonical_content, word_count, status, created_at, updated_at)
-      VALUES (@id, @book_id, @number, @title, @content, @canonical_content, @word_count, @status, @created_at, @updated_at)
+      INSERT INTO chapters (id, book_id, number, title, content, canonical_content, word_count, status, structural_role, section_count, metadata_json, created_at, updated_at)
+      VALUES (@id, @book_id, @number, @title, @content, @canonical_content, @word_count, @status, @structural_role, @section_count, @metadata_json, @created_at, @updated_at)
     `);
     stmt.run({
       id: chapter.id,
@@ -54,6 +54,9 @@ class ChapterRepository {
       canonical_content: canonicalContentJson,
       word_count: chapter.word_count || (chapter.content ? chapter.content.split(/\s+/).length : 0),
       status: chapter.status || 'unread',
+      structural_role: chapter.structural_role || 'chapter',
+      section_count: chapter.section_count || 0,
+      metadata_json: typeof chapter.metadata_json === 'object' ? JSON.stringify(chapter.metadata_json) : (chapter.metadata_json || '{}'),
       created_at: chapter.created_at || new Date().toISOString(),
       updated_at: chapter.updated_at || new Date().toISOString(),
     });
@@ -63,8 +66,8 @@ class ChapterRepository {
   createBatch(chapters) {
     const db = getDatabase();
     const insert = db.prepare(`
-      INSERT INTO chapters (id, book_id, number, title, content, canonical_content, word_count, status, created_at, updated_at)
-      VALUES (@id, @book_id, @number, @title, @content, @canonical_content, @word_count, @status, @created_at, @updated_at)
+      INSERT INTO chapters (id, book_id, number, title, content, canonical_content, word_count, status, structural_role, section_count, metadata_json, created_at, updated_at)
+      VALUES (@id, @book_id, @number, @title, @content, @canonical_content, @word_count, @status, @structural_role, @section_count, @metadata_json, @created_at, @updated_at)
     `);
 
     const insertMany = db.transaction((items) => {
@@ -87,6 +90,9 @@ class ChapterRepository {
           canonical_content: canonicalContentJson,
           word_count: item.word_count || (item.content ? item.content.split(/\s+/).length : 0),
           status: item.status || 'unread',
+          structural_role: item.structural_role || 'chapter',
+          section_count: item.section_count || 0,
+          metadata_json: typeof item.metadata_json === 'object' ? JSON.stringify(item.metadata_json) : (item.metadata_json || '{}'),
           created_at: item.created_at || new Date().toISOString(),
           updated_at: item.updated_at || new Date().toISOString(),
         });

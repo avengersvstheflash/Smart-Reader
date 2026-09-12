@@ -38,6 +38,8 @@ class SemanticChunker {
           ? currentAccumulator.canonicalBlocks[0]
           : { type: 'composite', blocks: currentAccumulator.canonicalBlocks },
         sourceReference: currentAccumulator.sourceReference,
+        sourcePage: currentAccumulator.sourcePage || null,
+        structuralRole: currentAccumulator.structuralRole || 'chapter',
         tokenCount,
         contentHash: hash,
       });
@@ -67,6 +69,8 @@ class SemanticChunker {
           textContent: unit.textContent,
           canonicalBlock: unit.canonicalBlock,
           sourceReference: unit.sourceReference,
+          sourcePage: unit.sourcePage || null,
+          structuralRole: unit.structuralRole || 'chapter',
           tokenCount: unit.tokenCount || this.estimateTokens(unit.textContent),
           contentHash: unit.contentHash || this.hashContent(`${unit.sectionHeading}:${unit.textContent}`),
         });
@@ -83,6 +87,8 @@ class SemanticChunker {
           sectionHeading: unit.sectionHeading,
           contentType: 'paragraph',
           sourceReference: unit.sourceReference,
+          sourcePage: unit.sourcePage || null,
+          structuralRole: unit.structuralRole || 'chapter',
           textParts: [`[Section: ${unit.textContent}]`],
           canonicalBlocks: [unit.canonicalBlock],
           approxTokens: unit.tokenCount || this.estimateTokens(unit.textContent),
@@ -109,6 +115,8 @@ class SemanticChunker {
             textContent: sentenceGroup,
             canonicalBlock: unit.canonicalBlock,
             sourceReference: unit.sourceReference,
+            sourcePage: unit.sourcePage || null,
+            structuralRole: unit.structuralRole || 'chapter',
             tokenCount: this.estimateTokens(sentenceGroup),
             contentHash: this.hashContent(`${unit.sectionHeading}:${sentenceGroup}`),
           });
@@ -125,6 +133,9 @@ class SemanticChunker {
         currentAccumulator.textParts.push(unit.textContent);
         currentAccumulator.canonicalBlocks.push(unit.canonicalBlock);
         currentAccumulator.approxTokens += unitTokens;
+        if (!currentAccumulator.sourcePage && unit.sourcePage) {
+          currentAccumulator.sourcePage = unit.sourcePage;
+        }
       } else {
         // Exceeds budget or new section
         flushAccumulator();
@@ -134,6 +145,8 @@ class SemanticChunker {
           sectionHeading: unit.sectionHeading,
           contentType: 'paragraph',
           sourceReference: unit.sourceReference,
+          sourcePage: unit.sourcePage || null,
+          structuralRole: unit.structuralRole || 'chapter',
           textParts: [unit.textContent],
           canonicalBlocks: [unit.canonicalBlock],
           approxTokens: unitTokens,

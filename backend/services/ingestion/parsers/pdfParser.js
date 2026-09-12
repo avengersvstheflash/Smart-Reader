@@ -1,19 +1,23 @@
 const { PDFParse } = require('pdf-parse');
 const { CanonicalDocument } = require('../models/canonicalContent');
 const contentNormalizer = require('../normalizers/contentNormalizer');
+const documentStructureAnalyzer = require('../structure/documentStructureAnalyzer');
 
 /**
- * PDF Parser for Smart Reader
+ * PDF Parser for Smart Reader (Build 3B.1)
  * Extracts text and structure page-by-page from PDF documents.
- * Recognizes document metadata, headings, sections, callouts/abstracts, and tables,
- * preserving original extracted text and associating canonical blocks with source pages.
+ * Employs DocumentStructureAnalyzer to understand document hierarchy:
+ * - Table of Contents detection & chapter boundary anchoring
+ * - Distinction between Chapters, Sections (1.1, 1.2), and Tables
+ * - Running headers / footers suppression
+ * - Preserving page provenance (sourcePage)
  */
 class PDFParser {
   /**
    * Parses a PDF buffer into structured chapters and canonical content
    * @param {Buffer} buffer
    * @param {object} options
-   * @returns {Promise<{ title: string, author: string, pageCount: number, chapters: Array, fullText: string, tablesCount: number }>}
+   * @returns {Promise<{ title: string, author: string, pageCount: number, chapters: Array, fullText: string, tablesCount: number, sectionCount: number, integrityStatus: string, integrityWarning: string }>}
    */
   async parse(buffer, options = {}) {
     if (!buffer || buffer.length === 0) {
@@ -54,8 +58,8 @@ class PDFParser {
       docAuthor = String(infoResult.info.Author).trim();
     }
 
-    // 1. Process pages into structured canonical blocks with sourcePage tracking
-    const { blocks, detectedSections, tablesCount } = this.extractBlocksFromPages(pages);
+    // 1. Process pages into structured canonical blocks with sourcePage and table detection
+    const { blocks, tablesCount } = this.extractBlocksFromPages(pages);
 
     // If title was still not found, try to extract first heading
     if (!docTitle && blocks.length > 0) {
@@ -65,20 +69,32 @@ class PDFParser {
       }
     }
 
-    // 2. Structure segmentation:
-    // If the PDF has clear detected sections (e.g. Abstract, Introduction, Results, Chapter 1, etc.),
-    // segment them into distinct chapters. Otherwise, provide a unified multi-page chapter.
-    const chapters = this.segmentIntoChapters(blocks, detectedSections, {
-      defaultTitle: docTitle || 'Document Content',
+    // 2. Structural Analysis via DocumentStructureAnalyzer
+    const analysis = documentStructureAnalyzer.analyze({
+      format: 'pdf',
+      pages,
+      blocks,
+      rawText: combinedRawText,
+      metadata: {
+        title: docTitle || options.originalFilename || 'Imported PDF Document',
+        author: docAuthor || 'Unknown Author',
+      },
     });
 
+    const finalTitle = docTitle || analysis.chapters[0]?.title || 'Imported PDF Document';
+
     return {
-      title: docTitle || 'Imported PDF Document',
+      title: finalTitle,
       author: docAuthor || 'Unknown Author',
       pageCount,
-      chapters,
+      chapterCount: analysis.chapterCount,
+      sectionCount: analysis.sectionCount,
+      tablesCount: analysis.tablesCount || tablesCount,
+      chapters: analysis.chapters,
+      totalWordCount: analysis.totalWordCount,
       fullText: combinedRawText,
-      tablesCount,
+      integrityStatus: analysis.integrityStatus,
+      integrityWarning: analysis.integrityWarning,
     };
   }
 
@@ -106,10 +122,11 @@ class PDFParser {
         }
 
         // A. Check for Section or Chapter Heading
-        // Examples: "1. Introduction", "Chapter 1", "Abstract", "Methodology", "Results & Discussion"
+        // Examples: "1. Introduction", "1.1 Background", "Chapter 1", "Abstract", "Methodology"
         const sectionMatch = this.detectSectionHeading(line);
         if (sectionMatch) {
           const headingBlock = {
+            id: `blk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             type: 'heading',
             level: sectionMatch.level || 2,
             text: sectionMatch.title,
@@ -119,6 +136,7 @@ class PDFParser {
           blocks.push(headingBlock);
           detectedSections.push({
             title: sectionMatch.title,
+            level: sectionMatch.level || 2,
             blockIndex: blocks.length - 1,
             sourcePage: pageNum,
           });
@@ -133,6 +151,7 @@ class PDFParser {
             ? abstractMatch[1].trim()
             : (lines[i + 1] ? lines[++i].trim() : '');
           blocks.push({
+            id: `blk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             type: 'callout',
             tone: 'abstract',
             title: 'Abstract',
@@ -168,6 +187,7 @@ class PDFParser {
             const headers = tableRows[0];
             const rows = tableRows.slice(1);
             blocks.push({
+              id: `blk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
               type: 'table',
               caption,
               headers,
@@ -179,6 +199,7 @@ class PDFParser {
           } else if (caption) {
             // Not a multi-row table, just add caption as text
             blocks.push({
+              id: `blk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
               type: 'paragraph',
               text: caption,
               sourcePage: pageNum,
@@ -202,6 +223,7 @@ class PDFParser {
 
         if (paraLines.length > 0) {
           blocks.push({
+            id: `blk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             type: 'paragraph',
             text: paraLines.join(' '),
             sourcePage: pageNum,
@@ -232,8 +254,15 @@ class PDFParser {
       return { title: line, level: 1 };
     }
 
-    // All Caps short lines without punctuation
-    if (line.length >= 4 && line.length < 50 && /^[A-Z0-9\s:—–-]+$/.test(line) && !line.includes('PAGE') && !line.includes('HTTP')) {
+    // Numbered sections like "1.1 Introduction" or "2.3 Architecture"
+    const numberedSecMatch = line.match(/^(\d+\.\d+(?:\.\d+)?)\s+([A-Z][A-Za-z0-9\s—–-]{2,60})$/);
+    if (numberedSecMatch) {
+      const dots = numberedSecMatch[1].split('.').length - 1;
+      return { title: line, level: Math.min(4, Math.max(2, dots + 1)) };
+    }
+
+    // All Caps short lines without punctuation that are clearly headings
+    if (line.length >= 6 && line.length < 45 && /^[A-Z0-9\s:—–-]+$/.test(line) && !line.includes('PAGE') && !line.includes('HTTP') && !/^\d+$/.test(line)) {
       return { title: line, level: 2 };
     }
 
@@ -266,87 +295,6 @@ class PDFParser {
       return line.split('\t').map((s) => s.trim()).filter(Boolean);
     }
     return line.split(/\s{2,}/).map((s) => s.trim()).filter(Boolean);
-  }
-
-  /**
-   * Segments canonical blocks into chapters based on detected section boundaries
-   */
-  segmentIntoChapters(blocks, detectedSections, options = {}) {
-    if (blocks.length === 0) {
-      return [
-        {
-          title: options.defaultTitle || 'Document Content',
-          content: '',
-          canonicalBlocks: [],
-          wordCount: 0,
-        },
-      ];
-    }
-
-    // If no distinct sections were detected, return single chapter
-    if (detectedSections.length === 0) {
-      const doc = new CanonicalDocument(blocks);
-      const content = doc.toPlainText();
-      return [
-        {
-          number: 1,
-          title: options.defaultTitle || 'Full Document',
-          content,
-          canonicalBlocks: blocks,
-          wordCount: doc.calculateWordCount(),
-        },
-      ];
-    }
-
-    // Segment blocks by detected section indices
-    const chapters = [];
-    const firstSectionIdx = detectedSections[0].blockIndex;
-
-    // Handle introductory content before the first section heading
-    if (firstSectionIdx > 0) {
-      const preBlocks = blocks.slice(0, firstSectionIdx);
-      const preDoc = new CanonicalDocument(preBlocks);
-      const preContent = preDoc.toPlainText();
-      if (preContent.length > 30) {
-        chapters.push({
-          number: 1,
-          title: 'Opening & Overview',
-          content: preContent,
-          canonicalBlocks: preBlocks,
-          wordCount: preDoc.calculateWordCount(),
-        });
-      }
-    }
-
-    for (let s = 0; s < detectedSections.length; s++) {
-      const current = detectedSections[s];
-      const startIdx = current.blockIndex;
-      const endIdx = s < detectedSections.length - 1 ? detectedSections[s + 1].blockIndex : blocks.length;
-
-      const sectionBlocks = blocks.slice(startIdx, endIdx);
-      const sectionDoc = new CanonicalDocument(sectionBlocks);
-      const sectionContent = sectionDoc.toPlainText();
-
-      chapters.push({
-        number: chapters.length + 1,
-        title: current.title,
-        content: sectionContent,
-        canonicalBlocks: sectionBlocks,
-        wordCount: sectionDoc.calculateWordCount(),
-      });
-    }
-
-    return chapters.length > 0
-      ? chapters
-      : [
-          {
-            number: 1,
-            title: options.defaultTitle || 'Document',
-            content: new CanonicalDocument(blocks).toPlainText(),
-            canonicalBlocks: blocks,
-            wordCount: new CanonicalDocument(blocks).calculateWordCount(),
-          },
-        ];
   }
 }
 

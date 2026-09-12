@@ -34,6 +34,15 @@ class BookService {
       cover_path: data.cover_path || '',
       content_type: data.content_type || 'novel',
       status: data.status || 'active',
+      source_format: data.source_format || 'text',
+      source_url: data.source_url || '',
+      source_site: data.source_site || '',
+      original_filename: data.original_filename || '',
+      page_count: data.page_count || 1,
+      section_count: data.section_count || 0,
+      integrity_status: data.integrity_status || 'valid',
+      integrity_warning: data.integrity_warning || '',
+      metadata_json: data.metadata_json || {},
     });
   }
 
@@ -190,8 +199,12 @@ class BookService {
       source_format: ingestionResult.format,
       original_filename: originalFilename || '',
       page_count: ingestionResult.pageCount || 1,
+      section_count: ingestionResult.sectionCount || 0,
+      integrity_status: ingestionResult.integrityStatus || 'valid',
+      integrity_warning: ingestionResult.integrityWarning || '',
       metadata_json: {
         tablesCount: ingestionResult.tablesCount || 0,
+        sectionCount: ingestionResult.sectionCount || 0,
         sourceFormat: ingestionResult.format,
         importedAt: new Date().toISOString(),
       },
@@ -214,8 +227,11 @@ class BookService {
         book_id: book.id,
         number: idx + 1,
         title: ch.title,
+        structural_role: ch.structuralRole || 'chapter',
+        section_count: ch.sectionCount || (ch.sections ? ch.sections.length : 0),
         content: ch.content,
         canonical_content: JSON.stringify(ch.canonicalBlocks),
+        metadata_json: JSON.stringify(ch.metadata || {}),
         word_count: ch.wordCount,
         status: 'unread',
       }));
@@ -226,19 +242,25 @@ class BookService {
       // 6. Complete Job
       jobRepository.complete(job.id);
 
-      // 7. Auto-index imported book into Semantic Memory
-      try {
-        const semanticLifecycle = require('./semantic/semanticLifecycle');
-        semanticLifecycle.indexBook(book.id, { skipJob: true }).catch((e) => console.warn('Book indexing warning:', e.message));
-      } catch (e) {}
+      // 7. Auto-index imported book into Semantic Memory only if content is valid
+      const isValidContent = ingestionResult.integrityStatus !== 'empty_content' && (ingestionResult.totalWordCount > 0 || (chapterEntities.length > 0 && chapterEntities[0].word_count > 0));
+      if (isValidContent) {
+        try {
+          const semanticLifecycle = require('./semantic/semanticLifecycle');
+          semanticLifecycle.indexBook(book.id, { skipJob: true }).catch((e) => console.warn('Book indexing warning:', e.message));
+        } catch (e) {}
+      }
 
       return {
         book,
         format: ingestionResult.format,
         chapterCount: chapterEntities.length,
         pageCount: ingestionResult.pageCount || 1,
+        sectionCount: ingestionResult.sectionCount || 0,
         tablesCount: ingestionResult.tablesCount || 0,
         totalWordCount: ingestionResult.totalWordCount,
+        integrityStatus: ingestionResult.integrityStatus || 'valid',
+        integrityWarning: ingestionResult.integrityWarning || '',
         chapters: chapterRepository.getByBookId(book.id),
         job: jobRepository.getById(job.id),
       };

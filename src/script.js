@@ -479,12 +479,18 @@ function renderLibrary() {
       const coverHtml = renderEditorialCover(book, index);
 
       const isWeb = book.source_format === 'web' || book.source_site || (book.source_url && book.source_url.startsWith('http'));
-      const webBadge = isWeb ? `<div style="margin-top:6px;"><span class="badge-pill-xs badge-web">🌐 ${escapeHtml(book.source_site || 'Web Source')}</span></div>` : '';
+      const webBadge = isWeb ? `<span class="badge-pill-xs badge-web">🌐 ${escapeHtml(book.source_site || 'Web Source')}</span>` : '';
+      const integrityBadge = book.integrity_status === 'empty_content'
+        ? `<span class="badge-pill-xs badge-warning" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">⚠️ Empty Content</span>`
+        : '';
+      const metaBadges = (webBadge || integrityBadge)
+        ? `<div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">${webBadge}${integrityBadge}</div>`
+        : '';
 
       return `
         <div class="book-card" id="book-card-${book.id}" onclick="openBookDetails('${book.id}')">
           ${coverHtml}
-          ${webBadge}
+          ${metaBadges}
           <h3 class="book-card-title">${escapeHtml(book.title)}</h3>
           <p class="book-card-author">By ${escapeHtml(book.author || 'Unknown Author')}</p>
           <p class="book-card-desc">${escapeHtml(book.description || 'No synopsis provided.')}</p>
@@ -683,11 +689,23 @@ function renderBookDetailsHero() {
       <div class="hero-badges">
         <span class="badge-tag">${escapeHtml(book.content_type || 'novel')}</span>
         <span class="badge-tag">${state.chapters.length} chapters</span>
+        ${book.integrity_status === 'empty_content' ? `<span class="badge-tag" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">⚠️ Empty Content</span>` : ''}
         ${isWebAcquired ? `<span class="badge-tag badge-web">🌐 ${escapeHtml(book.source_site || 'Web')}</span>` : ''}
       </div>
       <h1 class="hero-title">${escapeHtml(book.title)}</h1>
       <p class="hero-author">By ${escapeHtml(book.author || 'Unknown Author')}</p>
       
+      ${book.integrity_status === 'empty_content' ? `
+        <div class="integrity-alert-box" style="margin: 10px 0; padding: 12px 16px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; color: #92400e;">
+          <div style="font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+            <span>⚠️ Content Integrity Notice</span>
+          </div>
+          <p style="margin: 4px 0 0; font-size: 0.85rem; line-height: 1.4;">
+            ${escapeHtml(book.integrity_warning || 'This document contains no readable text or could not be cleanly extracted. Semantic memory indexing has been skipped.')}
+          </p>
+        </div>
+      ` : ''}
+
       ${provenanceHtml}
 
       <div class="hero-desc-wrap" style="margin: 10px 0;">
@@ -751,13 +769,20 @@ function renderChaptersList() {
     .map((ch) => {
       const isRead = ch.status === 'read';
       const hasSummary = ch.has_summary > 0;
+      const roleBadge = ch.structural_role && ch.structural_role !== 'chapter'
+        ? `<span class="badge-pill-xs" style="text-transform: capitalize; background: var(--bg-card); border: 1px solid var(--border-color); padding: 1px 6px; border-radius: 4px; font-size: 0.72rem; color: var(--text-muted); margin-right: 6px;">${escapeHtml(ch.structural_role.replace(/_/g, ' '))}</span>`
+        : '';
+      const sectionBadge = ch.section_count > 0
+        ? `<span style="font-size: 0.75rem; color: var(--text-muted);">${ch.section_count} section${ch.section_count === 1 ? '' : 's'} • </span>`
+        : '';
+
       return `
         <div class="chapter-row" id="chapter-row-${ch.id}" onclick="openChapter('${ch.id}', '${ch.book_id}')">
           <div class="chapter-row-left">
             <span class="chapter-num-badge">${ch.number}</span>
             <div>
               <div class="chapter-row-title">${escapeHtml(ch.title)}</div>
-              <div class="chapter-row-meta">${ch.word_count || 0} words • Status: ${ch.status || 'unread'}</div>
+              <div class="chapter-row-meta">${roleBadge}${sectionBadge}${ch.word_count || 0} words • Status: ${ch.status || 'unread'}</div>
             </div>
           </div>
           <div class="chapter-row-right">
@@ -1480,6 +1505,23 @@ function renderCanonicalBlocks(item) {
     blocks = parseMarkdownToCanonicalBlocks(item.content || '');
   }
 
+  // Handle empty content or documents with no readable text
+  if (!Array.isArray(blocks) || blocks.length === 0 || blocks.every((b) => !b.text && (!b.items || b.items.length === 0) && (!b.rows || b.rows.length === 0))) {
+    const warningMsg = (state.activeBook && state.activeBook.integrity_warning)
+      ? state.activeBook.integrity_warning
+      : 'No readable text content was detected in this chapter or document.';
+    return `
+      <div class="empty-chapter-state" style="margin: 40px auto; max-width: 580px; padding: 32px 24px; text-align: center; background: var(--bg-card, #f8fafc); border: 1px dashed var(--border-color, #cbd5e1); border-radius: 12px;">
+        <div style="font-size: 2.2rem; margin-bottom: 12px;">📄</div>
+        <h3 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 8px; color: var(--text-primary, #0f172a);">No Content Available</h3>
+        <p style="color: var(--text-muted, #64748b); font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px;">
+          ${escapeHtml(warningMsg)}
+        </p>
+        <button class="btn btn-secondary btn-sm" onclick="openAddChapterModal()">+ Add New Chapter</button>
+      </div>
+    `;
+  }
+
   return blocks
     .map((block) => {
       switch (block.type) {
@@ -2003,7 +2045,7 @@ function setIngestionStep(stepId, status, desc) {
   if (!stepEl) return;
   stepEl.className = `ingestion-step ${status}`;
   if (desc) {
-    const descEl = stepEl.querySelector('.step-desc');
+    const descEl = stepEl.querySelector('.step-sub') || stepEl.querySelector('.step-desc');
     if (descEl) descEl.textContent = desc;
   }
 }
@@ -2013,11 +2055,14 @@ async function handleAddBookSubmit(e) {
   const formEl = document.getElementById('form-add-book');
   const progressEl = document.getElementById('ingestion-progress-panel');
   const resultEl = document.getElementById('ingestion-result-panel');
+  const errPanel = document.getElementById('ingestion-error-panel');
 
   const title = document.getElementById('book-input-title').value.trim();
   const author = document.getElementById('book-input-author').value.trim();
   const description = document.getElementById('book-input-desc').value.trim();
   const contentType = document.getElementById('book-input-content-type').value;
+
+  let t1, t2, t3;
 
   try {
     const formData = new FormData();
@@ -2040,6 +2085,7 @@ async function handleAddBookSubmit(e) {
     if (formEl) formEl.style.display = 'none';
     if (progressEl) progressEl.style.display = 'block';
     if (resultEl) resultEl.style.display = 'none';
+    if (errPanel) errPanel.style.display = 'none';
 
     // Step 1: Format Detection
     setIngestionStep('step-inspect', 'active', 'Analyzing magic bytes & format specification...');
@@ -2048,17 +2094,17 @@ async function handleAddBookSubmit(e) {
     setIngestionStep('step-canonical', 'pending', 'Awaiting block compilation...');
 
     // Progress animation timers for user feedback
-    const t1 = setTimeout(() => {
+    t1 = setTimeout(() => {
       setIngestionStep('step-inspect', 'completed', 'Container signature confirmed');
       setIngestionStep('step-extract', 'active', 'Extracting chapters and parsing document markup...');
     }, 450);
 
-    const t2 = setTimeout(() => {
+    t2 = setTimeout(() => {
       setIngestionStep('step-extract', 'completed', 'Content stream extracted');
       setIngestionStep('step-structure', 'active', 'Detecting chapters, academic sections, tables & quotes...');
     }, 950);
 
-    const t3 = setTimeout(() => {
+    t3 = setTimeout(() => {
       setIngestionStep('step-structure', 'completed', 'Document hierarchy analyzed');
       setIngestionStep('step-canonical', 'active', 'Synthesizing immutable canonical block document...');
     }, 1450);
@@ -2072,8 +2118,9 @@ async function handleAddBookSubmit(e) {
     // Complete all steps
     setIngestionStep('step-inspect', 'completed', 'Format confirmed: ' + (result.format || 'DOCUMENT'));
     setIngestionStep('step-extract', 'completed', 'Content extracted successfully');
-    setIngestionStep('step-structure', 'completed', `${result.chapterCount || 1} chapter(s), ${result.tablesCount || 0} table(s)`);
-    setIngestionStep('step-canonical', 'completed', 'Canonical document verified and stored');
+    setIngestionStep('step-structure', 'completed', `${result.chapterCount || 1} chapter(s), ${result.sectionCount || 0} section(s)`);
+    const isWarning = result.integrityStatus === 'empty_content' || result.totalWordCount === 0;
+    setIngestionStep('step-canonical', 'completed', isWarning ? 'Stored with content notice' : 'Canonical document verified and stored');
 
     state.importedBookResult = result;
 
@@ -2092,6 +2139,8 @@ async function handleAddBookSubmit(e) {
         const statTables = document.getElementById('stat-tables-count');
         const statWords = document.getElementById('stat-words-count');
         const previewEl = document.getElementById('result-chapter-preview');
+        const integrityBanner = document.getElementById('result-integrity-banner');
+        const integrityText = document.getElementById('result-integrity-text');
 
         const book = result.book || {};
         if (fmtBadge) fmtBadge.textContent = result.format || book.source_format || 'DOCUMENT';
@@ -2102,24 +2151,50 @@ async function handleAddBookSubmit(e) {
         if (statTables) statTables.textContent = result.tablesCount || 0;
         if (statWords) statWords.textContent = (result.totalWordCount || book.total_words || 0).toLocaleString();
 
+        if (integrityBanner) {
+          if (isWarning) {
+            integrityBanner.style.display = 'block';
+            if (integrityText) {
+              integrityText.textContent = ' ' + (result.integrityWarning || 'Content extraction incomplete: no readable text found or structure is empty.');
+            }
+          } else {
+            integrityBanner.style.display = 'none';
+          }
+        }
+
         const firstCh = result.chapters && result.chapters[0];
         if (previewEl) {
           const sample = firstCh && firstCh.content
             ? firstCh.content.slice(0, 240) + (firstCh.content.length > 240 ? '...' : '')
-            : 'Document chapters processed into structured canonical blocks.';
+            : (isWarning ? 'No extractable text found in source.' : 'Document chapters processed into structured canonical blocks.');
           previewEl.textContent = `"${sample}"`;
         }
       }
 
-      showToast(`Ingestion complete! "${result.book?.title || title}" is ready for reading.`);
+      showToast(`Ingestion complete! "${result.book?.title || title}" is ready.`);
       loadBooks();
       fetchJobs();
     }, 600);
 
   } catch (err) {
-    if (formEl) formEl.style.display = 'block';
+    clearTimeout(t1);
+    clearTimeout(t2);
+    clearTimeout(t3);
+
+    if (formEl) formEl.style.display = 'none';
     if (progressEl) progressEl.style.display = 'none';
     if (resultEl) resultEl.style.display = 'none';
+
+    if (errPanel) {
+      errPanel.style.display = 'block';
+      const errText = document.getElementById('ingestion-error-text');
+      if (errText) {
+        errText.textContent = err.message || 'The selected file could not be parsed as a supported format.';
+      }
+    } else {
+      if (formEl) formEl.style.display = 'block';
+    }
+
     showToast(`Import failed: ${err.message}`, 'error');
   }
 }
@@ -2140,6 +2215,8 @@ function resetAddBookForm() {
   const formEl = document.getElementById('form-add-book');
   const progressEl = document.getElementById('ingestion-progress-panel');
   const resultEl = document.getElementById('ingestion-result-panel');
+  const errPanel = document.getElementById('ingestion-error-panel');
+  const integrityBanner = document.getElementById('result-integrity-banner');
 
   if (formEl) {
     formEl.reset();
@@ -2147,6 +2224,8 @@ function resetAddBookForm() {
   }
   if (progressEl) progressEl.style.display = 'none';
   if (resultEl) resultEl.style.display = 'none';
+  if (errPanel) errPanel.style.display = 'none';
+  if (integrityBanner) integrityBanner.style.display = 'none';
 
   state.selectedFile = null;
   state.importedBookResult = null;
