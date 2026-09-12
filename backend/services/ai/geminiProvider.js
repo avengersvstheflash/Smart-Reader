@@ -71,8 +71,16 @@ class GeminiProvider extends AIProvider {
     const ai = this.getClient();
     const startTime = Date.now();
 
-    const prompt = `You are Smart Reader's intelligent reading assistant.
-Provide a clear, engaging, and faithful summary of the following document/chapter.
+    let prompt = '';
+    // If text is already a structured grounding prompt from ContextBuilder, use directly
+    if (options.isPrompt || options.customPrompt || text.includes('GROUNDING DIRECTIVE') || text.includes('GROUNDED SOURCE MATERIAL')) {
+      prompt = text;
+    } else {
+      const taskType = options.task || 'summary';
+      const contentType = options.contentType || 'work';
+
+      prompt = `You are Smart Reader's intelligent reading assistant.
+Analyze the following ${contentType} material and provide an objective, grounded, and faithful ${taskType}.
 
 Document Title: ${title || 'Untitled Section'}
 
@@ -81,12 +89,14 @@ Text:
 ${text.slice(0, 32000)}
 """
 
-Format your response cleanly:
-1. Executive Summary: 2-3 sentences capturing the core thesis or narrative progression.
-2. Key Ideas & Takeaways: 3-5 concise bullet points highlighting critical points, discoveries, or character developments.
-3. Notable Details or Concepts: 1-2 key terms, arguments, or data points worth remembering.
-
-Ensure the summary is objective, clear, and faithful to the source material without generic filler.`;
+Instructions:
+- Ground your analysis strictly in the provided text.
+- Do NOT hallucinate external facts or invent unmentioned details.
+- Do NOT output raw HTML tags (e.g., <strong>, <em>, <b>, <i>, <p>, <br>).
+- Do NOT output empty markdown markers (such as ### or *** alone).
+- Use clear structural sections with markdown headers (## or ###) and bullet points where helpful.
+- Avoid robotic or repetitive boilerplate phrases (e.g. "this document investigates", "in conclusion").`;
+    }
 
     try {
       const response = await ai.models.generateContent({

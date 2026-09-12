@@ -8,6 +8,8 @@ const bookRoutes = require('./routes/bookRoutes');
 const chapterRoutes = require('./routes/chapterRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const webRoutes = require('./routes/webRoutes');
+const semanticRoutes = require('./routes/semanticRoutes');
 const aiService = require('./services/ai/aiService');
 const bookService = require('./services/bookService');
 
@@ -39,6 +41,8 @@ app.use('/api/books', bookRoutes);
 app.use('/api/chapters', chapterRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/web', webRoutes);
+app.use('/api/semantic', semanticRoutes);
 
 // Development Reset & Sample Seed Endpoint
 app.post('/api/dev/reset', (req, res, next) => {

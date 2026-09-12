@@ -93,6 +93,14 @@
           <p class="library-hero-desc">Bring your novels, manga, textbooks, research papers, and notes into an intelligent, distraction-free reading sanctuary.</p>
         </div>
         <div class="library-hero-actions">
+          <button id="btn-hero-web-search" class="btn btn-secondary btn-lg" onclick="openAddBookModal('web')">
+            <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            <span>Acquire from Web</span>
+          </button>
           <button id="btn-hero-add-book" class="btn btn-primary btn-lg" onclick="openAddBookModal()">
             <span>+ Add Book</span>
           </button>
@@ -136,6 +144,7 @@
             <button class="filter-chip" data-type="document" onclick="filterByContentType('document')">Documents</button>
             <button class="filter-chip" data-type="research" onclick="filterByContentType('research')">Research</button>
             <button class="filter-chip" data-type="notes" onclick="filterByContentType('notes')">Notes</button>
+            <button class="filter-chip" data-type="web" onclick="filterByContentType('web')">🌐 Web Acquired</button>
           </div>
         </div>
       </div>
@@ -208,6 +217,147 @@
 
         <div id="chapters-list" class="chapters-list">
           <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- SUPPORTING MATERIAL & RESEARCH SECTION (Build 3A) -->
+      <div class="supporting-materials-section" id="supporting-materials-section">
+        <div class="supporting-materials-header">
+          <div>
+            <div class="section-title-wrap">
+              <span class="badge-pill-xs badge-accent-subtle">Build 3A</span>
+              <h2 id="supporting-list-title" class="sub-heading">Supporting Material & Research</h2>
+            </div>
+            <p class="section-desc">External references, context, and web findings attached to this book. Original ground-truth chapters remain 100% untouched.</p>
+          </div>
+          <div class="supporting-actions">
+            <button id="btn-add-supporting-material" class="btn btn-secondary btn-sm" onclick="openSupportingMaterialModal()">
+              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
+              <span>+ Find Supporting Material</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="supporting-materials-list" class="supporting-materials-list">
+          <!-- Populated dynamically by script.js -->
+        </div>
+      </div>
+
+      <!-- SEMANTIC MEMORY & INTELLIGENT SUMMARIES SECTION (Build 3B) -->
+      <div class="semantic-intelligence-section" id="semantic-intelligence-section">
+        <div class="semantic-intelligence-header">
+          <div>
+            <div class="section-title-wrap">
+              <span class="badge-pill-xs badge-accent-subtle">Build 3B</span>
+              <h2 id="intelligence-section-title" class="sub-heading">Semantic Memory & Reading Intelligence</h2>
+            </div>
+            <p class="section-desc">Grounded representations, editorial synopsis, structured multi-chapter summaries, and vector-indexed contextual assistant.</p>
+          </div>
+          <div class="semantic-header-status" id="semantic-index-status-pill">
+            <span class="status-dot green"></span>
+            <span id="semantic-index-status-text">Vector Memory Ready</span>
+          </div>
+        </div>
+
+        <!-- Semantic Intelligence Cards Grid -->
+        <div class="semantic-intelligence-grid">
+          <!-- Card 1: Editorial Synopsis -->
+          <div class="semantic-card" id="card-editorial-synopsis">
+            <div class="semantic-card-header">
+              <div class="semantic-card-title-group">
+                <span class="semantic-card-icon">✦</span>
+                <div>
+                  <h3 class="semantic-card-title">Editorial Synopsis</h3>
+                  <span class="semantic-card-sub">Faithful editorial thesis, hook, and core context</span>
+                </div>
+              </div>
+              <div class="semantic-card-actions">
+                <button id="btn-generate-synopsis-card" class="btn btn-secondary btn-xs" onclick="handleGenerateSynopsisClick()">
+                  <span>✦ Synthesize Synopsis</span>
+                </button>
+                <button id="btn-copy-synopsis" class="btn btn-secondary btn-xs" onclick="copySynopsisText()" style="display:none;" title="Copy Synopsis">
+                  Copy
+                </button>
+              </div>
+            </div>
+            <div class="semantic-card-body" id="synopsis-card-content">
+              <p class="text-muted italic">No editorial synopsis generated yet. Click "Synthesize Synopsis" to produce a grounded editorial overview.</p>
+            </div>
+          </div>
+
+          <!-- Card 2: Comprehensive Book Summary -->
+          <div class="semantic-card" id="card-book-summary">
+            <div class="semantic-card-header">
+              <div class="semantic-card-title-group">
+                <span class="semantic-card-icon">📖</span>
+                <div>
+                  <h3 class="semantic-card-title">Comprehensive Book Summary</h3>
+                  <span class="semantic-card-sub">Multi-chapter structural synthesis and key takeaways</span>
+                </div>
+              </div>
+              <div class="semantic-card-actions">
+                <button id="btn-generate-book-summary" class="btn btn-secondary btn-xs" onclick="handleGenerateBookSummaryClick()">
+                  <span>✦ Synthesize Book Summary</span>
+                </button>
+                <button id="btn-copy-book-summary" class="btn btn-secondary btn-xs" onclick="copyBookSummaryText()" style="display:none;" title="Copy Summary">
+                  Copy
+                </button>
+              </div>
+            </div>
+            <div class="semantic-card-body" id="book-summary-card-content">
+              <p class="text-muted italic">No comprehensive book summary generated yet. Click "Synthesize Book Summary" to aggregate chapter knowledge into an executive summary.</p>
+            </div>
+          </div>
+
+          <!-- Card 3: Grounded Reading Assistant / Ask This Book -->
+          <div class="semantic-card semantic-card-full" id="card-semantic-ask">
+            <div class="semantic-card-header">
+              <div class="semantic-card-title-group">
+                <span class="semantic-card-icon">🧠</span>
+                <div>
+                  <h3 class="semantic-card-title">Grounded Context Assistant</h3>
+                  <span class="semantic-card-sub">Query this book using 256d vector similarity and citation-backed grounding</span>
+                </div>
+              </div>
+              <div class="semantic-stats-badge" id="semantic-chunk-stats">
+                0 chunks indexed
+              </div>
+            </div>
+            <div class="semantic-qa-input-box">
+              <div class="semantic-input-row">
+                <input type="text" id="semantic-question-input" class="form-input" placeholder="Ask anything about this book's concepts, characters, timeline, or arguments..." onkeydown="handleSemanticQuestionKey(event)" />
+                <button id="btn-submit-semantic-question" class="btn btn-primary" onclick="handleAskBookQuestion()">
+                  <span>Ask Assistant</span>
+                </button>
+              </div>
+              <div class="quick-query-chips">
+                <span class="chip-label">Quick Queries:</span>
+                <button type="button" class="quick-chip" onclick="setQuickQuery('What is the core premise or main thesis?')">Main thesis?</button>
+                <button type="button" class="quick-chip" onclick="setQuickQuery('Who are the primary figures or characters introduced?')">Key figures?</button>
+                <button type="button" class="quick-chip" onclick="setQuickQuery('What are the foundational principles and discoveries?')">Key principles?</button>
+              </div>
+            </div>
+
+            <!-- Grounded Answer Box -->
+            <div id="semantic-answer-container" class="semantic-answer-container" style="display: none;">
+              <div class="semantic-answer-header">
+                <span class="grounded-badge">✓ Grounded in Document Excerpts</span>
+                <span id="semantic-answer-stats" class="text-muted text-xs"></span>
+              </div>
+              <div id="semantic-answer-text" class="semantic-answer-text">
+                <!-- Answer text -->
+              </div>
+              <div class="semantic-sources-section">
+                <h4 class="semantic-sources-heading">Source Excerpts & Provenance</h4>
+                <div id="semantic-sources-list" class="semantic-sources-list">
+                  <!-- Source pills -->
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -391,8 +541,15 @@
       </div>
       <div class="modal-body">
         <div class="tab-bar">
-          <button id="tab-import-file" class="tab-btn active" onclick="switchAddBookTab('file')">Import File (.pdf, .epub, .md, .txt)</button>
-          <button id="tab-paste-text" class="tab-btn" onclick="switchAddBookTab('paste')">Paste Text / Manual</button>
+          <button id="tab-web-search" class="tab-btn active" onclick="switchAddBookTab('web')">
+            <span class="tab-icon">🌐</span> Web Discovery & Import
+          </button>
+          <button id="tab-import-file" class="tab-btn" onclick="switchAddBookTab('file')">
+            <span class="tab-icon">📄</span> Import File (.pdf, .epub, .md, .txt)
+          </button>
+          <button id="tab-paste-text" class="tab-btn" onclick="switchAddBookTab('paste')">
+            <span class="tab-icon">✍️</span> Paste Text / Manual
+          </button>
         </div>
 
         <!-- Ingestion Pipeline Progress Overlay -->
@@ -466,8 +623,114 @@
         </div>
 
         <form id="form-add-book" onsubmit="handleAddBookSubmit(event)">
+          <!-- TAB 0: Web Discovery & Search (Build 3A) -->
+          <div id="tab-pane-web" class="tab-pane active">
+            <!-- Search Input Box -->
+            <div class="web-search-box-container">
+              <div class="web-search-input-wrap">
+                <span class="web-search-leading-icon">
+                  <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                  </svg>
+                </span>
+                <input type="text" id="web-search-input" class="web-search-input" placeholder="Search Wikipedia, OpenLibrary, ArXiv, tech docs, topics, or paste any URL..." onkeydown="handleWebSearchKey(event)">
+                <button type="button" id="btn-run-web-search" class="btn btn-primary btn-sm" onclick="handleRunWebSearch()">
+                  <span>Search</span>
+                </button>
+              </div>
+
+              <!-- Filter Category Chips -->
+              <div class="web-category-chips" id="web-category-chips">
+                <button type="button" class="chip active" data-cat="all" onclick="setWebSearchCategory('all')">All Sources</button>
+                <button type="button" class="chip" data-cat="books" onclick="setWebSearchCategory('books')">📚 Books & Novels</button>
+                <button type="button" class="chip" data-cat="research" onclick="setWebSearchCategory('research')">🔬 Research Papers</button>
+                <button type="button" class="chip" data-cat="manga" onclick="setWebSearchCategory('manga')">🎨 Manga & Comics</button>
+                <button type="button" class="chip" data-cat="tech" onclick="setWebSearchCategory('tech')">💻 Tech Docs</button>
+                <button type="button" class="chip" data-cat="reference" onclick="setWebSearchCategory('reference')">📖 Encyclopedic</button>
+              </div>
+            </div>
+
+            <!-- Direct URL Row -->
+            <div class="web-direct-url-bar">
+              <span class="direct-url-label">Direct Webpage Address:</span>
+              <div class="direct-url-input-wrap">
+                <input type="url" id="web-direct-url-input" placeholder="https://example.org/accessible-article-or-chapter" onkeydown="handleDirectUrlKey(event)">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="handlePreviewDirectUrl()">Preview</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="handleImportDirectUrl()">Acquire</button>
+              </div>
+            </div>
+
+            <!-- Multi-Select Action Banner -->
+            <div id="web-multi-select-bar" class="web-multi-select-bar" style="display: none;">
+              <div class="multi-select-info">
+                <span id="multi-select-count" class="multi-count-badge">0 selected</span>
+                <span class="multi-select-desc">Combine multiple sources into a single structured research dossier</span>
+              </div>
+              <div class="multi-select-actions">
+                <button type="button" class="btn btn-secondary btn-xs" onclick="clearWebSelection()">Deselect All</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="handleImportSelectedMulti()">
+                  <span>Acquire Selected as Research Dossier →</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Loading Spinner / Status -->
+            <div id="web-search-loading" class="web-search-loading" style="display: none;">
+              <div class="spinner-sm"></div>
+              <span id="web-search-loading-text">Searching verified knowledge sources...</span>
+            </div>
+
+            <!-- Error Banner -->
+            <div id="web-search-error" class="modal-error-banner" style="display: none;"></div>
+
+            <!-- Search Results Container -->
+            <div id="web-search-results" class="web-search-results-list">
+              <div class="web-search-welcome-state">
+                <div class="welcome-icon">🌐</div>
+                <h4>Search & Acquire Legitimate Web Knowledge</h4>
+                <p>Discover openly accessible materials across Wikipedia, Open Library, academic repositories, and technical documentation. Acquired materials are cleanly normalized, structured into chapters, and preserved with full provenance.</p>
+                <div class="sample-search-chips">
+                  <span class="sample-lbl">Suggested searches:</span>
+                  <button type="button" class="sample-chip" onclick="quickSearchWeb('Quantum Computing')">Quantum Computing</button>
+                  <button type="button" class="sample-chip" onclick="quickSearchWeb('Ada Lovelace')">Ada Lovelace</button>
+                  <button type="button" class="sample-chip" onclick="quickSearchWeb('Frankenstein Shelley')">Frankenstein</button>
+                  <button type="button" class="sample-chip" onclick="quickSearchWeb('Distributed Consensus')">Distributed Consensus</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Preview Card Drawer -->
+            <div id="web-preview-card" class="web-preview-card" style="display: none;">
+              <div class="preview-header">
+                <div class="preview-badges">
+                  <span id="preview-site-tag" class="badge-tag">Wikipedia</span>
+                  <span id="preview-type-tag" class="badge-tag">Research</span>
+                </div>
+                <h3 id="preview-title" class="preview-title">Document Title</h3>
+                <p id="preview-author" class="preview-author">By Author</p>
+                <a id="preview-link" href="#" target="_blank" rel="noopener noreferrer" class="preview-ext-link">🔗 View original web address ↗</a>
+              </div>
+              <div class="preview-metrics">
+                <div class="pmetric"><strong id="pmetric-sections">0</strong> <span>Sections</span></div>
+                <div class="pmetric"><strong id="pmetric-words">0</strong> <span>Words</span></div>
+                <div class="pmetric"><strong id="pmetric-blocks">0</strong> <span>Blocks</span></div>
+              </div>
+              <div id="preview-sections-list" class="preview-sections-list"></div>
+              <div class="preview-snippet-box">
+                <div class="preview-snippet-label">Opening Content:</div>
+                <p id="preview-snippet-text"></p>
+              </div>
+              <div class="preview-footer-actions">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="closeWebPreview()">Close Preview</button>
+                <button type="button" id="btn-confirm-preview-import" class="btn btn-primary btn-sm" onclick="handleConfirmPreviewImport()">
+                  <span>Acquire into Library →</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- TAB 1: File Import -->
-          <div id="tab-pane-file" class="tab-pane active">
+          <div id="tab-pane-file" class="tab-pane" style="display: none;">
             <div class="drop-zone" id="file-drop-zone">
               <input type="file" id="book-file-input" accept=".pdf,.epub,.md,.markdown,.txt,.text" onchange="handleFileSelected(this.files)">
               <div class="drop-zone-content">
@@ -869,6 +1132,120 @@
           <span>Test Connection Now</span>
         </button>
         <button class="btn btn-primary btn-sm" onclick="closeAIStatusModal()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUPPORTING MATERIAL SEARCH & ATTACH MODAL (Build 3A) -->
+  <div id="supportingMaterialModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeSupportingMaterialModal()"></div>
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <div>
+          <h2>Find Supporting Material</h2>
+          <p class="section-desc">Search web knowledge or paste a URL to attach research and context to <strong id="supporting-modal-book-title">this book</strong>. Ground-truth content remains untouched.</p>
+        </div>
+        <button class="close-btn" onclick="closeSupportingMaterialModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="web-search-box-container">
+          <div class="web-search-input-wrap">
+            <span class="web-search-leading-icon">
+              <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+            </span>
+            <input type="text" id="supporting-search-input" class="web-search-input" placeholder="Search Wikipedia, papers, or web docs..." onkeydown="handleSupportingSearchKey(event)">
+            <button type="button" class="btn btn-primary btn-sm" onclick="handleRunSupportingSearch()">Search</button>
+          </div>
+        </div>
+
+        <div class="web-direct-url-bar">
+          <span class="direct-url-label">Or Direct URL:</span>
+          <div class="direct-url-input-wrap">
+            <input type="url" id="supporting-direct-url" placeholder="https://..." onkeydown="handleSupportingDirectUrlKey(event)">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="handleAttachDirectSupportingUrl()">Attach Directly</button>
+          </div>
+        </div>
+
+        <!-- Status / Spinner -->
+        <div id="supporting-search-loading" class="web-search-loading" style="display: none;">
+          <div class="spinner-sm"></div>
+          <span>Searching accessible web knowledge...</span>
+        </div>
+
+        <div id="supporting-search-error" class="modal-error-banner" style="display: none;"></div>
+
+        <!-- Results List -->
+        <div id="supporting-search-results" class="supporting-search-results">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeSupportingMaterialModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW SUPPORTING MATERIAL MODAL -->
+  <div id="viewSupportingMaterialModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeViewSupportingModal()"></div>
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <div>
+          <div class="preview-badges">
+            <span id="view-sup-site" class="badge-tag">Web Reference</span>
+            <span id="view-sup-type" class="badge-tag">Research</span>
+          </div>
+          <h2 id="view-sup-title">Supporting Material Title</h2>
+          <p id="view-sup-author" class="section-desc">By Author</p>
+          <a id="view-sup-url" href="#" target="_blank" rel="noopener noreferrer" class="preview-ext-link">🔗 View original source ↗</a>
+        </div>
+        <button class="close-btn" onclick="closeViewSupportingModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="view-sup-content" class="supporting-reader-body canonical-content-flow">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeViewSupportingModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FUTURE READING MODE (COMING SOON) MODAL (Requirement 9) -->
+  <div id="comingSoonModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeComingSoonModal()"></div>
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <div class="coming-soon-header-badge">
+          <span class="badge-pill-xs badge-accent">In Active Development</span>
+        </div>
+        <h2 id="coming-soon-title">Visual Story Experience</h2>
+        <button class="close-btn" onclick="closeComingSoonModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="coming-soon-hero">
+          <div class="coming-soon-icon" id="coming-soon-icon">🎨</div>
+          <p id="coming-soon-description" class="coming-soon-desc">
+            Visual Story mode transforms structured canonical chapters into cinematic, scene-by-scene illustrated narrative flows powered by semantic chunking and visual context generation.
+          </p>
+        </div>
+        <div class="coming-soon-details-box">
+          <h4>Future Pipeline Roadmap:</h4>
+          <ul>
+            <li id="coming-soon-feat-1">Semantic narrative segmentation into visual beats</li>
+            <li id="coming-soon-feat-2">Contextual character and scenery illustration prompts</li>
+            <li id="coming-soon-feat-3">Side-by-side synchronized narrative text and visual art</li>
+          </ul>
+        </div>
+        <div class="notice-box-subtle">
+          <p>This capability is planned for upcoming releases. Standard reading mode, chapter navigation, and AI summarization are fully available right now.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" onclick="closeComingSoonModal()">Understood</button>
       </div>
     </div>
   </div>

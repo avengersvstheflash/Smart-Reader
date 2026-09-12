@@ -27,12 +27,38 @@ class IngestionService {
   async ingest({
     title = '',
     author = '',
+    description = '',
     rawText = '',
     fileBuffer = null,
     originalFilename = '',
     contentType = 'novel',
+    url = '',
   }) {
-    const format = this.detectFormat(rawText, originalFilename, fileBuffer);
+    // 0. Web Acquisition Pipeline
+    const targetUrl = url || (rawText && /^(https?:\/\/[^\s]+)$/.test(rawText.trim()) ? rawText.trim() : null);
+    if (targetUrl) {
+      const webAcquisitionService = require('../web/webAcquisitionService');
+      const webResult = await webAcquisitionService.acquireFromUrl(targetUrl, {
+        title,
+        author,
+        description,
+        contentType,
+      });
+
+      return {
+        format: 'web',
+        title: webResult.book.title,
+        author: webResult.book.author,
+        pageCount: webResult.book.page_count,
+        tablesCount: webResult.tablesCount || 0,
+        chapters: webResult.chapters,
+        totalWordCount: webResult.totalWordCount,
+        book: webResult.book,
+        webAcquired: true,
+      };
+    }
+
+    const format = this.detectFormat(rawText, originalFilename, fileBuffer, url);
 
     // 1. PDF Pipeline
     if (format === 'pdf') {
@@ -146,9 +172,13 @@ class IngestionService {
   }
 
   /**
-   * Detects whether input is PDF, EPUB, Markdown, or Plain Text
+   * Detects whether input is Web URL, PDF, EPUB, Markdown, or Plain Text
    */
-  detectFormat(text = '', filename = '', buffer = null) {
+  detectFormat(text = '', filename = '', buffer = null, url = '') {
+    if (url || (text && /^(https?:\/\/[^\s]+)$/.test(text.trim()))) {
+      return 'web';
+    }
+
     if (filename) {
       const ext = path.extname(filename).toLowerCase();
       if (ext === '.pdf') return 'pdf';

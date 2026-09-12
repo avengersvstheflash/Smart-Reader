@@ -1,7 +1,8 @@
 /**
  * AI Output Normalizer
  * Converts raw LLM output into Smart Reader's structured Canonical Block representation.
- * Prevents raw Markdown syntax (### #1., **, ***, |, ---) from leaking into the reading canvas.
+ * Prevents raw Markdown syntax (### #1., **, ***, |, ---) and raw HTML tags (<strong>, <em>, etc.)
+ * from leaking into the reading canvas.
  */
 
 class AINormalizer {
@@ -15,7 +16,9 @@ class AINormalizer {
       return [{ type: 'paragraph', text: 'No summary content generated.' }];
     }
 
-    const lines = rawText.split(/\r?\n/);
+    // Pre-normalize text to handle HTML tags, carriage returns, and stray tokens
+    const cleanedText = this.sanitizeRawText(rawText);
+    const lines = cleanedText.split(/\r?\n/);
     const blocks = [];
     let i = 0;
 
@@ -23,8 +26,8 @@ class AINormalizer {
       const line = lines[i];
       const trimmed = line.trim();
 
-      // 1. Skip empty lines
-      if (!trimmed) {
+      // 1. Skip empty lines or lone empty hash markers (e.g. "###" or "##")
+      if (!trimmed || /^#{1,6}\s*$/.test(trimmed)) {
         i++;
         continue;
       }
@@ -49,8 +52,8 @@ class AINormalizer {
         continue;
       }
 
-      // 3. Separator lines (---, ***, ___)
-      if (/^(?:[-*_]\s*){3,}$/.test(trimmed)) {
+      // 3. Separator lines (---, ***, ___, ✦ ✦ ✦)
+      if (/^(?:[-*_]\s*){3,}$/.test(trimmed) || /^(?:✦\s*){3,}$/.test(trimmed)) {
         blocks.push({ type: 'separator' });
         i++;
         continue;
@@ -63,14 +66,16 @@ class AINormalizer {
         let headingText = atxMatch[2].trim();
         // Clean duplicate leading hashes e.g. "### #1. Title" -> "1. Title"
         headingText = headingText.replace(/^#+\s*/, '');
-        // Clean bold markers inside heading
+        // Clean bold/italic markers inside heading
         headingText = this.stripMarkdownSymbols(headingText);
 
-        blocks.push({
-          type: 'heading',
-          level: Math.min(4, Math.max(2, level)),
-          text: headingText,
-        });
+        if (headingText) {
+          blocks.push({
+            type: 'heading',
+            level: Math.min(4, Math.max(1, level)),
+            text: headingText,
+          });
+        }
         i++;
         continue;
       }
@@ -78,13 +83,15 @@ class AINormalizer {
       // 5. Standalone Bold / Italic line acting as a section header
       // Examples: "**Zero-Dollar Architecture:**" or "***Multimodal Content Delivery:***"
       const boldHeadingMatch = trimmed.match(/^\*{2,3}(.+?)\*{2,3}:?\s*$/);
-      if (boldHeadingMatch && boldHeadingMatch[1].length > 1 && boldHeadingMatch[1].length < 100) {
+      if (boldHeadingMatch && boldHeadingMatch[1].length > 1 && boldHeadingMatch[1].length < 120) {
         const headerText = this.stripMarkdownSymbols(boldHeadingMatch[1]).replace(/:$/, '').trim();
-        blocks.push({
-          type: 'heading',
-          level: 3,
-          text: headerText,
-        });
+        if (headerText) {
+          blocks.push({
+            type: 'heading',
+            level: 3,
+            text: headerText,
+          });
+        }
         i++;
         continue;
       }
@@ -101,7 +108,7 @@ class AINormalizer {
 
         // Check for Callout pattern (> **Key Takeaway:** ..., > [!NOTE] ..., > **Warning:** ...)
         const calloutMatch = fullQuote.match(
-          /^(?:\[!(NOTE|TIP|WARNING|IMPORTANT|CAUTION)\]|\*\*(Abstract|Note|Tip|Warning|Summary|Key Insight|Takeaway|Key Takeaway):?\*\*|\*\*(Abstract|Note|Tip|Warning|Summary|Key Insight|Takeaway|Key Takeaway)\*\*:?)\s*(.+)$/is
+          /^(?:\[!(NOTE|TIP|WARNING|IMPORTANT|CAUTION)\]|\*\*(Abstract|Note|Tip|Warning|Summary|Key Insight|Takeaway|Key Takeaway|Significance):?\*\*|\*\*(Abstract|Note|Tip|Warning|Summary|Key Insight|Takeaway|Key Takeaway|Significance)\*\*:?)\s*(.+)$/is
         );
 
         if (calloutMatch) {
@@ -112,7 +119,7 @@ class AINormalizer {
           else if (rawTone.includes('abstract') || rawTone.includes('summary')) variant = 'abstract';
 
           const title = (calloutMatch[1] || calloutMatch[2] || calloutMatch[3] || 'Key Insight').replace(/:$/, '');
-          const bodyText = this.formatInlineMarkdown(calloutMatch[4].trim());
+          const bodyText = this.cleanInlineText(calloutMatch[4].trim());
 
           blocks.push({
             type: 'callout',
@@ -123,7 +130,7 @@ class AINormalizer {
         } else {
           blocks.push({
             type: 'quote',
-            text: this.formatInlineMarkdown(fullQuote),
+            text: this.cleanInlineText(fullQuote),
           });
         }
         continue;
@@ -157,12 +164,12 @@ class AINormalizer {
         }
       }
 
-      // 8. Unordered List (- item, * item, + item)
-      if (/^[-*+]\s+/.test(trimmed)) {
+      // 8. Unordered List (- item, * item, + item, • item)
+      if (/^(?:[-*+]|•|⁃|‣)\s+/.test(trimmed)) {
         const items = [];
-        while (i < lines.length && /^[-*+]\s+/.test(lines[i].trim())) {
-          const itemText = lines[i].trim().replace(/^[-*+]\s+/, '');
-          items.push(this.formatInlineMarkdown(itemText));
+        while (i < lines.length && /^(?:[-*+]|•|⁃|‣)\s+/.test(lines[i].trim())) {
+          const itemText = lines[i].trim().replace(/^(?:[-*+]|•|⁃|‣)\s+/, '');
+          items.push(this.cleanInlineText(itemText));
           i++;
         }
         blocks.push({
@@ -178,7 +185,7 @@ class AINormalizer {
         const items = [];
         while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
           const itemText = lines[i].trim().replace(/^\d+\.\s+/, '');
-          items.push(this.formatInlineMarkdown(itemText));
+          items.push(this.cleanInlineText(itemText));
           i++;
         }
         blocks.push({
@@ -198,7 +205,7 @@ class AINormalizer {
         !lines[i].trim().startsWith('>') &&
         !lines[i].trim().startsWith('```') &&
         !/^\*{2,3}.+?\*{2,3}:?\s*$/.test(lines[i].trim()) &&
-        !/^[-*+]\s+/.test(lines[i].trim()) &&
+        !/^(?:[-*+]|•|⁃|‣)\s+/.test(lines[i].trim()) &&
         !/^\d+\.\s+/.test(lines[i].trim()) &&
         !/^(?:[-*_]\s*){3,}$/.test(lines[i].trim()) &&
         !(lines[i].trim().includes('|') && i + 1 < lines.length && /^\|?\s*:?-+:?\s*(\|?\s*:?-+:?\s*)+\|?$/.test(lines[i + 1].trim()))
@@ -209,14 +216,67 @@ class AINormalizer {
 
       if (paraLines.length > 0) {
         const fullPara = paraLines.join(' ');
-        blocks.push({
-          type: 'paragraph',
-          text: this.formatInlineMarkdown(fullPara),
-        });
+        const cleanedPara = this.cleanInlineText(fullPara);
+        if (cleanedPara) {
+          blocks.push({
+            type: 'paragraph',
+            text: cleanedPara,
+          });
+        }
       }
     }
 
+    if (blocks.length === 0) {
+      blocks.push({ type: 'paragraph', text: this.cleanInlineText(rawText) || 'No summary content generated.' });
+    }
+
     return blocks;
+  }
+
+  /**
+   * Sanitizes raw text from LLMs before parsing:
+   * Replaces raw HTML tags (<strong>, <em>, <b>, <i>, <code>, <del>, <br>)
+   * with clean markdown tokens, strips dangerous tags, and removes carriage returns.
+   */
+  sanitizeRawText(str) {
+    if (!str) return '';
+    return str
+      // Replace raw HTML formatting tags with markdown tokens
+      .replace(/<\/?(?:strong|b)>/gi, '**')
+      .replace(/<\/?(?:em|i)>/gi, '*')
+      .replace(/<\/?code>/gi, '`')
+      .replace(/<\/?del>/gi, '~~')
+      .replace(/<br\s*\/?>/gi, '\n')
+      // Strip block HTML tags if LLM emitted them
+      .replace(/<\/?(?:p|div|span|section|article)>/gi, '\n')
+      .replace(/<blockquote[^>]*>/gi, '> ')
+      .replace(/<\/blockquote>/gi, '\n')
+      // Remove any other stray HTML tags
+      .replace(/<[^>]+>/g, '');
+  }
+
+  /**
+   * Cleans inline text inside blocks:
+   * Strips stray unclosed asterisks, lone leading hashes, and normalizes links and spacing.
+   */
+  cleanInlineText(str) {
+    if (!str) return '';
+    let s = str
+      // Links: [Text](url) -> Text
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      // Strip stray hash markers leaking into inline paragraphs
+      .replace(/^#+\s*/, '')
+      .replace(/\s+#+\s*/g, ' ')
+      .trim();
+
+    // Fix unclosed bold/italic markers e.g. "**Only one side" -> "Only one side"
+    const starCount = (s.match(/\*/g) || []).length;
+    if (starCount % 2 !== 0) {
+      // Unpaired asterisk: remove isolated asterisks
+      s = s.replace(/(?<!\*)\*(?!\*)/g, '');
+    }
+
+    return s;
   }
 
   /**
@@ -229,39 +289,24 @@ class AINormalizer {
       .replace(/_{1,3}([^_]+)_{1,3}/g, '$1')
       .replace(/`([^`]+)`/g, '$1')
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/<[^>]+>/g, '')
+      .replace(/^#+\s*/, '')
       .trim();
   }
 
   /**
    * Formats inline markdown safely for rich typography:
-   * Replaces **bold** with <strong>bold</strong>, *italic* with <em>italic</em>,
-   * `code` with <code>code</code>, without exposing raw Markdown characters.
+   * Standardizes inline formatting without leaking raw HTML or broken tokens.
    */
   formatInlineMarkdown(str) {
-    if (!str) return '';
-    return str
-      // Links: [Text](url) -> Text
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      // Triple bold/italic: ***text*** -> <strong><em>text</em></strong>
-      .replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>')
-      // Double bold: **text** or __text__ -> <strong>text</strong>
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/__([^_]+)__/g, '<strong>$1</strong>')
-      // Single italic: *text* or _text_ -> <em>$1</em>
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/(?:^|\s)_([^_]+)_(?:$|\s)/g, ' <em>$1</em> ')
-      // Inline code: `code` -> <code>code</code>
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // Strikethrough: ~~text~~ -> <del>text</del>
-      .replace(/~~([^~]+)~~/g, '<del>$1</del>')
-      .trim();
+    return this.cleanInlineText(str);
   }
 
   parseTableRow(line) {
     let raw = line.trim();
     if (raw.startsWith('|')) raw = raw.slice(1);
     if (raw.endsWith('|')) raw = raw.slice(0, -1);
-    return raw.split('|').map((cell) => this.formatInlineMarkdown(cell.trim()));
+    return raw.split('|').map((cell) => this.cleanInlineText(cell.trim()));
   }
 
   parseTableAlign(sepLine, count) {

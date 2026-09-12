@@ -25,8 +25,14 @@ const state = {
   importedBookResult: null,
   jobs: [],
   aiStatus: { available: false, provider: 'gemini', model: 'gemini-3.8-flash', message: 'Checking...' },
-  addBookTab: 'file',
+  addBookTab: 'web',
   selectedFile: null,
+  webSearchResults: [],
+  selectedWebSources: new Set(),
+  activeWebSearchCategory: 'all',
+  activeWebPreview: null,
+  supportingMaterials: [],
+  activeSupportingMaterial: null,
 };
 
 // ==========================================================================
@@ -170,6 +176,129 @@ const api = {
     }
     return await res.json();
   },
+
+  // Web Intelligence API (Build 3A)
+  async searchWeb(query, category = 'all', limit = 10) {
+    const params = new URLSearchParams({ q: query, category, limit });
+    const res = await fetch(`/api/web/search?${params}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Web search failed');
+    }
+    return await res.json();
+  },
+
+  async previewWeb(url) {
+    const res = await fetch('/api/web/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Preview failed');
+    return data;
+  },
+
+  async importWeb(payload) {
+    const res = await fetch('/api/web/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Web import failed');
+    return data;
+  },
+
+  async importWebMulti(payload) {
+    const res = await fetch('/api/web/import-multi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Multi-source acquisition failed');
+    return data;
+  },
+
+  async getSupportingMaterials(bookId) {
+    const res = await fetch(`/api/books/${bookId}/supporting`);
+    if (!res.ok) throw new Error('Failed to load supporting material');
+    const data = await res.json();
+    return data.materials || [];
+  },
+
+  async attachSupportingMaterial(bookId, payload) {
+    const res = await fetch(`/api/books/${bookId}/supporting`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to attach supporting material');
+    return data.material;
+  },
+
+  async deleteSupportingMaterial(materialId) {
+    const res = await fetch(`/api/web/supporting/${materialId}`, {
+      method: 'DELETE',
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to delete supporting material');
+    return data;
+  },
+
+  async getSynopsis(bookId) {
+    const res = await fetch(`/api/books/${bookId}/synopsis`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.representation;
+  },
+
+  async generateSynopsis(bookId) {
+    const res = await fetch(`/api/books/${bookId}/synopsis`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to generate synopsis');
+    return data;
+  },
+
+  async getBookSummary(bookId) {
+    const res = await fetch(`/api/books/${bookId}/summary`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.representation;
+  },
+
+  async generateBookSummary(bookId) {
+    const res = await fetch(`/api/books/${bookId}/summarize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to generate book summary');
+    return data;
+  },
+
+  async getSemanticStatus(bookId) {
+    const res = await fetch(`/api/semantic/status/${bookId}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.data;
+  },
+
+  async askBook(bookId, query) {
+    const res = await fetch(`/api/books/${bookId}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to answer query');
+    return data;
+  },
 };
 
 // ==========================================================================
@@ -303,7 +432,11 @@ function renderLibrary() {
 
   // Filter by content type
   if (state.filterType !== 'all') {
-    filtered = filtered.filter((b) => b.content_type === state.filterType);
+    if (state.filterType === 'web') {
+      filtered = filtered.filter((b) => b.source_format === 'web' || b.source_site || (b.source_url && b.source_url.startsWith('http')));
+    } else {
+      filtered = filtered.filter((b) => b.content_type === state.filterType);
+    }
   }
 
   // Filter by search query
@@ -345,9 +478,13 @@ function renderLibrary() {
       const progressPct = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
       const coverHtml = renderEditorialCover(book, index);
 
+      const isWeb = book.source_format === 'web' || book.source_site || (book.source_url && book.source_url.startsWith('http'));
+      const webBadge = isWeb ? `<div style="margin-top:6px;"><span class="badge-pill-xs badge-web">🌐 ${escapeHtml(book.source_site || 'Web Source')}</span></div>` : '';
+
       return `
         <div class="book-card" id="book-card-${book.id}" onclick="openBookDetails('${book.id}')">
           ${coverHtml}
+          ${webBadge}
           <h3 class="book-card-title">${escapeHtml(book.title)}</h3>
           <p class="book-card-author">By ${escapeHtml(book.author || 'Unknown Author')}</p>
           <p class="book-card-desc">${escapeHtml(book.description || 'No synopsis provided.')}</p>
@@ -484,9 +621,12 @@ async function openBookDetails(bookId) {
     const book = await api.getBook(bookId);
     state.activeBook = book;
     state.chapters = await api.getChapters(bookId);
+    state.supportingMaterials = await api.getSupportingMaterials(bookId).catch(() => []);
 
     renderBookDetailsHero();
     renderChaptersList();
+    renderSupportingMaterialsList();
+    renderSemanticIntelligence(bookId);
     navigateTo('book-details');
   } catch (err) {
     showToast(`Error opening book: ${err.message}`, 'error');
@@ -502,22 +642,84 @@ function renderBookDetailsHero() {
   const firstChapterId = hasChapters ? state.chapters[0].id : null;
   const coverHtml = renderEditorialCover(book, 0, true);
 
+  const isWebAcquired = book.source_format === 'web' || book.source_site || (book.source_url && book.source_url.startsWith('http'));
+  
+  let provenanceHtml = '';
+  if (isWebAcquired) {
+    const dateStr = book.retrieved_at ? new Date(book.retrieved_at).toLocaleString() : '';
+    let extraSources = '';
+    if (book.metadata_json) {
+      try {
+        const meta = typeof book.metadata_json === 'string' ? JSON.parse(book.metadata_json) : book.metadata_json;
+        if (meta.sources && Array.isArray(meta.sources) && meta.sources.length > 1) {
+          extraSources = `
+            <div style="margin-top:8px; font-size:0.8rem; color:var(--text-muted);">
+              <strong>Multi-Source Research Dossier (${meta.sources.length} sources):</strong>
+              <ul style="margin:4px 0 0 16px; padding:0;">
+                ${meta.sources.map(s => `<li><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--brand-primary); text-decoration:none;">${escapeHtml(s.title || s.url)} ↗</a> <span style="font-size:0.75rem; color:var(--text-light);">(${escapeHtml(s.site || 'Web')})</span></li>`).join('')}
+              </ul>
+            </div>
+          `;
+        }
+      } catch (e) {}
+    }
+
+    provenanceHtml = `
+      <div class="source-provenance-box">
+        <div class="provenance-top-row">
+          <span class="provenance-tag-pill">🌐 Web-Acquired Source</span>
+          <span class="provenance-site-name">${escapeHtml(book.source_site || 'Web Knowledge')}</span>
+        </div>
+        ${book.source_url ? `<div><a href="${escapeHtml(book.source_url)}" target="_blank" rel="noopener noreferrer" class="provenance-url-link">🔗 ${escapeHtml(book.source_url)} ↗</a></div>` : ''}
+        ${dateStr ? `<span class="provenance-date-label">Retrieved & Structured: ${dateStr}</span>` : ''}
+        ${extraSources}
+      </div>
+    `;
+  }
+
   hero.innerHTML = `
     ${coverHtml}
     <div class="hero-info">
       <div class="hero-badges">
         <span class="badge-tag">${escapeHtml(book.content_type || 'novel')}</span>
         <span class="badge-tag">${state.chapters.length} chapters</span>
+        ${isWebAcquired ? `<span class="badge-tag badge-web">🌐 ${escapeHtml(book.source_site || 'Web')}</span>` : ''}
       </div>
       <h1 class="hero-title">${escapeHtml(book.title)}</h1>
       <p class="hero-author">By ${escapeHtml(book.author || 'Unknown Author')}</p>
-      <p class="hero-desc">${escapeHtml(book.description || 'No description provided.')}</p>
-      <div class="hero-actions">
+      
+      ${provenanceHtml}
+
+      <div class="hero-desc-wrap" style="margin: 10px 0;">
+        <p class="hero-desc" id="hero-book-description">${escapeHtml(book.description || 'No description provided.')}</p>
+        <div style="margin-top: 6px;">
+          <button id="btn-hero-synopsis" class="btn btn-secondary btn-xs" onclick="handleGenerateSynopsis('${book.id}')" title="Synthesize structured synopsis with Smart Reader AI">
+            <svg class="ui-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3 1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+            </svg>
+            <span>✦ Synthesize Editorial Synopsis</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="hero-actions" style="display: flex; flex-wrap: wrap; gap: 8px;">
         ${
           hasChapters
             ? `<button id="btn-hero-read" class="btn btn-primary" onclick="openChapter('${firstChapterId}', '${book.id}')">Start Reading Chapter 1 →</button>`
             : `<button class="btn btn-primary" onclick="openAddChapterModal()">+ Add First Chapter</button>`
         }
+        <button id="btn-hero-supporting" class="btn btn-secondary" onclick="openSupportingMaterialModal('${book.id}')">
+          <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+          </svg>
+          <span>Find Supporting Material</span>
+        </button>
+        <button type="button" class="btn btn-secondary coming-soon-btn" onclick="showComingSoonModal('Visual Story')" title="Cinematic illustrated scene narrative mode">
+          <span>🎨 Visual Story</span>
+        </button>
+        <button type="button" class="btn btn-secondary coming-soon-btn" onclick="showComingSoonModal('Interactive Video')" title="Synchronized multimedia walkthrough mode">
+          <span>🎬 Interactive Video</span>
+        </button>
         <button id="btn-hero-delete" class="btn btn-secondary" onclick="openDeleteBookModal('${book.id}')">
           <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 6h18"/>
@@ -562,6 +764,52 @@ function renderChaptersList() {
             ${hasSummary ? `<span class="badge-summary-ready">✦ Summary Ready</span>` : ''}
             <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); openChapter('${ch.id}', '${ch.book_id}')">
               Read →
+            </button>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+// Supporting Materials Rendering (Build 3A)
+function renderSupportingMaterialsList() {
+  const listEl = document.getElementById('supporting-materials-list');
+  if (!listEl) return;
+
+  const materials = state.supportingMaterials || [];
+  if (materials.length === 0) {
+    listEl.innerHTML = `
+      <div class="supporting-empty-card">
+        <p>No supporting materials or research attached to this book yet.</p>
+        <button class="btn btn-secondary btn-sm" onclick="openSupportingMaterialModal('${state.activeBook ? state.activeBook.id : ''}')" style="margin-top: 10px;">
+          + Find Supporting Material
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = materials
+    .map((mat) => {
+      const dateStr = mat.created_at ? new Date(mat.created_at).toLocaleDateString() : '';
+      return `
+        <div class="supporting-card" id="supporting-card-${mat.id}">
+          <div>
+            <div class="supporting-card-header">
+              <span class="badge-tag">${escapeHtml(mat.source_site || 'Web Source')}</span>
+              <span style="font-size:0.75rem; color:var(--text-light);">${dateStr}</span>
+            </div>
+            <h4 class="supporting-card-title">${escapeHtml(mat.title)}</h4>
+            ${mat.author ? `<p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 6px 0;">By ${escapeHtml(mat.author)}</p>` : ''}
+            <p class="supporting-card-snippet">${escapeHtml(mat.snippet || 'Structured supporting research reference.')}</p>
+          </div>
+          <div class="supporting-card-actions">
+            <button class="btn btn-secondary btn-xs" onclick="handleViewSupportingMaterial('${mat.id}')">
+              View Reference
+            </button>
+            <button class="btn btn-secondary btn-xs" onclick="handleDeleteSupportingMaterial('${mat.id}')" style="color:var(--status-error);" title="Remove supporting material">
+              Remove
             </button>
           </div>
         </div>
@@ -984,10 +1232,26 @@ function capitalizeStr(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// Inline Markdown Parser: ensures raw markdown (bold, italic, code) is not leaked into reader
+// Inline Markdown Parser: ensures raw markdown (bold, italic, code) and raw HTML tags do not leak into reader
 function formatInlineMarkdownHtml(str) {
   if (!str) return '';
-  let s = escapeHtml(str);
+
+  // 1. Convert raw HTML formatting tags to standard markdown tokens first
+  let s = String(str)
+    .replace(/<\/?(?:strong|b)>/gi, '**')
+    .replace(/<\/?(?:em|i)>/gi, '*')
+    .replace(/<\/?code>/gi, '`')
+    .replace(/<\/?del>/gi, '~~')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '');
+
+  // 2. Strip lone or stray hash markers
+  s = s.replace(/^#+\s*/, '').replace(/\s+#+\s*/g, ' ');
+
+  // 3. HTML escape to safely neutralize any special characters
+  s = escapeHtml(s);
+
+  // 4. Safely convert markdown formatting to clean semantic HTML
   s = s.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
@@ -995,6 +1259,10 @@ function formatInlineMarkdownHtml(str) {
   s = s.replace(/(?:^|\s)_([^_]+)_(?:$|\s)/g, ' <em>$1</em> ');
   s = s.replace(/`([^`]+)`/g, '<code class="canonical-inline-code">$1</code>');
   s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+
+  // 5. Clean up any leftover unclosed/dangling asterisks
+  s = s.replace(/(?<![*\w])\*{1,3}(?![*\w])/g, '');
+
   return s.trim();
 }
 
@@ -1004,7 +1272,17 @@ function parseMarkdownToCanonicalBlocks(rawText) {
     return [{ type: 'paragraph', text: 'No content available.' }];
   }
 
-  const lines = rawText.split(/\r?\n/);
+  // Pre-clean raw text of stray HTML tags
+  const sanitized = String(rawText)
+    .replace(/<\/?(?:strong|b)>/gi, '**')
+    .replace(/<\/?(?:em|i)>/gi, '*')
+    .replace(/<\/?code>/gi, '`')
+    .replace(/<\/?del>/gi, '~~')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(?:p|div|span)>/gi, '\n')
+    .replace(/<[^>]+>/g, '');
+
+  const lines = sanitized.split(/\r?\n/);
   const blocks = [];
   let i = 0;
 
@@ -1012,7 +1290,7 @@ function parseMarkdownToCanonicalBlocks(rawText) {
     const line = lines[i];
     const trimmed = line.trim();
 
-    if (!trimmed) {
+    if (!trimmed || /^#{1,6}\s*$/.test(trimmed)) {
       i++;
       continue;
     }
@@ -1032,7 +1310,7 @@ function parseMarkdownToCanonicalBlocks(rawText) {
     }
 
     // Horizontal Rule / Separator
-    if (/^(?:[-*_]\s*){3,}$/.test(trimmed)) {
+    if (/^(?:[-*_]\s*){3,}$/.test(trimmed) || /^(?:✦\s*){3,}$/.test(trimmed)) {
       blocks.push({ type: 'separator' });
       i++;
       continue;
@@ -1044,15 +1322,20 @@ function parseMarkdownToCanonicalBlocks(rawText) {
       const level = Math.min(4, Math.max(1, atxMatch[1].length));
       let headingText = atxMatch[2].trim().replace(/^#+\s*/, '');
       headingText = headingText.replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1').trim();
-      blocks.push({ type: 'heading', level, text: headingText });
+      if (headingText) {
+        blocks.push({ type: 'heading', level, text: headingText });
+      }
       i++;
       continue;
     }
 
     // Bold title line as heading: **Section Title:**
     const boldHeaderMatch = trimmed.match(/^\*{2,3}(.+?)\*{2,3}:?\s*$/);
-    if (boldHeaderMatch && boldHeaderMatch[1].length > 1 && boldHeaderMatch[1].length < 100) {
-      blocks.push({ type: 'heading', level: 3, text: boldHeaderMatch[1].replace(/:$/, '').trim() });
+    if (boldHeaderMatch && boldHeaderMatch[1].length > 1 && boldHeaderMatch[1].length < 120) {
+      const hText = boldHeaderMatch[1].replace(/:$/, '').trim();
+      if (hText) {
+        blocks.push({ type: 'heading', level: 3, text: hText });
+      }
       i++;
       continue;
     }
@@ -1622,8 +1905,9 @@ async function checkAIStatus(showNotice = false) {
 // ==========================================================================
 // IMPORT & ADD BOOK MODALS
 // ==========================================================================
-function openAddBookModal() {
+function openAddBookModal(defaultTab = 'web') {
   document.getElementById('addBookModal').classList.remove('hidden');
+  switchAddBookTab(defaultTab);
 }
 
 function closeAddBookModal() {
@@ -1633,24 +1917,41 @@ function closeAddBookModal() {
 
 function switchAddBookTab(tab) {
   state.addBookTab = tab;
+  const tabWeb = document.getElementById('tab-web-search');
   const tabFile = document.getElementById('tab-import-file');
   const tabPaste = document.getElementById('tab-paste-text');
+  const paneWeb = document.getElementById('tab-pane-web');
   const paneFile = document.getElementById('tab-pane-file');
   const panePaste = document.getElementById('tab-pane-paste');
   const submitText = document.getElementById('btn-submit-book-text');
+  const modalFooter = document.querySelector('#form-add-book .modal-footer');
+  const formRows = document.querySelectorAll('#form-add-book .form-row, #form-add-book .form-group');
 
-  if (tab === 'file') {
-    tabFile.classList.add('active');
-    tabPaste.classList.remove('active');
-    paneFile.style.display = 'block';
-    panePaste.style.display = 'none';
-    submitText.textContent = 'Import Book';
+  if (tabWeb) tabWeb.classList.toggle('active', tab === 'web');
+  if (tabFile) tabFile.classList.toggle('active', tab === 'file');
+  if (tabPaste) tabPaste.classList.toggle('active', tab === 'paste');
+
+  if (paneWeb) paneWeb.style.display = tab === 'web' ? 'block' : 'none';
+  if (paneFile) paneFile.style.display = tab === 'file' ? 'block' : 'none';
+  if (panePaste) panePaste.style.display = tab === 'paste' ? 'block' : 'none';
+
+  if (tab === 'web') {
+    if (modalFooter) modalFooter.style.display = 'none';
+    formRows.forEach((row) => {
+      if (!paneWeb.contains(row)) {
+        row.style.display = 'none';
+      }
+    });
   } else {
-    tabPaste.classList.add('active');
-    tabFile.classList.remove('active');
-    panePaste.style.display = 'block';
-    paneFile.style.display = 'none';
-    submitText.textContent = 'Save Book';
+    if (modalFooter) modalFooter.style.display = 'flex';
+    formRows.forEach((row) => {
+      if (!paneWeb.contains(row)) {
+        row.style.display = '';
+      }
+    });
+    if (submitText) {
+      submitText.textContent = tab === 'file' ? 'Import Book' : 'Save Book';
+    }
   }
 }
 
@@ -1856,6 +2157,876 @@ function resetAddBookForm() {
     const el = document.getElementById(s);
     if (el) el.className = 'ingestion-step pending';
   });
+}
+
+// ==========================================================================
+// BUILD 3A: WEB ACQUISITION & SEARCH CONTROLLER
+// ==========================================================================
+
+function setWebSearchCategory(cat) {
+  state.activeWebSearchCategory = cat;
+  const chips = document.querySelectorAll('#web-category-chips .chip');
+  chips.forEach((chip) => chip.classList.toggle('active', chip.getAttribute('data-cat') === cat));
+
+  const query = document.getElementById('web-search-input')?.value.trim();
+  if (query) {
+    handleRunWebSearch();
+  }
+}
+
+function handleWebSearchKey(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    handleRunWebSearch();
+  }
+}
+
+function quickSearchWeb(term) {
+  const input = document.getElementById('web-search-input');
+  if (input) {
+    input.value = term;
+    handleRunWebSearch();
+  }
+}
+
+async function handleRunWebSearch() {
+  const input = document.getElementById('web-search-input');
+  const query = input ? input.value.trim() : '';
+  const loading = document.getElementById('web-search-loading');
+  const errorBanner = document.getElementById('web-search-error');
+  const resultsEl = document.getElementById('web-search-results');
+
+  if (!query) {
+    showToast('Please enter a search query or URL', 'info');
+    return;
+  }
+
+  // If user pasted a direct URL into the search box, redirect to direct URL preview
+  if (/^https?:\/\//i.test(query)) {
+    const directInput = document.getElementById('web-direct-url-input');
+    if (directInput) directInput.value = query;
+    handlePreviewDirectUrl();
+    return;
+  }
+
+  if (loading) loading.style.display = 'flex';
+  if (errorBanner) {
+    errorBanner.style.display = 'none';
+    errorBanner.textContent = '';
+  }
+
+  try {
+    const data = await api.searchWeb(query, state.activeWebSearchCategory);
+    state.webSearchResults = data.results || [];
+    renderWebSearchResults(state.webSearchResults);
+  } catch (err) {
+    if (errorBanner) {
+      errorBanner.style.display = 'block';
+      errorBanner.textContent = `Search failed: ${err.message}`;
+    }
+  } finally {
+    if (loading) loading.style.display = 'none';
+  }
+}
+
+function renderWebSearchResults(results) {
+  const container = document.getElementById('web-search-results');
+  if (!container) return;
+
+  if (!results || results.length === 0) {
+    container.innerHTML = `
+      <div class="web-search-welcome-state">
+        <div class="welcome-icon">🔍</div>
+        <h4>No accessible sources found</h4>
+        <p>No results matched your search across the selected repositories. Try broader search terms or paste a direct webpage URL.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = results
+    .map((res) => {
+      const isChecked = state.selectedWebSources.has(res.id);
+      let siteClass = 'wiki';
+      if (res.sourceSite === 'Open Library') siteClass = 'openlib';
+      if (res.sourceSite === 'Crossref') siteClass = 'crossref';
+
+      return `
+        <div class="web-result-item" id="web-res-${res.id}">
+          <div class="web-result-checkbox-wrap">
+            <input type="checkbox" class="web-result-checkbox" ${isChecked ? 'checked' : ''} onchange="handleToggleWebSource('${res.id}', this.checked)" title="Select to combine into research dossier">
+          </div>
+          <div class="web-result-body">
+            <div class="web-result-header-row">
+              <div class="web-result-badges">
+                <span class="badge-site ${siteClass}">${escapeHtml(res.sourceSite || 'Web')}</span>
+                <span class="badge-tag">${escapeHtml(res.sourceType || 'document')}</span>
+              </div>
+              ${res.author ? `<span style="font-size:0.76rem; color:var(--text-light);">${escapeHtml(res.author)}</span>` : ''}
+            </div>
+            <h4 class="web-result-title">${escapeHtml(res.title)}</h4>
+            <p class="web-result-snippet">${escapeHtml(res.snippet || 'No description available.')}</p>
+            <div class="web-result-actions">
+              <a href="${escapeHtml(res.url)}" target="_blank" rel="noopener noreferrer" class="web-result-ext-link">
+                🔗 ${escapeHtml(res.url)} ↗
+              </a>
+              <div class="web-result-btn-group">
+                <button type="button" class="btn btn-secondary btn-xs" onclick="handlePreviewWebSource('${escapeHtml(res.url)}')">
+                  Preview
+                </button>
+                <button type="button" class="btn btn-primary btn-xs" onclick="handleImportSingleWebSource('${escapeHtml(res.url)}')">
+                  Acquire →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+
+  updateWebSelectionBar();
+}
+
+function handleToggleWebSource(id, isChecked) {
+  if (isChecked) {
+    state.selectedWebSources.add(id);
+  } else {
+    state.selectedWebSources.delete(id);
+  }
+  updateWebSelectionBar();
+}
+
+function clearWebSelection() {
+  state.selectedWebSources.clear();
+  const checkboxes = document.querySelectorAll('.web-result-checkbox');
+  checkboxes.forEach((cb) => (cb.checked = false));
+  updateWebSelectionBar();
+}
+
+function updateWebSelectionBar() {
+  const bar = document.getElementById('web-multi-select-bar');
+  const countBadge = document.getElementById('multi-select-count');
+  const count = state.selectedWebSources.size;
+
+  if (bar) {
+    if (count > 0) {
+      bar.style.display = 'flex';
+      if (countBadge) countBadge.textContent = `${count} source${count === 1 ? '' : 's'} selected`;
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+}
+
+async function handleImportSelectedMulti() {
+  const selected = Array.from(state.selectedWebSources);
+  if (selected.length === 0) return;
+
+  const sources = state.webSearchResults
+    .filter((r) => selected.includes(r.id))
+    .map((r) => ({ url: r.url, title: r.title, site: r.sourceSite, author: r.author }));
+
+  if (sources.length === 0) return;
+
+  closeWebPreview();
+
+  await runWebIngestionPipeline(async () => {
+    return await api.importWebMulti({
+      sources,
+      title: `Research Dossier: ${sources[0].title} (+${sources.length - 1} sources)`,
+      contentType: 'research',
+    });
+  });
+}
+
+async function handlePreviewWebSource(url) {
+  const previewCard = document.getElementById('web-preview-card');
+  const errorBanner = document.getElementById('web-search-error');
+  if (errorBanner) errorBanner.style.display = 'none';
+
+  try {
+    showToast('Fetching and analyzing web document structure...', 'info');
+    const previewData = await api.previewWeb(url);
+    state.activeWebPreview = previewData;
+
+    if (previewCard) {
+      document.getElementById('preview-site-tag').textContent = previewData.metadata?.siteName || 'Web Source';
+      document.getElementById('preview-type-tag').textContent = previewData.metadata?.sourceType || 'document';
+      document.getElementById('preview-title').textContent = previewData.title || 'Untitled Document';
+      document.getElementById('preview-author').textContent = `By ${previewData.author || 'Unknown'}`;
+
+      const linkEl = document.getElementById('preview-link');
+      if (linkEl) {
+        linkEl.href = previewData.url;
+        linkEl.textContent = `🔗 ${previewData.url} ↗`;
+      }
+
+      document.getElementById('pmetric-sections').textContent = previewData.stats?.sectionCount || 1;
+      document.getElementById('pmetric-words').textContent = (previewData.stats?.wordCount || 0).toLocaleString();
+      document.getElementById('pmetric-blocks').textContent = previewData.stats?.canonicalBlocksCount || 0;
+
+      const secList = document.getElementById('preview-sections-list');
+      if (secList && previewData.chapterHeadings) {
+        secList.innerHTML = previewData.chapterHeadings
+          .map((h) => `<span class="section-pill">${escapeHtml(h)}</span>`)
+          .join('');
+      }
+
+      const snippetEl = document.getElementById('preview-snippet-text');
+      if (snippetEl) {
+        snippetEl.textContent =
+          previewData.firstParagraphSnippet || previewData.metadata?.description || 'No introductory snippet extracted.';
+      }
+
+      previewCard.style.display = 'block';
+      previewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  } catch (err) {
+    if (errorBanner) {
+      errorBanner.style.display = 'block';
+      errorBanner.textContent = `Failed to preview source: ${err.message}`;
+    }
+    showToast(`Preview failed: ${err.message}`, 'error');
+  }
+}
+
+function closeWebPreview() {
+  state.activeWebPreview = null;
+  const previewCard = document.getElementById('web-preview-card');
+  if (previewCard) previewCard.style.display = 'none';
+}
+
+function handleConfirmPreviewImport() {
+  if (!state.activeWebPreview || !state.activeWebPreview.url) return;
+  handleImportSingleWebSource(state.activeWebPreview.url);
+}
+
+async function handleImportSingleWebSource(url) {
+  closeWebPreview();
+  await runWebIngestionPipeline(async () => {
+    return await api.importWeb({ url });
+  });
+}
+
+function handleDirectUrlKey(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    handleImportDirectUrl();
+  }
+}
+
+function handlePreviewDirectUrl() {
+  const input = document.getElementById('web-direct-url-input');
+  const url = input ? input.value.trim() : '';
+  if (!url) {
+    showToast('Please enter a valid webpage URL', 'info');
+    return;
+  }
+  handlePreviewWebSource(url);
+}
+
+function handleImportDirectUrl() {
+  const input = document.getElementById('web-direct-url-input');
+  const url = input ? input.value.trim() : '';
+  if (!url) {
+    showToast('Please enter a valid webpage URL', 'info');
+    return;
+  }
+  handleImportSingleWebSource(url);
+}
+
+// Stateful Ingestion Pipeline Runner for Web Content
+async function runWebIngestionPipeline(importFn) {
+  const formEl = document.getElementById('form-add-book');
+  const progressEl = document.getElementById('ingestion-progress-panel');
+  const resultEl = document.getElementById('ingestion-result-panel');
+
+  if (formEl) formEl.style.display = 'none';
+  if (progressEl) progressEl.style.display = 'block';
+  if (resultEl) resultEl.style.display = 'none';
+
+  setIngestionStep('step-inspect', 'active', 'Connecting to web source & verifying protocol...');
+  setIngestionStep('step-extract', 'pending', 'Awaiting HTML extractor...');
+  setIngestionStep('step-structure', 'pending', 'Awaiting section parser...');
+  setIngestionStep('step-canonical', 'pending', 'Awaiting canonical block compilation...');
+
+  const t1 = setTimeout(() => {
+    setIngestionStep('step-inspect', 'completed', 'Web connection verified');
+    setIngestionStep('step-extract', 'active', 'Extracting article body, removing ads & navigation chrome...');
+  }, 400);
+
+  const t2 = setTimeout(() => {
+    setIngestionStep('step-extract', 'completed', 'Clean article body extracted');
+    setIngestionStep('step-structure', 'active', 'Detecting headings, sections, tables & quotes...');
+  }, 850);
+
+  const t3 = setTimeout(() => {
+    setIngestionStep('step-structure', 'completed', 'Document hierarchy structured into chapters');
+    setIngestionStep('step-canonical', 'active', 'Synthesizing canonical blocks & recording source provenance...');
+  }, 1300);
+
+  try {
+    const result = await importFn();
+
+    clearTimeout(t1);
+    clearTimeout(t2);
+    clearTimeout(t3);
+
+    setIngestionStep('step-inspect', 'completed', 'Web source verified');
+    setIngestionStep('step-extract', 'completed', 'Clean content extracted');
+    setIngestionStep('step-structure', 'completed', `${result.chapterCount || 1} chapter(s) structured`);
+    setIngestionStep('step-canonical', 'completed', 'Canonical blocks stored with full source provenance');
+
+    state.importedBookResult = result;
+
+    setTimeout(async () => {
+      if (progressEl) progressEl.style.display = 'none';
+      if (resultEl) {
+        resultEl.style.display = 'block';
+
+        const fmtBadge = document.getElementById('result-format-badge');
+        const titleEl = document.getElementById('result-book-title');
+        const authorEl = document.getElementById('result-book-author');
+        const statChapters = document.getElementById('stat-chapters-count');
+        const statPages = document.getElementById('stat-pages-count');
+        const statTables = document.getElementById('stat-tables-count');
+        const statWords = document.getElementById('stat-words-count');
+        const previewEl = document.getElementById('result-chapter-preview');
+
+        const book = result.book || {};
+        if (fmtBadge) fmtBadge.textContent = 'WEB';
+        if (titleEl) titleEl.textContent = book.title || 'Acquired Web Document';
+        if (authorEl) authorEl.textContent = `by ${book.author || 'Unknown'}`;
+        if (statChapters) statChapters.textContent = result.chapterCount || 1;
+        if (statPages) statPages.textContent = result.pageCount || book.page_count || 1;
+        if (statTables) statTables.textContent = result.tablesCount || 0;
+        if (statWords) statWords.textContent = (result.totalWordCount || 0).toLocaleString();
+
+        if (previewEl && result.chapters && result.chapters.length > 0) {
+          previewEl.innerHTML = result.chapters
+            .slice(0, 5)
+            .map((c) => `<li>Chapter ${c.number}: ${escapeHtml(c.title || 'Untitled')} (${c.wordCount || 0} words)</li>`)
+            .join('');
+        }
+      }
+
+      await loadBooks();
+      showToast(`Successfully acquired "${result.book?.title || 'Web Document'}" to library!`, 'success');
+    }, 400);
+  } catch (err) {
+    clearTimeout(t1);
+    clearTimeout(t2);
+    clearTimeout(t3);
+
+    if (progressEl) progressEl.style.display = 'none';
+    if (formEl) formEl.style.display = 'block';
+
+    const errorBanner = document.getElementById('web-search-error');
+    if (errorBanner) {
+      errorBanner.style.display = 'block';
+      errorBanner.textContent = `Web acquisition error: ${err.message}`;
+    }
+    showToast(`Acquisition failed: ${err.message}`, 'error');
+  }
+}
+
+// ==========================================================================
+// SUPPORTING MATERIAL CONTROLLER (Build 3A)
+// ==========================================================================
+
+function openSupportingMaterialModal(bookId) {
+  const modal = document.getElementById('supportingMaterialModal');
+  const book = state.activeBook;
+  const bookTitleEl = document.getElementById('supporting-modal-book-title');
+  const input = document.getElementById('supporting-search-input');
+
+  if (bookTitleEl) {
+    bookTitleEl.textContent = book ? `"${book.title}"` : 'Active Book';
+  }
+
+  if (input && book) {
+    input.value = book.title;
+  }
+
+  if (modal) modal.classList.remove('hidden');
+  if (book) handleRunSupportingSearch();
+}
+
+function closeSupportingMaterialModal() {
+  const modal = document.getElementById('supportingMaterialModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleSupportingSearchKey(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    handleRunSupportingSearch();
+  }
+}
+
+async function handleRunSupportingSearch() {
+  const input = document.getElementById('supporting-search-input');
+  const query = input ? input.value.trim() : '';
+  const loading = document.getElementById('supporting-search-loading');
+  const errorBanner = document.getElementById('supporting-search-error');
+  const resultsContainer = document.getElementById('supporting-search-results');
+
+  if (!query) return;
+
+  if (loading) loading.style.display = 'flex';
+  if (errorBanner) {
+    errorBanner.style.display = 'none';
+    errorBanner.textContent = '';
+  }
+
+  try {
+    const data = await api.searchWeb(query, 'all', 6);
+    renderSupportingSearchResults(data.results || []);
+  } catch (err) {
+    if (errorBanner) {
+      errorBanner.style.display = 'block';
+      errorBanner.textContent = `Search error: ${err.message}`;
+    }
+  } finally {
+    if (loading) loading.style.display = 'none';
+  }
+}
+
+function renderSupportingSearchResults(results) {
+  const container = document.getElementById('supporting-search-results');
+  if (!container) return;
+
+  if (!results || results.length === 0) {
+    container.innerHTML = `
+      <div class="web-search-welcome-state" style="padding:20px;">
+        <p>No supporting resources found for this search. Try different keywords or paste a direct URL above.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = results
+    .map(
+      (res) => `
+    <div class="web-result-item">
+      <div class="web-result-body">
+        <div class="web-result-header-row">
+          <span class="badge-site wiki">${escapeHtml(res.sourceSite || 'Web')}</span>
+          ${res.author ? `<span style="font-size:0.76rem; color:var(--text-light);">${escapeHtml(res.author)}</span>` : ''}
+        </div>
+        <h4 class="web-result-title">${escapeHtml(res.title)}</h4>
+        <p class="web-result-snippet">${escapeHtml(res.snippet || 'Structured supporting reference.')}</p>
+        <div class="web-result-actions">
+          <a href="${escapeHtml(res.url)}" target="_blank" rel="noopener noreferrer" class="web-result-ext-link">
+            🔗 ${escapeHtml(res.url)} ↗
+          </a>
+          <button type="button" class="btn btn-primary btn-xs" onclick="handleAttachSupportingSource('${escapeHtml(res.url)}', '${escapeHtml(res.title.replace(/'/g, "\\'"))}', '${escapeHtml((res.snippet || '').replace(/'/g, "\\'"))}')">
+            + Attach to Book
+          </button>
+        </div>
+      </div>
+    </div>
+  `
+    )
+    .join('');
+}
+
+async function handleAttachSupportingSource(url, title, snippet) {
+  if (!state.activeBook) return;
+  try {
+    showToast('Attaching supporting material...', 'info');
+    await api.attachSupportingMaterial(state.activeBook.id, {
+      url,
+      title,
+      snippet,
+      sourceSite: 'Web Source',
+    });
+
+    showToast('Supporting material attached to book! Original content remains untouched.', 'success');
+    closeSupportingMaterialModal();
+
+    state.supportingMaterials = await api.getSupportingMaterials(state.activeBook.id);
+    renderSupportingMaterialsList();
+  } catch (err) {
+    showToast(`Failed to attach supporting material: ${err.message}`, 'error');
+  }
+}
+
+function handleSupportingDirectUrlKey(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    handleAttachDirectSupportingUrl();
+  }
+}
+
+async function handleAttachDirectSupportingUrl() {
+  const input = document.getElementById('supporting-direct-url');
+  const url = input ? input.value.trim() : '';
+  if (!url) {
+    showToast('Please enter a valid webpage URL', 'info');
+    return;
+  }
+  await handleAttachSupportingSource(url, 'Web Supporting Reference', `Extracted reference from ${url}`);
+}
+
+function handleViewSupportingMaterial(materialId) {
+  const mat = (state.supportingMaterials || []).find((m) => m.id === materialId);
+  if (!mat) return;
+
+  const modal = document.getElementById('viewSupportingMaterialModal');
+  document.getElementById('view-sup-title').textContent = mat.title || 'Supporting Material';
+  document.getElementById('view-sup-site').textContent = mat.source_site || 'Web Source';
+  document.getElementById('view-sup-author').textContent = mat.author ? `By ${mat.author}` : '';
+
+  const linkEl = document.getElementById('view-sup-url');
+  if (linkEl) {
+    linkEl.href = mat.source_url || '#';
+    linkEl.textContent = `🔗 ${mat.source_url || 'Original Web Source'} ↗`;
+  }
+
+  const contentEl = document.getElementById('view-sup-content');
+  if (contentEl) {
+    let html = '';
+    if (mat.canonical_content) {
+      try {
+        const blocks =
+          typeof mat.canonical_content === 'string' ? JSON.parse(mat.canonical_content) : mat.canonical_content;
+        if (Array.isArray(blocks) && blocks.length > 0) {
+          html = renderCanonicalBlocks(blocks);
+        }
+      } catch (e) {}
+    }
+    if (!html && mat.content) {
+      html = `<p>${escapeHtml(mat.content).replace(/\n\n+/g, '</p><p>')}</p>`;
+    }
+    if (!html) {
+      html = `<p class="text-muted">${escapeHtml(mat.snippet || 'No full text available for this reference.')}</p>`;
+    }
+    contentEl.innerHTML = html;
+  }
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeViewSupportingModal() {
+  const modal = document.getElementById('viewSupportingMaterialModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function handleDeleteSupportingMaterial(materialId) {
+  if (!confirm('Remove this supporting research reference? (The book original chapters are unaffected)')) return;
+  try {
+    await api.deleteSupportingMaterial(materialId);
+    showToast('Supporting material removed.', 'info');
+    if (state.activeBook) {
+      state.supportingMaterials = await api.getSupportingMaterials(state.activeBook.id);
+      renderSupportingMaterialsList();
+    }
+  } catch (err) {
+    showToast(`Failed to delete supporting material: ${err.message}`, 'error');
+  }
+}
+
+// Synopsis Synthesis
+async function handleGenerateSynopsis(bookId) {
+  const btn = document.getElementById('btn-hero-synopsis');
+  const descEl = document.getElementById('hero-book-description');
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<div class="spinner-xs"></div> <span>Synthesizing...</span>`;
+  }
+
+  try {
+    showToast('Synthesizing editorial synopsis from book content...', 'info');
+    const data = await api.generateSynopsis(bookId);
+    if (descEl) descEl.textContent = data.synopsis;
+    if (state.activeBook) state.activeBook.description = data.synopsis;
+    showToast('Editorial synopsis synthesized successfully!', 'success');
+  } catch (err) {
+    showToast(`Synopsis generation failed: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg class="ui-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3 1.3L21 12l-5.8-1.9a2 2 0 0 1 1.3 1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+        </svg>
+        <span>✦ Synthesize Editorial Synopsis</span>
+      `;
+    }
+  }
+}
+
+// ==========================================================================
+// SEMANTIC INTELLIGENCE & READING ASSISTANT (BUILD 3B)
+// ==========================================================================
+async function renderSemanticIntelligence(bookId) {
+  const synopsisCard = document.getElementById('synopsis-card-content');
+  const summaryCard = document.getElementById('book-summary-card-content');
+  const copySynBtn = document.getElementById('btn-copy-synopsis');
+  const copySumBtn = document.getElementById('btn-copy-book-summary');
+  const statusPill = document.getElementById('semantic-index-status-text');
+  const statsBadge = document.getElementById('semantic-chunk-stats');
+
+  // Load semantic status
+  try {
+    const statusData = await api.getSemanticStatus(bookId);
+    if (statusData && statsBadge) {
+      statsBadge.textContent = `${statusData.totalChunks || 0} chunks indexed (${statusData.dimensions || 256}d)`;
+      if (statusPill) {
+        statusPill.textContent = statusData.totalChunks > 0 ? 'Vector Memory Ready' : 'Semantic Index Active';
+      }
+    }
+  } catch (e) {
+    if (statsBadge) statsBadge.textContent = 'Vector Memory Active';
+  }
+
+  // Load existing synopsis representation
+  try {
+    const synopsisRep = await api.getSynopsis(bookId);
+    if (synopsisRep && synopsisRep.content) {
+      if (synopsisCard) {
+        synopsisCard.innerHTML = renderCanonicalBlocks(synopsisRep);
+      }
+      if (copySynBtn) copySynBtn.style.display = 'inline-block';
+      state.activeSynopsis = synopsisRep.content;
+    } else {
+      if (synopsisCard) {
+        synopsisCard.innerHTML = `<p class="text-muted italic">No editorial synopsis generated yet. Click "Synthesize Synopsis" to produce a grounded editorial overview.</p>`;
+      }
+      if (copySynBtn) copySynBtn.style.display = 'none';
+      state.activeSynopsis = null;
+    }
+  } catch (e) {
+    console.warn('Failed to load synopsis:', e);
+  }
+
+  // Load existing book summary representation
+  try {
+    const summaryRep = await api.getBookSummary(bookId);
+    if (summaryRep && summaryRep.content) {
+      if (summaryCard) {
+        summaryCard.innerHTML = renderCanonicalBlocks(summaryRep);
+      }
+      if (copySumBtn) copySumBtn.style.display = 'inline-block';
+      state.activeBookSummary = summaryRep.content;
+    } else {
+      if (summaryCard) {
+        summaryCard.innerHTML = `<p class="text-muted italic">No comprehensive book summary generated yet. Click "Synthesize Book Summary" to aggregate chapter knowledge into an executive summary.</p>`;
+      }
+      if (copySumBtn) copySumBtn.style.display = 'none';
+      state.activeBookSummary = null;
+    }
+  } catch (e) {
+    console.warn('Failed to load book summary:', e);
+  }
+}
+
+async function handleGenerateSynopsisClick() {
+  if (!state.activeBook) return;
+  const btn = document.getElementById('btn-generate-synopsis-card');
+  const contentEl = document.getElementById('synopsis-card-content');
+  const copyBtn = document.getElementById('btn-copy-synopsis');
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<div class="spinner-xs"></div> <span>Synthesizing...</span>`;
+  }
+
+  try {
+    showToast('Synthesizing editorial synopsis...', 'info');
+    const data = await api.generateSynopsis(state.activeBook.id);
+    const synopsis = data.synopsis || (data.representation && data.representation.content);
+    if (contentEl && synopsis) {
+      contentEl.innerHTML = renderCanonicalBlocks(data.representation || { content: synopsis, canonical_blocks: data.canonicalBlocks });
+    }
+    state.activeSynopsis = synopsis;
+    if (copyBtn) copyBtn.style.display = 'inline-block';
+
+    const descEl = document.getElementById('hero-book-description');
+    if (descEl && synopsis) {
+      const cleanSnippet = synopsis
+        .replace(/^#+\s*.+$/gm, '')
+        .replace(/^>.*$/gm, '')
+        .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+      descEl.textContent = cleanSnippet.split(/\n\n+/)[0] || cleanSnippet;
+    }
+
+    showToast('Editorial synopsis synthesized successfully!', 'success');
+  } catch (err) {
+    showToast(`Synopsis synthesis failed: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<span>✦ Synthesize Synopsis</span>`;
+    }
+  }
+}
+
+async function handleGenerateBookSummaryClick() {
+  if (!state.activeBook) return;
+  const btn = document.getElementById('btn-generate-book-summary');
+  const contentEl = document.getElementById('book-summary-card-content');
+  const copyBtn = document.getElementById('btn-copy-book-summary');
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<div class="spinner-xs"></div> <span>Synthesizing...</span>`;
+  }
+
+  try {
+    showToast('Synthesizing comprehensive multi-chapter summary...', 'info');
+    const data = await api.generateBookSummary(state.activeBook.id);
+    const summary = data.summary || (data.representation && data.representation.content);
+    if (contentEl && summary) {
+      contentEl.innerHTML = renderCanonicalBlocks(data.representation || { content: summary, canonical_blocks: data.canonicalBlocks });
+    }
+    state.activeBookSummary = summary;
+    if (copyBtn) copyBtn.style.display = 'inline-block';
+
+    showToast('Comprehensive book summary synthesized and stored!', 'success');
+  } catch (err) {
+    showToast(`Summary synthesis failed: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<span>✦ Synthesize Book Summary</span>`;
+    }
+  }
+}
+
+function copySynopsisText() {
+  if (!state.activeSynopsis) return;
+  navigator.clipboard.writeText(state.activeSynopsis).then(() => {
+    showToast('Editorial synopsis copied to clipboard!');
+  });
+}
+
+function copyBookSummaryText() {
+  if (!state.activeBookSummary) return;
+  navigator.clipboard.writeText(state.activeBookSummary).then(() => {
+    showToast('Book summary copied to clipboard!');
+  });
+}
+
+function setQuickQuery(text) {
+  const input = document.getElementById('semantic-question-input');
+  if (input) {
+    input.value = text;
+    input.focus();
+  }
+}
+
+function handleSemanticQuestionKey(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    handleAskBookQuestion();
+  }
+}
+
+async function handleAskBookQuestion() {
+  if (!state.activeBook) return;
+  const input = document.getElementById('semantic-question-input');
+  const query = input ? input.value.trim() : '';
+  if (!query) {
+    showToast('Please type a question to ask this book.', 'info');
+    return;
+  }
+
+  const btn = document.getElementById('btn-submit-semantic-question');
+  const container = document.getElementById('semantic-answer-container');
+  const textEl = document.getElementById('semantic-answer-text');
+  const statsEl = document.getElementById('semantic-answer-stats');
+  const sourcesEl = document.getElementById('semantic-sources-list');
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<div class="spinner-xs"></div> <span>Thinking...</span>`;
+  }
+
+  try {
+    if (container) container.style.display = 'block';
+    if (textEl) textEl.innerHTML = '<span class="text-muted italic">Consulting grounded semantic chunks...</span>';
+
+    const result = await api.askBook(state.activeBook.id, query);
+    const answer = result.answer || result.result || 'No response generated.';
+    if (textEl) textEl.textContent = answer;
+
+    if (statsEl && result.metadata) {
+      statsEl.textContent = `Provider: ${result.metadata.provider || 'AI'} • Duration: ${result.metadata.durationMs || 0}ms`;
+    }
+
+    if (sourcesEl) {
+      const sources = result.sources || [];
+      if (sources.length === 0) {
+        sourcesEl.innerHTML = '<p class="text-muted text-xs">Grounded in canonical book representation.</p>';
+      } else {
+        sourcesEl.innerHTML = sources
+          .map(
+            (s, idx) => `
+          <div class="semantic-source-item">
+            <div class="source-item-meta">
+              <span>Excerpt #${idx + 1} ${s.heading ? `• ${escapeHtml(s.heading)}` : ''}</span>
+              <span class="source-item-score">Relevance: ${Math.round((s.similarity || s.score || 0.85) * 100)}%</span>
+            </div>
+            <div class="source-item-text">"${escapeHtml(s.content || s.text || '')}"</div>
+          </div>
+        `
+          )
+          .join('');
+      }
+    }
+  } catch (err) {
+    if (textEl) textEl.textContent = `Query error: ${err.message}`;
+    showToast(`Assistant error: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<span>Ask Assistant</span>`;
+    }
+  }
+}
+
+// Coming Soon Modal Handlers
+function showComingSoonModal(featureName) {
+  const modal = document.getElementById('comingSoonModal');
+  const title = document.getElementById('coming-soon-title');
+  const icon = document.getElementById('coming-soon-icon');
+  const desc = document.getElementById('coming-soon-description');
+  const feat1 = document.getElementById('coming-soon-feat-1');
+  const feat2 = document.getElementById('coming-soon-feat-2');
+  const feat3 = document.getElementById('coming-soon-feat-3');
+
+  if (title) title.textContent = `${featureName} Experience`;
+
+  if (featureName === 'Visual Story') {
+    if (icon) icon.textContent = '🎨';
+    if (desc)
+      desc.textContent =
+        'Visual Story mode transforms structured canonical chapters into cinematic, scene-by-scene illustrated narrative flows powered by semantic chunking and visual context generation.';
+    if (feat1) feat1.textContent = 'Semantic narrative segmentation into visual beats';
+    if (feat2) feat2.textContent = 'Contextual character and scenery illustration prompts';
+    if (feat3) feat3.textContent = 'Side-by-side synchronized narrative text and visual art';
+  } else {
+    if (icon) icon.textContent = '🎬';
+    if (desc)
+      desc.textContent =
+        'Interactive Video mode provides synchronized multimedia walkthroughs, highlighting key narrative inflection points with dynamic visual and auditory pace guidance.';
+    if (feat1) feat1.textContent = 'Timeline synchronization with canonical chapter paragraphs';
+    if (feat2) feat2.textContent = 'Dynamic audio-visual pacing and auto-scrolling narrator mode';
+    if (feat3) feat3.textContent = 'Key concept callouts and interactive checkpoint bookmarks';
+  }
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeComingSoonModal() {
+  const modal = document.getElementById('comingSoonModal');
+  if (modal) modal.classList.add('hidden');
 }
 
 // ==========================================================================

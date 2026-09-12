@@ -11,7 +11,12 @@ class AIService {
     this.registerProvider(new OllamaProvider());
     this.registerProvider(new GeminiProvider());
 
-    this.activeProviderName = config.AI_PROVIDER || 'gemini';
+    const rawConfig = String(config.AI_PROVIDER || '').toLowerCase();
+    if (rawConfig.includes('ollama') || rawConfig === 'local') {
+      this.activeProviderName = 'ollama';
+    } else {
+      this.activeProviderName = 'gemini';
+    }
   }
 
   registerProvider(provider) {
@@ -19,9 +24,10 @@ class AIService {
   }
 
   getActiveProvider() {
-    const provider = this.providers.get(this.activeProviderName);
+    let provider = this.providers.get(this.activeProviderName);
     if (!provider) {
-      throw new Error(`AI Provider '${this.activeProviderName}' not registered.`);
+      this.activeProviderName = 'gemini';
+      provider = this.providers.get('gemini') || this.providers.get('ollama');
     }
     return provider;
   }
@@ -46,9 +52,10 @@ class AIService {
   resolveModeToProvider(modeOrProvider) {
     if (!modeOrProvider) return this.activeProviderName;
     const lower = String(modeOrProvider).toLowerCase().trim();
-    if (lower === 'local' || lower === 'local ai') return 'ollama';
-    if (lower === 'cloud' || lower === 'cloud ai') return 'gemini';
-    return lower;
+    if (lower === 'local' || lower === 'local ai' || lower.includes('ollama')) return 'ollama';
+    if (lower === 'cloud' || lower === 'cloud ai' || lower.includes('gemini')) return 'gemini';
+    if (this.providers.has(lower)) return lower;
+    return this.activeProviderName;
   }
 
   async getStatus() {

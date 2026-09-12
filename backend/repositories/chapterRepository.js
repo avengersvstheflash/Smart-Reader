@@ -32,8 +32,14 @@ class ChapterRepository {
 
   create(chapter) {
     const db = getDatabase();
-    const canonicalContentJson = chapter.canonical_content || 
-      (chapter.canonicalBlocks ? JSON.stringify(chapter.canonicalBlocks) : null);
+    let canonicalContentJson = null;
+    if (typeof chapter.canonical_content === 'string') {
+      canonicalContentJson = chapter.canonical_content;
+    } else if (chapter.canonical_content && typeof chapter.canonical_content === 'object') {
+      canonicalContentJson = JSON.stringify(chapter.canonical_content);
+    } else if (chapter.canonicalBlocks) {
+      canonicalContentJson = JSON.stringify(chapter.canonicalBlocks);
+    }
 
     const stmt = db.prepare(`
       INSERT INTO chapters (id, book_id, number, title, content, canonical_content, word_count, status, created_at, updated_at)
@@ -63,8 +69,14 @@ class ChapterRepository {
 
     const insertMany = db.transaction((items) => {
       for (const item of items) {
-        const canonicalContentJson = item.canonical_content || 
-          (item.canonicalBlocks ? JSON.stringify(item.canonicalBlocks) : null);
+        let canonicalContentJson = null;
+        if (typeof item.canonical_content === 'string') {
+          canonicalContentJson = item.canonical_content;
+        } else if (item.canonical_content && typeof item.canonical_content === 'object') {
+          canonicalContentJson = JSON.stringify(item.canonical_content);
+        } else if (item.canonicalBlocks) {
+          canonicalContentJson = JSON.stringify(item.canonicalBlocks);
+        }
 
         insert.run({
           id: item.id,
