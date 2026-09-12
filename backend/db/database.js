@@ -79,7 +79,70 @@ function initSchema(db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_jobs_status ON processing_jobs(status);
+    CREATE TABLE IF NOT EXISTS book_supporting_materials (
+      id TEXT PRIMARY KEY,
+      book_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      url TEXT,
+      source_site TEXT,
+      author TEXT,
+      content_type TEXT DEFAULT 'web',
+      snippet TEXT,
+      content TEXT,
+      canonical_content TEXT,
+      metadata_json TEXT DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_supporting_book_id ON book_supporting_materials(book_id);
+
+    CREATE TABLE IF NOT EXISTS semantic_chunks (
+      id TEXT PRIMARY KEY,
+      book_id TEXT NOT NULL,
+      chapter_id TEXT,
+      sequence INTEGER DEFAULT 0,
+      section_heading TEXT,
+      content_type TEXT DEFAULT 'paragraph',
+      text_content TEXT NOT NULL,
+      canonical_json TEXT,
+      source_reference TEXT,
+      token_count INTEGER DEFAULT 0,
+      content_hash TEXT,
+      embedding_json TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+      FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_semantic_book_id ON semantic_chunks(book_id);
+    CREATE INDEX IF NOT EXISTS idx_semantic_chapter_id ON semantic_chunks(chapter_id);
+    CREATE INDEX IF NOT EXISTS idx_semantic_hash ON semantic_chunks(content_hash);
+
+    CREATE TABLE IF NOT EXISTS book_representations (
+      id TEXT PRIMARY KEY,
+      book_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      content TEXT NOT NULL,
+      canonical_content TEXT,
+      metadata_json TEXT DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_book_representations ON book_representations(book_id, type);
   `);
+
+  // Ensure canonical_content and updated_at exist in book_representations
+  const repCols = db.prepare(`PRAGMA table_info(book_representations)`).all();
+  if (!repCols.some(c => c.name === 'canonical_content')) {
+    db.exec(`ALTER TABLE book_representations ADD COLUMN canonical_content TEXT;`);
+  }
+  if (!repCols.some(c => c.name === 'updated_at')) {
+    db.exec(`ALTER TABLE book_representations ADD COLUMN updated_at TEXT;`);
+  }
 
   // Ensure canonical_content column exists for structured block rendering
   const chapterCols = db.prepare(`PRAGMA table_info(chapters)`).all();
@@ -101,6 +164,21 @@ function initSchema(db) {
   if (!bookCols.some(c => c.name === 'metadata_json')) {
     db.exec(`ALTER TABLE books ADD COLUMN metadata_json TEXT DEFAULT '{}';`);
   }
+  if (!bookCols.some(c => c.name === 'source_url')) {
+    db.exec(`ALTER TABLE books ADD COLUMN source_url TEXT DEFAULT '';`);
+  }
+  if (!bookCols.some(c => c.name === 'source_site')) {
+    db.exec(`ALTER TABLE books ADD COLUMN source_site TEXT DEFAULT '';`);
+  }
+  if (!bookCols.some(c => c.name === 'semantic_status')) {
+    db.exec(`ALTER TABLE books ADD COLUMN semantic_status TEXT DEFAULT 'unindexed';`);
+  }
+  if (!bookCols.some(c => c.name === 'semantic_chunk_count')) {
+    db.exec(`ALTER TABLE books ADD COLUMN semantic_chunk_count INTEGER DEFAULT 0;`);
+  }
+  if (!bookCols.some(c => c.name === 'semantic_indexed_at')) {
+    db.exec(`ALTER TABLE books ADD COLUMN semantic_indexed_at TEXT;`);
+  }
 
   seedDefaultBookIfEmpty(db);
 }
@@ -110,6 +188,9 @@ function resetAndSeedDatabase(db) {
   
   db.transaction(() => {
     db.exec(`
+      DELETE FROM semantic_chunks;
+      DELETE FROM book_representations;
+      DELETE FROM book_supporting_materials;
       DELETE FROM processing_jobs;
       DELETE FROM chapter_representations;
       DELETE FROM chapters;
@@ -304,6 +385,15 @@ When documents are ingested across disparate formats—Markdown, plain text, or 
     now,
     now
   );
+
+  // Auto-index sample books into Semantic Memory
+  try {
+    const semanticLifecycle = require('../services/semantic/semanticLifecycle');
+    semanticLifecycle.indexBook(book1Id, { skipJob: true }).catch((e) => console.warn('Sample book 1 index error:', e.message));
+    semanticLifecycle.indexBook(book2Id, { skipJob: true }).catch((e) => console.warn('Sample book 2 index error:', e.message));
+  } catch (err) {
+    console.warn('Could not trigger semantic indexing for sample books:', err.message);
+  }
 }
 
 module.exports = {

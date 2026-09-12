@@ -114,7 +114,7 @@ class BookService {
       wordCount = data.content.trim().split(/\s+/).length;
     }
 
-    return chapterRepository.create({
+    const createdChapter = chapterRepository.create({
       id: chapterId,
       book_id: bookId,
       number: data.number || nextNumber,
@@ -124,6 +124,13 @@ class BookService {
       word_count: wordCount || data.content.trim().split(/\s+/).length,
       status: data.status || 'unread',
     });
+
+    try {
+      const semanticLifecycle = require('./semantic/semanticLifecycle');
+      semanticLifecycle.indexChapter(chapterId).catch((e) => console.warn('Chapter indexing warning:', e.message));
+    } catch (e) {}
+
+    return createdChapter;
   }
 
   updateChapter(id, updates) {
@@ -152,11 +159,24 @@ class BookService {
     const ingestionResult = await ingestionService.ingest({
       title: provisionalTitle,
       author: author || '',
+      description: description || '',
       rawText: text || '',
       fileBuffer,
       originalFilename,
       contentType,
     });
+
+    if (ingestionResult.webAcquired && ingestionResult.book) {
+      return {
+        format: 'web',
+        book: ingestionResult.book,
+        chapterCount: (ingestionResult.chapters && ingestionResult.chapters.length) || 1,
+        totalWordCount: ingestionResult.totalWordCount || 0,
+        tablesCount: ingestionResult.tablesCount || 0,
+        pageCount: ingestionResult.pageCount || 1,
+        message: `Successfully acquired web content into library.`,
+      };
+    }
 
     const finalTitle = title || ingestionResult.title || provisionalTitle;
     const finalAuthor = author || ingestionResult.author || 'Unknown Author';
@@ -205,6 +225,12 @@ class BookService {
 
       // 6. Complete Job
       jobRepository.complete(job.id);
+
+      // 7. Auto-index imported book into Semantic Memory
+      try {
+        const semanticLifecycle = require('./semantic/semanticLifecycle');
+        semanticLifecycle.indexBook(book.id, { skipJob: true }).catch((e) => console.warn('Book indexing warning:', e.message));
+      } catch (e) {}
 
       return {
         book,

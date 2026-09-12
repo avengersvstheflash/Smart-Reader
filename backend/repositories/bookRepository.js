@@ -28,8 +28,8 @@ class BookRepository {
   create(book) {
     const db = getDatabase();
     const stmt = db.prepare(`
-      INSERT INTO books (id, title, author, description, cover_path, content_type, status, source_format, original_filename, page_count, metadata_json, created_at, updated_at)
-      VALUES (@id, @title, @author, @description, @cover_path, @content_type, @status, @source_format, @original_filename, @page_count, @metadata_json, @created_at, @updated_at)
+      INSERT INTO books (id, title, author, description, cover_path, content_type, status, source_format, original_filename, page_count, metadata_json, source_url, source_site, created_at, updated_at)
+      VALUES (@id, @title, @author, @description, @cover_path, @content_type, @status, @source_format, @original_filename, @page_count, @metadata_json, @source_url, @source_site, @created_at, @updated_at)
     `);
     stmt.run({
       id: book.id,
@@ -43,6 +43,8 @@ class BookRepository {
       original_filename: book.original_filename || '',
       page_count: book.page_count || 1,
       metadata_json: typeof book.metadata_json === 'object' ? JSON.stringify(book.metadata_json) : (book.metadata_json || '{}'),
+      source_url: book.source_url || '',
+      source_site: book.source_site || '',
       created_at: book.created_at || new Date().toISOString(),
       updated_at: book.updated_at || new Date().toISOString(),
     });
@@ -58,6 +60,8 @@ class BookRepository {
       ...current,
       ...updates,
       metadata_json: typeof updates.metadata_json === 'object' ? JSON.stringify(updates.metadata_json) : (updates.metadata_json || current.metadata_json || '{}'),
+      source_url: updates.source_url !== undefined ? updates.source_url : current.source_url,
+      source_site: updates.source_site !== undefined ? updates.source_site : current.source_site,
       updated_at: new Date().toISOString(),
     };
 
@@ -67,7 +71,8 @@ class BookRepository {
           cover_path = @cover_path, content_type = @content_type,
           status = @status, source_format = @source_format,
           original_filename = @original_filename, page_count = @page_count,
-          metadata_json = @metadata_json, updated_at = @updated_at
+          metadata_json = @metadata_json, source_url = @source_url,
+          source_site = @source_site, updated_at = @updated_at
       WHERE id = @id
     `).run(updated);
 
@@ -77,19 +82,28 @@ class BookRepository {
   delete(id) {
     const db = getDatabase();
     const deleteTransaction = db.transaction((bookId) => {
-      // 1. Delete associated chapter representations
+      // 1. Delete associated semantic memory chunks
+      db.prepare('DELETE FROM semantic_chunks WHERE book_id = ?').run(bookId);
+
+      // 2. Delete associated book-level representations
+      db.prepare('DELETE FROM book_representations WHERE book_id = ?').run(bookId);
+
+      // 3. Delete associated supporting materials
+      db.prepare('DELETE FROM book_supporting_materials WHERE book_id = ?').run(bookId);
+
+      // 4. Delete associated chapter representations
       db.prepare(`
         DELETE FROM chapter_representations 
         WHERE book_id = ? OR chapter_id IN (SELECT id FROM chapters WHERE book_id = ?)
       `).run(bookId, bookId);
 
-      // 2. Delete associated processing jobs
+      // 5. Delete associated processing jobs
       db.prepare('DELETE FROM processing_jobs WHERE book_id = ?').run(bookId);
 
-      // 3. Delete associated chapters
+      // 6. Delete associated chapters
       db.prepare('DELETE FROM chapters WHERE book_id = ?').run(bookId);
 
-      // 4. Delete the book record
+      // 7. Delete the book record
       const result = db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
       return result.changes > 0;
     });
