@@ -1,31 +1,56 @@
 # Smart Reader 📖
 
-Smart Reader is an intelligent personal digital library for novels, manga, textbooks, research papers, documents, and notes.
+Smart Reader is an intelligent personal digital library and research workstation for novels, textbooks, academic papers, documentation, web articles, and multi-source research dossiers.
 
-Rather than an ephemeral AI summarizer, Smart Reader functions as a structured digital archive that preserves original source material while layering intelligent representations (chapter synopses, key thematic breakdowns, reading progress, and canonical block structuring).
+Rather than an ephemeral AI summarizer, Smart Reader functions as an authentic digital archive that preserves the inviolability of original source texts while layering intelligent representations: structural chapter breakdowns, canonical block rendering, editorial synopses, grounded summaries, contextual question answering, and vector-grounded semantic memory.
 
 ---
 
-## 🏛️ Architecture & Principles
+## 🏛️ System Architecture & Core Principles
 
 ### 1. Inviolability of Original Content
-AI models never overwrite, mutate, or substitute the user's uploaded text. All AI outputs are saved in a dedicated `representations` schema linked to chapters, preserving the user's authentic content in its original form.
+Original texts, uploaded files, and acquired web sources are stored immutably. AI models never overwrite or mutate source documents. All AI-generated outputs are saved in dedicated representation and semantic chunk schemas linked to chapters or books.
 
-### 2. Canonical Document Pipeline (Build 1.5)
-During ingestion, raw texts, Markdown notes, or uploaded manuscripts flow through a modular ingestion pipeline (`backend/services/ingestion/`):
-- **Content Normalizer:** Cleans invisible control characters, normalizes Unicode typography (smart quotes, dashes, non-breaking spaces), and standardizes line breaks.
-- **Chapter Detector:** Segments text using regex heuristics for roman numerals, titled chapters, Markdown `#` / `##` headings, and volume divisions.
-- **Structured Block Parsers:** Parses raw text into `CanonicalDocument` blocks (`heading`, `paragraph`, `quote`, `list`, `separator`, `code`).
-- **Storage:** Persisted as JSON in SQLite and rendered natively with typographic hierarchy in the reading canvas.
+### 2. Canonical Document Pipeline (Build 1.5 – 3B.1.5)
+Raw inputs (PDF, EPUB, TXT, Markdown, Web URLs) pass through an ingestion and normalization pipeline (`backend/services/ingestion/`):
+- **Format Analyzers:** Magic byte signature inspection and structural parsers for PDF (`pdf-parse`), EPUB (`adm-zip`), Markdown, Plaintext, and Web (`cheerio`).
+- **Document Structure Intelligence:** 
+  - **TOC & Chapter Anchoring:** Distinguishes genuine chapters from hierarchical subheadings (`1.1`, `1.2`, `Section 2.1`), keeping subheadings organized as sections within their parent chapter.
+  - **Running Header & Footer Suppression:** Filters page numbers, running headers, and peripheral publisher boilerplate across PDF and web pages.
+  - **Page Provenance:** Preserves `sourcePage` provenance across all canonical blocks.
+  - **Integrity Guardrails:** Automatically detects image-only/scanned PDFs without OCR or empty web pages, assigning `integrity_status: 'empty_content'` with clear editorial warning notices.
+- **Canonical Block Representation:** Standardizes heterogeneous text into structured JSON blocks (`heading`, `paragraph`, `quote`, `list`, `table`, `separator`, `code`).
 
-### 3. Decoupled AI Provider Abstraction
-The AI intelligence engine (`backend/services/ai/`) abstracts model providers behind a common interface:
-- **Default Local AI (Ollama):** Local, private, zero-cost execution with `llama3`.
-- **Gemini Ready:** Provider contracts support cloud-based Gemini reasoning.
-- **Offline Guarantee:** The application is 100% functional without AI running. Library organization, chapter navigation, reading settings, search, and progress tracking never require an active AI daemon.
+### 3. Web Discovery & Research Acquisition (Build 3A)
+- **Ethical Web Acquisition:** Extracts clean article content, author credits, and metadata while stripping ads, navigational chrome, and tracking scripts.
+- **Provenance Tracking:** Records source URL, domain site name, retrieval timestamps, and content hashes.
+- **Supporting Materials:** Allows users to attach supplementary reference articles, documentation, or background research to any book without modifying the original work.
+- **Multi-Source Research Dossiers:** Ingests and synthesizes multiple web sources into a single structured research dossier with clear source attribution.
 
-### 4. Zero-Config Local Persistence
-Built on `better-sqlite3` with automated schema migrations, foreign keys, and indexes stored in `storage/smart_reader.db`.
+### 4. Semantic Memory & Context-Grounded AI (Build 3B & 3B.1.5)
+- **Structural Preprocessing & Semantic Chunking:** Segments documents into coherent semantic units with heading context, hierarchical pathing, and content hashing.
+- **Dual Embedding Engine:**
+  - **Local Deterministic Embeddings:** Fast, private, offline TF-IDF/BM25 hashed vector representation for zero-dependency operation.
+  - **Cloud Embeddings:** High-dimensional vector embeddings with Google Gemini (`text-embedding-004`), with automatic fallback to local embeddings on quota exhaustion.
+- **Retrieval & Context Building:** Cosine-similarity vector search with diversity reranking and content-type adapted grounding prompts.
+- **Non-Blocking Semantic Lifecycle:** Automatic background indexing upon document ingestion ensures uploads and library browsing remain responsive and non-blocking.
+- **Grounded Editorial Synthesis:**
+  - **Book Synopses:** High-level narrative arcs, central arguments, and structural overviews.
+  - **Comprehensive Summaries:** Detailed chapter-by-chapter and section syntheses grounded in semantic memory.
+  - **Contextual In-Book Q&A:** Answers user queries with direct chunk citations and section references.
+
+### 5. Resilient Client-Server Communication (Build 3B.1.5)
+- **Unified Resilient API Client:** Frontend communication enforces JSON negotiation with explicit diagnostics for server startup/proxy states (502/503/504), preventing unexpected HTML response parse errors.
+- **Strict API Error Boundaries:** Server-side Express routing guarantees structured JSON errors for all unhandled `/api` routes and Multer file upload boundaries (up to 50MB).
+
+---
+
+## 🎨 Editorial Reading Experience
+
+- **Canvas Themes:** Light Paper (`theme-light`), Warm Sepia (`theme-warm`), and Night Slate (`theme-dark`).
+- **Typography Modes:** Classic Editorial Serif (Lora / Cinzel) and Neo Sans (Plus Jakarta Sans).
+- **Dynamic Reading Toolbar:** Font size scaling, line height adjustment, column width constraints (65–75ch), and reading progress tracking.
+- **CSS-Generated Editorial Book Covers:** Authentic book spine lighting, archetype-specific color palettes (`novel`, `textbook`, `research`, `manga`, `web_article`).
 
 ---
 
@@ -37,10 +62,10 @@ Built on `better-sqlite3` with automated schema migrations, foreign keys, and in
 # Install dependencies
 npm install
 
-# Start the application dev server (runs on port 3000)
+# Start the application server (runs on port 3000)
 npm run dev
 
-# Reset and seed sample library (Novels, Textbooks, Markdown research)
+# (Optional) Reset and seed sample library
 npm run db:reset
 ```
 
@@ -48,45 +73,75 @@ Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🎨 Editorial Design System (Build 1.5)
-
-- **Library Hero & Continue Reading:** Instant visual access to your active reading session with progress bars and chapter tracking.
-- **CSS-Generated Editorial Book Covers:** Authentic book spine lighting, 3:4 aspect ratios, archetype-specific layouts (`novel`, `textbook`, `research`, `manga`), and distinctive color palettes.
-- **Typography:** Display headings in Cinzel / Lora paired with Plus Jakarta Sans and JetBrains Mono for code blocks.
-- **Theme Modes:** Light Paper (`theme-light`), Warm Sepia (`theme-warm`), and Night Slate (`theme-dark`).
-
----
-
 ## 📡 API Reference
 
-### Books
-- `GET /api/books`: Retrieve all books with chapter and progress counts.
-- `GET /api/books/:id`: Get book details and metadata.
+### Books & Library
+- `GET /api/books`: Retrieve all books with chapter counts, reading progress, and integrity statuses.
+- `GET /api/books/:id`: Get detailed book metadata, page counts, and provenance.
 - `POST /api/books`: Create a new book record.
-- `POST /api/books/import`: Ingest a book from uploaded text or file via the Ingestion Pipeline.
-- `DELETE /api/books/:id`: Delete book and cascade delete chapters and representations.
+- `POST /api/books/import`: Ingest a book or document from file (PDF, EPUB, TXT, MD) or pasted text.
+- `DELETE /api/books/:id`: Delete a book with cascading deletion of chapters, representations, and semantic chunks.
 
-### Chapters
-- `GET /api/books/:id/chapters`: List chapters for a book.
-- `GET /api/chapters/:id`: Get chapter content, canonical blocks, and representations.
+### Chapters & Content
+- `GET /api/books/:id/chapters`: List all chapters and sections for a book.
+- `GET /api/chapters/:id`: Get chapter content, canonical blocks, and generated representations.
 - `POST /api/books/:id/chapters`: Add a chapter manually.
-- `PUT /api/chapters/:id`: Update chapter reading status or title.
-- `POST /api/chapters/:id/summarize`: Trigger AI chapter summary.
+- `PUT /api/chapters/:id`: Update chapter reading status, progress, or title.
+- `POST /api/chapters/:id/summarize`: Generate an AI chapter summary.
 
-### Intelligence & System
-- `GET /api/ai/status`: Health check for local Ollama and cloud AI providers.
-- `GET /api/jobs`: List asynchronous ingestion and summarization jobs.
-- `POST /api/dev/reset`: Reset and seed database with curated sample books and representations.
+### Web Intelligence & Research (Build 3A)
+- `GET /api/web/search`: Query search engines and curated open archives.
+- `POST /api/web/preview`: Cleanly extract web page metadata and readability content before importing.
+- `POST /api/web/import`: Ingest a web article directly into the library as a structured book.
+- `POST /api/web/import-multi`: Ingest multiple URLs into a combined, structured research dossier.
+- `GET /api/books/:id/supporting`: Retrieve supporting research materials attached to a book.
+- `POST /api/books/:id/supporting`: Attach a web reference or article as supporting material.
+- `DELETE /api/web/supporting/:id`: Remove an attached supporting material reference.
+
+### Semantic Memory & Intelligence (Build 3B)
+- `POST /api/semantic/index/:bookId`: Trigger semantic chunking and vector indexing.
+- `GET /api/semantic/status/:bookId`: Get indexing status and semantic chunk count.
+- `POST /api/semantic/query`: Vector similarity search across a book or the entire library.
+- `GET /api/books/:id/synopsis`: Retrieve or view the editorial synopsis for a book.
+- `POST /api/books/:id/synopsis`: Generate a grounded editorial synopsis.
+- `GET /api/books/:id/summary`: Retrieve comprehensive book-level summary.
+- `POST /api/books/:id/summarize`: Generate a grounded book summary across chapters.
+- `POST /api/books/:id/ask`: Ask a grounded question against a book's semantic memory.
+
+### System & AI Health
+- `GET /api/ai/status`: Health check for local Ollama and cloud Gemini AI providers.
+- `POST /api/ai/provider`: Switch active AI provider (`gemini` or `ollama`).
+- `GET /api/jobs`: List status of background ingestion and summarization jobs.
+- `POST /api/dev/reset`: Reset and seed database with curated sample books, articles, and representations.
 
 ---
 
-## ⚙️ Environment Variables
+## ⚙️ Configuration & Environment
 
-Copy `.env.example` to `.env` to configure your environment:
+Environment variables are configured in `.env` (refer to `.env.example`):
 
 ```env
 PORT=3000
-AI_PROVIDER=ollama
+AI_PROVIDER=gemini
+GEMINI_API_KEY=your_gemini_api_key_here
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=llama3
+```
+
+---
+
+## 🧪 Testing
+
+The repository includes targeted verification suites across all architectural milestones:
+
+```bash
+# Ingestion reliability & hardening tests (Build 3B.1.5)
+node backend/tests/build3b_hardening_test.js
+
+# Semantic memory & grounded summarization tests (Build 3B)
+node backend/tests/build3b_test.js
+node backend/tests/build3b_finalization_test.js
+
+# Web intelligence & research dossier tests (Build 3A)
+node backend/tests/build3a_test.js
 ```
