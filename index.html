@@ -18,7 +18,12 @@
   <header id="main-header" class="app-header">
     <div class="header-inner">
       <div class="brand-group" id="brand-group" onclick="navigateTo('library')">
-        <span class="brand-icon" id="brand-icon">📖</span>
+        <span class="brand-icon" id="brand-icon">
+          <svg class="ui-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+            <path d="M6 2v20"/>
+          </svg>
+        </span>
         <div class="brand-text">
           <span class="brand-title" id="brand-title">Smart Reader</span>
           <span class="brand-subtitle" id="brand-subtitle">Personal Digital Library</span>
@@ -27,13 +32,26 @@
 
       <nav class="nav-links" id="nav-links">
         <button id="nav-library-btn" class="nav-btn active" onclick="navigateTo('library')">
-          <span class="nav-icon">📚</span> Library
+          <svg class="nav-icon ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m16 6 4 14"/>
+            <path d="M12 6v14"/>
+            <path d="M8 8v12"/>
+            <path d="M4 4v16"/>
+          </svg>
+          <span>Library</span>
         </button>
         <button id="nav-reader-btn" class="nav-btn" onclick="navigateTo('reader')" style="display: none;">
-          <span class="nav-icon">📖</span> Reading
+          <svg class="nav-icon ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+          <span>Reading</span>
         </button>
         <button id="nav-jobs-btn" class="nav-btn" onclick="openJobsModal()">
-          <span class="nav-icon">⚡</span> Processing <span id="jobs-count-badge" class="badge-count">0</span>
+          <svg class="nav-icon ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          <span>Processing</span> <span id="jobs-count-badge" class="badge-count">0</span>
         </button>
       </nav>
 
@@ -46,10 +64,17 @@
           <span>+ Add Book</span>
         </button>
         <button id="btn-settings-header" class="btn btn-icon" onclick="openSettings()" title="Settings">
-          ⚙️
+          <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
         </button>
         <button id="btn-about-header" class="btn btn-icon" onclick="showAbout()" title="About Smart Reader">
-          💡
+          <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 16v-4"/>
+            <path d="M12 8h.01"/>
+          </svg>
         </button>
       </div>
     </div>
@@ -68,6 +93,14 @@
           <p class="library-hero-desc">Bring your novels, manga, textbooks, research papers, and notes into an intelligent, distraction-free reading sanctuary.</p>
         </div>
         <div class="library-hero-actions">
+          <button id="btn-hero-web-search" class="btn btn-secondary btn-lg" onclick="openAddBookModal('web')">
+            <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            <span>Acquire from Web</span>
+          </button>
           <button id="btn-hero-add-book" class="btn btn-primary btn-lg" onclick="openAddBookModal()">
             <span>+ Add Book</span>
           </button>
@@ -94,7 +127,12 @@
 
         <div class="toolbar-controls">
           <div class="search-box">
-            <span class="search-icon">🔍</span>
+            <span class="search-icon">
+              <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
+            </span>
             <input type="text" id="library-search-input" placeholder="Search by title, author, or description..." oninput="handleSearch(this.value)">
             <button id="btn-clear-search" class="btn-clear-search" onclick="clearSearch()" style="display:none;" title="Clear search">&times;</button>
           </div>
@@ -106,6 +144,7 @@
             <button class="filter-chip" data-type="document" onclick="filterByContentType('document')">Documents</button>
             <button class="filter-chip" data-type="research" onclick="filterByContentType('research')">Research</button>
             <button class="filter-chip" data-type="notes" onclick="filterByContentType('notes')">Notes</button>
+            <button class="filter-chip" data-type="web" onclick="filterByContentType('web')">🌐 Web Acquired</button>
           </div>
         </div>
       </div>
@@ -117,7 +156,12 @@
 
       <!-- EMPTY STATE (NO BOOKS) -->
       <div id="library-empty-state" class="empty-state" style="display: none;">
-        <div class="empty-icon">📖</div>
+        <div class="empty-icon">
+          <svg class="ui-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+            <path d="M6 2v20"/>
+          </svg>
+        </div>
         <h3 id="empty-state-title">Your library is waiting</h3>
         <p id="empty-state-text">Bring in a novel, textbook, research paper, or anything you want Smart Reader to understand and remember.</p>
         <div class="empty-actions">
@@ -128,7 +172,12 @@
 
       <!-- EMPTY STATE (NO SEARCH RESULTS) -->
       <div id="library-search-empty-state" class="empty-state search-empty-state" style="display: none;">
-        <div class="empty-icon">🔍</div>
+        <div class="empty-icon">
+          <svg class="ui-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.3-4.3"/>
+          </svg>
+        </div>
         <h3>No matching books found</h3>
         <p>We couldn't find any books or documents matching your active search or filters.</p>
         <div class="empty-actions">
@@ -141,7 +190,11 @@
     <section id="view-book-details" class="view-section" style="display: none;">
       <div class="back-bar">
         <button id="btn-back-to-library" class="btn btn-secondary btn-sm" onclick="navigateTo('library')">
-          ← Back to Library
+          <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+          <span>Back to Library</span>
         </button>
       </div>
 
@@ -166,6 +219,147 @@
           <!-- Populated dynamically -->
         </div>
       </div>
+
+      <!-- SUPPORTING MATERIAL & RESEARCH SECTION (Build 3A) -->
+      <div class="supporting-materials-section" id="supporting-materials-section">
+        <div class="supporting-materials-header">
+          <div>
+            <div class="section-title-wrap">
+              <span class="badge-pill-xs badge-accent-subtle">Build 3A</span>
+              <h2 id="supporting-list-title" class="sub-heading">Supporting Material & Research</h2>
+            </div>
+            <p class="section-desc">External references, context, and web findings attached to this book. Original ground-truth chapters remain 100% untouched.</p>
+          </div>
+          <div class="supporting-actions">
+            <button id="btn-add-supporting-material" class="btn btn-secondary btn-sm" onclick="openSupportingMaterialModal()">
+              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
+              <span>+ Find Supporting Material</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="supporting-materials-list" class="supporting-materials-list">
+          <!-- Populated dynamically by script.js -->
+        </div>
+      </div>
+
+      <!-- SEMANTIC MEMORY & INTELLIGENT SUMMARIES SECTION (Build 3B) -->
+      <div class="semantic-intelligence-section" id="semantic-intelligence-section">
+        <div class="semantic-intelligence-header">
+          <div>
+            <div class="section-title-wrap">
+              <span class="badge-pill-xs badge-accent-subtle">Build 3B</span>
+              <h2 id="intelligence-section-title" class="sub-heading">Semantic Memory & Reading Intelligence</h2>
+            </div>
+            <p class="section-desc">Grounded representations, editorial synopsis, structured multi-chapter summaries, and vector-indexed contextual assistant.</p>
+          </div>
+          <div class="semantic-header-status" id="semantic-index-status-pill">
+            <span class="status-dot green"></span>
+            <span id="semantic-index-status-text">Vector Memory Ready</span>
+          </div>
+        </div>
+
+        <!-- Semantic Intelligence Cards Grid -->
+        <div class="semantic-intelligence-grid">
+          <!-- Card 1: Editorial Synopsis -->
+          <div class="semantic-card" id="card-editorial-synopsis">
+            <div class="semantic-card-header">
+              <div class="semantic-card-title-group">
+                <span class="semantic-card-icon">✦</span>
+                <div>
+                  <h3 class="semantic-card-title">Editorial Synopsis</h3>
+                  <span class="semantic-card-sub">Faithful editorial thesis, hook, and core context</span>
+                </div>
+              </div>
+              <div class="semantic-card-actions">
+                <button id="btn-generate-synopsis-card" class="btn btn-secondary btn-xs" onclick="handleGenerateSynopsisClick()">
+                  <span>✦ Synthesize Synopsis</span>
+                </button>
+                <button id="btn-copy-synopsis" class="btn btn-secondary btn-xs" onclick="copySynopsisText()" style="display:none;" title="Copy Synopsis">
+                  Copy
+                </button>
+              </div>
+            </div>
+            <div class="semantic-card-body" id="synopsis-card-content">
+              <p class="text-muted italic">No editorial synopsis generated yet. Click "Synthesize Synopsis" to produce a grounded editorial overview.</p>
+            </div>
+          </div>
+
+          <!-- Card 2: Comprehensive Book Summary -->
+          <div class="semantic-card" id="card-book-summary">
+            <div class="semantic-card-header">
+              <div class="semantic-card-title-group">
+                <span class="semantic-card-icon">📖</span>
+                <div>
+                  <h3 class="semantic-card-title">Comprehensive Book Summary</h3>
+                  <span class="semantic-card-sub">Multi-chapter structural synthesis and key takeaways</span>
+                </div>
+              </div>
+              <div class="semantic-card-actions">
+                <button id="btn-generate-book-summary" class="btn btn-secondary btn-xs" onclick="handleGenerateBookSummaryClick()">
+                  <span>✦ Synthesize Book Summary</span>
+                </button>
+                <button id="btn-copy-book-summary" class="btn btn-secondary btn-xs" onclick="copyBookSummaryText()" style="display:none;" title="Copy Summary">
+                  Copy
+                </button>
+              </div>
+            </div>
+            <div class="semantic-card-body" id="book-summary-card-content">
+              <p class="text-muted italic">No comprehensive book summary generated yet. Click "Synthesize Book Summary" to aggregate chapter knowledge into an executive summary.</p>
+            </div>
+          </div>
+
+          <!-- Card 3: Grounded Reading Assistant / Ask This Book -->
+          <div class="semantic-card semantic-card-full" id="card-semantic-ask">
+            <div class="semantic-card-header">
+              <div class="semantic-card-title-group">
+                <span class="semantic-card-icon">🧠</span>
+                <div>
+                  <h3 class="semantic-card-title">Grounded Context Assistant</h3>
+                  <span class="semantic-card-sub">Query this book using 256d vector similarity and citation-backed grounding</span>
+                </div>
+              </div>
+              <div class="semantic-stats-badge" id="semantic-chunk-stats">
+                0 chunks indexed
+              </div>
+            </div>
+            <div class="semantic-qa-input-box">
+              <div class="semantic-input-row">
+                <input type="text" id="semantic-question-input" class="form-input" placeholder="Ask anything about this book's concepts, characters, timeline, or arguments..." onkeydown="handleSemanticQuestionKey(event)" />
+                <button id="btn-submit-semantic-question" class="btn btn-primary" onclick="handleAskBookQuestion()">
+                  <span>Ask Assistant</span>
+                </button>
+              </div>
+              <div class="quick-query-chips">
+                <span class="chip-label">Quick Queries:</span>
+                <button type="button" class="quick-chip" onclick="setQuickQuery('What is the core premise or main thesis?')">Main thesis?</button>
+                <button type="button" class="quick-chip" onclick="setQuickQuery('Who are the primary figures or characters introduced?')">Key figures?</button>
+                <button type="button" class="quick-chip" onclick="setQuickQuery('What are the foundational principles and discoveries?')">Key principles?</button>
+              </div>
+            </div>
+
+            <!-- Grounded Answer Box -->
+            <div id="semantic-answer-container" class="semantic-answer-container" style="display: none;">
+              <div class="semantic-answer-header">
+                <span class="grounded-badge">✓ Grounded in Document Excerpts</span>
+                <span id="semantic-answer-stats" class="text-muted text-xs"></span>
+              </div>
+              <div id="semantic-answer-text" class="semantic-answer-text">
+                <!-- Answer text -->
+              </div>
+              <div class="semantic-sources-section">
+                <h4 class="semantic-sources-heading">Source Excerpts & Provenance</h4>
+                <div id="semantic-sources-list" class="semantic-sources-list">
+                  <!-- Source pills -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ==================== VIEW 3: READER ==================== -->
@@ -174,7 +368,11 @@
       <div id="reader-top-bar" class="reader-top-bar">
         <div class="reader-top-left">
           <button id="btn-reader-back" class="btn btn-secondary btn-sm" onclick="navigateTo('book-details')">
-            ← Chapters
+            <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"/>
+              <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            <span>Chapters</span>
           </button>
           <div class="reader-breadcrumb">
             <span id="reader-book-title" class="crumb-book">Book Title</span>
@@ -184,21 +382,36 @@
         </div>
 
         <div class="reader-top-center">
-          <select id="reader-chapter-select" class="reader-select" onchange="handleChapterSelect(this.value)">
-            <!-- Populated dynamically -->
-          </select>
+          <div class="reader-rep-switcher" role="tablist">
+            <button id="btn-rep-original" class="rep-switcher-btn active" onclick="setReadingRepresentation('original')">
+              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <span>Original Source</span>
+            </button>
+            <button id="btn-rep-summary" class="rep-switcher-btn" onclick="setReadingRepresentation('summary')">
+              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+              </svg>
+              <span>✦ Reading Summary</span>
+              <span id="rep-summary-dot" class="rep-dot-indicator" style="display: none;" title="Summary ready"></span>
+            </button>
+          </div>
         </div>
 
         <div class="reader-top-right">
+          <select id="reader-chapter-select" class="reader-select" onchange="handleChapterSelect(this.value)">
+            <!-- Populated dynamically -->
+          </select>
           <div class="typography-controls">
             <button id="btn-font-smaller" class="btn btn-icon btn-sm" onclick="adjustFontSize(-1)" title="Decrease font size">A-</button>
             <span id="font-size-display" class="font-size-label">18px</span>
             <button id="btn-font-larger" class="btn btn-icon btn-sm" onclick="adjustFontSize(1)" title="Increase font size">A+</button>
             <button id="btn-font-family" class="btn btn-secondary btn-sm" onclick="toggleReaderFont()" title="Toggle Serif / Sans">Serif</button>
           </div>
-          <button id="btn-toggle-ai-panel" class="btn btn-primary btn-sm" onclick="toggleAIPanel()">
-            🧠 AI Summary <span id="ai-panel-badge" class="pill-dot"></span>
-          </button>
         </div>
       </div>
 
@@ -207,123 +420,111 @@
         <div id="reading-progress-fill" class="reading-progress-fill" style="width: 0%;"></div>
       </div>
 
-      <!-- Reader Workspace (split or centered layout) -->
-      <div id="reader-layout" class="reader-layout">
-        <!-- Main Reading Scroll Canvas -->
+      <!-- Reader Canvas (Occupies full reading width cleanly) -->
+      <div id="reader-layout" class="reader-layout-centered">
         <article id="reader-canvas" class="reader-canvas">
           <div class="reader-canvas-inner">
             <header class="reader-article-header">
-              <span id="reader-chapter-number" class="chapter-eyebrow">Chapter 1</span>
+              <div class="article-header-top-row">
+                <span id="reader-chapter-number" class="chapter-eyebrow">Chapter 1</span>
+                <div id="reader-header-actions" class="reader-header-actions">
+                  <button id="btn-header-create-summary" class="btn btn-secondary btn-sm" onclick="handleCreateSummaryClick()">
+                    <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+                    </svg>
+                    <span>✦ Create Reading Summary</span>
+                  </button>
+                </div>
+              </div>
               <h1 id="reader-chapter-heading" class="reader-chapter-title">Chapter Title</h1>
-              <div class="reader-meta">
+              
+              <!-- Original source metadata -->
+              <div id="reader-original-meta" class="reader-meta">
                 <span id="reader-word-count">0 words</span>
                 <span>•</span>
                 <span id="reader-est-time">0 min read</span>
                 <span>•</span>
                 <span id="reader-status-badge" class="badge-status">unread</span>
               </div>
+
+              <!-- Dedicated AI summary metadata bar (shown when viewing summary) -->
+              <div id="reader-summary-meta" class="reader-summary-meta-bar" style="display: none;">
+                <div class="summary-meta-left">
+                  <span id="summary-meta-pill" class="summary-meta-pill">
+                    <svg class="ui-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+                    </svg>
+                    <span id="summary-meta-text">Persistent Reading Summary</span>
+                  </span>
+                  <span id="summary-meta-stats" class="summary-meta-sub"></span>
+                </div>
+                <div class="summary-meta-actions">
+                  <button id="btn-summary-regenerate" class="btn btn-secondary btn-xs" onclick="handleRegenerateSummary()" title="Re-generate summary">
+                    <svg class="ui-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                    </svg>
+                    <span>Regenerate</span>
+                  </button>
+                  <button id="btn-summary-copy" class="btn btn-secondary btn-xs" onclick="copySummaryText()" title="Copy text to clipboard">
+                    <svg class="ui-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                    </svg>
+                    <span>Copy</span>
+                  </button>
+                </div>
+              </div>
             </header>
 
+            <!-- Canonical vs Source view pills (for original text) -->
+            <div id="reader-view-mode-bar" class="reader-view-mode-bar">
+              <div class="view-mode-pills" role="tablist">
+                <button id="btn-view-canonical" class="view-mode-btn active" onclick="setReaderViewMode('canonical')">
+                  <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  </svg>
+                  <span>Formatted (Canonical)</span>
+                </button>
+                <button id="btn-view-source" class="view-mode-btn" onclick="setReaderViewMode('source')">
+                  <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                  </svg>
+                  <span>Raw Source Text</span>
+                </button>
+              </div>
+              <span id="reader-format-indicator" class="format-badge-sm">Canonical</span>
+            </div>
+
+            <!-- Reading Canvas Content Body -->
             <div id="reader-content-body" class="reader-content-body font-serif">
-              <!-- Raw chapter content rendered with proper paragraphs -->
+              <!-- Rendered dynamically -->
             </div>
 
             <!-- Bottom Chapter Navigation -->
             <footer class="reader-article-footer">
               <button id="btn-prev-chapter" class="btn btn-secondary" onclick="navigateChapter('prev')">
-                ← Previous Chapter
+                <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="19" y1="12" x2="5" y2="12"/>
+                  <polyline points="12 19 5 12 12 5"/>
+                </svg>
+                <span>Previous Chapter</span>
               </button>
               <button id="btn-mark-read" class="btn btn-secondary" onclick="toggleChapterReadStatus()">
-                ✓ Mark as Completed
+                <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span id="btn-mark-read-label">Mark as Completed</span>
               </button>
               <button id="btn-next-chapter" class="btn btn-primary" onclick="navigateChapter('next')">
-                Next Chapter →
+                <span>Next Chapter</span>
+                <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
               </button>
             </footer>
           </div>
         </article>
-
-        <!-- Contextual AI Workspace Panel (Grounded in Content, Separate from Original) -->
-        <aside id="reader-ai-panel" class="reader-ai-panel">
-          <div class="ai-panel-inner">
-            <div class="ai-panel-header">
-              <div class="ai-header-title-wrap">
-                <span class="ai-badge">AI Assistant</span>
-                <h3 id="ai-panel-title" class="ai-panel-title">Chapter Summary</h3>
-              </div>
-              <button id="btn-close-ai-panel" class="btn-close-panel" onclick="toggleAIPanel(false)" title="Close panel">&times;</button>
-            </div>
-
-            <div class="ai-disclaimer-banner">
-              <span>🔒 Generated Representation — Original book content is preserved untouched.</span>
-            </div>
-
-            <div class="ai-action-area">
-              <div class="ai-action-row">
-                <button id="btn-generate-summary" class="btn btn-primary btn-block" onclick="triggerChapterSummary()">
-                  🔍 Generate Chapter Summary
-                </button>
-              </div>
-              <div class="ai-provider-info">
-                <span id="ai-active-provider-name">Provider: Ollama</span>
-                <span id="ai-active-model-name">Model: llama3</span>
-              </div>
-            </div>
-
-            <!-- Loading State -->
-            <div id="ai-loading-box" class="ai-state-box loading" style="display: none;">
-              <div class="spinner"></div>
-              <p id="ai-loading-status" class="state-title">Analyzing chapter content...</p>
-              <p class="state-sub">Communicating with Ollama AI provider. This may take a few seconds.</p>
-            </div>
-
-            <!-- Error State with Diagnostic & Retry -->
-            <div id="ai-error-box" class="ai-state-box error" style="display: none;">
-              <div class="error-icon">⚠️</div>
-              <p id="ai-error-title" class="state-title">Summarization Failed</p>
-              <p id="ai-error-detail" class="state-sub">Could not connect to Ollama.</p>
-              <div class="troubleshoot-box">
-                <strong>How to fix:</strong>
-                <ol>
-                  <li>Ensure Ollama is installed on your machine.</li>
-                  <li>Run <code>ollama run llama3</code> in your terminal.</li>
-                  <li>Or set <code>OLLAMA_BASE_URL</code> if hosted on another port.</li>
-                </ol>
-              </div>
-              <button id="btn-retry-ai" class="btn btn-secondary btn-sm" onclick="triggerChapterSummary()">
-                🔄 Retry Summarization
-              </button>
-            </div>
-
-            <!-- Summary Output (Generated Representation) -->
-            <div id="ai-summary-output" class="ai-summary-output" style="display: none;">
-              <div class="summary-meta-header">
-                <span class="meta-label">Generated Summary</span>
-                <span id="summary-meta-time" class="meta-time">Just now</span>
-              </div>
-
-              <div id="summary-text-container" class="summary-text-container">
-                <!-- Formatted summary paragraphs & key takeaways -->
-              </div>
-
-              <div class="summary-footer-actions">
-                <button id="btn-re-summarize" class="btn btn-secondary btn-xs" onclick="triggerChapterSummary()">
-                  Regenerate
-                </button>
-                <button id="btn-copy-summary" class="btn btn-secondary btn-xs" onclick="copySummaryText()">
-                  Copy Summary
-                </button>
-              </div>
-            </div>
-
-            <!-- Empty Prompt state when no summary yet -->
-            <div id="ai-empty-prompt" class="ai-state-box prompt">
-              <div class="prompt-icon">💡</div>
-              <p class="state-title">No summary generated yet</p>
-              <p class="state-sub">Click "Generate Chapter Summary" above to have Ollama distill key story developments and character milestones.</p>
-            </div>
-          </div>
-        </aside>
       </div>
     </section>
   </main>
@@ -340,19 +541,224 @@
       </div>
       <div class="modal-body">
         <div class="tab-bar">
-          <button id="tab-import-file" class="tab-btn active" onclick="switchAddBookTab('file')">Import File (.txt, .md)</button>
-          <button id="tab-paste-text" class="tab-btn" onclick="switchAddBookTab('paste')">Paste Text / Manual</button>
+          <button id="tab-web-search" class="tab-btn active" onclick="switchAddBookTab('web')">
+            <span class="tab-icon">🌐</span> Web Discovery & Import
+          </button>
+          <button id="tab-import-file" class="tab-btn" onclick="switchAddBookTab('file')">
+            <span class="tab-icon">📄</span> Import File (.pdf, .epub, .md, .txt)
+          </button>
+          <button id="tab-paste-text" class="tab-btn" onclick="switchAddBookTab('paste')">
+            <span class="tab-icon">✍️</span> Paste Text / Manual
+          </button>
+        </div>
+
+        <!-- Ingestion Pipeline Progress Overlay -->
+        <div id="ingestion-progress-panel" class="ingestion-progress-panel" style="display: none;">
+          <div class="ingestion-progress-header">
+            <div class="spinner-sm"></div>
+            <div>
+              <h3 id="ingestion-stage-title" class="ingest-stage-title">Ingesting Content...</h3>
+              <p id="ingestion-stage-desc" class="ingest-stage-desc">Analyzing and segmenting content into canonical structure</p>
+            </div>
+          </div>
+          <div class="ingestion-steps">
+            <div class="ingestion-step pending" id="step-inspect">
+              <span class="step-num">1</span>
+              <div class="step-info"><span class="step-name">Format Detection</span><span class="step-sub">Inspecting magic headers</span></div>
+            </div>
+            <div class="ingestion-step pending" id="step-extract">
+              <span class="step-num">2</span>
+              <div class="step-info"><span class="step-name">Content Extraction</span><span class="step-sub">Reading document streams</span></div>
+            </div>
+            <div class="ingestion-step pending" id="step-structure">
+              <span class="step-num">3</span>
+              <div class="step-info"><span class="step-name">Structure Detection</span><span class="step-sub">Detecting chapters & sections</span></div>
+            </div>
+            <div class="ingestion-step pending" id="step-canonical">
+              <span class="step-num">4</span>
+              <div class="step-info"><span class="step-name">Canonical Content</span><span class="step-sub">Parsing tables & callouts</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ingestion Result & Feedback Confirmation Card -->
+        <div id="ingestion-result-panel" class="ingestion-result-panel" style="display: none;">
+          <div class="result-badge-row">
+            <span id="result-format-badge" class="result-format-badge">PDF</span>
+            <span class="result-success-badge">✓ Ingestion Complete</span>
+          </div>
+          <h3 id="result-book-title" class="result-title">Book Title</h3>
+          <p id="result-book-author" class="result-author">by Author</p>
+
+          <div class="result-stats-grid">
+            <div class="result-stat-box">
+              <span class="stat-num" id="stat-chapters-count">0</span>
+              <span class="stat-lbl">Chapters</span>
+            </div>
+            <div class="result-stat-box">
+              <span class="stat-num" id="stat-pages-count">1</span>
+              <span class="stat-lbl">Pages</span>
+            </div>
+            <div class="result-stat-box">
+              <span class="stat-num" id="stat-tables-count">0</span>
+              <span class="stat-lbl">Tables Found</span>
+            </div>
+            <div class="result-stat-box">
+              <span class="stat-num" id="stat-words-count">0</span>
+              <span class="stat-lbl">Words</span>
+            </div>
+          </div>
+
+          <div id="result-integrity-banner" class="modal-warning-banner" style="display: none; margin: 12px 0; padding: 10px 14px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; color: #92400e; font-size: 0.85rem;">
+            <strong>⚠️ Content Integrity Notice:</strong>
+            <span id="result-integrity-text"></span>
+          </div>
+
+          <div class="result-preview-box">
+            <div class="preview-label">First Chapter Preview:</div>
+            <div id="result-chapter-preview" class="preview-snippet">...</div>
+          </div>
+
+          <div class="modal-footer" style="padding: 12px 0 0 0; margin-top: 16px;">
+            <button type="button" class="btn btn-secondary" onclick="closeAddBookModal()">Done</button>
+            <button type="button" id="btn-open-imported-book" class="btn btn-primary" onclick="handleOpenImportedBook()">
+              Open in Reader →
+            </button>
+          </div>
+        </div>
+
+        <!-- Ingestion Error Panel -->
+        <div id="ingestion-error-panel" class="ingestion-error-panel" style="display: none; padding: 16px 0;">
+          <div style="padding: 16px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; color: #991b1b;">
+            <div style="font-weight: 600; font-size: 1rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span>❌ Ingestion Failed</span>
+            </div>
+            <p id="ingestion-error-text" style="font-size: 0.875rem; line-height: 1.5; margin: 0 0 12px 0;"></p>
+            <div style="font-size: 0.8rem; color: #7f1d1d;">
+              Supported formats include searchable PDF (.pdf), EPUB (.epub), Markdown (.md), and plain text (.txt). If this document is a scanned image PDF, text cannot be selected or extracted.
+            </div>
+          </div>
+          <div class="modal-footer" style="padding: 16px 0 0 0; margin-top: 12px;">
+            <button type="button" class="btn btn-secondary" onclick="resetAddBookForm()">Try Again</button>
+            <button type="button" class="btn btn-secondary" onclick="closeAddBookModal()">Close</button>
+          </div>
         </div>
 
         <form id="form-add-book" onsubmit="handleAddBookSubmit(event)">
+          <!-- TAB 0: Web Discovery & Search (Build 3A) -->
+          <div id="tab-pane-web" class="tab-pane active">
+            <!-- Search Input Box -->
+            <div class="web-search-box-container">
+              <div class="web-search-input-wrap">
+                <span class="web-search-leading-icon">
+                  <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                  </svg>
+                </span>
+                <input type="text" id="web-search-input" class="web-search-input" placeholder="Search Wikipedia, OpenLibrary, ArXiv, tech docs, topics, or paste any URL..." onkeydown="handleWebSearchKey(event)">
+                <button type="button" id="btn-run-web-search" class="btn btn-primary btn-sm" onclick="handleRunWebSearch()">
+                  <span>Search</span>
+                </button>
+              </div>
+
+              <!-- Filter Category Chips -->
+              <div class="web-category-chips" id="web-category-chips">
+                <button type="button" class="chip active" data-cat="all" onclick="setWebSearchCategory('all')">All Sources</button>
+                <button type="button" class="chip" data-cat="books" onclick="setWebSearchCategory('books')">📚 Books & Novels</button>
+                <button type="button" class="chip" data-cat="research" onclick="setWebSearchCategory('research')">🔬 Research Papers</button>
+                <button type="button" class="chip" data-cat="manga" onclick="setWebSearchCategory('manga')">🎨 Manga & Comics</button>
+                <button type="button" class="chip" data-cat="tech" onclick="setWebSearchCategory('tech')">💻 Tech Docs</button>
+                <button type="button" class="chip" data-cat="reference" onclick="setWebSearchCategory('reference')">📖 Encyclopedic</button>
+              </div>
+            </div>
+
+            <!-- Direct URL Row -->
+            <div class="web-direct-url-bar">
+              <span class="direct-url-label">Direct Webpage Address:</span>
+              <div class="direct-url-input-wrap">
+                <input type="url" id="web-direct-url-input" placeholder="https://example.org/accessible-article-or-chapter" onkeydown="handleDirectUrlKey(event)">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="handlePreviewDirectUrl()">Preview</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="handleImportDirectUrl()">Acquire</button>
+              </div>
+            </div>
+
+            <!-- Multi-Select Action Banner -->
+            <div id="web-multi-select-bar" class="web-multi-select-bar" style="display: none;">
+              <div class="multi-select-info">
+                <span id="multi-select-count" class="multi-count-badge">0 selected</span>
+                <span class="multi-select-desc">Combine multiple sources into a single structured research dossier</span>
+              </div>
+              <div class="multi-select-actions">
+                <button type="button" class="btn btn-secondary btn-xs" onclick="clearWebSelection()">Deselect All</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="handleImportSelectedMulti()">
+                  <span>Acquire Selected as Research Dossier →</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Loading Spinner / Status -->
+            <div id="web-search-loading" class="web-search-loading" style="display: none;">
+              <div class="spinner-sm"></div>
+              <span id="web-search-loading-text">Searching verified knowledge sources...</span>
+            </div>
+
+            <!-- Error Banner -->
+            <div id="web-search-error" class="modal-error-banner" style="display: none;"></div>
+
+            <!-- Search Results Container -->
+            <div id="web-search-results" class="web-search-results-list">
+              <div class="web-search-welcome-state">
+                <div class="welcome-icon">🌐</div>
+                <h4>Search & Acquire Legitimate Web Knowledge</h4>
+                <p>Discover openly accessible materials across Wikipedia, Open Library, academic repositories, and technical documentation. Acquired materials are cleanly normalized, structured into chapters, and preserved with full provenance.</p>
+                <div class="sample-search-chips">
+                  <span class="sample-lbl">Suggested searches:</span>
+                  <button type="button" class="sample-chip" onclick="quickSearchWeb('Quantum Computing')">Quantum Computing</button>
+                  <button type="button" class="sample-chip" onclick="quickSearchWeb('Ada Lovelace')">Ada Lovelace</button>
+                  <button type="button" class="sample-chip" onclick="quickSearchWeb('Frankenstein Shelley')">Frankenstein</button>
+                  <button type="button" class="sample-chip" onclick="quickSearchWeb('Distributed Consensus')">Distributed Consensus</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Preview Card Drawer -->
+            <div id="web-preview-card" class="web-preview-card" style="display: none;">
+              <div class="preview-header">
+                <div class="preview-badges">
+                  <span id="preview-site-tag" class="badge-tag">Wikipedia</span>
+                  <span id="preview-type-tag" class="badge-tag">Research</span>
+                </div>
+                <h3 id="preview-title" class="preview-title">Document Title</h3>
+                <p id="preview-author" class="preview-author">By Author</p>
+                <a id="preview-link" href="#" target="_blank" rel="noopener noreferrer" class="preview-ext-link">🔗 View original web address ↗</a>
+              </div>
+              <div class="preview-metrics">
+                <div class="pmetric"><strong id="pmetric-sections">0</strong> <span>Sections</span></div>
+                <div class="pmetric"><strong id="pmetric-words">0</strong> <span>Words</span></div>
+                <div class="pmetric"><strong id="pmetric-blocks">0</strong> <span>Blocks</span></div>
+              </div>
+              <div id="preview-sections-list" class="preview-sections-list"></div>
+              <div class="preview-snippet-box">
+                <div class="preview-snippet-label">Opening Content:</div>
+                <p id="preview-snippet-text"></p>
+              </div>
+              <div class="preview-footer-actions">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="closeWebPreview()">Close Preview</button>
+                <button type="button" id="btn-confirm-preview-import" class="btn btn-primary btn-sm" onclick="handleConfirmPreviewImport()">
+                  <span>Acquire into Library →</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- TAB 1: File Import -->
-          <div id="tab-pane-file" class="tab-pane active">
+          <div id="tab-pane-file" class="tab-pane" style="display: none;">
             <div class="drop-zone" id="file-drop-zone">
-              <input type="file" id="book-file-input" accept=".txt,.md,.text" onchange="handleFileSelected(this.files)">
+              <input type="file" id="book-file-input" accept=".pdf,.epub,.md,.markdown,.txt,.text" onchange="handleFileSelected(this.files)">
               <div class="drop-zone-content">
-                <span class="upload-icon">📄</span>
-                <p class="drop-title">Drop your book file here or <span class="highlight">browse</span></p>
-                <p class="drop-sub">Supported formats: Plain Text (.txt), Markdown (.md). Chapters are detected automatically.</p>
+                <span class="upload-icon">📚</span>
+                <p class="drop-title">Drop your file here or <span class="highlight">browse</span></p>
+                <p class="drop-sub">Supported formats: PDF (.pdf), EPUB (.epub), Markdown (.md), Plain Text (.txt)</p>
                 <div id="selected-file-info" class="selected-file-pill" style="display: none;"></div>
               </div>
             </div>
@@ -459,7 +865,12 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary btn-sm" onclick="fetchJobs()">🔄 Refresh Jobs</button>
+        <button class="btn btn-secondary btn-sm" onclick="fetchJobs()">
+          <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          <span>Refresh Jobs</span>
+        </button>
         <button class="btn btn-primary btn-sm" onclick="closeJobsModal()">Done</button>
       </div>
     </div>
@@ -474,14 +885,14 @@
         <button class="close-btn" onclick="closeAbout()">&times;</button>
       </div>
       <div class="modal-body">
-        <p><strong>Smart Reader</strong> is evolving into a personal intelligent digital library for novels, webtoons, manga, textbooks, research materials, and notes.</p>
+        <p><strong>Smart Reader</strong> is a personal digital library with chapter summaries and reading intelligence for novels, manga, textbooks, research materials, and notes.</p>
         <div class="about-architecture-card">
-          <h4>Architecture & Build 1 Features</h4>
+          <h4>Architecture & Guarantees</h4>
           <ul>
-            <li><strong>Modular Architecture:</strong> Clear separation between UI, API, Business Services, Repositories, and AI Providers.</li>
-            <li><strong>AI Provider Abstraction:</strong> Independent of Ollama implementation details, ready for future Gemini models.</li>
-            <li><strong>Separation of Concerns:</strong> AI summaries are stored as generated representations and never mutate original user content.</li>
-            <li><strong>Local-First Persistence:</strong> SQLite structured storage for zero-dollar, private local execution.</li>
+            <li><strong>Immutable Originals:</strong> Original content is strictly preserved and never mutated by AI operations.</li>
+            <li><strong>Persistent Representations:</strong> AI summaries exist as distinct, persistent representations rendered in the main reading canvas.</li>
+            <li><strong>Structured Canonical View:</strong> Markdown is normalized into structured blocks so raw syntax never leaks into the reader.</li>
+            <li><strong>Flexible AI Processing:</strong> Full support for both Local AI (private offline execution) and Cloud AI.</li>
           </ul>
         </div>
       </div>
@@ -496,53 +907,211 @@
     <div class="modal-backdrop" onclick="closeSettings()"></div>
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Settings & AI Configuration</h2>
+        <h2>Settings & Preferences</h2>
         <button class="close-btn" onclick="closeSettings()">&times;</button>
       </div>
       <div class="modal-body">
+        <!-- Appearance Settings -->
         <div class="settings-group">
-          <label>Theme</label>
+          <label class="settings-label">Reading Theme</label>
           <div class="theme-picker">
-            <button class="btn btn-secondary btn-sm active" onclick="setTheme('light')">☀️ Light Paper</button>
-            <button class="btn btn-secondary btn-sm" onclick="setTheme('warm')">🕯️ Warm Sepia</button>
-            <button class="btn btn-secondary btn-sm" onclick="setTheme('dark')">🌙 Night Slate</button>
+            <button class="theme-btn active" id="theme-btn-light" onclick="setTheme('light')">
+              <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+              <span>Light Paper</span>
+            </button>
+            <button class="theme-btn" id="theme-btn-warm" onclick="setTheme('warm')">
+              <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+              </svg>
+              <span>Warm Sepia</span>
+            </button>
+            <button class="theme-btn" id="theme-btn-dark" onclick="setTheme('dark')">
+              <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+              </svg>
+              <span>Night Slate</span>
+            </button>
+            <button class="theme-btn" id="theme-btn-glass" onclick="setTheme('glass')">
+              <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="6 2 18 2 22 8 12 22 2 8 6 2"/>
+              </svg>
+              <span>Glass / Neo</span>
+            </button>
           </div>
         </div>
 
+        <!-- AI Processing Settings -->
         <div class="settings-group">
-          <label>Active AI Provider</label>
+          <div class="settings-group-header">
+            <label class="settings-label">AI Processing Mode</label>
+            <span id="settings-ai-mode-badge" class="badge-tag">Cloud AI</span>
+          </div>
+          <p class="setting-hint">Choose how Smart Reader creates persistent chapter summaries.</p>
           <div class="provider-badge-row">
-            <span class="provider-chip active">Ollama (Local)</span>
-            <span class="provider-chip disabled">Gemini (Build 2)</span>
+            <button class="provider-mode-btn" id="btn-mode-local" onclick="handleSelectProcessingMode('local')">
+              <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="20" height="14" x="2" y="3" rx="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+              <span>Local AI (Private)</span>
+            </button>
+            <button class="provider-mode-btn active" id="btn-mode-cloud" onclick="handleSelectProcessingMode('cloud')">
+              <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+              </svg>
+              <span>Cloud AI (Fast)</span>
+            </button>
           </div>
-          <p class="setting-hint">Configure <code>OLLAMA_BASE_URL</code> (default <code>http://127.0.0.1:11434</code>) and <code>OLLAMA_MODEL</code> (default <code>llama3</code>) in your environment variables.</p>
+
+          <!-- Connection Status Card -->
+          <div class="status-detail-card" id="settings-ai-status-detail">
+            <div class="status-detail-line">
+              <span class="status-dot online"></span>
+              <span id="settings-status-text">AI Service Connected</span>
+            </div>
+            <details class="diagnostics-details">
+              <summary>Diagnostic Details</summary>
+              <div class="diagnostics-content">
+                <div><strong>Active Mode:</strong> <span id="diag-active-mode">cloud</span></div>
+                <div><strong>Backend Provider:</strong> <span id="diag-backend-prov">gemini</span></div>
+                <div><strong>Configured Model:</strong> <span id="diag-model-name">gemini-3.8-flash</span></div>
+              </div>
+            </details>
+          </div>
         </div>
 
+        <!-- Sample Library Reset -->
         <div class="settings-group">
-          <label>AI Connection Health</label>
-          <div id="settings-ai-status-detail" class="status-detail-card">
-            Checking status...
-          </div>
-          <button class="btn btn-secondary btn-xs" onclick="checkAIStatus(true)" style="margin-top: 8px;">
-            Test Connection Now
-          </button>
-        </div>
-
-        <div class="settings-group">
-          <label>Development & Test Data</label>
+          <label class="settings-label">Sample Data</label>
           <div class="dev-tools-card">
             <div class="dev-tools-info">
-              <span class="dev-tools-title">Reset to Sample Library</span>
-              <p class="setting-hint">Rebuilds local SQLite database with clean sample books (Novels, Textbooks, Markdown research documents) and pre-generated AI representations.</p>
+              <span class="dev-tools-title">Reset to Sample Collection</span>
+              <p class="setting-hint">Rebuilds clean sample books with pre-generated structured summaries.</p>
             </div>
             <button id="btn-reset-dev-data" class="btn btn-secondary btn-sm" onclick="handleDevReset()">
-              🔄 Reset Sample Data
+              <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+              </svg>
+              <span>Reset Library</span>
             </button>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-primary btn-sm" onclick="closeSettings()">Save & Close</button>
+        <button class="btn btn-primary btn-sm" onclick="closeSettings()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELETE BOOK CONFIRMATION MODAL -->
+  <div id="deleteBookModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeDeleteBookModal()"></div>
+    <div class="modal-content modal-sm">
+      <div class="modal-header modal-header-danger">
+        <div class="danger-header-title">
+          <svg class="ui-icon icon-danger" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"/>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+            <line x1="10" y1="11" x2="10" y2="17"/>
+            <line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
+          <h2>Delete this book?</h2>
+        </div>
+        <button class="close-btn" onclick="closeDeleteBookModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="delete-book-target">
+          Are you sure you want to remove <strong id="delete-book-title-display">this book</strong>?
+        </p>
+        <p class="delete-warning-text">
+          This will permanently delete the book, all its chapters, generated representations, and associated local data. This action cannot be undone.
+        </p>
+        <div id="delete-book-error" class="modal-error-banner" style="display: none;">
+          Couldn't delete this book. Nothing was removed from the library.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeDeleteBookModal()">Cancel</button>
+        <button type="button" id="btn-confirm-delete-book" class="btn btn-danger" onclick="executeDeleteBook()">
+          Delete Book
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIRST-TIME AI PROCESSING CHOICE MODAL -->
+  <div id="aiSelectionModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeAISelectionModal()"></div>
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <div>
+          <h2>Choose AI Processing Mode</h2>
+          <p class="section-sub">Select how you want Smart Reader to generate chapter summaries. You can change this anytime in Settings.</p>
+        </div>
+        <button class="close-btn" onclick="closeAISelectionModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="ai-choice-grid">
+          <div class="ai-choice-card" id="choice-card-local" onclick="selectInitialAIMode('local')">
+            <div class="choice-card-top">
+              <div class="choice-icon-wrap">
+                <svg class="ui-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="20" height="14" x="2" y="3" rx="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21"/>
+                  <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+              </div>
+              <div class="choice-tag-wrap">
+                <span class="choice-tag">Private & Offline</span>
+              </div>
+            </div>
+            <h3 class="choice-title">Local AI</h3>
+            <p class="choice-desc">
+              Runs on your machine using Ollama. Zero network requests, 100% private, and completely offline capable.
+            </p>
+            <div class="choice-requirement">
+              Requires local Ollama service running
+            </div>
+          </div>
+
+          <div class="ai-choice-card selected" id="choice-card-cloud" onclick="selectInitialAIMode('cloud')">
+            <div class="choice-card-top">
+              <div class="choice-icon-wrap cloud">
+                <svg class="ui-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+                </svg>
+              </div>
+              <div class="choice-tag-wrap">
+                <span class="choice-tag recommended">Fast & Cloud</span>
+              </div>
+            </div>
+            <h3 class="choice-title">Cloud AI</h3>
+            <p class="choice-desc">
+              High-speed reasoning powered by Gemini. Instant processing with no local GPU or model download required.
+            </p>
+            <div class="choice-requirement">
+              Requires internet connection
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeAISelectionModal()">Cancel</button>
+        <button type="button" id="btn-confirm-ai-choice" class="btn btn-primary" onclick="confirmInitialAIChoice()">
+          Continue with Cloud AI
+        </button>
       </div>
     </div>
   </div>
@@ -563,33 +1132,142 @@
         <div class="ai-architecture-explainer">
           <h4>How Smart Reader AI Works</h4>
           <p>
-            Smart Reader is engineered with a <strong>Private Local AI</strong> architecture. When active, it connects to your local Ollama daemon (<code>llama3</code>) to generate chapter breakdowns, summaries, and reading intelligence.
-          </p>
-          <p>
-            Your books, chapters, and research notes stay on your machine and are never transmitted to external third-party cloud services.
+            Smart Reader supports both <strong>Private Local AI</strong> and <strong>Cloud AI</strong>. When active, it distills chapter developments into structured summaries.
           </p>
           <div class="ai-offline-safe-notice">
-            <span class="notice-icon">🛡️</span>
+            <span class="notice-icon">
+              <svg class="ui-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </span>
             <div>
               <strong>Full Offline Guarantee:</strong> All core library management, chapter reading, structured canonical formatting, typography preferences, and search features function completely without AI.
             </div>
           </div>
         </div>
-
-        <div class="ai-setup-guide">
-          <h4>Local AI Setup (Optional)</h4>
-          <p>To enable local AI chapter summaries, install Ollama and run:</p>
-          <div class="code-copy-row">
-            <code>ollama run llama3</code>
-            <button class="btn btn-secondary btn-xs" onclick="copyCommand('ollama run llama3')">Copy</button>
-          </div>
-        </div>
       </div>
       <div class="modal-footer">
         <button id="btn-test-ai-connection" class="btn btn-secondary btn-sm" onclick="checkAIStatus(true)">
-          🔄 Test Connection Now
+          <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          <span>Test Connection Now</span>
         </button>
         <button class="btn btn-primary btn-sm" onclick="closeAIStatusModal()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUPPORTING MATERIAL SEARCH & ATTACH MODAL (Build 3A) -->
+  <div id="supportingMaterialModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeSupportingMaterialModal()"></div>
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <div>
+          <h2>Find Supporting Material</h2>
+          <p class="section-desc">Search web knowledge or paste a URL to attach research and context to <strong id="supporting-modal-book-title">this book</strong>. Ground-truth content remains untouched.</p>
+        </div>
+        <button class="close-btn" onclick="closeSupportingMaterialModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="web-search-box-container">
+          <div class="web-search-input-wrap">
+            <span class="web-search-leading-icon">
+              <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+            </span>
+            <input type="text" id="supporting-search-input" class="web-search-input" placeholder="Search Wikipedia, papers, or web docs..." onkeydown="handleSupportingSearchKey(event)">
+            <button type="button" class="btn btn-primary btn-sm" onclick="handleRunSupportingSearch()">Search</button>
+          </div>
+        </div>
+
+        <div class="web-direct-url-bar">
+          <span class="direct-url-label">Or Direct URL:</span>
+          <div class="direct-url-input-wrap">
+            <input type="url" id="supporting-direct-url" placeholder="https://..." onkeydown="handleSupportingDirectUrlKey(event)">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="handleAttachDirectSupportingUrl()">Attach Directly</button>
+          </div>
+        </div>
+
+        <!-- Status / Spinner -->
+        <div id="supporting-search-loading" class="web-search-loading" style="display: none;">
+          <div class="spinner-sm"></div>
+          <span>Searching accessible web knowledge...</span>
+        </div>
+
+        <div id="supporting-search-error" class="modal-error-banner" style="display: none;"></div>
+
+        <!-- Results List -->
+        <div id="supporting-search-results" class="supporting-search-results">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeSupportingMaterialModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW SUPPORTING MATERIAL MODAL -->
+  <div id="viewSupportingMaterialModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeViewSupportingModal()"></div>
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <div>
+          <div class="preview-badges">
+            <span id="view-sup-site" class="badge-tag">Web Reference</span>
+            <span id="view-sup-type" class="badge-tag">Research</span>
+          </div>
+          <h2 id="view-sup-title">Supporting Material Title</h2>
+          <p id="view-sup-author" class="section-desc">By Author</p>
+          <a id="view-sup-url" href="#" target="_blank" rel="noopener noreferrer" class="preview-ext-link">🔗 View original source ↗</a>
+        </div>
+        <button class="close-btn" onclick="closeViewSupportingModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="view-sup-content" class="supporting-reader-body canonical-content-flow">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeViewSupportingModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FUTURE READING MODE (COMING SOON) MODAL (Requirement 9) -->
+  <div id="comingSoonModal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeComingSoonModal()"></div>
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <div class="coming-soon-header-badge">
+          <span class="badge-pill-xs badge-accent">In Active Development</span>
+        </div>
+        <h2 id="coming-soon-title">Visual Story Experience</h2>
+        <button class="close-btn" onclick="closeComingSoonModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="coming-soon-hero">
+          <div class="coming-soon-icon" id="coming-soon-icon">🎨</div>
+          <p id="coming-soon-description" class="coming-soon-desc">
+            Visual Story mode transforms structured canonical chapters into cinematic, scene-by-scene illustrated narrative flows powered by semantic chunking and visual context generation.
+          </p>
+        </div>
+        <div class="coming-soon-details-box">
+          <h4>Future Pipeline Roadmap:</h4>
+          <ul>
+            <li id="coming-soon-feat-1">Semantic narrative segmentation into visual beats</li>
+            <li id="coming-soon-feat-2">Contextual character and scenery illustration prompts</li>
+            <li id="coming-soon-feat-3">Side-by-side synchronized narrative text and visual art</li>
+          </ul>
+        </div>
+        <div class="notice-box-subtle">
+          <p>This capability is planned for upcoming releases. Standard reading mode, chapter navigation, and AI summarization are fully available right now.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" onclick="closeComingSoonModal()">Understood</button>
       </div>
     </div>
   </div>

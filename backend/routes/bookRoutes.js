@@ -5,7 +5,7 @@ const webAcquisitionService = require('../services/web/webAcquisitionService');
 
 const router = express.Router();
 const upload = multer({
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
   storage: multer.memoryStorage(),
 });
 

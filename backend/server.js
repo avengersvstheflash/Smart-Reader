@@ -73,22 +73,30 @@ app.post('/generate-summary', async (req, res) => {
   }
 });
 
-// Centralized error handling
-app.use((err, req, res, next) => {
-  console.error('[API Error]:', err);
-  const status = err.status || 500;
-  res.status(status).json({
-    error: err.message || 'Internal Server Error',
+// Catch unhandled /api requests and guarantee JSON response (never HTML)
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    error: `API route not found: ${req.method} ${req.originalUrl || req.url}`,
   });
 });
 
-// Fallback to index.html for client-side navigation
+// Fallback to index.html for client-side GET navigation
 app.use((req, res, next) => {
-  if (req.method === 'GET' && !req.path.startsWith('/api/')) {
+  if (req.method === 'GET' && !req.path.startsWith('/api')) {
     res.sendFile(path.join(__dirname, '../src/index.html'));
   } else {
     next();
   }
+});
+
+// Centralized error handling (MUST be the last middleware in the chain)
+app.use((err, req, res, next) => {
+  console.error('[API Error]:', err);
+  const status = err.status || (err.name === 'MulterError' ? 400 : 500);
+  res.status(status).json({
+    error: err.message || 'Internal Server Error',
+    code: err.code || undefined,
+  });
 });
 
 app.listen(config.PORT, '0.0.0.0', () => {
