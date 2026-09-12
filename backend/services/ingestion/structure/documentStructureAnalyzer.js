@@ -64,7 +64,7 @@ class DocumentStructureAnalyzer {
 
       // Extract blocks for this chapter range
       const chapterPages = pages.filter(p => p.num >= startPage && p.num <= endPage);
-      const chapterBlocks = this.extractBlocksForChapter(chapterPages, split, runningArtifacts, initialBlocks);
+      const chapterBlocks = this.extractBlocksForChapter(chapterPages, split, runningArtifacts, initialBlocks, endPage);
 
       // Count sections and tables
       const sections = chapterBlocks
@@ -241,13 +241,13 @@ class DocumentStructureAnalyzer {
       const chNum = match[1] || null;
       const title = match[2].trim();
       const page = parseInt(match[3], 10);
-      const isSubSection = /^\d+\.\d+/.test(title);
+      const isSubSection = /^(\d+\.\d+|[A-Z]\.\d+|section\s+\d+\.\d+|subsection)/i.test(title) || (chNum && chNum.includes('.'));
 
       return {
         chapterNumber: chNum,
         title,
         page,
-        isChapter: Boolean(chNum) || (!isSubSection && /^[A-Z]/.test(title)),
+        isChapter: !isSubSection && (Boolean(chNum) || /^[A-Z]/.test(title)),
         isSubSection,
       };
     }
@@ -419,13 +419,13 @@ class DocumentStructureAnalyzer {
   /**
    * Extracts canonical blocks for a chapter range, filtering running headers
    */
-  extractBlocksForChapter(chapterPages, splitInfo, runningArtifacts, initialBlocks = []) {
+  extractBlocksForChapter(chapterPages, splitInfo, runningArtifacts, initialBlocks = [], endPage = Infinity) {
     // If pre-parsed blocks with page provenance are available
     if (initialBlocks.length > 0) {
       const startPage = splitInfo.pageNumber;
       const filtered = initialBlocks.filter(b => {
         const p = b.sourcePage || 1;
-        return p >= startPage;
+        return p >= startPage && p <= endPage;
       });
       if (filtered.length > 0) {
         return filtered;
@@ -537,11 +537,25 @@ class DocumentStructureAnalyzer {
       }
     }
 
-    // Check for major headings (H1, H2)
+    // Check for major headings (H1, H2) - exclude subheadings (1.1, 1.2, etc.)
     const majorHeadings = [];
+    const hasMultipleH1 = cleanedBlocks.filter(b => b.type === 'heading' && b.level === 1 && b.text.toLowerCase() !== docTitle.toLowerCase()).length >= 2;
+
     cleanedBlocks.forEach((block, index) => {
-      if (block.type === 'heading' && (block.level === 1 || block.level === 2)) {
-        if (block.text.toLowerCase() !== docTitle.toLowerCase()) {
+      if (block.type === 'heading') {
+        const text = (block.text || '').trim();
+        if (text.toLowerCase() === docTitle.toLowerCase()) return;
+
+        // Subheadings like 1.1, 1.2.3, Section 2.1 MUST remain as sections within parent chapters
+        const isSubSectionNumbering = /^(\d+\.\d+|[A-Z]\.\d+|section\s+\d+\.\d+|subsection|part\s+\d+\.\d+)/i.test(text);
+        if (isSubSectionNumbering) {
+          return;
+        }
+
+        if (block.level === 1) {
+          majorHeadings.push({ index, block });
+        } else if (block.level === 2 && !hasMultipleH1) {
+          // If no multiple H1 chapters, allow major topical H2s as chapters
           majorHeadings.push({ index, block });
         }
       }
@@ -677,14 +691,32 @@ class DocumentStructureAnalyzer {
     const isZeroContent = totalWordCount === 0 || effectiveBlocks.length === 0;
 
     // Scan for H1 headings that represent chapters
-    const h1Headings = [];
+    let candidateHeadings = [];
     effectiveBlocks.forEach((b, idx) => {
       if (b.type === 'heading' && b.level === 1) {
-        h1Headings.push({ index: idx, block: b });
+        candidateHeadings.push({ index: idx, block: b });
       }
     });
 
-    if (h1Headings.length <= 1) {
+    // If no H1 chapters found, check for explicit H2 chapters (e.g. "## Chapter 1: ...")
+    // Subheadings (1.1, 1.2, etc.) are strictly excluded
+    if (candidateHeadings.length <= 1) {
+      const explicitH2Chapters = [];
+      effectiveBlocks.forEach((b, idx) => {
+        if (b.type === 'heading' && b.level === 2) {
+          const text = (b.text || '').trim();
+          const isSubSection = /^(\d+\.\d+|[A-Z]\.\d+|section\s+\d+\.\d+|subsection)/i.test(text);
+          if (!isSubSection && /^(?:chapter|part|volume|book)\s+(\d+|[ivxlcdm]+)/i.test(text)) {
+            explicitH2Chapters.push({ index: idx, block: b });
+          }
+        }
+      });
+      if (explicitH2Chapters.length >= 2) {
+        candidateHeadings = explicitH2Chapters;
+      }
+    }
+
+    if (candidateHeadings.length <= 1) {
       // Single chapter document
       const sections = effectiveBlocks
         .filter(b => b.type === 'heading' && b.level >= 2)
@@ -702,7 +734,7 @@ class DocumentStructureAnalyzer {
         chapters: [
           {
             number: 1,
-            title: (h1Headings[0] && h1Headings[0].block.text) || docTitle,
+            title: (candidateHeadings[0] && candidateHeadings[0].block.text) || docTitle,
             structuralRole: 'chapter',
             canonicalBlocks: effectiveBlocks,
             sections,
@@ -721,20 +753,20 @@ class DocumentStructureAnalyzer {
       };
     }
 
-    // Multiple H1 chapters
+    // Multiple chapters
     const chapters = [];
     let totalSections = 0;
     let totalTables = 0;
 
-    for (let i = 0; i < h1Headings.length; i++) {
-      const curr = h1Headings[i];
-      const next = h1Headings[i + 1];
+    for (let i = 0; i < candidateHeadings.length; i++) {
+      const curr = candidateHeadings[i];
+      const next = candidateHeadings[i + 1];
       const chapterBlocks = effectiveBlocks.slice(curr.index, next ? next.index : effectiveBlocks.length);
       const chapterDoc = new CanonicalDocument(chapterBlocks);
       const wordCount = chapterDoc.calculateWordCount();
 
       const sections = chapterBlocks
-        .filter(b => b.type === 'heading' && b.level >= 2)
+        .filter(b => b.type === 'heading' && b.level >= 2 && b !== curr.block)
         .map(b => ({ title: b.text, level: b.level }));
 
       const tables = chapterBlocks.filter(b => b.type === 'table');

@@ -36,268 +36,252 @@ const state = {
 };
 
 // ==========================================================================
-// API CLIENT LAYER
+// RESILIENT API CLIENT LAYER (Build 3B.1.5 Hardening)
 // ==========================================================================
+async function requestApi(url, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json');
+  }
+
+  let res;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch (networkErr) {
+    throw new Error(`Network error: ${networkErr.message || 'Could not connect to backend server'}.`);
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+
+  let data = null;
+  let rawText = '';
+
+  if (isJson) {
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+  } else {
+    rawText = await res.text().catch(() => '');
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!res.ok) {
+    if (!isJson && rawText && (rawText.includes('<!DOCTYPE') || rawText.includes('<html'))) {
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        throw new Error(`Server is initializing (HTTP ${res.status}). Please try again in a few seconds.`);
+      }
+      throw new Error(`Server returned unexpected HTML error page (HTTP ${res.status}).`);
+    }
+
+    const errorMsg = (data && (data.error || data.message)) || `Server returned HTTP ${res.status} (${res.statusText || 'Error'})`;
+    const err = new Error(errorMsg);
+    err.status = res.status;
+    err.details = (data && data.details) || '';
+    err.provider = (data && data.provider) || '';
+    err.mode = (data && data.mode) || '';
+    throw err;
+  }
+
+  if (!isJson && rawText && (rawText.includes('<!DOCTYPE') || rawText.includes('<html'))) {
+    throw new Error('Server returned an unexpected HTML response instead of JSON.');
+  }
+
+  return data !== null ? data : {};
+}
+
 const api = {
   async getBooks() {
-    const res = await fetch('/api/books');
-    if (!res.ok) throw new Error('Failed to fetch books');
-    const data = await res.json();
+    const data = await requestApi('/api/books');
     return data.books || [];
   },
 
   async getBook(id) {
-    const res = await fetch(`/api/books/${id}`);
-    if (!res.ok) throw new Error('Failed to fetch book details');
-    const data = await res.json();
+    const data = await requestApi(`/api/books/${id}`);
     return data.book;
   },
 
   async createBook(bookData) {
-    const res = await fetch('/api/books', {
+    const data = await requestApi('/api/books', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bookData),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to create book');
-    }
-    const data = await res.json();
     return data.book;
   },
 
   async importBook(formData) {
-    const res = await fetch('/api/books/import', {
+    return await requestApi('/api/books/import', {
       method: 'POST',
       body: formData,
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to import book');
-    }
-    return await res.json();
   },
 
   async deleteBook(id) {
-    const res = await fetch(`/api/books/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete book');
-    return await res.json();
+    return await requestApi(`/api/books/${id}`, { method: 'DELETE' });
   },
 
   async getChapters(bookId) {
-    const res = await fetch(`/api/books/${bookId}/chapters`);
-    if (!res.ok) throw new Error('Failed to fetch chapters');
-    const data = await res.json();
+    const data = await requestApi(`/api/books/${bookId}/chapters`);
     return data.chapters || [];
   },
 
   async getChapter(id) {
-    const res = await fetch(`/api/chapters/${id}`);
-    if (!res.ok) throw new Error('Failed to fetch chapter');
-    return await res.json();
+    return await requestApi(`/api/chapters/${id}`);
   },
 
   async addChapter(bookId, chapterData) {
-    const res = await fetch(`/api/books/${bookId}/chapters`, {
+    const data = await requestApi(`/api/books/${bookId}/chapters`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(chapterData),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to add chapter');
-    }
-    const data = await res.json();
     return data.chapter;
   },
 
   async updateChapter(id, updates) {
-    const res = await fetch(`/api/chapters/${id}`, {
+    const data = await requestApi(`/api/chapters/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
     });
-    if (!res.ok) throw new Error('Failed to update chapter');
-    const data = await res.json();
     return data.chapter;
   },
 
   async summarizeChapter(id, options = {}) {
     const mode = typeof options === 'string' ? (options === 'ollama' ? 'local' : 'cloud') : (options.mode || state.processingMode || 'cloud');
     const provider = typeof options === 'string' ? options : (options.provider || (mode === 'local' ? 'ollama' : 'gemini'));
-    const res = await fetch(`/api/chapters/${id}/summarize`, {
+    return await requestApi(`/api/chapters/${id}/summarize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode, provider }),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const errorObj = new Error(err.error || 'Failed to generate chapter summary');
-      errorObj.details = err.details || '';
-      errorObj.provider = err.provider || provider;
-      errorObj.mode = err.mode || mode;
-      throw errorObj;
-    }
-    return await res.json();
   },
 
   async setAIProvider(provider) {
-    const res = await fetch('/api/ai/provider', {
+    return await requestApi('/api/ai/provider', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider }),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to set active AI provider');
-    }
-    return await res.json();
   },
 
   async getJobs() {
-    const res = await fetch('/api/jobs');
-    if (!res.ok) throw new Error('Failed to fetch jobs');
-    const data = await res.json();
+    const data = await requestApi('/api/jobs');
     return data.jobs || [];
   },
 
   async getAIStatus() {
-    const res = await fetch('/api/ai/status');
-    if (!res.ok) throw new Error('Failed to check AI status');
-    return await res.json();
+    return await requestApi('/api/ai/status');
   },
 
   async resetDevData() {
-    const res = await fetch('/api/dev/reset', { method: 'POST' });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to reset database');
-    }
-    return await res.json();
+    return await requestApi('/api/dev/reset', { method: 'POST' });
   },
 
   // Web Intelligence API (Build 3A)
   async searchWeb(query, category = 'all', limit = 10) {
     const params = new URLSearchParams({ q: query, category, limit });
-    const res = await fetch(`/api/web/search?${params}`);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Web search failed');
-    }
-    return await res.json();
+    return await requestApi(`/api/web/search?${params}`);
   },
 
   async previewWeb(url) {
-    const res = await fetch('/api/web/preview', {
+    return await requestApi('/api/web/preview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Preview failed');
-    return data;
   },
 
   async importWeb(payload) {
-    const res = await fetch('/api/web/import', {
+    return await requestApi('/api/web/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Web import failed');
-    return data;
   },
 
   async importWebMulti(payload) {
-    const res = await fetch('/api/web/import-multi', {
+    return await requestApi('/api/web/import-multi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Multi-source acquisition failed');
-    return data;
   },
 
   async getSupportingMaterials(bookId) {
-    const res = await fetch(`/api/books/${bookId}/supporting`);
-    if (!res.ok) throw new Error('Failed to load supporting material');
-    const data = await res.json();
+    const data = await requestApi(`/api/books/${bookId}/supporting`);
     return data.materials || [];
   },
 
   async attachSupportingMaterial(bookId, payload) {
-    const res = await fetch(`/api/books/${bookId}/supporting`, {
+    const data = await requestApi(`/api/books/${bookId}/supporting`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to attach supporting material');
     return data.material;
   },
 
   async deleteSupportingMaterial(materialId) {
-    const res = await fetch(`/api/web/supporting/${materialId}`, {
+    return await requestApi(`/api/web/supporting/${materialId}`, {
       method: 'DELETE',
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to delete supporting material');
-    return data;
   },
 
   async getSynopsis(bookId) {
-    const res = await fetch(`/api/books/${bookId}/synopsis`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.representation;
+    try {
+      const data = await requestApi(`/api/books/${bookId}/synopsis`);
+      return data.representation;
+    } catch {
+      return null;
+    }
   },
 
   async generateSynopsis(bookId) {
-    const res = await fetch(`/api/books/${bookId}/synopsis`, {
+    return await requestApi(`/api/books/${bookId}/synopsis`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to generate synopsis');
-    return data;
   },
 
   async getBookSummary(bookId) {
-    const res = await fetch(`/api/books/${bookId}/summary`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.representation;
+    try {
+      const data = await requestApi(`/api/books/${bookId}/summary`);
+      return data.representation;
+    } catch {
+      return null;
+    }
   },
 
   async generateBookSummary(bookId) {
-    const res = await fetch(`/api/books/${bookId}/summarize`, {
+    return await requestApi(`/api/books/${bookId}/summarize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to generate book summary');
-    return data;
   },
 
   async getSemanticStatus(bookId) {
-    const res = await fetch(`/api/semantic/status/${bookId}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.data;
+    try {
+      const data = await requestApi(`/api/semantic/status/${bookId}`);
+      return data.data;
+    } catch {
+      return null;
+    }
   },
 
   async askBook(bookId, query) {
-    const res = await fetch(`/api/books/${bookId}/ask`, {
+    return await requestApi(`/api/books/${bookId}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to answer query');
-    return data;
   },
 };
 
@@ -2028,13 +2012,27 @@ function handleFileSelected(files) {
   const file = files[0];
   state.selectedFile = file;
 
+  // Switch to file tab automatically
+  state.addBookTab = 'file';
+  const tabBtn = document.querySelector('.modal-tab-btn[data-tab="file"]');
+  if (tabBtn) {
+    document.querySelectorAll('.modal-tab-btn').forEach(b => b.classList.remove('active'));
+    tabBtn.classList.add('active');
+    const tabFile = document.getElementById('tab-content-file');
+    const tabPaste = document.getElementById('tab-content-paste');
+    if (tabFile) tabFile.style.display = 'block';
+    if (tabPaste) tabPaste.style.display = 'none';
+  }
+
   const infoPill = document.getElementById('selected-file-info');
-  infoPill.style.display = 'inline-block';
-  infoPill.textContent = `Selected: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+  if (infoPill) {
+    infoPill.style.display = 'inline-block';
+    infoPill.textContent = `Selected: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+  }
 
   // Autofill title if empty
   const titleInput = document.getElementById('book-input-title');
-  if (!titleInput.value.trim()) {
+  if (titleInput && !titleInput.value.trim()) {
     const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
     titleInput.value = cleanName;
   }
@@ -2071,14 +2069,17 @@ async function handleAddBookSubmit(e) {
     formData.append('description', description);
     formData.append('contentType', contentType);
 
-    if (state.addBookTab === 'file' && state.selectedFile) {
-      formData.append('file', state.selectedFile);
-    } else {
-      const pasteText = document.getElementById('book-paste-content').value.trim();
-      if (!pasteText) {
-        throw new Error('Please paste your book content or select a file to import.');
-      }
+    const fileInput = document.getElementById('book-file-input');
+    const selectedFile = state.selectedFile || (fileInput && fileInput.files && fileInput.files[0]);
+    const pasteInput = document.getElementById('book-paste-content');
+    const pasteText = pasteInput ? pasteInput.value.trim() : '';
+
+    if (selectedFile && (state.addBookTab === 'file' || !pasteText)) {
+      formData.append('file', selectedFile);
+    } else if (pasteText) {
       formData.append('text', pasteText);
+    } else {
+      throw new Error('Please select a file to import or paste your text content.');
     }
 
     // Switch to Stateful Ingestion Progress View
