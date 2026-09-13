@@ -138,25 +138,31 @@ class ChapterRepository {
   }
 
   // Chapter Representations (Separating original content from AI generation)
-  saveRepresentation({ id, chapterId, bookId, type, content, metadata }) {
+  saveRepresentation({ id, chapterId, bookId, type, content, metadata, provenance, synthesisType }) {
     const db = getDatabase();
     const now = new Date().toISOString();
     const repId = id || `rep-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+    let provenanceJson = null;
+    if (provenance) {
+      provenanceJson = typeof provenance === 'string' ? provenance : JSON.stringify(provenance);
+    }
+    const resolvedSynthesisType = synthesisType || 'single_source';
 
     // Upsert or insert representation
     const existing = db.prepare('SELECT id FROM chapter_representations WHERE chapter_id = ? AND type = ?').get(chapterId, type);
     if (existing) {
       db.prepare(`
         UPDATE chapter_representations
-        SET content = ?, metadata_json = ?, created_at = ?
+        SET book_id = ?, content = ?, metadata_json = ?, provenance = ?, synthesisType = ?, created_at = ?
         WHERE id = ?
-      `).run(content, JSON.stringify(metadata || {}), now, existing.id);
+      `).run(bookId, content, JSON.stringify(metadata || {}), provenanceJson, resolvedSynthesisType, now, existing.id);
       return this.getRepresentationById(existing.id);
     } else {
       db.prepare(`
-        INSERT INTO chapter_representations (id, chapter_id, book_id, type, content, metadata_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(repId, chapterId, bookId, type, content, JSON.stringify(metadata || {}), now);
+        INSERT INTO chapter_representations (id, chapter_id, book_id, type, content, metadata_json, provenance, synthesisType, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(repId, chapterId, bookId, type, content, JSON.stringify(metadata || {}), provenanceJson, resolvedSynthesisType, now);
       return this.getRepresentationById(repId);
     }
   }
@@ -181,6 +187,18 @@ class ChapterRepository {
     return this.formatRepresentation(row);
   }
 
+  deleteRepresentation(id) {
+    const db = getDatabase();
+    const res = db.prepare('DELETE FROM chapter_representations WHERE id = ?').run(id);
+    return res.changes > 0;
+  }
+
+  deleteRepresentationsByBook(bookId) {
+    const db = getDatabase();
+    const res = db.prepare('DELETE FROM chapter_representations WHERE book_id = ?').run(bookId);
+    return res.changes > 0;
+  }
+
   formatRepresentation(row) {
     if (!row) return null;
     let metadata = {};
@@ -189,10 +207,26 @@ class ChapterRepository {
     } catch {
       metadata = {};
     }
+
+    let provenance = [];
+    if (row.provenance) {
+      try {
+        provenance = typeof row.provenance === 'string' ? JSON.parse(row.provenance) : row.provenance;
+      } catch {
+        provenance = [];
+      }
+    }
+
+    const synthesisType = row.synthesisType || 'single_source';
+
     return {
       ...row,
       metadata,
       canonical_blocks: metadata.canonicalBlocks || null,
+      canonicalBlocks: metadata.canonicalBlocks || null,
+      provenance,
+      synthesisType,
+      synthesis_type: synthesisType,
     };
   }
 }

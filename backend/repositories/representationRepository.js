@@ -97,6 +97,14 @@ class RepresentationRepository {
     return chapterRepository.getRepresentationByType(chapterId, type);
   }
 
+  getChapterRepresentationById(id) {
+    return chapterRepository.getRepresentationById(id);
+  }
+
+  deleteChapterRepresentation(id) {
+    return chapterRepository.deleteRepresentation(id);
+  }
+
   getChapterRepresentations(chapterId) {
     return chapterRepository.getRepresentations(chapterId);
   }

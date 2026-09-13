@@ -107,7 +107,7 @@ class SemanticIndex {
         this.loadBookIndex(bookId);
       }
       candidates = this.memoryIndex.get(bookId) || [];
-    } else if (scope === 'selected_books' && Array.isArray(bookIds)) {
+    } else if ((scope === 'selected_books' || scope === 'collection') && Array.isArray(bookIds)) {
       candidates = [];
       for (const bId of bookIds) {
         if (!this.memoryIndex.has(bId)) {

@@ -3,6 +3,119 @@ const bookRepository = require('../../repositories/bookRepository');
 const chapterRepository = require('../../repositories/chapterRepository');
 
 class RetrievalService {
+  /**
+   * Search across scopes: 'selected_books' | 'collection' | 'current_chapter' | 'current_book' | 'library'
+   * For cross-source scopes, returns grouped results by bookId:
+   * Array<{ bookId, bookTitle, chunks: [{ chunkId, chapterId, content, heading, score }] }>
+   */
+  async search(queryOrParams, maybeOptionsOrBookIds = {}, maybeOptions = {}) {
+    let query;
+    let options = {};
+    let bookIds = [];
+
+    if (typeof queryOrParams === 'object' && queryOrParams !== null) {
+      query = queryOrParams.query;
+      bookIds = queryOrParams.bookIds || [];
+      options = { ...queryOrParams };
+    } else {
+      query = queryOrParams;
+      if (Array.isArray(maybeOptionsOrBookIds)) {
+        bookIds = maybeOptionsOrBookIds;
+        options = { ...maybeOptions, bookIds };
+      } else if (typeof maybeOptionsOrBookIds === 'object' && maybeOptionsOrBookIds !== null) {
+        options = { ...maybeOptionsOrBookIds };
+        bookIds = options.bookIds || [];
+      }
+    }
+
+    const scope = options.scope || (bookIds && bookIds.length > 0 ? 'collection' : 'library');
+    const topK = options.topK !== undefined ? options.topK : 10;
+    const minScore = options.minScore !== undefined
+      ? options.minScore
+      : (options.threshold !== undefined ? options.threshold : 0.65);
+
+    // Ensure existing 'current_chapter' and 'current_book' scopes remain untouched
+    if (scope === 'current_chapter' || scope === 'chapter') {
+      const chapterId = options.chapterId;
+      return this.retrieveForChapter(chapterId, query, { topK, threshold: minScore, ...options });
+    }
+
+    if (scope === 'current_book' || scope === 'book') {
+      const bookId = options.bookId || (bookIds && bookIds[0]);
+      return this.retrieveForBook(bookId, query, { topK, threshold: minScore, ...options });
+    }
+
+    // Cross-source scope: 'selected_books' or 'collection'
+    if (scope === 'selected_books' || scope === 'collection') {
+      const effectiveBookIds = Array.isArray(bookIds) && bookIds.length > 0
+        ? bookIds
+        : (options.bookId ? [options.bookId] : []);
+
+      if (effectiveBookIds.length === 0) {
+        return [];
+      }
+
+      // Embed query and search across specified books
+      const rawChunks = await semanticIndex.search(query, {
+        scope: 'selected_books',
+        bookIds: effectiveBookIds,
+        topK: topK * Math.max(1, effectiveBookIds.length),
+        threshold: minScore,
+        contentTypes: options.contentTypes,
+      });
+
+      // Filter by minScore (cosine similarity threshold)
+      const validChunks = rawChunks.filter((c) => {
+        const score = c.similarityScore !== undefined ? c.similarityScore : (c.score || 0);
+        return score >= minScore;
+      });
+
+      // Group results by bookId
+      const groupedMap = new Map();
+      for (const bId of effectiveBookIds) {
+        const book = bookRepository.getById(bId);
+        groupedMap.set(bId, {
+          bookId: bId,
+          bookTitle: book ? book.title : 'Unknown Book',
+          chunks: [],
+        });
+      }
+
+      for (const chunk of validChunks) {
+        const bId = chunk.bookId || chunk.book_id;
+        if (!groupedMap.has(bId)) {
+          const book = bookRepository.getById(bId);
+          groupedMap.set(bId, {
+            bookId: bId,
+            bookTitle: book ? book.title : 'Unknown Book',
+            chunks: [],
+          });
+        }
+        const group = groupedMap.get(bId);
+        if (group.chunks.length < topK) {
+          group.chunks.push({
+            chunkId: chunk.id,
+            chapterId: chunk.chapterId || chunk.chapter_id || null,
+            content: chunk.textContent || chunk.text_content || '',
+            heading: chunk.sectionHeading || chunk.section_heading || chunk.sourceReference || '',
+            score: chunk.similarityScore !== undefined ? chunk.similarityScore : (chunk.score || 0),
+          });
+        }
+      }
+
+      const results = [];
+      for (const [bId, group] of groupedMap.entries()) {
+        if (group.chunks.length > 0) {
+          results.push(group);
+        }
+      }
+
+      return results;
+    }
+
+    return this.retrieveForLibrary(query, { topK, threshold: minScore, ...options });
+  }
+
   async retrieveForChapter(chapterId, query, options = {}) {
     const chapter = chapterRepository.getById(chapterId);
     if (!chapter) throw new Error(`Chapter not found: ${chapterId}`);

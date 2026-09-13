@@ -59,6 +59,11 @@ class SemanticChunkRepository {
     return this.getByBookId(chunks[0].book_id || chunks[0].bookId);
   }
 
+  create(item) {
+    const res = this.insertBatch([item]);
+    return res[res.length - 1] || null;
+  }
+
   getByBookId(bookId) {
     const db = getDatabase();
     const rows = db.prepare(`
@@ -67,6 +72,13 @@ class SemanticChunkRepository {
       ORDER BY sequence ASC
     `).all(bookId);
     return rows.map((r) => this.formatChunk(r));
+  }
+
+  getById(id) {
+    if (!id) return null;
+    const db = getDatabase();
+    const row = db.prepare('SELECT * FROM semantic_chunks WHERE id = ?').get(id);
+    return row ? this.formatChunk(row) : null;
   }
 
   getByChapterId(chapterId) {

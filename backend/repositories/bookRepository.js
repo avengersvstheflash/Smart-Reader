@@ -29,12 +29,13 @@ class BookRepository {
 
   create(book) {
     const db = getDatabase();
+    const bookId = book.id || `book-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const stmt = db.prepare(`
       INSERT INTO books (id, title, author, description, cover_path, content_type, status, source_format, original_filename, page_count, metadata_json, source_url, source_site, section_count, integrity_status, integrity_warning, semantic_status, semantic_chunk_count, semantic_indexed_at, created_at, updated_at)
       VALUES (@id, @title, @author, @description, @cover_path, @content_type, @status, @source_format, @original_filename, @page_count, @metadata_json, @source_url, @source_site, @section_count, @integrity_status, @integrity_warning, @semantic_status, @semantic_chunk_count, @semantic_indexed_at, @created_at, @updated_at)
     `);
     stmt.run({
-      id: book.id,
+      id: bookId,
       title: book.title,
       author: book.author || 'Unknown Author',
       description: book.description || '',
@@ -56,7 +57,7 @@ class BookRepository {
       created_at: book.created_at || new Date().toISOString(),
       updated_at: book.updated_at || new Date().toISOString(),
     });
-    return this.getById(book.id);
+    return this.getById(bookId);
   }
 
   update(id, updates) {
@@ -110,6 +111,12 @@ class BookRepository {
         DELETE FROM chapter_representations 
         WHERE book_id = ? OR chapter_id IN (SELECT id FROM chapters WHERE book_id = ?)
       `).run(bookId, bookId);
+
+      // Invalidate cross-source representations with orphaned chunk provenance
+      try {
+        const synthesisService = require('../services/synthesis/synthesisService');
+        synthesisService.invalidateOutdatedRepresentations();
+      } catch {}
 
       // 4. Delete associated processing jobs
       db.prepare('DELETE FROM processing_jobs WHERE book_id = ?').run(bookId);

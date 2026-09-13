@@ -199,4 +199,104 @@ router.post('/:id/ask', async (req, res, next) => {
   }
 });
 
+// Single-Book Smart Reading / Editorial Endpoints
+const editorialService = require('../services/synthesis/editorialService');
+const synthesisService = require('../services/synthesis/synthesisService');
+
+// POST /api/books/:id/editorial/generate - Generate single-book editorial outline
+router.post('/:id/editorial/generate', async (req, res, next) => {
+  try {
+    const book = bookService.getBook(req.params.id);
+    if (!book) {
+      return res.status(404).json({ error: 'Book not found' });
+    }
+
+    const { topic, fast, title } = req.body || {};
+    const outline = await editorialService.generateSingleBookOutline(req.params.id, {
+      topic,
+      fast: fast === true,
+      title,
+    });
+
+    res.json({
+      success: true,
+      status: 'ready',
+      outline,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Failed to generate editorial outline.' });
+  }
+});
+
+// GET /api/books/:id/editorial - Get single-book editorial outline and chapters status
+router.get('/:id/editorial', async (req, res, next) => {
+  try {
+    const outline = editorialService.getSingleBookOutline(req.params.id);
+    if (!outline) {
+      return res.json({ status: 'not_generated' });
+    }
+
+    // Attach synthesis status to chapters
+    const chaptersWithStatus = (outline.chapters || []).map((ch) => {
+      const rep = synthesisService.getSynthesis(outline.outlineId, ch.chapterId);
+      return {
+        ...ch,
+        isSynthesized: !!rep,
+        synthesizedContent: rep ? rep.content : null,
+      };
+    });
+
+    res.json({
+      status: 'ready',
+      outline: {
+        ...outline,
+        chapters: chaptersWithStatus,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/books/:id/editorial/synthesize - Synthesize a single chapter in single-book outline
+router.post('/:id/editorial/synthesize', async (req, res, next) => {
+  try {
+    const { chapterId, fast } = req.body;
+    if (!chapterId) {
+      return res.status(400).json({ error: 'chapterId is required' });
+    }
+
+    const outline = editorialService.getSingleBookOutline(req.params.id);
+    if (!outline) {
+      return res.status(404).json({ error: 'Editorial outline not generated for this book.' });
+    }
+
+    const result = await synthesisService.synthesizeChapter(outline.outlineId, chapterId, {
+      fast: fast === true,
+    });
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Failed to synthesize chapter.' });
+  }
+});
+
+// DELETE /api/books/:id/editorial - Delete/reset single-book editorial outline & representations
+router.delete('/:id/editorial', async (req, res, next) => {
+  try {
+    const outline = editorialService.getSingleBookOutline(req.params.id);
+    if (!outline) {
+      return res.json({ success: true, message: 'No outline existed to delete.' });
+    }
+
+    editorialService.deleteOutline(outline.outlineId);
+    res.json({ success: true, message: 'Editorial outline and representations deleted.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

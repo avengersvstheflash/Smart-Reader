@@ -170,6 +170,24 @@
         </div>
       </div>
 
+      <!-- RESEARCH COLLECTION FLOATING BAR (Appears when 2+ books selected) -->
+      <div id="collection-action-bar" class="collection-floating-bar" style="display: none;">
+        <div class="collection-bar-content">
+          <div class="collection-bar-info">
+            <span class="collection-bar-icon">📚</span>
+            <span id="collection-bar-count" class="collection-bar-count">0 books selected</span>
+          </div>
+          <div class="collection-bar-actions">
+            <button id="btn-create-research-collection" class="btn btn-primary btn-sm" onclick="openResearchCollection()">
+              <span>Synthesize Research Collection</span>
+            </button>
+            <button id="btn-clear-selection" class="btn btn-ghost btn-sm" onclick="clearBookSelection()">
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- EMPTY STATE (NO SEARCH RESULTS) -->
       <div id="library-search-empty-state" class="empty-state search-empty-state" style="display: none;">
         <div class="empty-icon">
@@ -382,23 +400,44 @@
         </div>
 
         <div class="reader-top-center">
-          <div class="reader-rep-switcher" role="tablist">
-            <button id="btn-rep-original" class="rep-switcher-btn active" onclick="setReadingRepresentation('original')">
-              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-              </svg>
-              <span>Original Source</span>
-            </button>
-            <button id="btn-rep-summary" class="rep-switcher-btn" onclick="setReadingRepresentation('summary')">
-              <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
-              </svg>
-              <span>✦ Reading Summary</span>
-              <span id="rep-summary-dot" class="rep-dot-indicator" style="display: none;" title="Summary ready"></span>
-            </button>
+          <!-- Top-Level Mode Switcher: Original Reading vs Smart Reading (Build 4.2b/c) -->
+          <div class="reader-mode-switcher-container">
+            <div id="reader-book-mode-switcher" class="reader-mode-switcher" role="tablist">
+              <button id="btn-reader-mode-original" class="reader-mode-btn active" onclick="setReaderBookMode('original')" title="Read Original Source Book">
+                <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                </svg>
+                <span>Original Reading</span>
+              </button>
+              <button id="btn-reader-mode-smart" class="reader-mode-btn" onclick="setReaderBookMode('smart')" title="Read Smart Synthesized Reading">
+                <svg class="ui-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+                </svg>
+                <span>Smart Reading</span>
+                <span id="smart-reading-ready-dot" class="rep-dot-indicator" style="display: none;" title="Smart Reading ready"></span>
+              </button>
+            </div>
+
+            <!-- Per-Chapter Summary toggle (remains active when in Original mode) -->
+            <div id="reader-rep-switcher" class="reader-rep-switcher" role="tablist">
+              <button id="btn-rep-original" class="rep-switcher-btn active" onclick="setReadingRepresentation('original')">
+                <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                <span>Original Chapter</span>
+              </button>
+              <button id="btn-rep-summary" class="rep-switcher-btn" onclick="setReadingRepresentation('summary')">
+                <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+                </svg>
+                <span>✦ Chapter Summary</span>
+                <span id="rep-summary-dot" class="rep-dot-indicator" style="display: none;" title="Summary ready"></span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -474,6 +513,35 @@
                   </button>
                 </div>
               </div>
+
+              <!-- Dedicated Smart Reading (Single Book Editorial) Meta Bar (Build 4.2b/c) -->
+              <div id="reader-smart-meta" class="reader-summary-meta-bar" style="display: none;">
+                <div class="summary-meta-left">
+                  <span class="mode-badge-smart">✦ Smart Reading</span>
+                  <span id="reader-smart-stats" class="summary-meta-sub">Synthesized chapter</span>
+                </div>
+                <div class="summary-meta-actions">
+                  <button id="btn-reader-toggle-provenance" class="btn-provenance-badge" onclick="toggleReaderProvenanceDrawer()">
+                    <span id="reader-provenance-count-label">Based on 0 source sections</span>
+                    <span class="drawer-chevron">▾</span>
+                  </button>
+                  <button id="btn-reader-synthesize-chapter" class="btn btn-primary btn-xs" onclick="handleReaderSynthesizeActiveChapter()">
+                    <span>⚡ Synthesize</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Reader Provenance Drawer for Smart Reading -->
+              <div id="reader-smart-provenance-drawer" class="editorial-provenance-drawer" style="display: none;">
+                <div class="provenance-drawer-header">
+                  <h4 class="provenance-drawer-title">Contributing Source Sections & Grounded Provenance</h4>
+                  <button class="btn btn-ghost btn-xs" onclick="toggleReaderProvenanceDrawer()">Close</button>
+                </div>
+                <p class="provenance-drawer-desc">This synthesized chapter directly grounds its prose across semantic source chunks from your book.</p>
+                <div id="reader-smart-provenance-list" class="provenance-items-list">
+                  <!-- Dynamically populated -->
+                </div>
+              </div>
             </header>
 
             <!-- Canonical vs Source view pills (for original text) -->
@@ -525,6 +593,124 @@
             </footer>
           </div>
         </article>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 4: RESEARCH COLLECTION ==================== -->
+    <section id="view-research-collection" class="view-section" style="display: none;">
+      <!-- TOP NAV / BAR -->
+      <div class="research-header-bar">
+        <div class="research-nav-left">
+          <button id="btn-back-from-collection" class="btn btn-secondary btn-sm" onclick="navigateTo('library')">
+            <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"/>
+              <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            <span>Library</span>
+          </button>
+          <div class="research-title-group">
+            <h1 id="research-collection-title" class="research-title">Research Collection</h1>
+            <span id="research-source-count-badge" class="badge-tag">2 Sources</span>
+          </div>
+        </div>
+        <div class="research-nav-tabs" role="tablist">
+          <button id="tab-btn-editorial" class="research-tab-btn active" onclick="switchResearchTab('editorial')">
+            <span>Editorial Reading</span>
+          </button>
+          <button id="tab-btn-sources" class="research-tab-btn" onclick="switchResearchTab('sources')">
+            <span>Sources</span>
+          </button>
+          <button id="tab-btn-compare" class="research-tab-btn" onclick="switchResearchTab('compare')">
+            <span>Compare Sources</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 1: EDITORIAL READING -->
+      <div id="panel-editorial-reading" class="research-panel active">
+        <div class="editorial-container">
+          <!-- Chapters Sidebar -->
+          <aside class="editorial-sidebar" id="editorial-sidebar">
+            <div class="editorial-sidebar-header">
+              <span class="editorial-eyebrow">Editorial Outline</span>
+              <button id="btn-regenerate-outline" class="btn btn-secondary btn-xs" onclick="handleRegenerateOutline()" title="Regenerate editorial structure">
+                <span>↻ Regenerate Outline</span>
+              </button>
+            </div>
+            <div id="editorial-chapters-list" class="editorial-chapters-nav">
+              <!-- Dynamically populated -->
+            </div>
+          </aside>
+
+          <!-- Synthesized Reading Canvas -->
+          <main class="editorial-main-canvas" id="editorial-main-canvas">
+            <header class="editorial-canvas-header">
+              <div class="editorial-meta-row">
+                <span id="editorial-chapter-tag" class="editorial-badge">Synthesized Chapter</span>
+                <span id="editorial-status-badge" class="editorial-badge-outline">Grounded</span>
+              </div>
+              <h2 id="editorial-chapter-title" class="editorial-canvas-title">Select a chapter to begin reading</h2>
+              <div class="editorial-actions-row">
+                <button id="btn-synthesize-current-chapter" class="btn btn-primary btn-sm" onclick="handleSynthesizeActiveChapter()">
+                  <span>⚡ Synthesize Chapter</span>
+                </button>
+                <button id="btn-toggle-provenance-panel" class="btn btn-secondary btn-sm" onclick="toggleProvenanceDrawer()">
+                  <span id="provenance-btn-label">Based on 0 source sections</span>
+                  <span class="drawer-chevron">▾</span>
+                </button>
+              </div>
+            </header>
+
+            <!-- PROVENANCE DRAWER (Expandable references to original chapters) -->
+            <div id="editorial-provenance-drawer" class="editorial-provenance-drawer" style="display: none;">
+              <div class="provenance-drawer-header">
+                <h4 class="provenance-drawer-title">Contributing Evidence & Provenance</h4>
+                <button class="btn btn-ghost btn-xs" onclick="toggleProvenanceDrawer()">Close</button>
+              </div>
+              <p class="provenance-drawer-desc">This synthesis directly grounds its findings across original source excerpts without modifying source texts.</p>
+              <div id="editorial-provenance-list" class="provenance-items-list">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Reading Body with Canonical Blocks -->
+            <div id="editorial-chapter-body" class="editorial-chapter-body canonical-content-flow font-serif">
+              <!-- Dynamically populated -->
+            </div>
+          </main>
+        </div>
+      </div>
+
+      <!-- TAB 2: SOURCES (Original Books) -->
+      <div id="panel-collection-sources" class="research-panel" style="display: none;">
+        <div class="sources-panel-inner">
+          <div class="sources-panel-header">
+            <h3>Original Contributing Books</h3>
+            <p>The unedited source materials providing evidence for this research collection.</p>
+          </div>
+          <div id="collection-sources-grid" class="books-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: COMPARE SOURCES (Cross-Source Q&A) -->
+      <div id="panel-compare-sources" class="research-panel" style="display: none;">
+        <div class="compare-panel-inner">
+          <div class="compare-panel-header">
+            <h3>Compare Across Sources</h3>
+            <p>Query works simultaneously. The system retrieves grounded evidence across sources and synthesizes consensus vs. disagreements.</p>
+          </div>
+          <div class="compare-input-box">
+            <input type="text" id="compare-sources-input" class="search-input" placeholder="e.g. Compare the methodologies and core conclusions of both works..." onkeydown="if(event.key==='Enter') handleCompareSourcesQuery()">
+            <button id="btn-submit-compare" class="btn btn-primary" onclick="handleCompareSourcesQuery()">
+              <span>Compare</span>
+            </button>
+          </div>
+          <div id="compare-sources-result" class="compare-result-area" style="display: none;">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
       </div>
     </section>
   </main>

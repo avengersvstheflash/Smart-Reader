@@ -178,6 +178,35 @@ class AIService {
     const result = await provider.summarize({ text, title, options });
     return result;
   }
+
+  isAvailable() {
+    const provider = this.getActiveProvider();
+    if (!provider) return false;
+    if (this.activeProviderName === 'gemini') {
+      return !!process.env.GEMINI_API_KEY;
+    }
+    return true;
+  }
+
+  async generateText(prompt, options = {}) {
+    const requested = options.mode || options.provider || this.activeProviderName;
+    const providerName = this.resolveModeToProvider(requested);
+    const provider = this.providers.get(providerName);
+    if (!provider) {
+      throw new Error(`Requested AI Provider '${providerName}' is not registered.`);
+    }
+    const result = await provider.summarize({
+      text: prompt,
+      title: options.title || '',
+      options: { ...options, isPrompt: true },
+    });
+    return {
+      text: result.summary,
+      provider: result.provider || providerName,
+      model: result.model,
+    };
+  }
 }
 
 module.exports = new AIService();
+
