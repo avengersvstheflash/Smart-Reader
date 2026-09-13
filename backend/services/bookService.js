@@ -247,7 +247,20 @@ class BookService {
       if (isValidContent) {
         try {
           const semanticLifecycle = require('./semantic/semanticLifecycle');
-          semanticLifecycle.indexBook(book.id, { skipJob: true }).catch((e) => console.warn('Book indexing warning:', e.message));
+          semanticLifecycle.indexBook(book.id, { skipJob: true })
+            .then(async () => {
+              // Asynchronous editorial outline generation for qualifying books (≥ 3 chapters, ≥ 2,000 words)
+              const totalWords = ingestionResult.totalWordCount || chapterEntities.reduce((acc, c) => acc + (c.word_count || 0), 0);
+              if (chapterEntities.length >= 3 && totalWords >= 2000) {
+                try {
+                  const editorialService = require('./synthesis/editorialService');
+                  await editorialService.generateSingleBookOutline(book.id, { fast: true });
+                } catch (edErr) {
+                  console.warn('Post-import single-book editorial generation warning:', edErr.message);
+                }
+              }
+            })
+            .catch((e) => console.warn('Book indexing warning:', e.message));
         } catch (e) {}
       }
 

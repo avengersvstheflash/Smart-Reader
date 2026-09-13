@@ -33,6 +33,20 @@ const state = {
   activeWebPreview: null,
   supportingMaterials: [],
   activeSupportingMaterial: null,
+  selectedBookIds: new Set(),
+  currentResearchBookIds: [],
+  currentOutline: null,
+  activeEditorialChapterId: null,
+  activeEditorialSynthesis: null,
+  // Build 4.2b/c: Single-Book Smart Reading State
+  readerBookMode: 'original', // 'original' | 'smart'
+  bookEditorialStatus: null, // 'not_generated' | 'generating' | 'ready' | 'error'
+  bookEditorialOutline: null,
+  activeSmartChapterId: null,
+  activeSmartSynthesis: null,
+  isGeneratingBookEditorial: false,
+  isSynthesizingSmartChapter: false,
+  smartGenerationError: null,
 };
 
 // ==========================================================================
@@ -125,6 +139,31 @@ const api = {
 
   async deleteBook(id) {
     return await requestApi(`/api/books/${id}`, { method: 'DELETE' });
+  },
+
+  // Build 4.2b/c: Single-Book Smart Reading / Editorial Endpoints
+  async getBookEditorial(bookId) {
+    return await requestApi(`/api/books/${bookId}/editorial`);
+  },
+
+  async generateBookEditorial(bookId, options = {}) {
+    return await requestApi(`/api/books/${bookId}/editorial/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options),
+    });
+  },
+
+  async synthesizeBookEditorialChapter(bookId, chapterId, options = {}) {
+    return await requestApi(`/api/books/${bookId}/editorial/synthesize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chapterId, ...options }),
+    });
+  },
+
+  async deleteBookEditorial(bookId) {
+    return await requestApi(`/api/books/${bookId}/editorial`, { method: 'DELETE' });
   },
 
   async getChapters(bookId) {
@@ -283,6 +322,46 @@ const api = {
       body: JSON.stringify({ query }),
     });
   },
+
+  async generateOutline(data) {
+    return await requestApi('/api/synthesis/outline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getOutline(outlineId) {
+    return await requestApi(`/api/synthesis/outline/${outlineId}`);
+  },
+
+  async regenerateOutline(outlineId, data = {}) {
+    return await requestApi(`/api/synthesis/outline/${outlineId}/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+
+  async synthesizeChapter(data) {
+    return await requestApi('/api/synthesis/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getSynthesis(outlineId, chapterId) {
+    return await requestApi(`/api/synthesis/chapter/${outlineId}/${chapterId}`);
+  },
+
+  async queryCrossSource(data) {
+    return await requestApi('/api/synthesis/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 // ==========================================================================
@@ -332,6 +411,13 @@ function navigateTo(viewName) {
     document.getElementById('view-reader').style.display = 'block';
     document.getElementById('view-reader').classList.add('active');
     navReaderBtn.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else if (viewName === 'research-collection') {
+    const rcView = document.getElementById('view-research-collection');
+    if (rcView) {
+      rcView.style.display = 'block';
+      rcView.classList.add('active');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
@@ -471,8 +557,13 @@ function renderLibrary() {
         ? `<div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">${webBadge}${integrityBadge}</div>`
         : '';
 
+      const isSelected = state.selectedBookIds && state.selectedBookIds.has(book.id);
+
       return `
-        <div class="book-card" id="book-card-${book.id}" onclick="openBookDetails('${book.id}')">
+        <div class="book-card ${isSelected ? 'is-selected' : ''}" id="book-card-${book.id}" onclick="openBookDetails('${book.id}')">
+          <button class="book-card-select-btn" onclick="event.stopPropagation(); toggleBookSelection('${book.id}')" title="${isSelected ? 'Deselect' : 'Select for Research Collection'}" aria-label="Select book">
+            ${isSelected ? '✓' : ''}
+          </button>
           ${coverHtml}
           ${metaBadges}
           <h3 class="book-card-title">${escapeHtml(book.title)}</h3>
@@ -486,6 +577,8 @@ function renderLibrary() {
       `;
     })
     .join('');
+
+  updateCollectionActionBar();
 }
 
 function handleSearch(val) {
@@ -911,6 +1004,8 @@ async function openChapter(chapterId, bookId) {
     if (!state.activeBook || state.activeBook.id !== bookId) {
       state.activeBook = await api.getBook(bookId);
       state.chapters = await api.getChapters(bookId);
+      // Fetch single-book editorial outline if available (non-blocking)
+      checkBookEditorialStatus(bookId);
     }
 
     const { chapter, representations } = await api.getChapter(chapterId);
@@ -933,6 +1028,74 @@ async function openChapter(chapterId, bookId) {
     navigateTo('reader');
   } catch (err) {
     showToast(`Error opening chapter: ${err.message}`, 'error');
+  }
+}
+
+async function checkBookEditorialStatus(bookId) {
+  try {
+    const res = await api.getBookEditorial(bookId);
+    if (res && res.status === 'ready' && res.outline) {
+      state.bookEditorialStatus = 'ready';
+      state.bookEditorialOutline = res.outline;
+      const readyDot = document.getElementById('smart-reading-ready-dot');
+      if (readyDot) readyDot.style.display = 'inline-block';
+      
+      // If we are currently in smart mode, re-render to show smart chapters
+      if (state.readerBookMode === 'smart') {
+        renderSmartReadingCanvas();
+      }
+    } else if (res && res.status === 'generating') {
+      state.bookEditorialStatus = 'generating';
+      state.bookEditorialOutline = null;
+      const readyDot = document.getElementById('smart-reading-ready-dot');
+      if (readyDot) readyDot.style.display = 'none';
+      if (state.readerBookMode === 'smart') {
+        renderSmartReadingCanvas();
+      }
+    } else {
+      state.bookEditorialStatus = 'not_generated';
+      state.bookEditorialOutline = null;
+      const readyDot = document.getElementById('smart-reading-ready-dot');
+      if (readyDot) readyDot.style.display = 'none';
+      if (state.readerBookMode === 'smart') {
+        renderSmartReadingCanvas();
+      }
+    }
+  } catch (err) {
+    state.bookEditorialStatus = 'not_generated';
+    state.bookEditorialOutline = null;
+    const readyDot = document.getElementById('smart-reading-ready-dot');
+    if (readyDot) readyDot.style.display = 'none';
+  }
+}
+
+async function setReaderBookMode(mode) {
+  state.readerBookMode = mode;
+  const btnOrig = document.getElementById('btn-reader-mode-original');
+  const btnSmart = document.getElementById('btn-reader-mode-smart');
+  const repSwitcher = document.getElementById('reader-rep-switcher');
+
+  if (btnOrig && btnSmart) {
+    if (mode === 'smart') {
+      btnSmart.classList.add('active');
+      btnOrig.classList.remove('active');
+      if (repSwitcher) repSwitcher.style.display = 'none';
+    } else {
+      btnOrig.classList.add('active');
+      btnSmart.classList.remove('active');
+      if (repSwitcher) repSwitcher.style.display = 'inline-flex';
+    }
+  }
+
+  if (mode === 'smart') {
+    // If not checked yet or empty, fetch latest editorial outline
+    if (state.activeBook && !state.bookEditorialOutline) {
+      await checkBookEditorialStatus(state.activeBook.id);
+    }
+    renderSmartReadingCanvas();
+  } else {
+    // In Original mode, re-render original chapter view
+    renderReaderView();
   }
 }
 
@@ -1467,11 +1630,20 @@ function parseTableAlign(sepLine, count) {
   });
 }
 
+function renderCanonicalBlock(block) {
+  if (!block) return '';
+  return renderCanonicalBlocks([block]);
+}
+
 function renderCanonicalBlocks(item) {
   if (!item) return '';
 
-  let blocks = item.canonical_blocks;
-  if (!blocks && item.canonical_content) {
+  let blocks = null;
+  if (Array.isArray(item)) {
+    blocks = item;
+  } else if (item.canonical_blocks || item.canonicalBlocks) {
+    blocks = item.canonical_blocks || item.canonicalBlocks;
+  } else if (item.canonical_content) {
     try {
       blocks = typeof item.canonical_content === 'string'
         ? JSON.parse(item.canonical_content)
@@ -1487,7 +1659,7 @@ function renderCanonicalBlocks(item) {
 
   // If no structured blocks are present, normalize via parseMarkdownToCanonicalBlocks
   if (!Array.isArray(blocks) || blocks.length === 0) {
-    blocks = parseMarkdownToCanonicalBlocks(item.content || '');
+    blocks = parseMarkdownToCanonicalBlocks((item && item.content) || (typeof item === 'string' ? item : ''));
   }
 
   // Handle empty content or documents with no readable text
@@ -1611,12 +1783,20 @@ function copyCommand(cmd) {
 }
 
 function handleChapterSelect(chapterId) {
+  if (state.readerBookMode === 'smart') {
+    selectSmartChapter(chapterId);
+    return;
+  }
   if (chapterId && state.activeBook) {
     openChapter(chapterId, state.activeBook.id);
   }
 }
 
 function navigateChapter(direction) {
+  if (state.readerBookMode === 'smart') {
+    navigateSmartChapter(direction);
+    return;
+  }
   if (!state.chapters || !state.activeChapter) return;
   const currentIndex = state.chapters.findIndex((c) => c.id === state.activeChapter.id);
   if (currentIndex === -1) return;
@@ -1627,6 +1807,339 @@ function navigateChapter(direction) {
     openChapter(state.chapters[currentIndex + 1].id, state.activeBook.id);
   } else {
     showToast(direction === 'prev' ? 'You are at the first chapter' : 'You are at the latest chapter');
+  }
+}
+
+// ==========================================================================
+// Build 4.2b/c: SMART READING ENGINE (Single Book Editorial)
+// ==========================================================================
+function renderSmartReadingCanvas() {
+  const book = state.activeBook;
+  if (!book) return;
+
+  const originalMeta = document.getElementById('reader-original-meta');
+  const summaryMeta = document.getElementById('reader-summary-meta');
+  const smartMeta = document.getElementById('reader-smart-meta');
+  const viewModeBar = document.getElementById('reader-view-mode-bar');
+  const headerActions = document.getElementById('reader-header-actions');
+  const provenanceDrawer = document.getElementById('reader-smart-provenance-drawer');
+  const bodyEl = document.getElementById('reader-content-body');
+  const numEl = document.getElementById('reader-chapter-number');
+  const headEl = document.getElementById('reader-chapter-heading');
+  const selectEl = document.getElementById('reader-chapter-select');
+  const crumbChapterEl = document.getElementById('reader-crumb-chapter');
+
+  if (originalMeta) originalMeta.style.display = 'none';
+  if (summaryMeta) summaryMeta.style.display = 'none';
+  if (viewModeBar) viewModeBar.style.display = 'none';
+  if (headerActions) headerActions.style.display = 'none';
+  if (provenanceDrawer) provenanceDrawer.style.display = 'none';
+
+  // Check current editorial status
+  const status = state.bookEditorialStatus;
+  const outline = state.bookEditorialOutline;
+
+  if (status === 'generating' || state.isGeneratingBookEditorial) {
+    if (smartMeta) smartMeta.style.display = 'none';
+    if (numEl) numEl.textContent = 'Smart Reading';
+    if (headEl) headEl.textContent = 'Curating Editorial Structure...';
+    if (crumbChapterEl) crumbChapterEl.textContent = 'Synthesizing Outline';
+
+    bodyEl.innerHTML = `
+      <div class="summary-canvas-processing">
+        <div class="summary-proc-icon-wrap">
+          <svg class="ui-icon spin" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+        </div>
+        <h3 class="summary-state-title">Designing Smart Reading Outline...</h3>
+        <p class="summary-state-desc">
+          The Content-Aware Editorial Planner is analyzing prose excerpts and assigning tailored word budgets across your book.
+        </p>
+        <div class="proc-stepper">
+          <div class="proc-step done">
+            <span class="proc-step-dot">✓</span>
+            <span>1. Extracted and indexed semantic chunks</span>
+          </div>
+          <div class="proc-step active">
+            <span class="proc-step-dot">●</span>
+            <span>2. Formulating narrative chapters & word budgets</span>
+          </div>
+          <div class="proc-step">
+            <span class="proc-step-dot">○</span>
+            <span>3. Ready for chapter-by-chapter synthesis</span>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (state.smartGenerationError) {
+    if (smartMeta) smartMeta.style.display = 'none';
+    if (numEl) numEl.textContent = 'Smart Reading';
+    if (headEl) headEl.textContent = 'Generation Failed';
+
+    bodyEl.innerHTML = `
+      <div class="summary-canvas-empty">
+        <h3 class="summary-state-title text-danger">Smart Reading Generation Failed</h3>
+        <p class="summary-state-desc">${escapeHtml(state.smartGenerationError)}</p>
+        <div class="summary-state-actions">
+          <button class="btn btn-primary btn-sm" onclick="triggerGenerateBookEditorial()">
+            <span>Retry Generation</span>
+          </button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (!outline || !outline.chapters || outline.chapters.length === 0) {
+    // Not generated yet
+    if (smartMeta) smartMeta.style.display = 'none';
+    if (numEl) numEl.textContent = 'Smart Reading';
+    if (headEl) headEl.textContent = 'Smart Reading Available';
+    if (crumbChapterEl) crumbChapterEl.textContent = 'Overview';
+
+    bodyEl.innerHTML = `
+      <div class="summary-canvas-empty">
+        <div class="summary-empty-icon-wrap">
+          <svg class="ui-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+          </svg>
+        </div>
+        <h3 class="summary-state-title">Generate Smart Reading</h3>
+        <p class="summary-state-desc">
+          Smart Reading uses the Content-Aware Editorial Planner to restructure your book into a beautifully paced, synthesized narrative with per-chapter word budgets and complete grounded provenance.
+        </p>
+        <div class="summary-state-actions">
+          <button id="btn-generate-smart-reading" class="btn btn-primary btn-sm" onclick="triggerGenerateBookEditorial()">
+            <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+            </svg>
+            <span>✦ Generate Smart Reading</span>
+          </button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Outline is Ready!
+  if (smartMeta) smartMeta.style.display = 'flex';
+
+  // Populate Chapter dropdown with Smart Editorial chapters
+  const chapters = outline.chapters;
+  if (!state.activeSmartChapterId || !chapters.some(c => c.id === state.activeSmartChapterId)) {
+    state.activeSmartChapterId = chapters[0].id;
+  }
+
+  const activeChap = chapters.find(c => c.id === state.activeSmartChapterId) || chapters[0];
+
+  if (selectEl) {
+    selectEl.innerHTML = chapters
+      .map(
+        (c, idx) => `<option value="${c.id}" ${c.id === activeChap.id ? 'selected' : ''}>Smart Ch. ${idx + 1}: ${escapeHtml(c.title)}</option>`
+      )
+      .join('');
+  }
+
+  // Update Breadcrumb & Header
+  if (crumbChapterEl) crumbChapterEl.textContent = activeChap.title;
+  const chapIndex = chapters.findIndex(c => c.id === activeChap.id);
+  if (numEl) numEl.textContent = `Smart Chapter ${chapIndex + 1} of ${chapters.length}`;
+  if (headEl) headEl.textContent = activeChap.title;
+
+  // Update Stats & Provenance Label
+  const targetWords = activeChap.targetWordCount ? `${activeChap.targetWordCount} target words` : '';
+  const statsEl = document.getElementById('reader-smart-stats');
+  if (statsEl) {
+    statsEl.textContent = targetWords ? `${targetWords} • ${activeChap.subtopics ? activeChap.subtopics.length : 0} topics` : 'Synthesized chapter';
+  }
+
+  const provCount = (activeChap.sourceSectionIds && activeChap.sourceSectionIds.length) || 0;
+  const provLabel = document.getElementById('reader-provenance-count-label');
+  if (provLabel) {
+    provLabel.textContent = `Based on ${provCount} source section${provCount === 1 ? '' : 's'}`;
+  }
+
+  // Populate Provenance Drawer items
+  const provList = document.getElementById('reader-smart-provenance-list');
+  if (provList) {
+    if (provCount === 0) {
+      provList.innerHTML = '<p class="text-muted">No contributing source section IDs listed.</p>';
+    } else {
+      provList.innerHTML = activeChap.sourceSectionIds
+        .map((secId, i) => `
+          <div class="provenance-item">
+            <div class="provenance-item-header">
+              <span class="provenance-item-source">Source Reference [${i + 1}]</span>
+              <span class="provenance-item-section">ID: ${escapeHtml(secId)}</span>
+            </div>
+            <p class="provenance-item-text">Grounding evidence chunk extracted from the source material.</p>
+          </div>
+        `)
+        .join('');
+    }
+  }
+
+  // Fetch or display chapter synthesis representation
+  loadAndRenderActiveSmartChapterSynthesis(activeChap);
+}
+
+async function loadAndRenderActiveSmartChapterSynthesis(chapter) {
+  const bodyEl = document.getElementById('reader-content-body');
+  const synthBtn = document.getElementById('btn-reader-synthesize-chapter');
+  if (!bodyEl) return;
+
+  if (state.isSynthesizingSmartChapter) {
+    if (synthBtn) synthBtn.disabled = true;
+    bodyEl.innerHTML = `
+      <div class="summary-canvas-processing">
+        <div class="summary-proc-icon-wrap">
+          <svg class="ui-icon spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+        </div>
+        <h3 class="summary-state-title">Synthesizing Smart Chapter...</h3>
+        <p class="summary-state-desc">Connecting source evidence into narrative prose meeting the ${chapter.targetWordCount || 1000}-word budget...</p>
+      </div>
+    `;
+    return;
+  }
+
+  if (synthBtn) synthBtn.disabled = false;
+
+  // Check if outline has embedded representation or if we need to fetch/synthesize
+  let rep = chapter.representation || (state.activeSmartSynthesis && state.activeSmartSynthesis.chapterId === chapter.id ? state.activeSmartSynthesis : null);
+
+  if (rep && (rep.content || rep.canonicalBlocks || rep.canonical_blocks)) {
+    const blocks = rep.canonicalBlocks || rep.canonical_blocks;
+    if (blocks && Array.isArray(blocks) && blocks.length > 0) {
+      bodyEl.innerHTML = renderCanonicalBlocks(blocks);
+    } else if (rep.content) {
+      bodyEl.innerHTML = renderCanonicalBlocks({ content: rep.content });
+    } else {
+      bodyEl.innerHTML = '<p class="text-muted">Empty chapter synthesis.</p>';
+    }
+    if (synthBtn) {
+      synthBtn.innerHTML = '<span>⚡ Re-synthesize</span>';
+    }
+  } else {
+    // Needs synthesis
+    if (synthBtn) {
+      synthBtn.innerHTML = '<span>⚡ Synthesize</span>';
+    }
+    bodyEl.innerHTML = `
+      <div class="summary-canvas-empty">
+        <div class="summary-empty-icon-wrap">
+          <svg class="ui-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+          </svg>
+        </div>
+        <h3 class="summary-state-title">Ready for Synthesis</h3>
+        <p class="summary-state-desc">
+          <strong>${escapeHtml(chapter.title)}</strong> has an assigned word budget of ${chapter.targetWordCount || 'targeted'} words across ${(chapter.sourceSectionIds || []).length} source sections. Click below to synthesize this chapter.
+        </p>
+        <div class="summary-state-actions">
+          <button class="btn btn-primary btn-sm" onclick="handleReaderSynthesizeActiveChapter()">
+            <svg class="ui-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>
+            </svg>
+            <span>⚡ Synthesize Chapter</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function selectSmartChapter(chapterId) {
+  state.activeSmartChapterId = chapterId;
+  state.activeSmartSynthesis = null;
+  renderSmartReadingCanvas();
+}
+
+function navigateSmartChapter(direction) {
+  const chapters = (state.bookEditorialOutline && state.bookEditorialOutline.chapters) || [];
+  if (chapters.length === 0) return;
+  const currentIndex = chapters.findIndex((c) => c.id === state.activeSmartChapterId);
+  if (currentIndex === -1) return;
+
+  if (direction === 'prev' && currentIndex > 0) {
+    selectSmartChapter(chapters[currentIndex - 1].id);
+  } else if (direction === 'next' && currentIndex < chapters.length - 1) {
+    selectSmartChapter(chapters[currentIndex + 1].id);
+  } else {
+    showToast(direction === 'prev' ? 'You are at the first Smart chapter' : 'You are at the latest Smart chapter');
+  }
+}
+
+function toggleReaderProvenanceDrawer() {
+  const drawer = document.getElementById('reader-smart-provenance-drawer');
+  if (!drawer) return;
+  const isHidden = drawer.style.display === 'none';
+  drawer.style.display = isHidden ? 'block' : 'none';
+}
+
+async function triggerGenerateBookEditorial() {
+  const book = state.activeBook;
+  if (!book) return;
+
+  state.isGeneratingBookEditorial = true;
+  state.smartGenerationError = null;
+  renderSmartReadingCanvas();
+
+  try {
+    const res = await api.generateBookEditorial(book.id);
+    if (res && res.outline) {
+      state.bookEditorialOutline = res.outline;
+      state.bookEditorialStatus = 'ready';
+      const readyDot = document.getElementById('smart-reading-ready-dot');
+      if (readyDot) readyDot.style.display = 'inline-block';
+      showToast('Smart Reading outline generated ✓');
+    } else {
+      throw new Error(res.message || 'Failed to generate outline');
+    }
+  } catch (err) {
+    state.smartGenerationError = err.message;
+    showToast(`Generation failed: ${err.message}`, 'error');
+  } finally {
+    state.isGeneratingBookEditorial = false;
+    renderSmartReadingCanvas();
+  }
+}
+
+async function handleReaderSynthesizeActiveChapter() {
+  const book = state.activeBook;
+  const outline = state.bookEditorialOutline;
+  const chapterId = state.activeSmartChapterId;
+  if (!book || !outline || !chapterId) {
+    showToast('No active Smart chapter selected', 'warning');
+    return;
+  }
+
+  const activeChap = outline.chapters.find(c => c.id === chapterId);
+  if (!activeChap) return;
+
+  state.isSynthesizingSmartChapter = true;
+  loadAndRenderActiveSmartChapterSynthesis(activeChap);
+
+  try {
+    const res = await api.synthesizeBookEditorialChapter(book.id, chapterId);
+    if (res && res.representation) {
+      state.activeSmartSynthesis = res.representation;
+      // Store on chapter in local outline object as well
+      activeChap.representation = res.representation;
+      showToast('Chapter synthesized successfully ✓');
+    } else {
+      throw new Error(res.message || 'Synthesis failed');
+    }
+  } catch (err) {
+    showToast(`Synthesis failed: ${err.message}`, 'error');
+  } finally {
+    state.isSynthesizingSmartChapter = false;
+    loadAndRenderActiveSmartChapterSynthesis(activeChap);
   }
 }
 
@@ -3334,4 +3847,438 @@ function startReading() {
 
 async function generateSummary() {
   triggerChapterSummary();
+}
+
+// ==========================================================================
+// BUILD 4: MULTI-BOOK SELECTION & RESEARCH COLLECTION CONTROLLERS
+// ==========================================================================
+function toggleBookSelection(bookId) {
+  if (!state.selectedBookIds) {
+    state.selectedBookIds = new Set();
+  }
+  if (state.selectedBookIds.has(bookId)) {
+    state.selectedBookIds.delete(bookId);
+  } else {
+    state.selectedBookIds.add(bookId);
+  }
+  updateCollectionActionBar();
+  renderLibrary();
+}
+
+function clearBookSelection() {
+  if (state.selectedBookIds) {
+    state.selectedBookIds.clear();
+  }
+  updateCollectionActionBar();
+  renderLibrary();
+}
+
+function updateCollectionActionBar() {
+  const bar = document.getElementById('collection-action-bar');
+  const countEl = document.getElementById('collection-bar-count');
+  if (!bar) return;
+  const count = state.selectedBookIds ? state.selectedBookIds.size : 0;
+  if (count >= 2) {
+    bar.style.display = 'block';
+    if (countEl) countEl.textContent = `${count} books selected`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+async function openResearchCollection() {
+  const bookIds = Array.from(state.selectedBookIds || []);
+  if (bookIds.length < 2) {
+    showToast('Please select at least 2 books to synthesize a research collection.', 'info');
+    return;
+  }
+
+  state.currentResearchBookIds = bookIds;
+  navigateTo('research-collection');
+
+  const countBadge = document.getElementById('research-source-count-badge');
+  if (countBadge) countBadge.textContent = `${bookIds.length} Sources`;
+
+  switchResearchTab('editorial');
+  renderCollectionSources();
+
+  // Load or generate editorial outline
+  await loadOrGenerateOutline(bookIds);
+}
+
+async function loadOrGenerateOutline(bookIds, forceRegenerate = false) {
+  const chaptersNav = document.getElementById('editorial-chapters-list');
+  const canvasTitle = document.getElementById('editorial-chapter-title');
+  const canvasBody = document.getElementById('editorial-chapter-body');
+
+  if (chaptersNav) {
+    chaptersNav.innerHTML = `
+      <div style="padding: 16px; text-align: center; color: var(--text-light);">
+        <div class="spinner-sm" style="margin: 0 auto 8px auto;"></div>
+        <p style="font-size: 0.8rem;">Structuring editorial outline across sources...</p>
+      </div>
+    `;
+  }
+  if (canvasTitle) canvasTitle.textContent = 'Structuring Editorial Outline...';
+  if (canvasBody) canvasBody.innerHTML = '<p class="text-muted">Analyzing source documents to produce a grounded cross-source reading structure...</p>';
+
+  try {
+    const res = await api.generateOutline({
+      bookIds,
+      topic: '',
+      fast: false,
+    });
+
+    state.currentOutline = res.outline;
+    renderEditorialChaptersList();
+
+    if (state.currentOutline && state.currentOutline.chapters && state.currentOutline.chapters.length > 0) {
+      const firstChapter = state.currentOutline.chapters[0];
+      selectEditorialChapter(firstChapter.chapterId);
+    }
+  } catch (err) {
+    showToast(`Error generating editorial outline: ${err.message}`, 'error');
+    if (canvasBody) canvasBody.innerHTML = `<p class="text-danger">Failed to generate editorial outline: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+async function handleRegenerateOutline() {
+  if (!state.currentResearchBookIds || state.currentResearchBookIds.length === 0) return;
+  const outline = state.currentOutline;
+  const btn = document.getElementById('btn-regenerate-outline');
+  if (btn) btn.disabled = true;
+
+  showToast('Regenerating reader-oriented outline...', 'info');
+
+  try {
+    if (outline && outline.outlineId) {
+      const res = await api.regenerateOutline(outline.outlineId, {
+        bookIds: state.currentResearchBookIds,
+        fast: false,
+      });
+      state.currentOutline = res.outline;
+      state.activeEditorialSynthesis = null;
+      renderEditorialChaptersList();
+      if (state.currentOutline && state.currentOutline.chapters && state.currentOutline.chapters.length > 0) {
+        selectEditorialChapter(state.currentOutline.chapters[0].chapterId);
+      }
+      showToast('Editorial outline regenerated successfully', 'success');
+    } else {
+      await loadOrGenerateOutline(state.currentResearchBookIds, true);
+    }
+  } catch (err) {
+    showToast(`Failed to regenerate outline: ${err.message}`, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function switchResearchTab(tabName) {
+  document.querySelectorAll('.research-tab-btn').forEach((btn) => btn.classList.remove('active'));
+  const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  const panels = {
+    editorial: document.getElementById('panel-editorial-reading'),
+    sources: document.getElementById('panel-collection-sources'),
+    compare: document.getElementById('panel-compare-sources'),
+  };
+
+  Object.entries(panels).forEach(([k, panel]) => {
+    if (!panel) return;
+    if (k === tabName) {
+      panel.style.display = 'block';
+      panel.classList.add('active');
+    } else {
+      panel.style.display = 'none';
+      panel.classList.remove('active');
+    }
+  });
+
+  if (tabName === 'sources') {
+    renderCollectionSources();
+  }
+}
+
+function renderEditorialChaptersList() {
+  const chaptersNav = document.getElementById('editorial-chapters-list');
+  if (!chaptersNav) return;
+
+  const outline = state.currentOutline;
+  if (!outline || !outline.chapters || outline.chapters.length === 0) {
+    chaptersNav.innerHTML = '<p class="text-muted" style="padding:12px; font-size:0.82rem;">No chapters in outline.</p>';
+    return;
+  }
+
+  chaptersNav.innerHTML = outline.chapters
+    .map((ch, idx) => {
+      const isActive = ch.chapterId === state.activeEditorialChapterId;
+      const sections = Array.isArray(ch.sourceSections) && ch.sourceSections.length > 0
+        ? ch.sourceSections
+        : (ch.sourceSectionIds || []).map((id) => ({
+            sourceTitle: 'Source Document',
+            sectionTitle: `Section ${id.slice(0, 10)}...`,
+          }));
+      const sectionCount = (ch.sourceSectionIds || []).length || sections.length;
+
+      return `
+        <div class="editorial-chapter-item ${isActive ? 'active' : ''}">
+          <div class="editorial-chapter-clickable" onclick="selectEditorialChapter('${ch.chapterId}')" style="cursor: pointer;">
+            <div class="editorial-chapter-item-title">${escapeHtml(ch.title || `Chapter ${idx + 1}`)}</div>
+            <div class="editorial-chapter-item-meta">Based on ${sectionCount} source section${sectionCount === 1 ? '' : 's'}</div>
+          </div>
+          ${sectionCount > 0 ? `
+            <details class="editorial-sections-accordion" onclick="event.stopPropagation()">
+              <summary class="editorial-sections-summary">Based on ${sectionCount} source section${sectionCount === 1 ? '' : 's'} ▾</summary>
+              <ul class="editorial-sections-list">
+                ${sections.map((sec) => `
+                  <li class="editorial-section-entry">
+                    <span class="editorial-sec-source">${escapeHtml(sec.sourceTitle || 'Source')}</span>:
+                    <span class="editorial-sec-title">${escapeHtml(sec.sectionTitle || 'Section')}</span>
+                  </li>
+                `).join('')}
+              </ul>
+            </details>
+          ` : ''}
+        </div>
+      `;
+    })
+    .join('');
+}
+
+async function selectEditorialChapter(chapterId) {
+  state.activeEditorialChapterId = chapterId;
+  renderEditorialChaptersList();
+
+  const outline = state.currentOutline;
+  if (!outline) return;
+
+  const chapter = (outline.chapters || []).find((c) => c.chapterId === chapterId);
+  if (!chapter) return;
+
+  const canvasTitle = document.getElementById('editorial-chapter-title');
+  const canvasBody = document.getElementById('editorial-chapter-body');
+  const provenanceLabel = document.getElementById('provenance-btn-label');
+
+  if (canvasTitle) canvasTitle.textContent = chapter.title;
+  const sectionCount = chapter.sourceSectionIds ? chapter.sourceSectionIds.length : 0;
+  if (provenanceLabel) provenanceLabel.textContent = `Based on ${sectionCount} source section${sectionCount === 1 ? '' : 's'}`;
+
+  // Check if representation exists or synthesize
+  if (canvasBody) {
+    canvasBody.innerHTML = `
+      <div style="padding: 24px; text-align: center; color: var(--text-light);">
+        <div class="spinner-sm" style="margin: 0 auto 10px auto;"></div>
+        <p>Loading synthesis...</p>
+      </div>
+    `;
+  }
+
+  try {
+    let rep = null;
+    try {
+      const existing = await api.getSynthesis(outline.outlineId, chapterId);
+      rep = existing.representation;
+    } catch {}
+
+    if (!rep) {
+      // Auto-synthesize chapter
+      const res = await api.synthesizeChapter({
+        outlineId: outline.outlineId,
+        chapterId: chapter.chapterId,
+        fast: false,
+      });
+      rep = res.representation;
+    }
+
+    state.activeEditorialSynthesis = rep;
+    renderActiveSynthesisContent(rep, chapter);
+  } catch (err) {
+    if (err.message && err.message.includes('Editorial outline not found')) {
+      if (state.currentResearchBookIds && state.currentResearchBookIds.length >= 2) {
+        loadOrGenerateOutline(state.currentResearchBookIds, true);
+        return;
+      }
+    }
+    showToast(`Error synthesizing chapter: ${err.message}`, 'error');
+    if (canvasBody) {
+      canvasBody.innerHTML = `
+        <div style="padding: 24px; text-align: center;">
+          <p class="text-danger" style="margin-bottom: 12px;">Failed to synthesize chapter: ${escapeHtml(err.message)}</p>
+          <button class="btn btn-secondary btn-sm" onclick="selectEditorialChapter('${chapterId}')">Retry</button>
+        </div>
+      `;
+    }
+  }
+}
+
+function renderActiveSynthesisContent(rep, chapter) {
+  const canvasBody = document.getElementById('editorial-chapter-body');
+  const provenanceList = document.getElementById('editorial-provenance-list');
+  const provenanceLabel = document.getElementById('provenance-btn-label');
+
+  if (!rep) {
+    if (canvasBody) canvasBody.innerHTML = '<p class="text-muted">No content available.</p>';
+    return;
+  }
+
+  // Canonical blocks rendering using renderCanonicalBlocks
+  const blocks = rep.canonicalBlocks || rep.canonical_blocks;
+  if (canvasBody) {
+    if (blocks && Array.isArray(blocks) && blocks.length > 0) {
+      canvasBody.innerHTML = renderCanonicalBlocks(blocks);
+    } else if (rep.content) {
+      canvasBody.innerHTML = renderCanonicalBlocks({ content: rep.content });
+    } else {
+      canvasBody.innerHTML = '<p class="text-muted">Empty chapter synthesis.</p>';
+    }
+  }
+
+  // Populate Provenance Panel (Expandable references to original chapters)
+  const provenance = rep.provenance || (rep.metadata && rep.metadata.provenance) || (chapter && chapter.sourceSectionIds) || [];
+  if (provenanceLabel) {
+    provenanceLabel.textContent = `Based on ${provenance.length} source section${provenance.length === 1 ? '' : 's'}`;
+  }
+
+  if (provenanceList) {
+    if (provenance.length === 0) {
+      provenanceList.innerHTML = '<p class="text-muted">No source section links recorded.</p>';
+    } else {
+      provenanceList.innerHTML = provenance
+        .map((chunkId, idx) => {
+          return `
+            <div class="provenance-item">
+              <div class="provenance-item-header">
+                <span class="provenance-item-source">Source Section [${idx + 1}]</span>
+                <span class="provenance-item-section">Chunk: ${escapeHtml(chunkId)}</span>
+              </div>
+              <p class="provenance-item-text">Traceable semantic chunk linked directly from the original source texts.</p>
+            </div>
+          `;
+        })
+        .join('');
+    }
+  }
+}
+
+function toggleProvenanceDrawer() {
+  const drawer = document.getElementById('editorial-provenance-drawer');
+  if (!drawer) return;
+  const isHidden = drawer.style.display === 'none';
+  drawer.style.display = isHidden ? 'block' : 'none';
+}
+
+async function handleSynthesizeActiveChapter() {
+  const outline = state.currentOutline;
+  const chapterId = state.activeEditorialChapterId;
+  if (!outline || !chapterId) {
+    showToast('Please select a chapter from the editorial outline first', 'warning');
+    return;
+  }
+
+  const canvasBody = document.getElementById('editorial-chapter-body');
+  const synthBtn = document.getElementById('btn-synthesize-current-chapter');
+  if (synthBtn) synthBtn.disabled = true;
+
+  if (canvasBody) {
+    canvasBody.innerHTML = `
+      <div style="padding: 24px; text-align: center; color: var(--text-light);">
+        <div class="spinner-sm" style="margin: 0 auto 10px auto;"></div>
+        <p>Synthesizing chapter across source evidence...</p>
+      </div>
+    `;
+  }
+
+  try {
+    const res = await api.synthesizeChapter({
+      outlineId: outline.outlineId,
+      chapterId,
+      fast: false,
+    });
+    const chapter = (outline.chapters || []).find((c) => c.chapterId === chapterId);
+    state.activeEditorialSynthesis = res.representation;
+    renderActiveSynthesisContent(res.representation, chapter);
+    showToast('Chapter synthesized successfully', 'success');
+  } catch (err) {
+    console.error('Synthesis error:', err);
+    if (err.message && err.message.includes('Editorial outline not found')) {
+      if (state.currentResearchBookIds && state.currentResearchBookIds.length >= 2) {
+        showToast('Refreshing outline across selected sources...', 'info');
+        loadOrGenerateOutline(state.currentResearchBookIds, true);
+        return;
+      }
+    }
+    showToast(`Synthesis failed: ${err.message}`, 'error');
+    if (canvasBody) {
+      canvasBody.innerHTML = `
+        <div style="padding: 24px; text-align: center;">
+          <p class="text-danger" style="margin-bottom: 12px;">Failed to synthesize chapter: ${escapeHtml(err.message)}</p>
+          <button class="btn btn-secondary btn-sm" onclick="handleSynthesizeActiveChapter()">Retry Synthesis</button>
+        </div>
+      `;
+    }
+  } finally {
+    if (synthBtn) synthBtn.disabled = false;
+  }
+}
+
+function renderCollectionSources() {
+  const grid = document.getElementById('collection-sources-grid');
+  if (!grid) return;
+
+  const bookIds = state.currentResearchBookIds || [];
+  const books = (state.books || []).filter((b) => bookIds.includes(b.id));
+
+  grid.innerHTML = books
+    .map((book, index) => {
+      const coverHtml = renderEditorialCover(book, index);
+      return `
+        <div class="book-card" onclick="openBookDetails('${book.id}')">
+          ${coverHtml}
+          <h3 class="book-card-title">${escapeHtml(book.title)}</h3>
+          <p class="book-card-author">By ${escapeHtml(book.author || 'Unknown Author')}</p>
+          <p class="book-card-desc">${escapeHtml(book.description || '')}</p>
+          <div class="book-card-footer">
+            <span class="book-chapter-stat">${book.chapter_count || 0} chapters</span>
+            <button class="btn btn-secondary btn-xs" onclick="event.stopPropagation(); openBookDetails('${book.id}')">View Original Book</button>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+async function handleCompareSourcesQuery() {
+  const input = document.getElementById('compare-sources-input');
+  const resultArea = document.getElementById('compare-sources-result');
+  if (!input || !resultArea) return;
+
+  const query = input.value.trim();
+  if (!query) return;
+
+  resultArea.style.display = 'block';
+  resultArea.innerHTML = `
+    <div style="padding: 16px; text-align: center; color: var(--text-light);">
+      <div class="spinner-sm" style="margin: 0 auto 8px auto;"></div>
+      <p>Comparing evidence across sources...</p>
+    </div>
+  `;
+
+  try {
+    const res = await api.queryCrossSource({
+      bookIds: state.currentResearchBookIds,
+      query,
+      fast: false,
+    });
+
+    if (res.grounded && res.canonicalBlocks && res.canonicalBlocks.length > 0) {
+      resultArea.innerHTML = renderCanonicalBlocks(res.canonicalBlocks);
+    } else if (res.answer) {
+      resultArea.innerHTML = renderCanonicalBlocks({ content: res.answer });
+    } else {
+      resultArea.innerHTML = '<p class="text-muted">No grounded comparative answer could be synthesized.</p>';
+    }
+  } catch (err) {
+    resultArea.innerHTML = `<p class="text-danger">Failed to compare sources: ${escapeHtml(err.message)}</p>`;
+  }
 }

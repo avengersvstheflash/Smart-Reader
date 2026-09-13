@@ -120,6 +120,86 @@ Answer the reader's question directly and concisely, citing the specific source 
 
     return base;
   }
+
+  buildSynthesisContext(outlineChapter, retrievedChunks = []) {
+    const chapterTitle = typeof outlineChapter === 'string'
+      ? outlineChapter
+      : (outlineChapter && outlineChapter.title ? outlineChapter.title : 'Editorial Synthesis');
+
+    const chunks = Array.isArray(retrievedChunks) ? retrievedChunks : [];
+    const sourceBlocks = [];
+    const includedChunks = [];
+
+    let bookRepository = null;
+    let chapterRepository = null;
+    try {
+      bookRepository = require('../../repositories/bookRepository');
+      chapterRepository = require('../../repositories/chapterRepository');
+    } catch {}
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const sourceNum = i + 1;
+
+      let bookTitle = chunk.bookTitle || chunk.book_title;
+      const bId = chunk.bookId || chunk.book_id;
+      if (!bookTitle && bId && bookRepository) {
+        const b = bookRepository.getById(bId);
+        if (b) bookTitle = b.title;
+      }
+      if (!bookTitle) bookTitle = `Book ${bId || sourceNum}`;
+
+      let chapterTitle = chunk.chapterTitle || chunk.chapter_title;
+      const chId = chunk.chapterId || chunk.chapter_id;
+      if (!chapterTitle && chId && chapterRepository) {
+        const ch = chapterRepository.getById(chId);
+        if (ch) chapterTitle = ch.title;
+      }
+      if (!chapterTitle) chapterTitle = chId ? `Chapter ${chId}` : `Chapter ${sourceNum}`;
+
+      const sectionTitle = chunk.sectionHeading || chunk.section_heading || chunk.heading || chunk.sourceReference || `Section ${sourceNum}`;
+      const textContent = chunk.textContent || chunk.content || chunk.text_content || '';
+
+      const header = `[Source ${sourceNum}: ${bookTitle}, ${chapterTitle}, ${sectionTitle}]`;
+      sourceBlocks.push(`${header}\n${textContent}`);
+
+      includedChunks.push({
+        id: chunk.id || chunk.chunkId,
+        sourceNumber: sourceNum,
+        bookId: bId,
+        bookTitle,
+        chapterId: chId,
+        chapterTitle,
+        sectionHeading: sectionTitle,
+        textContent,
+      });
+    }
+
+    const instructionsText = `INSTRUCTIONS: Synthesize, do not concatenate. Distinguish agreement vs. difference vs. conflict. Preserve uncertainty. Cite sources inline using [Source N].`;
+
+    const fullContextText = `EDITORIAL TASK: Synthesize chapter "${chapterTitle}".
+
+SOURCE MATERIAL:
+${sourceBlocks.length > 0 ? sourceBlocks.join('\n\n') : 'No source excerpts retrieved.'}
+
+${instructionsText}`;
+
+    return {
+      contextText: fullContextText,
+      instructions: instructionsText,
+      editorialTask: `EDITORIAL TASK: Synthesize chapter "${chapterTitle}".`,
+      outlineChapter: typeof outlineChapter === 'object' ? outlineChapter : { title: chapterTitle },
+      includedChunks,
+      chunkCount: includedChunks.length,
+      tokenCount: Math.ceil(fullContextText.length / 4),
+      toString() {
+        return fullContextText;
+      },
+      includes(substr) {
+        return fullContextText.includes(substr);
+      },
+    };
+  }
 }
 
 module.exports = new ContextBuilder();

@@ -132,8 +132,52 @@ function initSchema(db) {
       FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS editorial_outlines (
+      outlineId TEXT PRIMARY KEY,
+      collectionId TEXT,
+      title TEXT NOT NULL,
+      chapters TEXT NOT NULL,
+      createdAt TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_editorial_outlines_collection ON editorial_outlines(collectionId);
+
     CREATE INDEX IF NOT EXISTS idx_book_representations ON book_representations(book_id, type);
   `);
+
+  // Migrate chapter_representations if foreign key constraint blocks cross_source outline chapters
+  const tableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='chapter_representations'").get();
+  if (tableSql && tableSql.sql.includes('FOREIGN KEY (chapter_id) REFERENCES chapters')) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS chapter_representations_v2 (
+        id TEXT PRIMARY KEY,
+        chapter_id TEXT NOT NULL,
+        book_id TEXT,
+        type TEXT NOT NULL,
+        content TEXT NOT NULL,
+        metadata_json TEXT,
+        provenance TEXT,
+        synthesisType TEXT DEFAULT 'single_source',
+        created_at TEXT NOT NULL
+      );
+      INSERT OR REPLACE INTO chapter_representations_v2 (id, chapter_id, book_id, type, content, metadata_json, created_at)
+      SELECT id, chapter_id, book_id, type, content, metadata_json, created_at FROM chapter_representations;
+      DROP TABLE chapter_representations;
+      ALTER TABLE chapter_representations_v2 RENAME TO chapter_representations;
+      CREATE INDEX IF NOT EXISTS idx_representations_chapter ON chapter_representations(chapter_id, type);
+    `);
+    db.pragma('foreign_keys = ON');
+  }
+
+  // Ensure provenance and synthesisType exist on chapter_representations
+  const chapRepCols = db.prepare(`PRAGMA table_info(chapter_representations)`).all();
+  if (!chapRepCols.some(c => c.name === 'provenance')) {
+    db.exec(`ALTER TABLE chapter_representations ADD COLUMN provenance TEXT;`);
+  }
+  if (!chapRepCols.some(c => c.name === 'synthesisType')) {
+    db.exec(`ALTER TABLE chapter_representations ADD COLUMN synthesisType TEXT DEFAULT 'single_source';`);
+  }
 
   // Ensure canonical_content and updated_at exist in book_representations
   const repCols = db.prepare(`PRAGMA table_info(book_representations)`).all();
@@ -207,6 +251,12 @@ function initSchema(db) {
     db.exec(`ALTER TABLE semantic_chunks ADD COLUMN structural_role TEXT DEFAULT 'body';`);
   }
 
+  // Ensure type column exists on editorial_outlines
+  const outlineCols = db.prepare(`PRAGMA table_info(editorial_outlines)`).all();
+  if (!outlineCols.some(c => c.name === 'type')) {
+    db.exec(`ALTER TABLE editorial_outlines ADD COLUMN type TEXT DEFAULT 'multi_source';`);
+  }
+
   seedDefaultBookIfEmpty(db);
 }
 
@@ -220,6 +270,7 @@ function resetAndSeedDatabase(db) {
       DELETE FROM book_supporting_materials;
       DELETE FROM processing_jobs;
       DELETE FROM chapter_representations;
+      DELETE FROM editorial_outlines;
       DELETE FROM chapters;
       DELETE FROM books;
     `);
