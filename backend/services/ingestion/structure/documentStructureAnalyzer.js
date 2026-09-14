@@ -1,4 +1,5 @@
 const { CanonicalDocument } = require('../models/canonicalContent');
+const documentStructureEngine = require('../../structure/documentStructureEngine');
 
 /**
  * Document Structure Analyzer for Smart Reader (Build 3B.1)
@@ -42,91 +43,61 @@ class DocumentStructureAnalyzer {
   analyzePdfStructure(pages, initialBlocks = [], metadata = {}) {
     const pageCount = pages.length;
 
-    // 1. Detect and index running headers and footers (lines repeating across >= 3 pages)
-    const runningArtifacts = this.detectRunningHeadersAndFooters(pages);
+    // Use DocumentStructureEngine for robust, multi-signal structure analysis
+    const tree = documentStructureEngine.buildStructureTree({
+      format: 'pdf',
+      pages,
+      blocks: initialBlocks,
+      metadata,
+    });
 
-    // 2. Detect Table of Contents in the first 25% of pages (or up to page 30)
-    const tocInfo = this.detectTableOfContents(pages.slice(0, Math.min(30, Math.ceil(pageCount * 0.25))));
-
-    // 3. Scan pages to identify structural zones: Front Matter, Chapters, Back Matter
-    const chapterSplits = this.identifyPdfChapterBoundaries(pages, tocInfo, runningArtifacts);
-
-    // 4. Build chapters with their sections and preserved canonical blocks
-    const chapters = [];
     let totalSectionCount = 0;
     let totalTablesCount = 0;
 
-    for (let i = 0; i < chapterSplits.length; i++) {
-      const split = chapterSplits[i];
-      const nextSplit = chapterSplits[i + 1];
-      const startPage = split.pageNumber;
-      const endPage = nextSplit ? nextSplit.pageNumber - 1 : pageCount;
-
-      // Extract blocks for this chapter range
-      const chapterPages = pages.filter(p => p.num >= startPage && p.num <= endPage);
-      const chapterBlocks = this.extractBlocksForChapter(chapterPages, split, runningArtifacts, initialBlocks, endPage);
-
-      // Count sections and tables
-      const sections = chapterBlocks
-        .filter(b => b.type === 'heading' && b.level >= 2)
-        .map(b => ({
-          title: b.text,
-          level: b.level,
-          pageNumber: b.sourcePage || startPage,
-        }));
-
-      const tables = chapterBlocks.filter(b => b.type === 'table');
-      totalSectionCount += sections.length;
+    const chapters = tree.chapters.map((ch, idx) => {
+      const tables = (ch.canonicalBlocks || []).filter((b) => b.type === 'table');
       totalTablesCount += tables.length;
+      totalSectionCount += (ch.sectionCount || 0);
 
-      const doc = new CanonicalDocument(chapterBlocks);
-      const wordCount = doc.calculateWordCount();
+      const startPage = ch.sourceLocation?.startPage || ch.startPage || 1;
+      const endPage = ch.sourceLocation?.endPage || ch.endPage || startPage;
 
-      chapters.push({
-        number: i + 1,
-        title: split.title || `Chapter ${i + 1}`,
-        structuralRole: split.role || 'chapter',
+      return {
+        number: idx + 1,
+        title: ch.title,
+        structuralRole: ch.structuralRole || 'chapter',
         startPage,
-        endPage: Math.max(startPage, endPage),
-        canonicalBlocks: chapterBlocks,
-        sections,
-        sectionCount: sections.length,
-        content: doc.toPlainText(),
-        wordCount,
+        endPage,
+        canonicalBlocks: ch.canonicalBlocks,
+        sections: ch.sections,
+        sectionCount: ch.sectionCount,
+        content: ch.content,
+        wordCount: ch.wordCount,
+        confidence: ch.confidence,
+        sourceLocation: ch.sourceLocation,
         metadata: {
           startPage,
-          endPage: Math.max(startPage, endPage),
-          sectionsCount: sections.length,
+          endPage,
+          sectionsCount: ch.sectionCount,
           tablesCount: tables.length,
-          structuralRole: split.role || 'chapter',
+          structuralRole: ch.structuralRole,
+          confidence: ch.confidence,
         },
-      });
-    }
-
-    // Filter out 0-word empty pseudo chapters if real chapters exist
-    const substantiveChapters = chapters.filter(c => c.wordCount > 0);
-    const finalChapters = substantiveChapters.length > 0 ? substantiveChapters : chapters;
-
-    // Re-index chapter numbers consecutively
-    finalChapters.forEach((ch, idx) => {
-      ch.number = idx + 1;
+      };
     });
 
-    const totalWordCount = finalChapters.reduce((sum, ch) => sum + ch.wordCount, 0);
-
-    // Check for empty content (e.g. scanned PDF without OCR)
-    const isZeroContent = totalWordCount === 0 || finalChapters.length === 0;
+    const isZeroContent = tree.totalWordCount === 0 || chapters.length === 0;
 
     return {
       documentType: 'textbook',
       pageCount,
-      chapterCount: finalChapters.length,
+      chapterCount: chapters.length,
       sectionCount: totalSectionCount,
       tablesCount: totalTablesCount,
-      totalWordCount,
-      chapters: finalChapters,
-      tocDetected: Boolean(tocInfo.hasToc),
-      tocEntriesCount: tocInfo.entries ? tocInfo.entries.length : 0,
+      totalWordCount: tree.totalWordCount,
+      chapters,
+      tocDetected: Boolean(tree.confidence > 0.8),
+      confidence: tree.confidence,
       integrityStatus: isZeroContent ? 'empty_content' : 'valid',
       integrityWarning: isZeroContent
         ? 'Content extraction incomplete: no selectable text found in the PDF source.'
@@ -679,127 +650,56 @@ class DocumentStructureAnalyzer {
    * Analyzes Text or Markdown structure
    */
   analyzeTextOrMarkdownStructure(blocks, rawText, format, metadata = {}) {
-    const docTitle = metadata.title || 'Document Content';
-
-    // If blocks already parsed
-    const effectiveBlocks = blocks.length > 0
-      ? blocks
-      : CanonicalDocument.fromPlainText(rawText).getBlocks();
-
-    const doc = new CanonicalDocument(effectiveBlocks);
-    const totalWordCount = doc.calculateWordCount();
-    const isZeroContent = totalWordCount === 0 || effectiveBlocks.length === 0;
-
-    // Scan for H1 headings that represent chapters
-    let candidateHeadings = [];
-    effectiveBlocks.forEach((b, idx) => {
-      if (b.type === 'heading' && b.level === 1) {
-        candidateHeadings.push({ index: idx, block: b });
-      }
+    const tree = documentStructureEngine.buildStructureTree({
+      format: format || 'markdown',
+      blocks,
+      rawText,
+      metadata,
     });
 
-    // If no H1 chapters found, check for explicit H2 chapters (e.g. "## Chapter 1: ...")
-    // Subheadings (1.1, 1.2, etc.) are strictly excluded
-    if (candidateHeadings.length <= 1) {
-      const explicitH2Chapters = [];
-      effectiveBlocks.forEach((b, idx) => {
-        if (b.type === 'heading' && b.level === 2) {
-          const text = (b.text || '').trim();
-          const isSubSection = /^(\d+\.\d+|[A-Z]\.\d+|section\s+\d+\.\d+|subsection)/i.test(text);
-          if (!isSubSection && /^(?:chapter|part|volume|book)\s+(\d+|[ivxlcdm]+)/i.test(text)) {
-            explicitH2Chapters.push({ index: idx, block: b });
-          }
-        }
-      });
-      if (explicitH2Chapters.length >= 2) {
-        candidateHeadings = explicitH2Chapters;
-      }
-    }
-
-    if (candidateHeadings.length <= 1) {
-      // Single chapter document
-      const sections = effectiveBlocks
-        .filter(b => b.type === 'heading' && b.level >= 2)
-        .map(b => ({ title: b.text, level: b.level }));
-
-      const tables = effectiveBlocks.filter(b => b.type === 'table');
-
-      return {
-        documentType: 'document',
-        pageCount: Math.max(1, Math.ceil(totalWordCount / 250)),
-        chapterCount: 1,
-        sectionCount: sections.length,
-        tablesCount: tables.length,
-        totalWordCount,
-        chapters: [
-          {
-            number: 1,
-            title: (candidateHeadings[0] && candidateHeadings[0].block.text) || docTitle,
-            structuralRole: 'chapter',
-            canonicalBlocks: effectiveBlocks,
-            sections,
-            sectionCount: sections.length,
-            content: doc.toPlainText(),
-            wordCount: totalWordCount,
-            metadata: {
-              sectionsCount: sections.length,
-              tablesCount: tables.length,
-              structuralRole: 'chapter',
-            },
-          },
-        ],
-        integrityStatus: isZeroContent ? 'empty_content' : 'valid',
-        integrityWarning: isZeroContent ? 'Content extraction incomplete: no selectable text found in the document.' : '',
-      };
-    }
-
-    // Multiple chapters
-    const chapters = [];
     let totalSections = 0;
     let totalTables = 0;
 
-    for (let i = 0; i < candidateHeadings.length; i++) {
-      const curr = candidateHeadings[i];
-      const next = candidateHeadings[i + 1];
-      const chapterBlocks = effectiveBlocks.slice(curr.index, next ? next.index : effectiveBlocks.length);
-      const chapterDoc = new CanonicalDocument(chapterBlocks);
-      const wordCount = chapterDoc.calculateWordCount();
-
-      const sections = chapterBlocks
-        .filter(b => b.type === 'heading' && b.level >= 2 && b !== curr.block)
-        .map(b => ({ title: b.text, level: b.level }));
-
-      const tables = chapterBlocks.filter(b => b.type === 'table');
-      totalSections += sections.length;
+    const chapters = tree.chapters.map((ch, idx) => {
+      const tables = (ch.canonicalBlocks || []).filter((b) => b.type === 'table');
       totalTables += tables.length;
+      totalSections += (ch.sectionCount || (ch.sections ? ch.sections.length : 0));
 
-      chapters.push({
-        number: i + 1,
-        title: curr.block.text.trim(),
-        structuralRole: 'chapter',
-        canonicalBlocks: chapterBlocks,
-        sections,
-        sectionCount: sections.length,
-        content: chapterDoc.toPlainText(),
-        wordCount,
+      return {
+        number: idx + 1,
+        title: ch.title,
+        structuralRole: ch.structuralRole || 'chapter',
+        canonicalBlocks: ch.canonicalBlocks,
+        sections: ch.sections,
+        sectionCount: ch.sectionCount || (ch.sections ? ch.sections.length : 0),
+        content: ch.content,
+        wordCount: ch.wordCount,
+        confidence: ch.confidence,
+        sourceLocation: ch.sourceLocation,
         metadata: {
-          sectionsCount: sections.length,
+          sectionsCount: ch.sectionCount || (ch.sections ? ch.sections.length : 0),
           tablesCount: tables.length,
-          structuralRole: 'chapter',
+          structuralRole: ch.structuralRole || 'chapter',
+          confidence: ch.confidence,
         },
-      });
-    }
+      };
+    });
+
+    const isZeroContent = tree.totalWordCount === 0 || chapters.length === 0;
 
     return {
       documentType: 'document',
-      pageCount: Math.max(1, Math.ceil(totalWordCount / 250)),
+      pageCount: tree.pageCount || Math.max(1, Math.ceil(tree.totalWordCount / 250)),
       chapterCount: chapters.length,
       sectionCount: totalSections,
       tablesCount: totalTables,
-      totalWordCount,
+      totalWordCount: tree.totalWordCount,
       chapters,
+      confidence: tree.confidence,
       integrityStatus: isZeroContent ? 'empty_content' : 'valid',
-      integrityWarning: isZeroContent ? 'Content extraction incomplete: no selectable text found in the document.' : '',
+      integrityWarning: isZeroContent
+        ? 'Content extraction incomplete: no selectable text found in the document.'
+        : '',
     };
   }
 }
