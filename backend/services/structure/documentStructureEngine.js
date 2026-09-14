@@ -474,6 +474,8 @@ class DocumentStructureEngine {
         /DOI:\s*[\d.\/-]+/i.test(candidate) || /This chapter has been made available under/i.test(candidate);
       const hadLeadingNumber = /^\s*\d+\s*[\t\s]+/.test(candidate);
 
+      if (!hadMetadata && !hadLeadingNumber) continue;
+
       if (hadMetadata || hadLeadingNumber) {
         // Strip license FIRST — it contains "4.0" which confuses later steps.
         candidate = candidate.replace(/This chapter has been made available under[^\n]*?license\.?/gi, ' ');

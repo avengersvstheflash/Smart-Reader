@@ -19,6 +19,7 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "multer": "^2.3.0",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^6.3.289"
   }
 }

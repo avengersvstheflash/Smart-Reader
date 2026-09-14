@@ -2,7 +2,8 @@ const path = require('path');
 const contentNormalizer = require('./normalizers/contentNormalizer');
 const textParser = require('./parsers/textParser');
 const markdownParser = require('./parsers/markdownParser');
-const pdfParser = require('./parsers/pdfParser');
+const pdfjsParser = require('./parsers/pdfjsParser');
+const pdfParser = require('./parsers/pdfParser'); // Retained as legacy fallback
 const epubParser = require('./parsers/epubParser');
 const chapterDetector = require('./structure/chapterDetector');
 const documentStructureEngine = require('../structure/documentStructureEngine');
@@ -66,7 +67,7 @@ class IngestionService {
       if (!fileBuffer || fileBuffer.length === 0) {
         throw new Error('PDF ingestion requires a valid file buffer.');
       }
-      const pdfResult = await pdfParser.parse(fileBuffer, {
+      const pdfResult = await pdfjsParser.parse(fileBuffer, {
         title,
         author,
         originalFilename,
