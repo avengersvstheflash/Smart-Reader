@@ -58,6 +58,7 @@ class RepeatedBlockDetector {
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
+      if (block.type === 'heading' && block.level === 1) continue; // Chapter headings are never running headers
       const text = block.text || '';
       if (!text || text.length > 150) continue; // headers/footers are short (<150 chars)
 
