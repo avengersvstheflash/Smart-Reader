@@ -3,11 +3,11 @@ const contentNormalizer = require('../ingestion/normalizers/contentNormalizer');
 const { CanonicalDocument } = require('../ingestion/models/canonicalContent');
 
 /**
- * Document Structure Engine for Smart Reader (Build 3B.1.6)
- * 
+ * Document Structure Engine for Smart Reader (Build 3B.1.8)
+ *
  * Deterministically constructs a normalized hierarchical structural tree
  * from parsed documents (PDF, EPUB, Markdown, Plain Text, Web).
- * 
+ *
  * Features:
  * - Multi-signal chapter detection with priority ranking (TOC, Numbered Headings, Style Hierarchy, Boundaries)
  * - True nested section hierarchy (e.g. 4.1.2.1 as child of 4.1.2 as child of 4.1 as child of Chapter 4)
@@ -15,6 +15,12 @@ const { CanonicalDocument } = require('../ingestion/models/canonicalContent');
  * - Repeated header/footer filtering
  * - Explicit source provenance (pages, offsets, block ranges)
  * - Deterministic confidence scoring and graceful low-confidence fallbacks
+ *
+ * 3B.1.8 additions:
+ * - extractChapterOpener(text, block) prefers block.chapterHint from the parser
+ * - Improved title regex (captures full title, stops at sentence boundaries)
+ * - Running-header guard rejects short title-case blocks appearing on 3+ pages
+ * - assembleChapterTree sorts chapters by sourcePage so back matter lands last
  */
 
 class DocumentStructureEngine {
@@ -34,13 +40,6 @@ class DocumentStructureEngine {
 
   /**
    * Builds a normalized structural document tree
-   * @param {object} input
-   * @param {string} input.format - 'pdf', 'epub', 'markdown', 'text', 'web'
-   * @param {string} [input.rawText] - Normalized or raw text string
-   * @param {Array<object>} [input.blocks] - Canonical blocks
-   * @param {Array<object>} [input.pages] - Page objects { num, text, lines }
-   * @param {object} [input.metadata] - Title, author, originalFilename
-   * @returns {object} Normalized structural document tree
    */
   buildStructureTree({ format = 'text', rawText = '', blocks = [], pages = [], metadata = {} }) {
     let workingBlocks = Array.isArray(blocks) && blocks.length > 0 ? [...blocks] : [];
@@ -63,7 +62,6 @@ class DocumentStructureEngine {
         workingBlocks = this.blocksFromText(workingText, format);
       }
     } else if (tocPages.size > 0) {
-      // Mark existing blocks with isTocPage
       workingBlocks.forEach((b) => {
         if (b.sourcePage && tocPages.has(b.sourcePage)) {
           b.isTocPage = true;
@@ -79,10 +77,8 @@ class DocumentStructureEngine {
     this.annotateOffsets(workingBlocks, workingText);
 
     // 3. Multi-Signal Structural Boundary Identification
-    // Priority 1: Table of Contents (TOC)
     const tocCandidate = this.detectAndParseTOC(pages, workingBlocks, workingText, tocPages);
 
-    // Priority 2: Chapter Headings and Boundaries
     const candidateNodes = this.identifyChapterCandidates({
       blocks: workingBlocks,
       pages,
@@ -172,15 +168,12 @@ class DocumentStructureEngine {
           continue;
         }
 
-        // On TOC pages, do not convert lines into chapter headings
         if (isTocPage || this.TOC_LINE_REGEX.test(line)) {
           curPara.push(line);
           continue;
         }
 
-        // Check for two-line chapter opener:
-        // Line i: "CHAPTER 1"
-        // Line i+1: "The Machine Learning Workflow"
+        // Two-line chapter opener: "CHAPTER 1" then "Title"
         const chKeyword = line.match(/^(?:chapter|part|unit|module)\s+([0-9]+|[ivxlcdm]+|[a-z]+)$/i);
         if (chKeyword && i + 1 < lines.length) {
           const nextLine = lines[i + 1].trim();
@@ -201,7 +194,7 @@ class DocumentStructureEngine {
               text: `${line}: ${nextLine}`,
               sourcePage: pageNum,
             });
-            i++; // skip nextLine
+            i++;
             continue;
           }
         }
@@ -296,30 +289,25 @@ class DocumentStructureEngine {
     const trimmed = line.trim();
     if (!trimmed || trimmed.length > 100) return null;
 
-    // A line that ends with dotted leaders or wide spaces and page numbers is a TOC entry, NEVER a heading
     if (this.TOC_LINE_REGEX.test(trimmed)) {
       return null;
     }
 
-    // Explicit chapter marker
     if (this.CHAPTER_EXPLICIT_REGEX.test(trimmed)) {
       return { level: 1, text: trimmed };
     }
 
-    // Markdown heading
     const mdMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
     if (mdMatch) {
       return { level: mdMatch[1].length, text: mdMatch[2].trim() };
     }
 
-    // Section numbering: 1.1, 4.1.2, etc.
     const secMatch = trimmed.match(this.SECTION_NUMBERED_REGEX);
     if (secMatch) {
       const dots = (trimmed.split(/\s+/)[0].match(/\./g) || []).length;
       return { level: Math.min(6, dots + 1), text: trimmed };
     }
 
-    // Standalone numbered chapter (e.g. "1 Foundations of Machine Learning")
     const standAloneMatch = trimmed.match(this.STANDALONE_NUMBERED_CHAPTER_REGEX);
     if (standAloneMatch && !trimmed.includes('.')) {
       const num = parseInt(standAloneMatch[1], 10);
@@ -328,7 +316,6 @@ class DocumentStructureEngine {
       }
     }
 
-    // Special Front/Back Matter markers
     if (this.isFrontOrBackMatterHeading(trimmed)) {
       return { level: 1, text: trimmed };
     }
@@ -353,7 +340,6 @@ class DocumentStructureEngine {
     const tocEntries = [];
     let maxTocPage = 0;
 
-    // Check first 30 pages for Table of Contents
     const searchPages = pages.slice(0, Math.min(pages.length, 30));
 
     for (const page of searchPages) {
@@ -363,18 +349,12 @@ class DocumentStructureEngine {
         const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
 
         for (const line of lines) {
-          // Patterns:
-          // 1 Introduction ................... 1
-          // Chapter 1: Introduction ........ 12
-          // Appendix A: Derivations ......... 340
-          // 1 \tFundamentals of machine learning \t1
           const match = line.match(/^(?:(?:Chapter|Part)\s+(\d+|[IVXLCDM]+)[:.]?\s+)?(.+?)(?:\s*\.{2,}\s*|\s{2,}|\t+)(\d+|[ivxlcdm]+)\s*$/i);
           if (match) {
             let chNum = match[1] || null;
             let titlePart = match[2].trim();
             const printedPage = match[3];
 
-            // If chapter number is leading in titlePart (e.g. "1 Fundamentals of machine learning" or "1\tFundamentals")
             const leadingNumMatch = titlePart.match(/^(\d+)\s*[\t\s]+(.+)$/);
             if (leadingNumMatch && !chNum) {
               chNum = leadingNumMatch[1];
@@ -382,7 +362,6 @@ class DocumentStructureEngine {
             }
             titlePart = titlePart.replace(/\t+/g, ' ').trim();
 
-            // Ignore subsection entries (e.g. 1.1 or 2.3.1) in major TOC anchor
             const isSub = /^(\d+\.\d+|[A-Z]\.\d+)/.test(titlePart) || (chNum && chNum.includes('.'));
             if (!isSub) {
               tocEntries.push({
@@ -400,20 +379,17 @@ class DocumentStructureEngine {
       return null;
     }
 
-    // Anchor TOC entries to body blocks by searching for matching headings in body blocks
     let matchedCount = 0;
     const anchoredEntries = [];
 
     for (const entry of tocEntries) {
       const normEntry = this.normalizeTitleForMatch(entry.title);
-      // Search in blocks that appear AFTER the TOC pages
       const foundIdx = blocks.findIndex((b, idx) => {
         if (b.isTocPage || (b.sourcePage && (tocPages.has(b.sourcePage) || b.sourcePage <= maxTocPage))) {
           return false;
         }
 
-        // Match chapter openers (including metadata-prefixed or glued ones)
-        const opener = this.extractChapterOpener(b.text || '');
+        const opener = this.extractChapterOpener(b.text || '', b);
         if (opener) {
           if (entry.chapterNumber && String(opener.number) === String(entry.chapterNumber)) {
             return true;
@@ -461,58 +437,77 @@ class DocumentStructureEngine {
   }
 
   /**
-   * Normalizes and extracts chapter openers that may be glued with publisher/DOI metadata
-   * Handles patterns like:
-   * "1\tDOI: 10.1201/9781003486817-1 1Fundamentals of machine learning"
-   * "18 \tDOI: 10.1201/9781003486817-2 ... 2Mathematics for machine learning"
-   * Preserves raw block content; returns derived chapter structure { number, title, rawTitle }.
+   * Extracts chapter opener info.
+   * Prefers block.chapterHint (populated by the PDF parser before block merge).
+   * Falls back to best-effort inline parsing of DOI/license-prefixed lines.
+   *
+   * Handles:
+   *   "1\tDOI: 10.1201/9781003486817-1 1Fundamentals of machine learning"
+   *   "18 \tDOI: 10.1201/9781003486817-2 ... 2Mathematics for machine learning"
+   *   "DOI: 10.1201/...-4 95 ... license. 4Machine learning operations"
+   *   "1 Fundamentals of machine learning"
+   *   "5 Machine learning software and hardware requirements"
+   *   "1\tFundamentals of machine learning Upon completing this chapter..."
    */
-  extractChapterOpener(text) {
+  extractChapterOpener(text, block = null) {
+    // 1. Prefer the parser's clean hint — it ran on the raw line before merge.
+    if (block && block.chapterHint && block.chapterHint.number && block.chapterHint.title) {
+      const { number, title } = block.chapterHint;
+      if (Number.isFinite(number) && number >= 1 && number <= 100 && title && title.length >= 3) {
+        return {
+          number,
+          title: `Chapter ${number}: ${title}`,
+          rawTitle: title,
+        };
+      }
+    }
+
     if (!text || typeof text !== 'string') return null;
     const lines = text.split('\n');
+
     for (const rawLine of lines) {
       const line = rawLine.trim();
       if (!line) continue;
 
       let candidate = line;
-      if (/DOI:\s*[\d.\/-]+/i.test(candidate) || /license/i.test(candidate)) {
-        candidate = candidate.replace(/^\s*\d+\s*[\t\s]+/g, ' ');
-        candidate = candidate.replace(/DOI:\s*10\.\d{4,9}\/[^\s]+/gi, ' ');
+      const hadMetadata =
+        /DOI:\s*[\d.\/-]+/i.test(candidate) || /This chapter has been made available under/i.test(candidate);
+      const hadLeadingNumber = /^\s*\d+\s*[\t\s]+/.test(candidate);
+
+      if (hadMetadata || hadLeadingNumber) {
+        // Strip license FIRST — it contains "4.0" which confuses later steps.
         candidate = candidate.replace(/This chapter has been made available under[^\n]*?license\.?/gi, ' ');
-        candidate = candidate.replace(/\b\d+\b(?=\s*$)/, '');
-        candidate = candidate.trim();
+        // Strip DOI URI.
+        candidate = candidate.replace(/\bDOI:\s*10\.\d{4,9}\/[^\s]+/gi, ' ');
+        // Strip leading page number ("18 \t", "76 ").
+        candidate = candidate.replace(/^\s*\d+\s*[\t\s]+/, ' ');
+        // Strip a middle page number preceding a glued chapter number (" 95 4Machine").
+        candidate = candidate.replace(/\s+\d+\s+(?=\d+[A-Z])/g, ' ');
+        // Strip trailing folio.
+        candidate = candidate.replace(/\s+\d+\s*$/, '');
+        candidate = candidate.replace(/\s+/g, ' ').trim();
       }
 
-      // 1. Check for glued or spaced chapter number followed by title
-      const match = candidate.match(/(?:^|\s)(\d+)\s*([A-Z][a-zA-Z][a-zA-Z\s—–-]+)$/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num >= 1 && num <= 50) {
+      // Capture number + full title, stopping at common opener-end markers.
+      // Boundaries: " Upon completing", a new numbered subsection " 2.1 ", or end of string.
+      const openerMatch = candidate.match(
+        /(?:^|\s)(\d{1,3})\s*([A-Z][a-zA-Z0-9\s—–\-,&:;'"?()]{3,140}?)(?=\s+Upon\s+completing|\s+\d+\.\d+\s|\s*$)/
+      );
+      if (openerMatch) {
+        const num = parseInt(openerMatch[1], 10);
+        const rawTitle = openerMatch[2].trim().replace(/\s+/g, ' ');
+        if (num >= 1 && num <= 100 && rawTitle.length >= 3) {
+          // Sanity: reject fragments of license/DOI text.
+          if (/^license\b/i.test(rawTitle) || /^DOI:/i.test(rawTitle)) continue;
           return {
             number: num,
-            title: `Chapter ${num}: ${match[2].trim()}`,
-            rawTitle: match[2].trim(),
-          };
-        }
-      }
-
-      // 2. Direct check with DOI & publisher metadata prefix pattern
-      const directDoiMatch = line.match(/^\s*\d+\s*\t?\s*DOI:\s*[\d.\/-]+\s*[^\n]*?(\d+)\s*([A-Z][a-zA-Z].*)$/i);
-      if (directDoiMatch) {
-        let rawT = directDoiMatch[2].trim();
-        rawT = rawT.replace(/^.*?license\.\s*/i, '');
-        const glued = rawT.match(/^(\d+)?\s*([A-Z][a-zA-Z].*)$/);
-        const num = glued && glued[1] ? parseInt(glued[1], 10) : parseInt(directDoiMatch[1], 10);
-        const titleText = glued ? glued[2].trim() : rawT;
-        if (num >= 1 && num <= 50) {
-          return {
-            number: num,
-            title: `Chapter ${num}: ${titleText}`,
-            rawTitle: titleText,
+            title: `Chapter ${num}: ${rawTitle}`,
+            rawTitle,
           };
         }
       }
     }
+
     return null;
   }
 
@@ -527,7 +522,7 @@ class DocumentStructureEngine {
     if (tocCandidate && tocCandidate.anchoredEntries.length >= 2) {
       for (const anc of tocCandidate.anchoredEntries) {
         let candTitle = anc.title;
-        const opener = this.extractChapterOpener(anc.block?.text || '');
+        const opener = this.extractChapterOpener(anc.block?.text || '', anc.block);
         if (opener) {
           candTitle = opener.title;
         } else if (anc.chapterNumber && !anc.title.toLowerCase().startsWith('chapter')) {
@@ -557,8 +552,8 @@ class DocumentStructureEngine {
         continue;
       }
 
-      // Check chapter opener with publisher metadata or glued number-title (Task 4)
-      const opener = this.extractChapterOpener(text);
+      // Check chapter opener with publisher metadata or glued number-title. Pass block so chapterHint is preferred.
+      const opener = this.extractChapterOpener(text, block);
       if (opener) {
         candidates.push({
           blockIndex: i,
@@ -571,9 +566,16 @@ class DocumentStructureEngine {
         continue;
       }
 
-      // Check for two-line chapter opener:
-      // Block i: "CHAPTER 1" or "Chapter 1"
-      // Block i+1: "The Foundations of Learning" (if next block is a short heading/paragraph)
+      // Running-header guard: reject short title-case paragraphs with no digits
+      // that appear on 3 or more blocks (e.g. book title printed as running header).
+      if (block.type === 'paragraph' && text.split(/\s+/).length < 8 && !/\d/.test(text)) {
+        const occurrences = blocks.filter((b) => (b.text || '').trim() === text).length;
+        if (occurrences >= 3) {
+          continue;
+        }
+      }
+
+      // Two-line chapter opener: "CHAPTER 1" + "Title" on next block
       const chKeywordMatch = text.match(/^(?:chapter|part|unit|module)\s+([0-9]+|[ivxlcdm]+|[a-z]+)$/i);
       if (chKeywordMatch && i + 1 < blocks.length) {
         const nextBlock = blocks[i + 1];
@@ -589,7 +591,7 @@ class DocumentStructureEngine {
             confidence: 0.92,
             skipNextBlock: true,
           });
-          i++; // Skip the title block as it's merged into chapter title
+          i++;
           continue;
         }
       }
@@ -612,7 +614,6 @@ class DocumentStructureEngine {
       const standaloneMatch = text.match(this.STANDALONE_NUMBERED_CHAPTER_REGEX);
       if (standaloneMatch && !text.includes('.')) {
         const num = parseInt(standaloneMatch[1], 10);
-        // Chapter numbers typically between 1 and 50
         if (num >= 1 && num <= 50) {
           candidates.push({
             blockIndex: i,
@@ -626,11 +627,10 @@ class DocumentStructureEngine {
         }
       }
 
-      // Front Matter & Back Matter Keywords (e.g. Preface, Appendix, Index, References)
+      // Front Matter & Back Matter Keywords
       if (block.type === 'heading' || text.length < 50) {
         const role = this.classifyRoleFromTitle(text, block.sourcePage, totalPages);
         if (role !== 'chapter' && role !== 'section') {
-          // If it's a known structural boundary (and not downgraded to chapter-local section)
           candidates.push({
             blockIndex: i,
             title: text,
@@ -643,9 +643,8 @@ class DocumentStructureEngine {
         }
       }
 
-      // Markdown Level 1 Headings (# Heading)
+      // Markdown Level 1 Headings
       if (block.type === 'heading' && block.level === 1) {
-        // Only accept if not a subsection like "1.1"
         if (!/^\d+\.\d+/.test(text)) {
           candidates.push({
             blockIndex: i,
@@ -660,13 +659,12 @@ class DocumentStructureEngine {
       }
     }
 
-    // If candidate list contains multiple entries with substantive gaps between them, accept them
     const deduped = this.sortAndDedupeCandidates(candidates);
     if (deduped.length >= 2) {
       return deduped;
     }
 
-    // Strategy 3: Level 2 Headings if no Level 1 or explicit chapters exist and there are multiple H2s
+    // Strategy 3: Level 2 Headings fallback
     if (candidates.length < 2) {
       const h2Candidates = [];
       for (let i = 0; i < blocks.length; i++) {
@@ -687,7 +685,6 @@ class DocumentStructureEngine {
       }
     }
 
-    // Default fallback: single document chapter
     return [];
   }
 
@@ -701,7 +698,6 @@ class DocumentStructureEngine {
         continue;
       }
       const prev = result[result.length - 1];
-      // If candidates are right next to each other (blockIndex distance <= 1), merge or keep higher confidence
       if (c.blockIndex - prev.blockIndex <= 1) {
         if (c.confidence > prev.confidence) {
           result[result.length - 1] = c;
@@ -720,7 +716,6 @@ class DocumentStructureEngine {
 
   /**
    * Classifies structural role of a chapter/section based on its title
-   * Returns: 'front_matter' | 'chapter' | 'appendix' | 'back_matter' | 'index' | 'section'
    */
   classifyRoleFromTitle(title = '', sourcePage = null, totalPages = null) {
     const clean = title.trim().toLowerCase().replace(/^#+\s*/, '').replace(/[:.—–-].*$/, '').trim();
@@ -728,8 +723,6 @@ class DocumentStructureEngine {
     if (this.APPENDIX_REGEX.test(clean)) return 'appendix';
     if (this.FRONT_MATTER_REGEX.test(clean)) return 'front_matter';
     if (this.BACK_MATTER_REGEX.test(clean)) {
-      // Task 5 Part B: When back_matter appears BEFORE 80% of document page count:
-      // Downgrade to 'section' (chapter-local trailing material), NOT 'back_matter'
       if (sourcePage !== null && totalPages !== null && totalPages > 0) {
         if (sourcePage < 0.8 * totalPages && this.CHAPTER_LOCAL_BACK_MATTER_REGEX.test(clean)) {
           return 'section';
@@ -741,7 +734,7 @@ class DocumentStructureEngine {
   }
 
   /**
-   * Groups blocks into chapters and parses nested section trees
+   * Groups blocks into chapters and parses nested section trees.
    */
   assembleChapterTree({ candidates, blocks, pages = [], metadata, hasTocMatch }) {
     const chapters = [];
@@ -802,7 +795,7 @@ class DocumentStructureEngine {
         number: 1,
         title: docTitle,
         structuralRole: 'chapter',
-        confidence: 0.4, // Low confidence fallback
+        confidence: 0.4,
         sourceLocation: {
           startOffset: blocks[0]?.startOffset || 0,
           endOffset: blocks[blocks.length - 1]?.endOffset || 0,
@@ -856,7 +849,21 @@ class DocumentStructureEngine {
       });
     }
 
-    // Calculate document-level confidence
+    // Sort chapters by sourcePage so back matter (Index, Appendix) lands after body chapters.
+    // Preserves original order when sourcePage is equal.
+    chapters.sort((a, b) => {
+      const pa = a.sourceLocation?.startPage ?? 0;
+      const pb = b.sourceLocation?.startPage ?? 0;
+      if (pa !== pb) return pa - pb;
+      return 0;
+    });
+
+    // Renumber after sort so IDs and numbers stay consistent with display order.
+    chapters.forEach((ch, idx) => {
+      ch.number = idx + 1;
+      ch.id = `chap-${idx + 1}`;
+    });
+
     const avgConfidence = chapters.reduce((sum, c) => sum + (c.confidence || 0.8), 0) / (chapters.length || 1);
     const docConfidence = hasTocMatch ? Math.max(0.92, avgConfidence) : Number(avgConfidence.toFixed(2));
 
@@ -865,29 +872,24 @@ class DocumentStructureEngine {
 
   /**
    * Builds a nested section tree (parent-child hierarchy) from blocks
-   * Examples:
-   * Chapter 4 -> 4.1 -> 4.1.1 -> 4.1.1.1
    */
   buildNestedSectionHierarchy(chapterBlocks) {
     const rootSections = [];
-    // Stack tracks current active ancestor sections: [level1, level2, level3, ...]
     const stack = [];
 
-    // The first heading in chapter blocks may be the chapter title itself; skip it if identical
     const firstHeading = chapterBlocks.find((b) => b.type === 'heading');
 
     for (let i = 0; i < chapterBlocks.length; i++) {
       const block = chapterBlocks[i];
       if (block.type !== 'heading') continue;
       if (block === firstHeading && (block.level === 1 || this.CHAPTER_EXPLICIT_REGEX.test(block.text || ''))) {
-        continue; // Skip root chapter heading itself
+        continue;
       }
 
       const rawText = (block.text || '').trim();
       const secNumberMatch = this.extractSectionNumber(rawText);
       const depth = this.determineSectionDepth(rawText, block.level, secNumberMatch);
 
-      // Extract section text and calculate counts for this section (until next heading)
       const secBlocks = [];
       let nextHeadingIdx = chapterBlocks.length;
       for (let j = i + 1; j < chapterBlocks.length; j++) {
@@ -917,7 +919,6 @@ class DocumentStructureEngine {
         sections: [],
       };
 
-      // Find appropriate parent in the stack
       while (stack.length > 0 && stack[stack.length - 1].level >= depth) {
         stack.pop();
       }
@@ -945,7 +946,6 @@ class DocumentStructureEngine {
 
   determineSectionDepth(text, headingLevel, sectionNumber) {
     if (sectionNumber) {
-      // Depth derived from dotted numbering: "4.1" -> 2, "4.1.2" -> 3, "4.1.2.1" -> 4
       const dots = (sectionNumber.match(/\./g) || []).length;
       return dots + 1;
     }
