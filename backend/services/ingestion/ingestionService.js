@@ -5,6 +5,7 @@ const markdownParser = require('./parsers/markdownParser');
 const pdfParser = require('./parsers/pdfParser');
 const epubParser = require('./parsers/epubParser');
 const chapterDetector = require('./structure/chapterDetector');
+const documentStructureEngine = require('../structure/documentStructureEngine');
 const { CanonicalDocument } = require('./models/canonicalContent');
 
 /**
@@ -98,16 +99,18 @@ class IngestionService {
         originalFilename,
       });
 
-      // Count extracted tables across chapters
+      // Count extracted tables across chapters and build nested section hierarchy
       let tablesCount = 0;
       let totalSections = 0;
       for (const ch of epubResult.chapters) {
         if (Array.isArray(ch.canonicalBlocks)) {
           tablesCount += ch.canonicalBlocks.filter((b) => b.type === 'table').length;
-          const sections = ch.canonicalBlocks.filter((b) => b.type === 'heading' && b.level >= 2);
-          ch.sectionCount = sections.length;
-          ch.structuralRole = ch.structuralRole || 'chapter';
-          totalSections += sections.length;
+          const { sections } = documentStructureEngine.buildNestedSectionHierarchy(ch.canonicalBlocks);
+          ch.sections = sections;
+          ch.sectionCount = documentStructureEngine.countTotalSections(sections);
+          ch.structuralRole = ch.structuralRole || documentStructureEngine.classifyRoleFromTitle(ch.title);
+          ch.confidence = 0.95;
+          totalSections += ch.sectionCount;
         }
       }
 
@@ -140,56 +143,52 @@ class IngestionService {
     // Normalize input
     const normalizedText = contentNormalizer.normalize(text);
 
-    // Structure & Chapter Detection
-    const detectedSegments = chapterDetector.detect(normalizedText, {
-      defaultTitle: title || 'Full Text',
+    // Structure & Chapter Detection via DocumentStructureEngine
+    const tree = documentStructureEngine.buildStructureTree({
       format,
+      rawText: normalizedText,
+      metadata: {
+        title: title || 'Full Text',
+        author: author || 'Unknown Author',
+      },
     });
 
     let tablesCount = 0;
     let totalSections = 0;
 
-    // Canonical Content Parsing per Chapter
-    const chapters = detectedSegments.map((seg, index) => {
-      let canonicalDoc;
+    // Process structured chapters and ensure canonical blocks
+    const chapters = tree.chapters.map((ch, index) => {
+      let blocks = ch.canonicalBlocks;
+      if (!blocks || blocks.length === 0) {
+        let canonicalDoc;
+        if (format === 'markdown') {
+          canonicalDoc = markdownParser.parse(ch.content || '');
+        } else {
+          canonicalDoc = textParser.parse(ch.content || '');
+        }
 
-      if (format === 'markdown') {
-        canonicalDoc = markdownParser.parse(seg.rawContent);
-      } else {
-        canonicalDoc = textParser.parse(seg.rawContent);
+        if (canonicalDoc.getBlocks().length === 0 && ch.content && ch.content.trim()) {
+          canonicalDoc = CanonicalDocument.fromPlainText(ch.content);
+        }
+        blocks = canonicalDoc.toJSON();
       }
 
-      if (canonicalDoc.getBlocks().length === 0 && seg.rawContent.trim()) {
-        canonicalDoc = CanonicalDocument.fromPlainText(seg.rawContent);
-      }
-
-      const blocks = canonicalDoc.toJSON();
       tablesCount += blocks.filter((b) => b.type === 'table').length;
-      const wordCount = canonicalDoc.calculateWordCount() || seg.rawContent.split(/\s+/).filter(Boolean).length;
-
-      const sections = blocks
-        .filter((b) => b.type === 'heading' && b.level >= 2)
-        .map((b) => ({ title: b.text, level: b.level }));
-      totalSections += sections.length;
-
-      // Determine structural role
-      const lowerTitle = (seg.title || '').toLowerCase();
-      let structuralRole = 'chapter';
-      if (/^(?:prologue|preface|foreword|introduction|abstract|front\s*matter)/i.test(lowerTitle)) {
-        structuralRole = 'front_matter';
-      } else if (/^(?:epilogue|afterword|appendix|references|bibliography|index|back\s*matter)/i.test(lowerTitle)) {
-        structuralRole = /appendix/i.test(lowerTitle) ? 'appendix' : 'back_matter';
-      }
+      const sCount = ch.sectionCount || (ch.sections ? ch.sections.length : 0);
+      totalSections += sCount;
 
       return {
         number: index + 1,
-        title: seg.title || `Chapter ${index + 1}`,
-        structuralRole,
-        content: seg.rawContent, // original source preserved immutable
+        title: ch.title || `Chapter ${index + 1}`,
+        structuralRole: ch.structuralRole || 'chapter',
+        confidence: ch.confidence,
+        sourceLocation: ch.sourceLocation,
+        content: ch.content, // original source preserved immutable
         canonicalBlocks: blocks,
-        sections,
-        sectionCount: sections.length,
-        wordCount,
+        sections: ch.sections,
+        sectionCount: sCount,
+        wordCount: ch.wordCount,
+        characterCount: ch.characterCount,
       };
     });
 

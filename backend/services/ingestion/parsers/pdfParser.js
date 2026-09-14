@@ -58,6 +58,29 @@ class PDFParser {
       docAuthor = String(infoResult.info.Author).trim();
     }
 
+    return this.parseFromPages(pages, {
+      ...options,
+      title: docTitle,
+      author: docAuthor,
+      totalPageCount: pageCount,
+    });
+  }
+
+  /**
+   * Parses pre-extracted page structures directly through the canonical block & structure pipeline
+   */
+  parseFromPages(pages, options = {}) {
+    const pageCount = options.totalPageCount || pages.length;
+    const combinedRawText = pages.map((p) => p.text || '').join('\n\n').trim();
+    if (!combinedRawText || combinedRawText.length < 20) {
+      throw new Error(
+        'This PDF document contains little or no selectable text. It may be a scanned image or bitmap document, which requires OCR (not supported in Build 2).'
+      );
+    }
+
+    let docTitle = options.title || '';
+    let docAuthor = options.author || '';
+
     // 1. Process pages into structured canonical blocks with sourcePage and table detection
     const { blocks, tablesCount } = this.extractBlocksFromPages(pages);
 
@@ -132,6 +155,7 @@ class PDFParser {
             text: sectionMatch.title,
             sourcePage: pageNum,
             section: sectionMatch.title,
+            sectionHint: sectionMatch.title,
           };
           blocks.push(headingBlock);
           detectedSections.push({
@@ -139,6 +163,20 @@ class PDFParser {
             level: sectionMatch.level || 2,
             blockIndex: blocks.length - 1,
             sourcePage: pageNum,
+          });
+          i++;
+          continue;
+        }
+
+        // Ambiguous chapter opener candidate: emit as paragraph block with preserved sourcePage and sectionHint
+        // Defers final boundary interpretation to DocumentStructureEngine
+        if (this.isAmbiguousChapterOpener(line)) {
+          blocks.push({
+            id: `blk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            type: 'paragraph',
+            text: line,
+            sourcePage: pageNum,
+            sectionHint: line,
           });
           i++;
           continue;
@@ -208,12 +246,13 @@ class PDFParser {
           }
         }
 
-        // D. Regular Paragraph lines (accumulate until empty line or section/table)
+        // D. Regular Paragraph lines (accumulate until empty line or section/table/opener)
         const paraLines = [];
         while (
           i < lines.length &&
           lines[i].trim() !== '' &&
           !this.detectSectionHeading(lines[i].trim()) &&
+          !this.isAmbiguousChapterOpener(lines[i].trim()) &&
           !lines[i].trim().match(/^(?:Abstract|Executive Summary)[\s:—–-]+/i) &&
           !lines[i].trim().match(/^Table\s+\d+[:.]/i)
         ) {
@@ -236,13 +275,36 @@ class PDFParser {
   }
 
   /**
+   * Checks if a line might be an ambiguous chapter opener (glued number-title, DOI prefix, publisher metadata)
+   * that should be emitted as a paragraph block and deferred to documentStructureEngine.
+   */
+  isAmbiguousChapterOpener(line) {
+    if (!line || typeof line !== 'string') return false;
+    const trimmed = line.trim();
+    if (trimmed.length > 180 || /[.?!]$/.test(trimmed)) return false;
+
+    // Glued number and title (e.g. "1Fundamentals of machine learning")
+    if (/^\s*\d+[A-Z][a-zA-Z]{2,}/.test(trimmed)) return true;
+
+    // Publisher DOI / metadata with embedded chapter number and title
+    if (/DOI:\s*[\d.\/-]+/i.test(trimmed) && /\d+\s*[A-Z][a-zA-Z]/.test(trimmed)) return true;
+
+    // Short standalone number followed by chapter title without punctuation: e.g. "1 Fundamentals of machine learning"
+    if (/^\s*\d+\s+[A-Z][a-zA-Z0-9\s—–-]{3,60}$/.test(trimmed) && !trimmed.includes('.')) return true;
+
+    return false;
+  }
+
+  /**
    * Detects if a line looks like an academic paper or document section heading
    */
   detectSectionHeading(line) {
-    if (line.length > 90 || /[.?!]$/.test(line)) return null;
+    if (line.length > 90) return null;
+    const isNumbered = /^(\d+\.\d+(?:\.\d+)?)\s+/.test(line);
+    if (!isNumbered && /[.!]$/.test(line)) return null;
 
     // Academic standard section keywords
-    const academicSections = /^(?:(?:\d+\.?(?:\d+)?\s+)?(Abstract|Introduction|Related Work|Background|Methodology|Methods|System Design|Architecture|Experiments|Evaluation|Results|Discussion|Conclusion|Conclusions|References|Appendix|Acknowledgments))$/i;
+    const academicSections = /^(?:(?:\d+\.?(?:\d+)?\s+)?(Abstract|Introduction|Related Work|Background|Methodology|Methods|System Design|Architecture|Experiments|Evaluation|Results|Discussion|Conclusion|Conclusions|References|Appendix|Acknowledgments|Index|Glossary|Preface|Foreword))$/i;
     const academicMatch = line.match(academicSections);
     if (academicMatch) {
       return { title: line, level: 2 };
@@ -254,15 +316,15 @@ class PDFParser {
       return { title: line, level: 1 };
     }
 
-    // Numbered sections like "1.1 Introduction" or "2.3 Architecture"
-    const numberedSecMatch = line.match(/^(\d+\.\d+(?:\.\d+)?)\s+([A-Z][A-Za-z0-9\s—–-]{2,60})$/);
+    // Numbered sections like "1.1 Introduction" or "1.1 WHAT IS MACHINE LEARNING?"
+    const numberedSecMatch = line.match(/^(\d+\.\d+(?:\.\d+)?)\s+([A-Z][A-Za-z0-9\s—–\?.,'"-]{2,60})$/);
     if (numberedSecMatch) {
       const dots = numberedSecMatch[1].split('.').length - 1;
       return { title: line, level: Math.min(4, Math.max(2, dots + 1)) };
     }
 
-    // All Caps short lines without punctuation that are clearly headings
-    if (line.length >= 6 && line.length < 45 && /^[A-Z0-9\s:—–-]+$/.test(line) && !line.includes('PAGE') && !line.includes('HTTP') && !/^\d+$/.test(line)) {
+    // All Caps short lines without trailing sentence punctuation that are clearly headings
+    if (line.length >= 6 && line.length < 45 && /^[A-Z0-9\s:—–\?-]+$/.test(line) && !line.includes('PAGE') && !line.includes('HTTP') && !/^\d+$/.test(line)) {
       return { title: line, level: 2 };
     }
 
