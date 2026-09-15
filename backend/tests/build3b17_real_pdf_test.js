@@ -212,6 +212,20 @@ async function runRealPdfSuite() {
 
   const { chapters } = result;
 
+  const ch8 = chapters.find(c => /^Chapter 8:/.test(c.title));
+  assert.ok(ch8, "Chapter 8 not found in parsed chapters");
+  assert.strictEqual(
+    ch8.title,
+    "Chapter 8: Machine learning step-by-step practical examples",
+    "Chapter 8 title regression — must be exact"
+  );
+
+  const totalWords = chapters.reduce((sum, c) => sum + (c.wordCount || 0), 0);
+  assert.ok(
+    totalWords > 60000,
+    `Total word count dropped below 60000: got ${totalWords}`
+  );
+
   console.log(`Decomposed document into ${chapters.length} structures:`);
   chapters.forEach((c) => {
     console.log(`  - [${c.structuralRole.toUpperCase()}] "${c.title}" (${c.wordCount} words, ${c.sectionCount || 0} sections)`);
