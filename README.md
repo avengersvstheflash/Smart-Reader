@@ -13,7 +13,7 @@ Original texts, uploaded files, and acquired web sources are stored immutably. A
 
 ### 2. Canonical Document Pipeline (Build 1.5 – 3B.1.5)
 Raw inputs (PDF, EPUB, TXT, Markdown, Web URLs) pass through an ingestion and normalization pipeline (`backend/services/ingestion/`):
-- **Format Analyzers:** Magic byte signature inspection and structural parsers for PDF (`pdf-parse`), EPUB (`adm-zip`), Markdown, Plaintext, and Web (`cheerio`).
+- **Format Analyzers:** Magic byte signature inspection and structural parsers for PDF (`pdfjs-dist` — layout-aware, font-size heuristics), EPUB (`adm-zip`), Markdown, Plaintext, and Web (`cheerio`).
 - **Document Structure Intelligence:** 
   - **TOC & Chapter Anchoring:** Distinguishes genuine chapters from hierarchical subheadings (`1.1`, `1.2`, `Section 2.1`), keeping subheadings organized as sections within their parent chapter.
   - **Running Header & Footer Suppression:** Filters page numbers, running headers, and peripheral publisher boilerplate across PDF and web pages.
@@ -70,6 +70,14 @@ npm run db:reset
 ```
 
 Visit [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## 🏗️ Recent Builds
+
+- **v0.3b.1.9** — Document Structure Engine frozen. `pdfjs-dist` parser handles CRC Press and IEEE (SWEBOK v4) formats. 8 and 18 chapters detected respectively with font-size layout awareness and multi-line title reconstruction.
+- **v0.4.3** — Reading Segment Builder. Source chapters split into 1200–2400 word semantic segments. Depth-first flatten of hierarchical `chapter.sections`. 10/10 tests, 0.00% text drift.
+- **Next: Build 4.4** — Reader Modes UI (Original / Smart toggle).
 
 ---
 
@@ -135,15 +143,21 @@ OLLAMA_MODEL=llama3
 The repository includes targeted verification suites across all architectural milestones:
 
 ```bash
-# Ingestion reliability & hardening tests (Build 3B.1.5)
-node backend/tests/build3b_hardening_test.js
+# Run all 11 regression suites (stops on first failure)
+npm test
 
-# Semantic memory & grounded summarization tests (Build 3B)
-node backend/tests/build3b_test.js
-node backend/tests/build3b_finalization_test.js
-
-# Web intelligence & research dossier tests (Build 3A)
-node backend/tests/build3a_test.js
+# Or run individual suites:
+node backend/tests/build3a_test.js                        # Web intelligence (Build 3A)
+node backend/tests/build3b_test.js                        # Semantic memory (Build 3B)
+node backend/tests/build3b_finalization_test.js           # Finalization (Build 3B)
+node backend/tests/build3b_hardening_test.js              # Ingestion hardening (Build 3B.1.5)
+node backend/tests/build3b16_structure_test.js            # Document structure (Build 3B.1.6)
+node backend/tests/build3b17_real_pdf_test.js             # Real PDF regression (Build 3B.1.7)
+node backend/tests/build3b19_pdfjs_parser_test.js         # pdfjs-dist parser (Build 3B.1.9)
+node backend/tests/build4_1_editorial_intelligence_test.js  # Editorial intelligence (Build 4.1)
+node backend/tests/build4_2a_planner_test.js              # Book planner (Build 4.2a)
+node backend/tests/build4_2bc_single_book_test.js         # Single-book pipeline (Build 4.2bc)
+node backend/tests/build4_editorial_synthesis_test.js     # Editorial synthesis (Build 4)
 ```
 
 ### Multi-Source Dossier Aggregation & Semantic Lifecycle

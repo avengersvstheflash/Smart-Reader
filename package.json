@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node backend/server.js",
     "start": "node backend/server.js",
+    "test": "node scripts/run-all-tests.js",
     "db:reset": "node -e \"require('./backend/db/database').resetAndSeedDatabase(); console.log('Database reset and seeded successfully.');\"",
     "db:seed": "node -e \"require('./backend/db/database').resetAndSeedDatabase(); console.log('Database reset and seeded successfully.');\"",
     "lint": "node -e \"console.log('No lint errors found')\"",
@@ -19,7 +20,6 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "multer": "^2.3.0",
-    "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^6.3.289"
   }
 }
