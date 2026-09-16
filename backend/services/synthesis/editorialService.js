@@ -10,6 +10,8 @@ const redundancyDetector = require('./redundancyDetector');
 const editorialPlanner = require('./editorialPlanner');
 const { getDatabase } = require('../../db/database');
 
+const progressByBook = new Map();
+
 class EditorialService {
   /**
    * Generates an editorial outline across multiple sources.
@@ -357,6 +359,111 @@ class EditorialService {
     return outlineRepository.getByBookId(bookId);
   }
 
+  getSynthesisProgress(bookId) {
+    if (progressByBook.has(bookId)) {
+      return progressByBook.get(bookId);
+    }
+    return { status: 'idle' };
+  }
+
+  async synthesizeNextChapters(bookId, count, options = {}) {
+    const validCounts = [1, 3, 5, 10];
+    if (typeof count !== 'number' || !validCounts.includes(count)) {
+      throw new Error('Invalid count: must be 1, 3, 5, or 10');
+    }
+
+    const outline = this.getSingleBookOutline(bookId);
+    if (!outline) {
+      throw new Error(`No outline for book ${bookId}`);
+    }
+
+    const synthesisService = require('./synthesisService');
+
+    // 1. Collect chapters where isSynthesized === false in outline order
+    const chapters = outline.chapters || [];
+    const unSynthesized = [];
+
+    for (const ch of chapters) {
+      const rep = synthesisService.getSynthesis(outline.outlineId, ch.chapterId);
+      if (!rep) {
+        unSynthesized.push(ch);
+      }
+    }
+
+    // 2. Take the first `count` chapters (bounded by available)
+    const toSynthesize = unSynthesized.slice(0, count);
+
+    // Track progress in-memory
+    progressByBook.set(bookId, {
+      bookId,
+      currentChapterId: toSynthesize[0] ? toSynthesize[0].chapterId : null,
+      status: 'generating',
+      startedAt: Date.now(),
+      targetCount: toSynthesize.length,
+      completedCount: 0,
+    });
+
+    const chapterResults = [];
+    let synthesizedCount = 0;
+    let failedCount = 0;
+
+    try {
+      for (let i = 0; i < toSynthesize.length; i++) {
+        const targetChapter = toSynthesize[i];
+        const progress = progressByBook.get(bookId);
+        if (progress) {
+          progress.currentChapterId = targetChapter.chapterId;
+        }
+
+        console.log(`[Synthesis] Generating chapter ${i + 1}/${toSynthesize.length}: ${targetChapter.title}`);
+
+        try {
+          await synthesisService.synthesizeChapter(outline.outlineId, targetChapter.chapterId, {
+            ...options,
+            fast: options.fast !== undefined ? options.fast : false,
+          });
+
+          synthesizedCount++;
+          if (progress) progress.completedCount++;
+
+          chapterResults.push({
+            chapterId: targetChapter.chapterId,
+            title: targetChapter.title,
+            status: 'completed',
+          });
+        } catch (err) {
+          failedCount++;
+          console.error(`[Synthesis] Failed chapter ${targetChapter.chapterId} (${targetChapter.title}): ${err.message}`);
+          chapterResults.push({
+            chapterId: targetChapter.chapterId,
+            title: targetChapter.title,
+            status: 'failed',
+            error: err.message,
+          });
+        }
+      }
+    } finally {
+      progressByBook.delete(bookId);
+    }
+
+    // Recount remaining un-synthesized chapters after batch
+    let remainingCount = 0;
+    for (const ch of chapters) {
+      const rep = synthesisService.getSynthesis(outline.outlineId, ch.chapterId);
+      if (!rep) {
+        remainingCount++;
+      }
+    }
+
+    return {
+      requestedCount: count,
+      synthesizedCount,
+      failedCount,
+      remainingCount,
+      chapters: chapterResults,
+    };
+  }
+
   deleteOutline(outlineId) {
     const outline = outlineRepository.getById(outlineId);
     if (outline && Array.isArray(outline.chapters)) {
@@ -378,3 +485,4 @@ class EditorialService {
 }
 
 module.exports = new EditorialService();
+

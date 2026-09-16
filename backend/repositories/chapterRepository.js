@@ -187,6 +187,12 @@ class ChapterRepository {
     return this.formatRepresentation(row);
   }
 
+  getRepresentationsByBook(bookId) {
+    const db = getDatabase();
+    const rows = db.prepare('SELECT * FROM chapter_representations WHERE book_id = ? ORDER BY created_at DESC').all(bookId);
+    return rows.map((r) => this.formatRepresentation(r));
+  }
+
   deleteRepresentation(id) {
     const db = getDatabase();
     const res = db.prepare('DELETE FROM chapter_representations WHERE id = ?').run(id);
