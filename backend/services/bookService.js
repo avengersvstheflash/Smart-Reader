@@ -25,7 +25,10 @@ class BookService {
       throw new Error('Book title is required.');
     }
 
-    const id = data.id || `book-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const id =
+      data.id ||
+      `book-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
     return bookRepository.create({
       id,
       title: data.title.trim(),
@@ -50,7 +53,11 @@ class BookService {
     const book = this.getBook(id);
 
     // Clean up local uploaded cover file if custom (not default shared asset)
-    if (book.cover_path && !book.cover_path.includes('default-') && !book.cover_path.startsWith('data:')) {
+    if (
+      book.cover_path &&
+      !book.cover_path.includes('default-') &&
+      !book.cover_path.startsWith('data:')
+    ) {
       try {
         const fullCoverPath = path.isAbsolute(book.cover_path)
           ? book.cover_path
@@ -59,7 +66,10 @@ class BookService {
           fs.unlinkSync(fullCoverPath);
         }
       } catch (err) {
-        console.warn(`[BookService] Could not remove cover file for book ${id}:`, err.message);
+        console.warn(
+          `[BookService] Could not remove cover file for book ${id}:`,
+          err.message
+        );
       }
     }
 
@@ -99,11 +109,14 @@ class BookService {
     }
 
     const existingChapters = chapterRepository.getByBookId(bookId);
-    const nextNumber = existingChapters.length > 0 
-      ? Math.max(...existingChapters.map(c => c.number)) + 1 
-      : 1;
+    const nextNumber =
+      existingChapters.length > 0
+        ? Math.max(...existingChapters.map((c) => c.number)) + 1
+        : 1;
 
-    const chapterId = data.id || `ch-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const chapterId =
+      data.id ||
+      `ch-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
     // Parse into canonical blocks via Ingestion Service
     let canonicalBlocks = [];
@@ -129,15 +142,21 @@ class BookService {
       number: data.number || nextNumber,
       title: data.title.trim(),
       content: data.content.trim(),
-      canonical_content: canonicalBlocks ? JSON.stringify(canonicalBlocks) : null,
+      canonical_content: canonicalBlocks
+        ? JSON.stringify(canonicalBlocks)
+        : null,
       word_count: wordCount || data.content.trim().split(/\s+/).length,
       status: data.status || 'unread',
     });
 
     try {
       const semanticLifecycle = require('./semantic/semanticLifecycle');
-      semanticLifecycle.indexChapter(chapterId).catch((e) => console.warn('Chapter indexing warning:', e.message));
-    } catch (e) {}
+      semanticLifecycle
+        .indexChapter(chapterId)
+        .catch((e) => console.warn('Chapter indexing warning:', e.message));
+    } catch (e) {
+      // Non-fatal: chapter is saved even if indexing fails
+    }
 
     return createdChapter;
   }
@@ -151,20 +170,33 @@ class BookService {
    * Imports a book from raw text or uploaded file buffer, running through the
    * canonical Ingestion Pipeline (Normalizer -> Structure Detector -> Parser -> Canonical Document)
    */
-  async importBook({ title, author, description, contentType = 'novel', text, fileBuffer, originalFilename }) {
+  async importBook({
+    title,
+    author,
+    description,
+    contentType = 'novel',
+    text,
+    fileBuffer,
+    originalFilename,
+  }) {
     let provisionalTitle = title;
     if (!provisionalTitle && originalFilename) {
-      provisionalTitle = path.basename(originalFilename, path.extname(originalFilename)).replace(/[_-]/g, ' ');
+      provisionalTitle = path
+        .basename(originalFilename, path.extname(originalFilename))
+        .replace(/[_-]/g, ' ');
     }
     if (!provisionalTitle || provisionalTitle.trim() === '') {
       provisionalTitle = 'Imported Reading Material';
     }
 
-    if ((!text || text.trim() === '') && (!fileBuffer || fileBuffer.length === 0)) {
+    if (
+      (!text || text.trim() === '') &&
+      (!fileBuffer || fileBuffer.length === 0)
+    ) {
       throw new Error('No readable text or file buffer provided for import.');
     }
 
-    // 1. Process through Ingestion Service Pipeline first to extract accurate title, format, tables, and chapters
+    // 1. Process through Ingestion Service Pipeline
     const ingestionResult = await ingestionService.ingest({
       title: provisionalTitle,
       author: author || '',
@@ -179,7 +211,8 @@ class BookService {
       return {
         format: 'web',
         book: ingestionResult.book,
-        chapterCount: (ingestionResult.chapters && ingestionResult.chapters.length) || 1,
+        chapterCount:
+          (ingestionResult.chapters && ingestionResult.chapters.length) || 1,
         totalWordCount: ingestionResult.totalWordCount || 0,
         tablesCount: ingestionResult.tablesCount || 0,
         pageCount: ingestionResult.pageCount || 1,
@@ -194,7 +227,9 @@ class BookService {
     const book = this.createBook({
       title: finalTitle.trim(),
       author: finalAuthor.trim(),
-      description: description || `Imported from ${originalFilename || ingestionResult.format}.`,
+      description:
+        description ||
+        `Imported from ${originalFilename || ingestionResult.format}.`,
       content_type: contentType,
       source_format: ingestionResult.format,
       original_filename: originalFilename || '',
@@ -221,14 +256,17 @@ class BookService {
     try {
       jobRepository.update(job.id, { progress: 80 });
 
-      // 4. Transform into Chapter Entities (preserving original immutable text alongside canonical content)
+      // 4. Transform into Chapter Entities
       const chapterEntities = ingestionResult.chapters.map((ch, idx) => ({
-        id: `ch-${book.id}-${idx + 1}-${Math.random().toString(36).substring(2, 6)}`,
+        id: `ch-${book.id}-${idx + 1}-${Math.random()
+          .toString(36)
+          .substring(2, 6)}`,
         book_id: book.id,
         number: idx + 1,
         title: ch.title,
         structural_role: ch.structuralRole || 'chapter',
-        section_count: ch.sectionCount || (ch.sections ? ch.sections.length : 0),
+        section_count:
+          ch.sectionCount || (ch.sections ? ch.sections.length : 0),
         content: ch.content,
         canonical_content: JSON.stringify(ch.canonicalBlocks),
         metadata_json: JSON.stringify(ch.metadata || {}),
@@ -242,28 +280,68 @@ class BookService {
       // 6. Complete Job
       jobRepository.complete(job.id);
 
-      // 7. Auto-index imported book into Semantic Memory only if content is valid
-      const isValidContent = ingestionResult.integrityStatus !== 'empty_content' && (ingestionResult.totalWordCount > 0 || (chapterEntities.length > 0 && chapterEntities[0].word_count > 0));
+      // 7. Auto-index imported book into Semantic Memory only if content is valid.
+      //    Then, if it qualifies, generate outline + auto-synthesize first 3 chapters.
+      //    This whole chain runs in the background after the HTTP response is returned.
+      const isValidContent =
+        ingestionResult.integrityStatus !== 'empty_content' &&
+        (ingestionResult.totalWordCount > 0 ||
+          (chapterEntities.length > 0 &&
+            chapterEntities[0].word_count > 0));
+
       if (isValidContent) {
-        try {
-          const semanticLifecycle = require('./semantic/semanticLifecycle');
-          semanticLifecycle.indexBook(book.id, { skipJob: true })
-            .then(async () => {
-              // Asynchronous editorial outline generation for qualifying books (≥ 3 chapters, ≥ 2,000 words)
-              const totalWords = ingestionResult.totalWordCount || chapterEntities.reduce((acc, c) => acc + (c.word_count || 0), 0);
-              if (chapterEntities.length >= 3 && totalWords >= 2000) {
-                try {
-                  const editorialService = require('./synthesis/editorialService');
-                  await editorialService.generateSingleBookOutline(book.id, { fast: true });
-                } catch (edErr) {
-                  console.warn('Post-import single-book editorial generation warning:', edErr.message);
-                }
-              }
-            })
-            .catch((e) => console.warn('Book indexing warning:', e.message));
-        } catch (e) {}
+        const semanticLifecycle = require('./semantic/semanticLifecycle');
+        const totalWords =
+          ingestionResult.totalWordCount ||
+          chapterEntities.reduce((acc, c) => acc + (c.word_count || 0), 0);
+        const qualifiesForOutline =
+          chapterEntities.length >= 3 && totalWords >= 2000;
+
+        console.log(`[Import] Indexing ${book.id}...`);
+        semanticLifecycle
+          .indexBook(book.id, { skipJob: true })
+          .then(() => {
+            console.log(`[Import] Indexed ${book.id}`);
+            if (!qualifiesForOutline) return null;
+
+            console.log(`[Import] Generating outline for ${book.id}...`);
+            const editorialService = require('./synthesis/editorialService');
+            return editorialService.generateSingleBookOutline(book.id, {
+              fast: true,
+            });
+          })
+          .then((outline) => {
+            if (!outline) return null;
+            if (!outline.chapters || outline.chapters.length === 0) {
+              console.warn(
+                `[Import] No outline for ${book.id}; skipping auto-synthesis`
+              );
+              return null;
+            }
+
+            console.log(
+              `[Import] Auto-synthesizing initial chapters for ${book.id}...`
+            );
+            const editorialService = require('./synthesis/editorialService');
+            return editorialService.synthesizeNextChapters(book.id, 3);
+          })
+          .then((result) => {
+            if (result) {
+              console.log(
+                `[Import] Auto-synthesized ${result.synthesizedCount}/3 chapters for ${book.id}`
+              );
+            }
+          })
+          .catch((err) => {
+            console.error(
+              `[Import] Background pipeline failed for ${book.id}:`,
+              err.message
+            );
+            // Do NOT rethrow — this runs after the HTTP response was sent
+          });
       }
 
+      // 8. Return HTTP response immediately
       return {
         book: bookRepository.getById(book.id) || book,
         format: ingestionResult.format,

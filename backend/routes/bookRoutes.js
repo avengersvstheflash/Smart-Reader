@@ -284,6 +284,85 @@ router.post('/:id/editorial/synthesize', async (req, res, next) => {
   }
 });
 
+// POST /api/books/:id/editorial/synthesize-next - Synthesize next N chapters sequentially
+router.post('/:id/editorial/synthesize-next', async (req, res, next) => {
+  try {
+    const { count, fast } = req.body || {};
+    const validCounts = [1, 3, 5, 10];
+    if (typeof count !== 'number' || !validCounts.includes(count)) {
+      return res.status(400).json({ error: 'Invalid count: must be 1, 3, 5, or 10' });
+    }
+
+    const outline = editorialService.getSingleBookOutline(req.params.id);
+    if (!outline) {
+      return res.status(404).json({ error: `No outline for book ${req.params.id}` });
+    }
+
+    const result = await editorialService.synthesizeNextChapters(req.params.id, count, {
+      fast: fast === true,
+    });
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    if (err.message && err.message.includes('Invalid count')) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (err.message && err.message.includes('No outline')) {
+      return res.status(404).json({ error: err.message });
+    }
+    res.status(500).json({ error: err.message || 'Failed to synthesize next chapters.' });
+  }
+});
+
+// GET /api/books/:id/editorial/progress - Get progressive synthesis status
+router.get('/:id/editorial/progress', async (req, res, next) => {
+  try {
+    const outline = editorialService.getSingleBookOutline(req.params.id);
+    if (!outline) {
+      return res.status(404).json({ error: `No outline for book ${req.params.id}` });
+    }
+
+    const chapters = outline.chapters || [];
+    const total = chapters.length;
+
+    let synthesized = 0;
+    for (const ch of chapters) {
+      const rep = synthesisService.getSynthesis(outline.outlineId, ch.chapterId);
+      if (rep) synthesized++;
+    }
+    const remaining = total - synthesized;
+
+    const inMemoryProgress = editorialService.getSynthesisProgress(req.params.id);
+
+    let status = 'idle';
+    let currentChapterId = null;
+    let startedAt = null;
+
+    if (inMemoryProgress && inMemoryProgress.status === 'generating') {
+      status = 'generating';
+      currentChapterId = inMemoryProgress.currentChapterId || null;
+      startedAt = inMemoryProgress.startedAt || null;
+    } else if (total > 0 && total === synthesized) {
+      status = 'complete';
+    }
+
+    res.json({
+      success: true,
+      total,
+      synthesized,
+      remaining,
+      status,
+      currentChapterId,
+      startedAt,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // DELETE /api/books/:id/editorial - Delete/reset single-book editorial outline & representations
 router.delete('/:id/editorial', async (req, res, next) => {
   try {

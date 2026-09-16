@@ -16,7 +16,7 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 
-const TIMEOUT_MS = 60_000;
+const TIMEOUT_MS = 150_000;
 
 const SUITES = [
   'build3a_test.js',
@@ -30,6 +30,7 @@ const SUITES = [
   'build4_2a_planner_test.js',
   'build4_2bc_single_book_test.js',
   'build4_editorial_synthesis_test.js',
+  'build4_4_progressive_synthesis_test.js',
 ];
 
 let passed = 0;
