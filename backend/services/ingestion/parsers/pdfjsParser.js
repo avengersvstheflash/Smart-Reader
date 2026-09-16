@@ -390,45 +390,50 @@ class PDFJSParser {
    * Compatibility method for synthetic page fixtures (e.g. from unit tests)
    */
   parseFromPages(pages, options = {}) {
-    // If pages have pre-extracted spans, use the span extractor
-    const hasSpans = pages.some((p) => Array.isArray(p.spans) && p.spans.length > 0);
-    if (hasSpans) {
-      const allBlocks = [];
-      for (const p of pages) {
-        const pBlocks = this.extractBlocksFromSpans(p.spans || [], p.num || 1);
-        allBlocks.push(...pBlocks);
+    const allBlocks = [];
+    for (const p of pages) {
+      let spans = p.spans;
+      if (!Array.isArray(spans) || spans.length === 0) {
+        // Synthesize basic spans from page.text (split into lines, default fontSize 12, Y coordinate incrementing)
+        const lines = (p.text || '').split('\n');
+        spans = lines.map((line, idx) => ({
+          text: line,
+          fontSize: 12,
+          height: 12,
+          x: 0,
+          y: 500 - (idx * 15),
+          fontName: 'default',
+        }));
       }
-      const combinedRawText = pages.map((p) => p.text || '').join('\n\n').trim();
-
-      const analysis = documentStructureAnalyzer.analyze({
-        format: 'pdf',
-        pages,
-        blocks: allBlocks,
-        rawText: combinedRawText,
-        metadata: {
-          title: options.title || 'Document',
-          author: options.author || 'Unknown Author',
-        },
-      });
-
-      return {
-        title: options.title || analysis.chapters[0]?.title || 'Document',
-        author: options.author || 'Unknown Author',
-        pageCount: options.totalPageCount || pages.length,
-        chapterCount: analysis.chapterCount,
-        sectionCount: analysis.sectionCount,
-        tablesCount: analysis.tablesCount || 0,
-        chapters: analysis.chapters,
-        totalWordCount: analysis.totalWordCount,
-        fullText: combinedRawText,
-        integrityStatus: analysis.integrityStatus,
-        integrityWarning: analysis.integrityWarning,
-      };
+      const pBlocks = this.extractBlocksFromSpans(spans, p.num || 1);
+      allBlocks.push(...pBlocks);
     }
+    const combinedRawText = pages.map((p) => p.text || '').join('\n\n').trim();
 
-    // Otherwise delegate to the legacy line-based block extraction for raw text fixtures
-    const legacyPdfParser = require('./pdfParser');
-    return legacyPdfParser.parseFromPages(pages, options);
+    const analysis = documentStructureAnalyzer.analyze({
+      format: 'pdf',
+      pages,
+      blocks: allBlocks,
+      rawText: combinedRawText,
+      metadata: {
+        title: options.title || 'Document',
+        author: options.author || 'Unknown Author',
+      },
+    });
+
+    return {
+      title: options.title || analysis.chapters[0]?.title || 'Document',
+      author: options.author || 'Unknown Author',
+      pageCount: options.totalPageCount || pages.length,
+      chapterCount: analysis.chapterCount,
+      sectionCount: analysis.sectionCount,
+      tablesCount: analysis.tablesCount || 0,
+      chapters: analysis.chapters,
+      totalWordCount: analysis.totalWordCount,
+      fullText: combinedRawText,
+      integrityStatus: analysis.integrityStatus,
+      integrityWarning: analysis.integrityWarning,
+    };
   }
 }
 
