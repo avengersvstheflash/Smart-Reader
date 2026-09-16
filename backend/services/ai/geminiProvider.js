@@ -9,6 +9,7 @@ const AIProvider = require('./aiProvider');
 class GeminiProvider extends AIProvider {
   constructor(options = {}) {
     super();
+    this.providerType = 'cloud';
     this.model = options.model || 'gemini-3.8-flash';
   }
 
