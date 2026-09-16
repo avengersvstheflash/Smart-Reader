@@ -4,6 +4,7 @@ const config = require('../../config');
 class OllamaProvider extends AIProvider {
   constructor(options = {}) {
     super();
+    this.providerType = 'local';
     this.baseUrl = options.baseUrl || config.OLLAMA_BASE_URL;
     this.model = options.model || config.OLLAMA_MODEL;
     this.timeoutMs = options.timeoutMs || config.OLLAMA_TIMEOUT_MS;

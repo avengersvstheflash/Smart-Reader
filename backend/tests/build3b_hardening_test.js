@@ -38,14 +38,12 @@ async function runHardeningTests() {
   assert.strictEqual(analysis.chapters[0].title, 'Chapter 1: Foundations of Computing');
   assert.strictEqual(analysis.chapters[1].title, 'Chapter 2: Computational Complexity');
 
-  // Verify that subheadings 1.1, 1.2, 1.3 are preserved as sections within Chapter 1
   const ch1Sections = analysis.chapters[0].sections;
   assert.strictEqual(ch1Sections.length, 3, `Expected 3 sections in Chapter 1, got ${ch1Sections.length}`);
   assert.strictEqual(ch1Sections[0].title, '1.1 Turing Machines and Computability');
   assert.strictEqual(ch1Sections[1].title, '1.2 Lambda Calculus Equivalences');
   assert.strictEqual(ch1Sections[2].title, '1.3 The Church-Turing Thesis');
 
-  // Verify that subheadings 2.1, 2.2 are preserved as sections within Chapter 2
   const ch2Sections = analysis.chapters[1].sections;
   assert.strictEqual(ch2Sections.length, 2, `Expected 2 sections in Chapter 2, got ${ch2Sections.length}`);
   assert.strictEqual(ch2Sections[0].title, '2.1 Deterministic Polynomial Time (P)');
@@ -135,13 +133,24 @@ async function runHardeningTests() {
   assert.strictEqual(imported.sectionCount >= 2, true, 'Subsections should be recorded in section count');
   console.log(`✓ Book created with id=${imported.book.id}, chapters=${imported.chapterCount}, sections=${imported.sectionCount}, integrity=${imported.integrityStatus}`);
 
-  server.close();
+  // Close the ephemeral test server. Note: requiring '../server' above also
+  // started a listener on port 3000 as a side effect, which we can't close
+  // from here. That's why the process must be explicitly terminated below.
+  await new Promise(resolve => server.close(resolve));
+
   console.log('\n======================================================');
   console.log('🎉 ALL BUILD 3B.1.5 HARDENING TESTS PASSED WITH 100% SUCCESS!');
   console.log('======================================================');
 }
 
-runHardeningTests().catch(err => {
-  console.error('\n❌ HARDENING TEST FAILED:', err);
-  process.exit(1);
-});
+runHardeningTests()
+  .then(() => {
+    // Explicit exit: requiring '../server' starts a port-3000 listener
+    // as a side effect, which prevents the event loop from draining.
+    // 100ms gives stdout time to flush to the terminal.
+    setTimeout(() => process.exit(0), 100);
+  })
+  .catch(err => {
+    console.error('\n❌ HARDENING TEST FAILED:', err);
+    setTimeout(() => process.exit(1), 100);
+  });

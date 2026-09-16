@@ -3,6 +3,10 @@
  * All concrete providers (Ollama, Gemini, etc.) must extend this class.
  */
 class AIProvider {
+  constructor() {
+    this.providerType = 'cloud';
+  }
+
   /**
    * @returns {string} Provider identifier
    */

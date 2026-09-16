@@ -1,5 +1,6 @@
 const OllamaProvider = require('./ollamaProvider');
 const GeminiProvider = require('./geminiProvider');
+const OpenRouterProvider = require('./openrouterProvider');
 const aiNormalizer = require('./aiNormalizer');
 const chapterRepository = require('../../repositories/chapterRepository');
 const jobRepository = require('../../repositories/jobRepository');
@@ -10,12 +11,32 @@ class AIService {
     this.providers = new Map();
     this.registerProvider(new OllamaProvider());
     this.registerProvider(new GeminiProvider());
+    this.registerProvider(new OpenRouterProvider());
 
+    // The provider that "cloud" resolves to.
+    // Priority: config.AI_PROVIDER if it's a cloud provider,
+    //           else 'openrouter', else 'gemini'.
+    this.activeCloudProvider = (() => {
+      const preferred = config.AI_PROVIDER;
+      const preferredProvider = this.providers.get(preferred);
+      if (preferredProvider && preferredProvider.providerType === 'cloud') {
+        return preferred;
+      }
+      if (this.providers.has('openrouter')) return 'openrouter';
+      if (this.providers.has('gemini')) return 'gemini';
+      return null;
+    })();
+
+    // Resolve the active provider based on config.AI_PROVIDER.
     const rawConfig = String(config.AI_PROVIDER || '').toLowerCase();
     if (rawConfig.includes('ollama') || rawConfig === 'local') {
       this.activeProviderName = 'ollama';
-    } else {
+    } else if (rawConfig.includes('openrouter')) {
+      this.activeProviderName = 'openrouter';
+    } else if (rawConfig.includes('gemini')) {
       this.activeProviderName = 'gemini';
+    } else {
+      this.activeProviderName = this.activeCloudProvider || 'ollama';
     }
   }
 
@@ -26,8 +47,10 @@ class AIService {
   getActiveProvider() {
     let provider = this.providers.get(this.activeProviderName);
     if (!provider) {
-      this.activeProviderName = 'gemini';
-      provider = this.providers.get('gemini') || this.providers.get('ollama');
+      this.activeProviderName = this.activeCloudProvider || 'ollama';
+      provider =
+        this.providers.get(this.activeProviderName) ||
+        this.providers.get('ollama');
     }
     return provider;
   }
@@ -43,8 +66,14 @@ class AIService {
   setProcessingMode(mode) {
     const providerName = this.resolveModeToProvider(mode);
     this.setActiveProvider(providerName);
+    const provider = this.providers.get(providerName);
+    const activeMode = provider
+      ? provider.providerType
+      : providerName === 'ollama'
+        ? 'local'
+        : 'cloud';
     return {
-      activeMode: providerName === 'ollama' ? 'local' : 'cloud',
+      activeMode,
       activeProvider: this.activeProviderName,
     };
   }
@@ -52,24 +81,45 @@ class AIService {
   resolveModeToProvider(modeOrProvider) {
     if (!modeOrProvider) return this.activeProviderName;
     const lower = String(modeOrProvider).toLowerCase().trim();
-    if (lower === 'local' || lower === 'local ai' || lower.includes('ollama')) return 'ollama';
-    if (lower === 'cloud' || lower === 'cloud ai' || lower.includes('gemini')) return 'gemini';
+
+    // Local-only aliases
+    if (lower === 'local' || lower === 'local ai' || lower.includes('ollama')) {
+      return 'ollama';
+    }
+
+    // Generic cloud — resolves to the configured cloud provider
+    if (lower === 'cloud' || lower === 'cloud ai') {
+      return this.activeCloudProvider || this.activeProviderName;
+    }
+
+    // Explicit provider name (openrouter, gemini, etc.)
     if (this.providers.has(lower)) return lower;
+
     return this.activeProviderName;
   }
 
   async getStatus() {
     const results = {};
     for (const [name, provider] of this.providers.entries()) {
-      results[name] = await provider.checkHealth().catch((err) => ({
+      const health = await provider.checkHealth().catch((err) => ({
         available: false,
         provider: name,
         message: err.message,
       }));
+      results[name] = {
+        ...health,
+        providerType: provider.providerType || 'cloud',
+      };
     }
+    const currentProvider = this.providers.get(this.activeProviderName);
+    const activeMode = currentProvider
+      ? currentProvider.providerType
+      : this.activeProviderName === 'ollama'
+        ? 'local'
+        : 'cloud';
     return {
       activeProvider: this.activeProviderName,
-      activeMode: this.activeProviderName === 'ollama' ? 'local' : 'cloud',
+      activeMode,
       providers: results,
     };
   }
@@ -120,8 +170,12 @@ class AIService {
       const canonicalBlocks = aiNormalizer.normalize(result.summary);
 
       // Token count estimates based on standard ~1.3 tokens/word heuristic
-      const origWordCount = chapter.word_count || (chapter.content ? chapter.content.split(/\s+/).length : 0);
-      const summaryWordCount = result.summary ? result.summary.split(/\s+/).length : 0;
+      const origWordCount =
+        chapter.word_count ||
+        (chapter.content ? chapter.content.split(/\s+/).length : 0);
+      const summaryWordCount = result.summary
+        ? result.summary.split(/\s+/).length
+        : 0;
       const inputTokensEst = Math.round(origWordCount * 1.35);
       const outputTokensEst = Math.round(summaryWordCount * 1.35);
 
@@ -133,7 +187,9 @@ class AIService {
         content: result.summary,
         metadata: {
           provider: result.provider || providerName,
-          model: result.model || (providerName === 'gemini' ? 'gemini-3.8-flash' : 'llama3'),
+          model:
+            result.model ||
+            (providerName === 'gemini' ? 'gemini-3.8-flash' : 'llama3'),
           mode,
           durationMs,
           jobId: job.id,
@@ -182,6 +238,9 @@ class AIService {
   isAvailable() {
     const provider = this.getActiveProvider();
     if (!provider) return false;
+    if (typeof provider.isAvailable === 'function') {
+      return provider.isAvailable();
+    }
     if (this.activeProviderName === 'gemini') {
       return !!process.env.GEMINI_API_KEY;
     }
@@ -209,4 +268,3 @@ class AIService {
 }
 
 module.exports = new AIService();
-
