@@ -3,7 +3,6 @@ const contentNormalizer = require('./normalizers/contentNormalizer');
 const textParser = require('./parsers/textParser');
 const markdownParser = require('./parsers/markdownParser');
 const pdfjsParser = require('./parsers/pdfjsParser');
-const pdfParser = require('./parsers/pdfParser'); // Retained as legacy fallback
 const epubParser = require('./parsers/epubParser');
 const chapterDetector = require('./structure/chapterDetector');
 const documentStructureEngine = require('../structure/documentStructureEngine');
