@@ -1,1 +1,215 @@
-export const LibraryRoute = () => null;
+import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { BookOpen, Search, AlertCircle, RotateCw, CheckSquare, Plus } from 'lucide-react';
+import { useBooks } from '../hooks/useBooks';
+import { BookGrid } from '../components/library/BookGrid';
+import { FilterChips, FilterOption } from '../components/library/FilterChips';
+import { SearchField } from '../components/shared/SearchField';
+import { EmptyState } from '../components/shared/EmptyState';
+import { useLibraryStore } from '../store/useLibraryStore';
+
+export const LibraryRoute: React.FC = () => {
+  const navigate = useNavigate();
+  const { books, isLoading, isError, error, refetch } = useBooks();
+
+  const {
+    searchQuery,
+    setSearchQuery,
+    filterType,
+    setFilterType,
+    selectionMode,
+    setSelectionMode,
+    selectedBookIds,
+    toggleBookSelection,
+    clearSelection,
+  } = useLibraryStore();
+
+  // Filter options with dynamic counts
+  const filterOptions: FilterOption[] = useMemo(() => {
+    const total = books.length;
+    const novels = books.filter((b) => b.contentType === 'novel').length;
+    const web = books.filter((b) => b.sourceFormat === 'web' || b.sourceSite).length;
+    const docs = books.filter((b) => b.contentType === 'document' || b.contentType === 'textbook').length;
+
+    return [
+      { value: 'all', label: 'All Books', count: total },
+      { value: 'novel', label: 'Novels', count: novels },
+      { value: 'web', label: 'Web & Articles', count: web },
+      { value: 'document', label: 'Documents', count: docs },
+    ];
+  }, [books]);
+
+  // Filtered books based on search and content type
+  const filteredBooks = useMemo(() => {
+    let list = books;
+
+    // Filter by type
+    if (filterType !== 'all') {
+      if (filterType === 'web') {
+        list = list.filter((b) => b.sourceFormat === 'web' || b.sourceSite);
+      } else if (filterType === 'document') {
+        list = list.filter((b) => b.contentType === 'document' || b.contentType === 'textbook');
+      } else {
+        list = list.filter((b) => b.contentType === filterType);
+      }
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          (b.author && b.author.toLowerCase().includes(q)) ||
+          (b.description && b.description.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
+  }, [books, filterType, searchQuery]);
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setFilterType('all');
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Page Header: Title + Primary Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-h1 font-bold text-ink tracking-tight">
+            Library
+          </h1>
+          <p className="text-caption text-ink-muted mt-1">
+            {isLoading
+              ? 'Loading collection…'
+              : `${filteredBooks.length} ${filteredBooks.length === 1 ? 'item' : 'items'} in your collection`}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {books.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectionMode(!selectionMode)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-ui-sm font-medium rounded-md border transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                selectionMode
+                  ? 'bg-accent text-white border-accent'
+                  : 'bg-card text-ink-muted border-line hover:bg-subtle hover:text-ink'
+              }`}
+            >
+              <CheckSquare className="w-4 h-4" aria-hidden="true" />
+              <span>{selectionMode ? 'Done' : 'Select'}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => navigate('/import')}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none shadow-sm"
+          >
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            <span>Add Book</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Search & Filter Toolbar */}
+      {books.length > 0 && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2">
+          <SearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search title, author, description…"
+          />
+
+          <FilterChips
+            options={filterOptions}
+            value={filterType}
+            onChange={(val) => setFilterType(val as string)}
+          />
+        </div>
+      )}
+
+      {/* Selection Action Bar (when selectionMode is active) */}
+      {selectionMode && selectedBookIds.length > 0 && (
+        <div
+          role="region"
+          aria-label="Selection toolbar"
+          className="flex items-center justify-between p-3 rounded-md bg-accent-wash border border-accent text-ink-muted text-ui-sm animate-fade-in"
+        >
+          <span className="font-medium text-ink">
+            {selectedBookIds.length} {selectedBookIds.length === 1 ? 'book' : 'books'} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="px-2.5 py-1 text-xs font-medium rounded text-ink-muted hover:text-ink hover:bg-subtle"
+            >
+              Deselect all
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error state */}
+      {isError && (
+        <div className="rounded-md border border-err/30 bg-err/10 p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-err shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-ui-sm font-semibold text-ink">Failed to load library</p>
+              <p className="text-caption text-ink-muted">
+                {error?.message || 'A network error occurred while connecting to the server.'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-brand text-white hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent shrink-0"
+          >
+            <RotateCw className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Retry</span>
+          </button>
+        </div>
+      )}
+
+      {/* Book Grid / States */}
+      <BookGrid
+        books={filteredBooks}
+        loading={isLoading}
+        error={isError ? error : null}
+        onRetry={() => refetch()}
+        selectionMode={selectionMode}
+        selectedIds={selectedBookIds}
+        onSelect={toggleBookSelection}
+        emptyState={
+          books.length === 0 ? (
+            <EmptyState
+              icon={BookOpen}
+              title="Your library is empty"
+              body="Import your books, papers, or articles to begin reading and researching."
+              action={{
+                label: 'Import a book',
+                onClick: () => navigate('/import'),
+              }}
+            />
+          ) : (
+            <EmptyState
+              icon={Search}
+              title="No matching books found"
+              body={`No books match your current filters and search for "${searchQuery}".`}
+              action={{
+                label: 'Clear search and filters',
+                onClick: handleClearFilters,
+              }}
+            />
+          )
+        }
+      />
+    </div>
+  );
+};

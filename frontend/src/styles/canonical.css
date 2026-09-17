@@ -1,0 +1,77 @@
+/* Reader prose: map @tailwindcss/typography onto theme tokens.
+   Applied as: <article class="prose prose-reader"> */
+.prose-reader {
+  --tw-prose-body: rgb(var(--ink));
+  --tw-prose-headings: rgb(var(--ink));
+  --tw-prose-lead: rgb(var(--ink-muted));
+  --tw-prose-links: rgb(var(--accent-ink));
+  --tw-prose-bold: rgb(var(--ink));
+  --tw-prose-counters: rgb(var(--ink-muted));
+  --tw-prose-bullets: rgb(var(--line-strong));
+  --tw-prose-hr: rgb(var(--line));
+  --tw-prose-quotes: rgb(var(--ink-muted));
+  --tw-prose-quote-borders: rgb(var(--line-strong));
+  --tw-prose-captions: rgb(var(--ink-light));
+  --tw-prose-code: rgb(var(--ink));
+  --tw-prose-pre-code: rgb(var(--ink));
+  --tw-prose-pre-bg: rgb(var(--subtle));
+  --tw-prose-th-borders: rgb(var(--line-strong));
+  --tw-prose-td-borders: rgb(var(--line));
+  max-width: 34em;
+  font-size: var(--reading-size, 1.125rem);
+  line-height: 1.75;
+}
+
+/* Japanese source text: mincho fallback already in stack; give it air. */
+.prose-reader :lang(ja) { line-height: 1.85; letter-spacing: 0.01em; }
+
+/* Canonical blocks — typed objects from chapters.canonical_content and
+   representation canonicalBlocks. Wrappers carry id="blk-…" anchors. */
+.canonical-block + .canonical-block { margin-top: 1.25em; }
+
+.canonical-callout {
+  border-left: 2px solid rgb(var(--accent));
+  background: rgb(var(--accent-wash) / var(--accent-wash-alpha, 1));
+  border-radius: 0 6px 6px 0;
+  padding: 0.75em 1em;
+}
+
+.canonical-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+.canonical-table th,
+.canonical-table td {
+  border: 1px solid rgb(var(--line));
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.canonical-table th { background: rgb(var(--subtle)); font-weight: 600; }
+.canonical-table .align-center { text-align: center; }
+.canonical-table .align-right  { text-align: right; }
+
+.canonical-code {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  background: rgb(var(--subtle));
+  border: 1px solid rgb(var(--line));
+  border-radius: 6px;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+  font-size: 0.8em;
+}
+
+/* Provenance flash — the one animation allowed inside the source pane. */
+.provenance-flash { animation: flash 1600ms cubic-bezier(0.2, 0, 0, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .provenance-flash {
+    animation: none;
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
+  }
+}
+
+/* First-paragraph treatment (vanilla .reader-content-body p:first-of-type).
+   Applied only to source text, never to derived text — so the two
+   representations stay distinguishable even in typography. */
+.prose-reader.source-text > p:first-of-type::first-line {
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
