@@ -426,3 +426,4 @@ That's more process maturity than most mid-level engineers show publicly. **The 
 Every decision in this document serves that standard. Local-first privacy. Traceable provenance. Real tests. Honest retrospectives. Milestone tags. One build at a time.
 
 That's not a hobby project. That's a product with a thesis, a market, and a standard.
+

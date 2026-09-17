@@ -10,12 +10,12 @@ class SemanticChunkRepository {
         id, book_id, chapter_id, sequence, section_heading,
         content_type, text_content, canonical_json, source_reference,
         source_page, structural_role,
-        token_count, content_hash, embedding_json, created_at, updated_at
+        token_count, content_hash, embedding_json, embedding_model, created_at, updated_at
       ) VALUES (
         @id, @book_id, @chapter_id, @sequence, @section_heading,
         @content_type, @text_content, @canonical_json, @source_reference,
         @source_page, @structural_role,
-        @token_count, @content_hash, @embedding_json, @created_at, @updated_at
+        @token_count, @content_hash, @embedding_json, @embedding_model, @created_at, @updated_at
       )
     `);
 
@@ -49,6 +49,7 @@ class SemanticChunkRepository {
           embedding_json: typeof item.embedding_json === 'string'
             ? item.embedding_json
             : (item.embedding ? JSON.stringify(item.embedding) : null),
+          embedding_model: item.embedding_model || item.embeddingModel || (item.embedding && item.embedding.length === 1024 ? 'bge-m3' : (item.embedding ? 'legacy-256d' : 'bge-m3')),
           created_at: item.created_at || now,
           updated_at: item.updated_at || now,
         });
@@ -157,6 +158,7 @@ class SemanticChunkRepository {
       tokenCount: row.token_count,
       contentHash: row.content_hash,
       embedding,
+      embeddingModel: row.embedding_model || (embedding && embedding.length === 1024 ? 'bge-m3' : (embedding ? 'legacy-256d' : null)),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
