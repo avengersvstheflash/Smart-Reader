@@ -218,3 +218,354 @@ One icon set: **lucide-react**. No icon fonts. No inline SVG duplication (the va
 | Smart empty state | `Feather` (xl, `text-faint`) | Derived, hand-written connotation |
 
 <!-- END: visual-language -->
+
+---
+
+<!-- BEGIN: screens -->
+
+## §2 — Screens
+
+Routes (per `architecture-index-html.md` §6):
+
+| Route | Screen | Notes |
+|---|---|---|
+| `/` | Library | Default landing |
+| `/book/:bookId` | Book Details | |
+| `/read/:bookId/:chapterId` | Reader | `?rep=original \| smart`, `#blk-…` anchors |
+| `/import` | Ingestion / Import | Shares content with the legacy `addBookModal` |
+| `/research` | Research Collection (index) | |
+| `/research/:outlineId` | Research Collection (active) | |
+
+The four vanilla top-level views become four routes. The Add Book **modal** becomes a modal *and* a route (`/import`); both render the same `ImportContent` component. The other 10 modals stay modal-only.
+
+### §2.1 — Library (`/`)
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ HEADER │
+│ ◆ Smart Reader (Cinzel) Library · Research · Import │
+│ [AI ●] [Jobs ²] [Palette] [Settings] │
+├──────────────────────────────────────────────────────────────────────┤
+│ TOOLBAR │
+│ ┌────────────────────────────────────────────────┐ │
+│ │ 🔍 Search your library… │ │
+│ └────────────────────────────────────────────────┘ │
+│ CHIPS (FilterChips, horizontally scrollable on mobile) │
+│ ( All 34 ) ( Books 12 ) ( Articles 9 ) ( Web 13 ) ( Docs 0 ) │
+├──────────────────────────────────────────────────────────────────────┤
+│ BOOK GRID (BookGrid → BookCard; grid-cols-2 md:3 xl:5) │
+│ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ │
+│ │▌ │ │▌ │ │▌ │ │▌ │ │▌ │ │
+│ │▌ cover │ │▌ cover │ │▌ cover │ │▌ cover │ │▌ cover │ │
+│ │▌ 3:4 │ │▌ │ │▌ │ │▌ │ │▌ │ │
+│ └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘ │
+│ Moby-Dick The Whale Seascape Letters Field Notes │
+│ Melville Hoare — Keats — │
+│ 136 ch·14h ( Article ) ( Web ) 12 ch·1h ⚠ empty_content │
+├──────────────────────────────────────────────────────────────────────┤
+│ SELECTION BAR (only in selection mode; animate-slide-up, sticky) │
+│ 3 selected [ Create research collection ] [ Clear ] │
+└──────────────────────────────────────────────────────────────────────┘
+
+text
+
+**Mobile layout:** header collapses to wordmark + Palette + menu. Primary nav moves to a fixed **bottom bar** (Library · Research · Import). Search sticks under the header on scroll. Grid is 2-column. A `+` FAB sits above the bottom bar. Selection bar docks above the bottom bar.
+
+**Components:** `Layout`, `Header`, `Nav`, `ThemeToggle`, `SearchField`*, `FilterChips`, `BookGrid`, `BookCard`, `SelectionBar`*, `EmptyState`*, `ErrorPanel`*, `ToastRegion`*.
+
+**Primary actions:** search (250ms debounce), filter by content type, open book (→ `/book/:id`), enter selection mode (long-press card / "Select" in header), select ≥2 books → Create research collection (→ `/research`), add a book (→ `/import`), open Jobs modal, open Settings modal, cycle theme.
+
+**States:**
+- *Loading:* 8 `BookCard` skeletons (3:4 cover block + two text lines, `animate-pulse`).
+- *Empty (library):* centered `BookMarked` xl in `text-faint`, "Your library is empty." + "Add a book to begin reading." + primary **Add a book** + ghost **Load sample library** (vanilla `seedSampleLibrary`).
+- *Empty (filtered):* "No books match *{query}*." + **Clear filters** ghost.
+- *Error:* inline `ErrorPanel` in the grid region ("Your library couldn't load." + Retry). Toast only if a background refetch fails while stale data is shown.
+
+### §2.2 — Book Details (`/book/:bookId`)
+┌──────────────────────────────────────────────────────────────────────┐
+│ HEADER [← Library] [Palette] [⋯ menu] │
+├──────────────────────────────────────────────────────────────────────┤
+│ HERO │
+│ ┌──────┐ MOBY-DICK (display / Cinzel) │
+│ │▌cover│ Herman Melville │
+│ │▌ │ ( Book ) ( 136 chapters ) ( 215,400 words · ~14 h ) │
+│ └──────┘ [ ▶ Read ] [ Layers Smart read ] [ ♻ Synopsis ] │
+├──────────────────────────────────────────────────────────────────────┤
+│ SYNOPSIS PANEL (book_representations: SYNOPSIS) │
+│ "A whaling voyage becomes a meditation on…" — DERIVED micro-tag │
+│ or: quiet CTA card "No synopsis yet." [ Generate synopsis ] │
+├────────────────────────────────┬─────────────────────────────────────┤
+│ CHAPTERS (lg+ left column) │ SEMANTIC INTELLIGENCE (right col) │
+│ 1. Loomings 12m ○ │ Indexed: 1,204 chunks ● ready │
+│ 2. The Carpet-Bag 10m ● │ ┌───────────────────────────────┐ │
+│ 3. The Spouter-Inn 14m ○ │ │ Ask this book… ➤ │ │
+│ … (roving tabindex list) │ └───────────────────────────────┘ │
+│ [+ Add chapter] │ Answer + [Source n] chips render │
+│ │ below (grounded, cite chunks) │
+│ │ SUPPORTING MATERIALS (3) │
+│ │ • Melville biography [open][✕] │
+│ │ [+ Attach source] │
+│ │ DANGER: [ Delete book ] │
+└────────────────────────────────┴─────────────────────────────────────┘
+
+text
+
+**Mobile:** single column — hero, synopsis, chapters, then semantic panel. Chapter list collapses after 8 rows with "Show all 136".
+
+**Components:** `Header` (with `backTo`), `BookCard` (hero variant), `Badge`*, `ActionButton`*, `SynopsisPanel`*, `ChapterList`* (keyboard-navigable), `SemanticPanel`* (status + Ask form + grounded answers with provenance chips), `SupportingMaterialList`*, `Modal` (via provider: AddChapter, DeleteBookConfirm, SupportingSearch, SupportingReader, AiStatus).
+
+**Primary actions:** **Read** (→ `/read/:bookId/:lastReadOrFirst?rep=original` — always lands on source), **Smart read** (→ `?rep=smart`; generates the book editorial outline on first use), open a chapter, toggle read status (optimistic `PATCH /api/chapters/:id`), ask the book (`POST /api/books/:id/ask`), generate synopsis / book summary, attach & read supporting materials, add a chapter manually, delete the book (confirm modal).
+
+**States:**
+- *Loading:* hero skeleton (cover block + 3 lines), 6 chapter-row skeletons, semantic panel shows a checking dot (`animate-pulse-dot`) — never a fake number.
+- *Empty:* no chapters → "No chapters were detected." + **Add chapter**; no synopsis → CTA card; semantic index pending → honest status pill "Indexing… {progress}%" from job polling; no supporting materials → single ghost row "+ Attach source".
+- *Error:* book fetch fails → full-region `ErrorPanel` + Retry. Ask/summarize failures → inline under the respective panel (never a toast over the answer area). `integrity_status === 'empty_content'` → persistent amber banner (`AlertTriangle`, "This document contained no extractable text.").
+
+### §2.3 — Reader, Original mode (`/read/:bookId/:chapterId?rep=original`)
+┌──────────────────────────────────────────────────────────────────────┐
+│ ▓▓▓▓▓▓▓▓▓▓ ScrollProgress — 2px accent-ink hairline, full width ▓▓▓ │
+├──────────────────────────────────────────────────────────────────────┤
+│ TOP BAR (compact, bg-app/85 backdrop-blur, border-b border-line) │
+│ [←] Moby-Dick · 12. Biographical [ Original │ Smart ] [Aa] [☰]│
+│ ↑ segmented radiogroup │
+├───────────────┬──────────────────────────────────────────────────────┤
+│ CHAPTER RAIL │ CANVAS <article> max-w-[34em] │
+│ (lg+, 240px, │ SOURCE · IMMUTABLE (micro, faint) │
+│ collapsible, │ │
+│ no accent) │ Chapter 12 — Biographical (display/Cinzel) │
+│ │ 2,431 words · ~10 min (caption, muted) │
+│ 10. … │ ───────────────────────── │
+│ 11. … │ │
+│ ▸12. Biogr. │ Lora 19px / 1.75, paragraphs, headings, quotes, │
+│ 13. … │ lists, code, separators, callouts — canonical │
+│ │ blocks, each wrapped id="blk-{chapterId}-{i}" │
+│ │ │
+│ │ Plain paper. Zero accent chrome. No inline UI. │
+├───────────────┴──────────────────────────────────────────────────────┤
+│ FOOT NAV (sticky bottom on mobile, static on desktop, min-h 44px) │
+│ [ ← Prev ] Chapter 12 of 136 · 68% of book [ Next → ] │
+└──────────────────────────────────────────────────────────────────────┘
+
+text
+
+**Mobile:** rail becomes a bottom sheet via `[☰]`; top bar title truncates; foot nav sticky with 44px targets; `Aa` popover offers reading size (16–22), align, and a theme shortcut (sepia one tap away — the preferred reading theme).
+
+**Components:** `Layout` (mode="reader"), `Header` (compact), `ScrollProgress`, `ChapterRail`*, `CanonicalBlock`* renderer under `prose-reader`, `ChapterNav`, `ReaderSettingsPopover`* (`Aa`).
+
+**Primary actions:** read; prev/next chapter (buttons, keys `←`/`→`); jump via rail; toggle to Smart (`m` or segmented control); adjust typography; mark chapter read; back to book details.
+
+**States:**
+- *Loading:* first load → canvas skeleton (title block + 6 paragraph shapes). Chapter-to-chapter → **previous chapter remains, dimmed to 60%**, with a 2px top hairline. `keepPreviousData` means text is never replaced by a spinner.
+- *Empty:* chapter has no `canonical_content` → render raw `content` as plain paragraphs (source of truth still shown). Zero-word chapter → "This chapter is empty in the source."
+- *Error:* chapter fetch fails → centered card in the canvas region: "This chapter couldn't load." + Retry (does not clear the rail, so the user can jump elsewhere).
+
+### §2.4 — Reader, Smart mode (`/read/:bookId/:chapterId?rep=smart`)
+┌──────────────────────────────────────────────────────────────────────┐
+│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ ScrollProgress (accent) ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
+├──────────────────────────────────────────────────────────────────────┤
+│ TOP BAR │
+│ [←] Moby-Dick · Smart reading [ Original │ Smart ] ⟳ 2/5 [Aa] │
+│ (progress chip while busy) │
+├──────────────┬─────────────────────────────┬─────────────────────────┤
+│ SMART LIST │ SOURCE PANE (xl ≥1280 only) │ LENS PANE │
+│ (240px) │ original chapter, read-only │ ▌DERIVED · TRACEABLE │
+│ │ chrome; text at full clarity│ ▌(micro-label + 2px │
+│ 1 Origins ✓ │ │ ▌ accent left rail) │
+│ 2 The Hunt ✓ │ │ ▌ │
+│▸3 Legacy ✓ │ Chapter 12 — Biographical │ ▌ 3. The Legacy of the │
+│ 4 Myth ◌──┐│ … │ ▌ Whale │
+│ 5 Canon ◌ ││ … │ ▌ │
+│ ││ │ ▌ para … para ↗¹ … │
+│ ────────── ││ ┌─────────────────────┐ │ ▌ para … para ↗² … │
+│ GENERATE ││ │ blk-c12-42 flash: │ │ ▌ │
+│ MORE ││ │ accent-wash 1.6s │◄───┼─┤ ¹ provenance links │
+│ [+1][+3] ││ └─────────────────────┘ │ ▌ on derived paras │
+│ [+5][+10] ││ │ ▌ │
+│ ═══════▌── ││ (provenance click scrolls │ ▌ [ Quote blocks cite │
+│ 2 of 5 done ││ this pane + flashes) │ ▌ source inline ] │
+├──────────────┴─────────────────────────────┴─────────────────────────┤
+│ FOOT NAV [ ← Prev ] Lens chapter 3 of 5 generated [ Next → ]│
+└──────────────────────────────────────────────────────────────────────┘
+
+text
+
+**Mobile / <1280px:** single pane = the lens. The source pane does not exist at this width; provenance taps route to Original view — that *is* the click-through (§3.3). The smart list opens as a bottom sheet from the list icon. `GenerateMoreButtons` live at the sheet's foot and inline after the last generated chapter.
+
+**Components:** `ReaderView` (mode="smart"), `SmartChapterList`, `GenerateMoreButtons`, `ProgressBar`*, `ProvenanceLink`, `SourcePane`* (reuses the Original canvas renderer — one renderer, two hosts), `DerivedBadge`*, `ScrollProgress`, `ChapterNav`.
+
+**Primary actions:** select a generated lens chapter; generate more (`+1/+3/+5/+10`); click a provenance link → jump to source; toggle back to Original; regenerate outline (top-bar overflow, confirm modal — marks stale representations per backend); read the source pane (xl) independently.
+
+**States:**
+- *Empty (no outline yet):* the screen that teaches the moat. Centered `Feather` xl, "Smart reading is a derived lens." + one quiet paragraph: "Chapters written *from* the source, every line traceable back to it. The original is never modified." + primary **Begin Smart reading** (generates outline + first chapter) + caption/muted note: "Without a configured AI provider, a deterministic outline is used." (per the backend graceful fallback, ARCHITECTURE_AUDIT §Section F).
+- *Loading:* per-chapter skeleton inside the lens pane (rail line + 5 paragraph shapes) + honest aggregate progress. Queued chapters show a status dot; generating chapters show `animate-pulse-dot` + per-job percent.
+- *Streaming:* as each chapter completes it fades in (4px rise, staggered) and becomes selectable immediately — reading is never blocked by the rest of the queue.
+- *Error:* chapter-level failure → red status chip on that row + inline "Generation failed." + Retry (extract-fallback note if the backend returned structured extracts). Outline failure → region `ErrorPanel` + Retry, keeping the empty-state copy visible. **When the backend falls back to structured extracts, an honest caption appears: "Structured extract — model unavailable."** Origin: D.
+
+### §2.5 — Ingestion / Import (`/import`)
+┌──────────────────────────────────────────────────────────────────────┐
+│ HEADER [←] Add to library │
+├──────────────────────────────────────────────────────────────────────┤
+│ TABS ( FileText File ) ( Globe From the web ) ( Clipboard Paste ) │
+├──────────────────────────────────────────────────────────────────────┤
+│ FILE TAB │
+│ ┌────────────────────────────────────────────────────────────────┐ │
+│ │ IMPORT DROPZONE │ │
+│ │ ⬆ (lg, text-faint) │ │
+│ │ Drag a file here, or browse │ │
+│ │ TXT · EPUB · PDF · HTML · Markdown (caption) │ │
+│ └────────────────────────────────────────────────────────────────┘ │
+│ │
+│ PIPELINE (PipelineStepper — real processing_jobs progress) │
+│ (1 Upload ✓)──(2 Parse ✓)──(3 Chapters ◐ 62%)──(4 Index ○) │
+│ ═══════════════════▌───────────────── Overall 62% │
+│ step captions from job type/status — never setTimeout theatre │
+│ │
+│ RESULT CARD (on success) │
+│ ✓ "Moby-Dick" added · 136 chapters · indexed 1,204 chunks │
+│ [ Open book ] [ Add another ] │
+├──────────────────────────────────────────────────────────────────────┤
+│ WEB TAB: search input + category chips (data-cat) → result cards │
+│ with checkbox + preview link → sticky bar "Import 3 selected" │
+│ PASTE TAB: title / author / content(textarea) → [ Add to library ] │
+└──────────────────────────────────────────────────────────────────────┘
+
+text
+
+**Components:** `ImportDropzone`, `TabBar`*, `PipelineStepper`*, `ProgressBar`*, `WebSearchPanel`* (SearchField, `FilterChips`, result cards), `SelectionBar`*, `PasteForm`*, `ResultCard`*, `Modal` host for the quick-add variant (see §5.1).
+
+**Primary actions:** drop or browse a file (`POST /api/books/import` FormData); run a web search (`GET /api/web/search`); preview a source; select multiple web sources → import (`POST /api/web/import-multi`); paste raw text → import; open the resulting book; watch real progress; open the Jobs modal for background detail.
+
+**States:**
+- *Empty:* the dropzone **is** the empty state — nothing else on screen until a file, query, or paste exists. Web tab starts with a quiet prompt ("Search the web for articles and documents.").
+- *Loading:* stepper with per-step state from `processing_jobs` (PENDING ○ / PROCESSING ◐ + % / COMPLETED ✓ / FAILED ✕) + overall bar; import button shows a 16px spinner and disables; web results use 3 card skeletons.
+- *Error:* the failed step turns `--status-error` with the job's `error` message in a `<details>` disclosure; primary action **Try again** (resubmits); toast only if the failure happened while the user navigated away. `integrity_status: 'empty_content'` → amber result card: "Imported, but no text was found in this file."
+- *Success:* result card with quiet `Check`, counts, **Open book** (primary) / **Add another** (ghost). Library query invalidated so the grid is warm on return.
+
+### §2.6 — Research Collection (`/research`, `/research/:outlineId`)
+┌──────────────────────────────────────────────────────────────────────┐
+│ HEADER [←] Research · "Melville and the Sea" [Regenerate] [⋯] │
+├──────────────────────────────────────────────────────────────────────┤
+│ SOURCE STRIP: [▌Moby-Dick ✕] [▌The Whale ✕] [+ Add sources] │
+├──────────────────────────────────────────────────────────────────────┤
+│ TABS ( Editorial ) ( Sources ) ( Compare ) │
+├────────────────────────────┬─────────────────────────────────────────┤
+│ EDITORIAL CHAPTERS │ CHAPTER CANVAS │
+│ (SmartChapterList variant) │ ▌DERIVED FROM 3 SOURCES (micro) │
+│ 1. Origins ✓ │ ▌ │
+│ ▸2. The Hunt ✓ │ ▌ 2. The Hunt │
+│ 3. Legacy ◐ 40% │ ▌ …paragraph … ↗[S1: Moby-Dick > │
+│ 4. Reception ◌ │ ▌ Ch.36 > The Quarter-Deck]│
+│ ───────────── │ ▌ …paragraph … ↗[S2: The Whale > p.4] │
+│ GENERATE MORE │ ▌ │
+│ [+1][+3][+5][+10] │ PROVENANCE DRAWER (expandable, bottom) │
+│ ══════▌──── 2 of 4 │ ▲ 6 source sections for this chapter │
+│ │ • [Source 1] Moby-Dick > Ch.36 > … ↗ │
+│ │ • [Source 2] The Whale > §4 > … ↗ │
+├────────────────────────────┴─────────────────────────────────────────┤
+│ SOURCES TAB: grid of source BookCards + [ View original book ] each │
+│ COMPARE TAB: cross-source question input → grounded answer with │
+│ [Source n] chips (queryCrossSource) + provenance ↗ │
+└──────────────────────────────────────────────────────────────────────┘
+
+text
+
+**Mobile:** tabs become a segmented control under the source strip; editorial list is a bottom sheet; canvas full-width; provenance drawer is a full-height sheet.
+
+**Components:** `CollectionHeader`*, `SourceChips`*, `TabBar`*, `SmartChapterList` (multi-source variant — provenance carries `bookId`), `GenerateMoreButtons`, `ProvenanceLink`, `ProvenanceDrawer`*, chapter canvas (same CanonicalBlock renderer), `ComparePanel`*, `BookGrid`/`BookCard` (Sources tab), `Modal` (DeleteOutline confirm, RegenerateConfirm).
+
+**Primary actions:** generate/regenerate the outline (fast vs deep choice in the confirm modal — maps to the backend `fast` flag and provider mode); select an editorial chapter (auto-synthesizes on first open, per vanilla `selectEditorialChapter`); generate more (`+1/+3/+5/+10`); expand the provenance drawer; jump to any source position (→ `/read/:bookId/:chapterId?rep=original#blk-…`); run a cross-source comparison query; add/remove sources; view an original book; delete the outline.
+
+**States:**
+- *Empty (no collection):* quiet hero — `FolderSearch` xl, "Research collections read across books." + "Select two or more books in your library to begin." + **Go to library**.
+- *Empty (outline not generated):* source strip + primary **Generate outline** + the same derived-lens explanation as §2.4's empty state, plus the deterministic-fallback note.
+- *Loading:* chapter-list skeletons; canvas shows per-chapter skeleton + honest progress; Compare answers show three pulsing dots (`animate-pulse-dot`, no spinner over text).
+- *Error:* outline failure → region `ErrorPanel` + Retry + fallback note; chapter failure → row chip + inline retry; compare failure → inline under the input, input preserved.
+
+<!-- END: screens -->
+
+---
+
+<!-- BEGIN: interaction-model -->
+
+## §3 — Smart Reader Interaction Model
+
+### §3.1 — Original ↔ Smart toggle
+
+The single most consequential control in the app. Every rule below exists to make the two-representation invariant **felt in the fingers**.
+
+**Position.** Reader top bar, right-of-center — a two-item segmented control (`role="radiogroup"`, `aria-label="Reading representation"`): `[ BookOpenText Original │ Layers Smart ]`. Same slot on every breakpoint. On mobile it shrinks to icons + a `micro` label under the active item. It is the only accent-bearing control in Original mode, and the only paper-colored control in Smart mode — **the toggle itself teaches the invariant.**
+
+**Behavior.** Switching is a route-level URL change (`?rep=original|smart`) within the same `ReaderView`. The canvas crossfades at `--dur-base` (`animate-fade-in`). The active chapter mapping is preserved: Original shows `:chapterId`; Smart shows the active lens chapter, defaulting to the one whose provenance contains the current source chapter.
+
+**Keyboard.** `m` toggles (when no editable field is focused); arrow keys inside the radiogroup move selection per the WAI-ARIA radio pattern.
+
+**Persistence (three layers, in priority order):**
+
+1. **URL is truth** — `?rep=` wins on every load. Back/forward and shared links are faithful.
+2. **Per-book memory** — zustand `persist` store `sr.reader.prefs` → `{ repModeByBook: { [bookId]: 'original' | 'smart' }, fontSize, align }`. Seeds the URL when a book is opened without `?rep=`.
+3. **Global default = `original`** — a book always opens on the source unless the reader explicitly chose the lens for *that book* before. Landing on source is a product principle: the immutable original is the home position.
+
+### §3.2 — Progressive generation (`+1 / +3 / +5 / +10`)
+
+The Smart lens is generated **chapter by chapter, on demand, in reading order** — never all at once, never before the reader asks.
+
+**Model.** The outline (from `POST /api/books/:id/editorial` or `POST /api/synthesis/outline` for collections) plans N derived chapters. Each has status `not-generated → queued → generating → ready | failed`. `GenerateMoreButtons` enqueues the next `n` ungenerated chapters (`n ∈ {1,3,5,10}`, capped at `remaining`; buttons beyond `remaining` disable with `title="Only {remaining} left"`). Each queued chapter fires `POST …/synthesize`, tracked server-side in `processing_jobs`.
+
+**Live progress.** While any job is active, React Query polls the job list (`refetchInterval: 1500ms`, stops when all settle). The aggregate bar shows `done/total` of the *current queue*; the overall bar sits beneath it (`2 of 5 chapters`). The top bar condenses this to a progress chip (`⟳ 2/5`). **All numbers come from `processing_jobs.progress` — see §8.1. There are no simulated steps anywhere.**
+
+**Streaming chapters.** "Streaming" means **chapter-granular arrival**, not token-level SSE.
+
+> **ASSUMPTION.** The documented synthesis endpoints return a complete representation per chapter (no streaming transport in the audited API). Each chapter that reaches `COMPLETED` invalidates its representation query, fades into the list, and becomes immediately readable while the rest of the queue keeps working. The lens pane of the *active* chapter swaps skeleton → text in place, with scroll position preserved.
+
+**Interruption & recovery.** "Stop" cancels the remaining queue (in-flight server jobs finish; their results are kept — generation is idempotent per chapter). Origin: E (Qwen 3.8 Max) — the only blueprint to specify `AbortController` explicitly. Because status is job-backed, a page refresh mid-generation resumes the exact progress view; nothing is lost or faked.
+
+**Failure isolation.** A failed chapter is a red chip + Retry on its row; the queue continues past it. The backend's extract fallback (ARCHITECTURE_AUDIT §Section F) is surfaced honestly: caption "Structured extract — model unavailable."
+
+### §3.3 — Provenance click-through (Smart line → source position)
+
+The moat, made physical: every derived paragraph carries a `ProvenanceLink`; activating it lands the reader on the **exact immutable source span**.
+
+**Anchor ID scheme.** Stable because the source is immutable.
+
+| Surface | Element | ID | Notes |
+|---|---|---|---|
+| Original canvas | every canonical block wrapper | `blk-{chapterId}-{blockIndex}` | `blockIndex` = position in `chapters.canonical_content` — an immutable JSON array, so IDs are permanent and safe in shared URLs |
+| Original canvas | heading blocks (additionally) | `h-{chapterId}-{slug(title)}` | Human-readable deep links / TOC |
+| Lens pane | every derived block | `sblk-{representationId}-{blockIndex}` | Return-jump targets (source → back to lens position) |
+| Research canvas | same as lens, multi-book | `sblk-{representationId}-{blockIndex}` | Jump target includes `bookId` from the provenance ref |
+
+Origin: F (Qwen auto). E's scheme (`o-{chapterId}-b{n}`) is close but lacks a symmetric smart-side anchor; F's `blk-` / `sblk-` pairing solves the round-trip cleanly. **The prefix naming is preserved.**
+
+**Provenance payload.** Synthesized representations store `metadata_json.provenance` — an array of chunk references (ARCHITECTURE_AUDIT Q19). The frontend consumes it as:
+
+```ts
+interface ProvenanceRef {
+  chunkId: string; bookId: string; bookTitle: string;
+  chapterId: string; chapterTitle?: string; sectionHeading?: string;
+  blockStart: number; blockEnd: number;   // canonical block indices in the source chapter
+}
+ASSUMPTION. blockStart / blockEnd are derivable server-side from the chunk's chapter_id + sequence. If the API only yields chunkId, the frontend resolves it via a chunk lookup (GET /api/chunks/:id → { chapterId, blockStart }); failing that, it degrades gracefully to h-{chapterId}-{slug(sectionHeading)}, then to chapter top. The UI never dead-ends.
+
+Interaction flow:
+
+Affordance. In the lens pane, derived paragraphs end with a superscript ↗ (ArrowUpRight, 14px, text-accent-ink, dotted underline on hover). The provenance drawer lists full [Source n] Book > Chapter > Section references in mono/caption. Both are real <button>s — keyboard reachable, focus-visible ring.
+
+Two-pane (≥1280px, Smart). Click → the source pane loads/scrolls the target chapter, then document.getElementById('blk-…').scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' }), applies .provenance-flash (accent-wash background fading over 1.6s; reduced-motion → static 2px accent outline for 3s), moves focus to the anchor (tabIndex={-1}), and announces via role="status": "Jumped to source — Chapter 12, section ‘Biographical'." The lens pane keeps its scroll position; the reader is never lost.
+
+Single-pane (mobile / Original-hosted Smart). Click → router.navigate('/read/{bookId}/{chapterId}?rep=original&from=smart#blk-{chapterId}-{blockStart}'). ReaderView runs a post-render effect (useLayoutEffect + double requestAnimationFrame, after canonical blocks mount) that resolves location.hash, scrolls with the same behavior/flash/focus rules, then history.replaceState keeps the hash canonical. The smart scroll offset was stored (keyed by sblk id) before navigating, so browser Back restores the exact lens position — the round-trip Source ↔ Lens is a first-class navigation loop. Origin: C (Claude Sonnet 5) — the only blueprint to name the round-trip as a design principle. F independently adds the sblk- target that makes it work.
+
+Copy link. Every anchor is URL-shareable (…?rep=original#blk-c12-42); a "Copy link to source" item sits in the provenance drawer.
+
+§3.4 — State and persistence map
+All persistence flows through zustand persist, namespaced under sr.. Nothing else writes to localStorage. This is the full map.
+
+Key	Shape	Feeds
+sr.theme	'default' | 'warm' | 'dark' | 'glass'	data-theme on <html>
+sr.reader.prefs	{ repModeByBook: Record<string, 'original' | 'smart'>, fontSize: number (16–22), align: 'left' | 'justify' }	Toggle default, Aa popover
+sr.progress	{ lastRead: { bookId, chapterId }, scrollByChapter: Record<string, number> }	Resume reading, scroll restore (§8.5)
+sr.onboarding	{ aiModeChosen: boolean }	Gates the first-run AiSelectionModal
+Server state is owned entirely by React Query: books, chapters, representations, outlines, jobs, semantic status. The UI is always a projection of real state, never of innerHTML string building. Cache invalidation on mutation success is the contract: invalidateQueries(['books']) after import, ['representations', id] after synthesis, ['jobs'] while any job is active.
+
+No other persistence. No session cookies, no IndexedDB, no additional localStorage keys without a documented update to this section.
+
+<!-- END: interaction-model -->
