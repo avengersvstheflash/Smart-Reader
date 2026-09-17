@@ -240,34 +240,33 @@ The four vanilla top-level views become four routes. The Add Book **modal** beco
 
 ### §2.1 — Library (`/`)
 
-
+```text
 ┌──────────────────────────────────────────────────────────────────────┐
-│ HEADER │
-│ ◆ Smart Reader (Cinzel) Library · Research · Import │
-│ [AI ●] [Jobs ²] [Palette] [Settings] │
+│ HEADER                                                               │
+│  ◆ Smart Reader (Cinzel)      Library · Research · Import            │
+│                               [AI ●] [Jobs ²] [Palette] [Settings]   │
 ├──────────────────────────────────────────────────────────────────────┤
-│ TOOLBAR │
-│ ┌────────────────────────────────────────────────┐ │
-│ │ 🔍 Search your library… │ │
-│ └────────────────────────────────────────────────┘ │
-│ CHIPS (FilterChips, horizontally scrollable on mobile) │
-│ ( All 34 ) ( Books 12 ) ( Articles 9 ) ( Web 13 ) ( Docs 0 ) │
+│ TOOLBAR                                                              │
+│  ┌────────────────────────────────────────────────┐                  │
+│  │ 🔍 Search your library…                        │                  │
+│  └────────────────────────────────────────────────┘                  │
+│ CHIPS (FilterChips, horizontally scrollable on mobile)               │
+│  ( All 34 ) ( Books 12 ) ( Articles 9 ) ( Web 13 ) ( Docs 0 )        │
 ├──────────────────────────────────────────────────────────────────────┤
-│ BOOK GRID (BookGrid → BookCard; grid-cols-2 md:3 xl:5) │
-│ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ │
-│ │▌ │ │▌ │ │▌ │ │▌ │ │▌ │ │
-│ │▌ cover │ │▌ cover │ │▌ cover │ │▌ cover │ │▌ cover │ │
-│ │▌ 3:4 │ │▌ │ │▌ │ │▌ │ │▌ │ │
-│ └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘ │
-│ Moby-Dick The Whale Seascape Letters Field Notes │
-│ Melville Hoare — Keats — │
-│ 136 ch·14h ( Article ) ( Web ) 12 ch·1h ⚠ empty_content │
+│ BOOK GRID (BookGrid → BookCard; grid-cols-2 md:3 xl:5)               │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐         │
+│  │▌        │ │▌        │ │▌        │ │▌        │ │▌        │         │
+│  │▌ cover  │ │▌ cover  │ │▌ cover  │ │▌ cover  │ │▌ cover  │         │
+│  │▌ 3:4    │ │▌        │ │▌        │ │▌        │ │▌        │         │
+│  └───────── └───────── └─────────┘ └─────────┘ └─────────┘         │
+│   Moby-Dick   The Whale   Seascape    Letters     Field Notes        │
+│   Melville    Hoare       —           Keats       —                  │
+│   136 ch·14h  ( Article ) ( Web )     12 ch·1h    ⚠ empty_content    │
 ├──────────────────────────────────────────────────────────────────────┤
-│ SELECTION BAR (only in selection mode; animate-slide-up, sticky) │
-│ 3 selected [ Create research collection ] [ Clear ] │
+│ SELECTION BAR (only in selection mode; animate-slide-up, sticky)     │
+│   3 selected           [ Create research collection ]  [ Clear ]     │
 └──────────────────────────────────────────────────────────────────────┘
-
-text
+```
 
 **Mobile layout:** header collapses to wordmark + Palette + menu. Primary nav moves to a fixed **bottom bar** (Library · Research · Import). Search sticks under the header on scroll. Grid is 2-column. A `+` FAB sits above the bottom bar. Selection bar docks above the bottom bar.
 
@@ -282,33 +281,34 @@ text
 - *Error:* inline `ErrorPanel` in the grid region ("Your library couldn't load." + Retry). Toast only if a background refetch fails while stale data is shown.
 
 ### §2.2 — Book Details (`/book/:bookId`)
-┌──────────────────────────────────────────────────────────────────────┐
-│ HEADER [← Library] [Palette] [⋯ menu] │
-├──────────────────────────────────────────────────────────────────────┤
-│ HERO │
-│ ┌──────┐ MOBY-DICK (display / Cinzel) │
-│ │▌cover│ Herman Melville │
-│ │▌ │ ( Book ) ( 136 chapters ) ( 215,400 words · ~14 h ) │
-│ └──────┘ [ ▶ Read ] [ Layers Smart read ] [ ♻ Synopsis ] │
-├──────────────────────────────────────────────────────────────────────┤
-│ SYNOPSIS PANEL (book_representations: SYNOPSIS) │
-│ "A whaling voyage becomes a meditation on…" — DERIVED micro-tag │
-│ or: quiet CTA card "No synopsis yet." [ Generate synopsis ] │
-├────────────────────────────────┬─────────────────────────────────────┤
-│ CHAPTERS (lg+ left column) │ SEMANTIC INTELLIGENCE (right col) │
-│ 1. Loomings 12m ○ │ Indexed: 1,204 chunks ● ready │
-│ 2. The Carpet-Bag 10m ● │ ┌───────────────────────────────┐ │
-│ 3. The Spouter-Inn 14m ○ │ │ Ask this book… ➤ │ │
-│ … (roving tabindex list) │ └───────────────────────────────┘ │
-│ [+ Add chapter] │ Answer + [Source n] chips render │
-│ │ below (grounded, cite chunks) │
-│ │ SUPPORTING MATERIALS (3) │
-│ │ • Melville biography [open][✕] │
-│ │ [+ Attach source] │
-│ │ DANGER: [ Delete book ] │
-└────────────────────────────────┴─────────────────────────────────────┘
 
-text
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│ HEADER  [← Library]                              [Palette] [⋯ menu]  │
+├──────────────────────────────────────────────────────────────────────┤
+│ HERO                                                                 │
+│  ┌──────   MOBY-DICK                          (display / Cinzel)    │
+│  │▌cover│   Herman Melville                                          │
+│  │▌     │   ( Book ) ( 136 chapters ) ( 215,400 words · ~14 h )      │
+│  └──────   [ ▶ Read ]  [ Layers Smart read ]  [ ♻ Synopsis ]        │
+├──────────────────────────────────────────────────────────────────────┤
+│ SYNOPSIS PANEL (book_representations: SYNOPSIS)                      │
+│  "A whaling voyage becomes a meditation on…"   — DERIVED micro-tag   │
+│  or: quiet CTA card "No synopsis yet."  [ Generate synopsis ]        │
+├────────────────────────────────┬─────────────────────────────────────┤
+│ CHAPTERS (lg+ left column)     │ SEMANTIC INTELLIGENCE (right col)   │
+│  1. Loomings          12m ○    │  Indexed: 1,204 chunks ● ready      │
+│  2. The Carpet-Bag    10m ●    │  ┌───────────────────────────────┐  │
+│  3. The Spouter-Inn   14m ○    │  │ Ask this book…            ➤   │  │
+│  … (roving tabindex list)      │  └───────────────────────────────┘  │
+│  [+ Add chapter]               │  Answer + [Source n] chips render   │
+│                                │  below (grounded, cite chunks)      │
+│                                │  SUPPORTING MATERIALS (3)           │
+│                                │   • Melville biography  [open][✕]   │
+│                                │   [+ Attach source]                 │
+│                                │  DANGER: [ Delete book ]            │
+└────────────────────────────────┴─────────────────────────────────────┘
+```
 
 **Mobile:** single column — hero, synopsis, chapters, then semantic panel. Chapter list collapses after 8 rows with "Show all 136".
 
@@ -322,31 +322,32 @@ text
 - *Error:* book fetch fails → full-region `ErrorPanel` + Retry. Ask/summarize failures → inline under the respective panel (never a toast over the answer area). `integrity_status === 'empty_content'` → persistent amber banner (`AlertTriangle`, "This document contained no extractable text.").
 
 ### §2.3 — Reader, Original mode (`/read/:bookId/:chapterId?rep=original`)
-┌──────────────────────────────────────────────────────────────────────┐
-│ ▓▓▓▓▓▓▓▓▓▓ ScrollProgress — 2px accent-ink hairline, full width ▓▓▓ │
-├──────────────────────────────────────────────────────────────────────┤
-│ TOP BAR (compact, bg-app/85 backdrop-blur, border-b border-line) │
-│ [←] Moby-Dick · 12. Biographical [ Original │ Smart ] [Aa] [☰]│
-│ ↑ segmented radiogroup │
-├───────────────┬──────────────────────────────────────────────────────┤
-│ CHAPTER RAIL │ CANVAS <article> max-w-[34em] │
-│ (lg+, 240px, │ SOURCE · IMMUTABLE (micro, faint) │
-│ collapsible, │ │
-│ no accent) │ Chapter 12 — Biographical (display/Cinzel) │
-│ │ 2,431 words · ~10 min (caption, muted) │
-│ 10. … │ ───────────────────────── │
-│ 11. … │ │
-│ ▸12. Biogr. │ Lora 19px / 1.75, paragraphs, headings, quotes, │
-│ 13. … │ lists, code, separators, callouts — canonical │
-│ │ blocks, each wrapped id="blk-{chapterId}-{i}" │
-│ │ │
-│ │ Plain paper. Zero accent chrome. No inline UI. │
-├───────────────┴──────────────────────────────────────────────────────┤
-│ FOOT NAV (sticky bottom on mobile, static on desktop, min-h 44px) │
-│ [ ← Prev ] Chapter 12 of 136 · 68% of book [ Next → ] │
-└──────────────────────────────────────────────────────────────────────┘
 
-text
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│ ▓▓▓▓▓▓▓▓▓▓ ScrollProgress — 2px accent-ink hairline, full width ▓▓▓  │
+├──────────────────────────────────────────────────────────────────────┤
+│ TOP BAR (compact, bg-app/85 backdrop-blur, border-b border-line)     │
+│  [←]  Moby-Dick · 12. Biographical    [ Original │ Smart ]  [Aa] [☰] │
+│                                           ↑ segmented radiogroup     │
+├───────────────┬──────────────────────────────────────────────────────┤
+│ CHAPTER RAIL  │            CANVAS  <article>  max-w-[34em]           │
+│ (lg+, 240px,  │   SOURCE · IMMUTABLE              (micro, faint)     │
+│  collapsible, │                                                      │
+│  no accent)   │   Chapter 12 — Biographical        (display/Cinzel)  │
+│               │   2,431 words · ~10 min            (caption, muted)  │
+│   10. …       │   ─────────────────────────                          │
+│   11. …       │                                                      │
+│  ▸12. Biogr.  │   Lora 19px / 1.75, paragraphs, headings, quotes,    │
+│   13. …       │   lists, code, separators, callouts — canonical      │
+│               │   blocks, each wrapped id="blk-{chapterId}-{i}"      │
+│               │                                                      │
+│               │   Plain paper. Zero accent chrome. No inline UI.     │
+├───────────────┴──────────────────────────────────────────────────────┤
+│ FOOT NAV (sticky bottom on mobile, static on desktop, min-h 44px)    │
+│   [ ← Prev ]          Chapter 12 of 136 · 68% of book    [ Next → ]  │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
 **Mobile:** rail becomes a bottom sheet via `[☰]`; top bar title truncates; foot nav sticky with 44px targets; `Aa` popover offers reading size (16–22), align, and a theme shortcut (sepia one tap away — the preferred reading theme).
 
@@ -360,34 +361,36 @@ text
 - *Error:* chapter fetch fails → centered card in the canvas region: "This chapter couldn't load." + Retry (does not clear the rail, so the user can jump elsewhere).
 
 ### §2.4 — Reader, Smart mode (`/read/:bookId/:chapterId?rep=smart`)
-┌──────────────────────────────────────────────────────────────────────┐
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ ScrollProgress (accent) ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
-├──────────────────────────────────────────────────────────────────────┤
-│ TOP BAR │
-│ [←] Moby-Dick · Smart reading [ Original │ Smart ] ⟳ 2/5 [Aa] │
-│ (progress chip while busy) │
-├──────────────┬─────────────────────────────┬─────────────────────────┤
-│ SMART LIST │ SOURCE PANE (xl ≥1280 only) │ LENS PANE │
-│ (240px) │ original chapter, read-only │ ▌DERIVED · TRACEABLE │
-│ │ chrome; text at full clarity│ ▌(micro-label + 2px │
-│ 1 Origins ✓ │ │ ▌ accent left rail) │
-│ 2 The Hunt ✓ │ │ ▌ │
-│▸3 Legacy ✓ │ Chapter 12 — Biographical │ ▌ 3. The Legacy of the │
-│ 4 Myth ◌──┐│ … │ ▌ Whale │
-│ 5 Canon ◌ ││ … │ ▌ │
-│ ││ │ ▌ para … para ↗¹ … │
-│ ────────── ││ ┌─────────────────────┐ │ ▌ para … para ↗² … │
-│ GENERATE ││ │ blk-c12-42 flash: │ │ ▌ │
-│ MORE ││ │ accent-wash 1.6s │◄───┼─┤ ¹ provenance links │
-│ [+1][+3] ││ └─────────────────────┘ │ ▌ on derived paras │
-│ [+5][+10] ││ │ ▌ │
-│ ═══════▌── ││ (provenance click scrolls │ ▌ [ Quote blocks cite │
-│ 2 of 5 done ││ this pane + flashes) │ ▌ source inline ] │
-├──────────────┴─────────────────────────────┴─────────────────────────┤
-│ FOOT NAV [ ← Prev ] Lens chapter 3 of 5 generated [ Next → ]│
-└──────────────────────────────────────────────────────────────────────┘
 
-text
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓ ScrollProgress (accent) ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓   │
+├──────────────────────────────────────────────────────────────────────┤
+│ TOP BAR                                                              │
+│  [←]  Moby-Dick · Smart reading   [ Original │ Smart ]  ⟳ 2/5  [Aa]  │
+│                                                 (progress chip       │
+│                                                  while busy)         │
+├──────────────┬─────────────────────────────┬─────────────────────────┤
+│ SMART LIST   │ SOURCE PANE (xl ≥1280 only) │ LENS PANE               │
+│ (240px)      │ original chapter, read-only │ ▌DERIVED · TRACEABLE    │
+│              │ chrome; text at full clarity│ ▌(micro-label + 2px     │
+│ 1 Origins ✓  │                             │ ▌ accent left rail)     │
+│ 2 The Hunt ✓ │                             │ ▌                       │
+│▸3 Legacy  ✓  │   Chapter 12 — Biographical │ ▌ 3. The Legacy of the  │
+│ 4 Myth    ◌──┤   …                         │ ▌    Whale              │
+│ 5 Canon   ◌  │   …                         │ ▌                       │
+│              │                             │ ▌  para … para ↗¹ …     │
+│ ──────────   │   ┌─────────────────────┐   │ ▌  para … para ↗² …     │
+│ GENERATE     │   │ blk-c12-42 flash:   │   │ ▌                       │
+│ MORE         │   │ accent-wash 1.6s    │◄──┼─┤ ¹ provenance links    │
+│ [+1][+3]     │   └─────────────────────┘   │ ▌   on derived paras    │
+│ [+5][+10]    │                             │ ▌                       │
+│ ═══════▌──   │   (provenance click scrolls │ ▌  [ Quote blocks cite  │
+│ 2 of 5 done  │    this pane + flashes)     │ ▌    source inline ]    │
+├──────────────┴─────────────────────────────┴─────────────────────────┤
+│ FOOT NAV   [ ← Prev ]    Lens chapter 3 of 5 generated   [ Next → ]  │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
 **Mobile / <1280px:** single pane = the lens. The source pane does not exist at this width; provenance taps route to Original view — that *is* the click-through (§3.3). The smart list opens as a bottom sheet from the list icon. `GenerateMoreButtons` live at the sheet's foot and inline after the last generated chapter.
 
@@ -402,34 +405,36 @@ text
 - *Error:* chapter-level failure → red status chip on that row + inline "Generation failed." + Retry (extract-fallback note if the backend returned structured extracts). Outline failure → region `ErrorPanel` + Retry, keeping the empty-state copy visible. **When the backend falls back to structured extracts, an honest caption appears: "Structured extract — model unavailable."** Origin: D.
 
 ### §2.5 — Ingestion / Import (`/import`)
-┌──────────────────────────────────────────────────────────────────────┐
-│ HEADER [←] Add to library │
-├──────────────────────────────────────────────────────────────────────┤
-│ TABS ( FileText File ) ( Globe From the web ) ( Clipboard Paste ) │
-├──────────────────────────────────────────────────────────────────────┤
-│ FILE TAB │
-│ ┌────────────────────────────────────────────────────────────────┐ │
-│ │ IMPORT DROPZONE │ │
-│ │ ⬆ (lg, text-faint) │ │
-│ │ Drag a file here, or browse │ │
-│ │ TXT · EPUB · PDF · HTML · Markdown (caption) │ │
-│ └────────────────────────────────────────────────────────────────┘ │
-│ │
-│ PIPELINE (PipelineStepper — real processing_jobs progress) │
-│ (1 Upload ✓)──(2 Parse ✓)──(3 Chapters ◐ 62%)──(4 Index ○) │
-│ ═══════════════════▌───────────────── Overall 62% │
-│ step captions from job type/status — never setTimeout theatre │
-│ │
-│ RESULT CARD (on success) │
-│ ✓ "Moby-Dick" added · 136 chapters · indexed 1,204 chunks │
-│ [ Open book ] [ Add another ] │
-├──────────────────────────────────────────────────────────────────────┤
-│ WEB TAB: search input + category chips (data-cat) → result cards │
-│ with checkbox + preview link → sticky bar "Import 3 selected" │
-│ PASTE TAB: title / author / content(textarea) → [ Add to library ] │
-└──────────────────────────────────────────────────────────────────────┘
 
-text
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│ HEADER  [←]  Add to library                                          │
+├──────────────────────────────────────────────────────────────────────┤
+│ TABS   ( FileText File )  ( Globe From the web )  ( Clipboard Paste ) │
+├──────────────────────────────────────────────────────────────────────┤
+│ FILE TAB                                                             │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │                        IMPORT DROPZONE                         │  │
+│  │                    ⬆  (lg, text-faint)                         │  │
+│  │              Drag a file here, or  browse                      │  │
+│  │              TXT · EPUB · PDF · HTML · Markdown   (caption)    │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  PIPELINE (PipelineStepper — real processing_jobs progress)          │
+│   (1 Upload ✓)──(2 Parse ✓)──(3 Chapters ◐ 62%)──(4 Index ○)         │
+│   ═══════════════════▌─────────────────  Overall 62%                 │
+│   step captions from job type/status — never setTimeout theatre      │
+│                                                                      │
+│  RESULT CARD (on success)                                            │
+│   ✓ "Moby-Dick" added · 136 chapters · indexed 1,204 chunks          │
+│   [ Open book ]  [ Add another ]                                     │
+├──────────────────────────────────────────────────────────────────────┤
+│ WEB TAB:  search input + category chips (data-cat) → result cards    │
+│           with checkbox + preview link → sticky bar                  │
+│           "Import 3 selected"                                        │
+│ PASTE TAB: title / author / content(textarea) → [ Add to library ]   │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
 **Components:** `ImportDropzone`, `TabBar`*, `PipelineStepper`*, `ProgressBar`*, `WebSearchPanel`* (SearchField, `FilterChips`, result cards), `SelectionBar`*, `PasteForm`*, `ResultCard`*, `Modal` host for the quick-add variant (see §5.1).
 
@@ -442,32 +447,33 @@ text
 - *Success:* result card with quiet `Check`, counts, **Open book** (primary) / **Add another** (ghost). Library query invalidated so the grid is warm on return.
 
 ### §2.6 — Research Collection (`/research`, `/research/:outlineId`)
-┌──────────────────────────────────────────────────────────────────────┐
-│ HEADER [←] Research · "Melville and the Sea" [Regenerate] [⋯] │
-├──────────────────────────────────────────────────────────────────────┤
-│ SOURCE STRIP: [▌Moby-Dick ✕] [▌The Whale ✕] [+ Add sources] │
-├──────────────────────────────────────────────────────────────────────┤
-│ TABS ( Editorial ) ( Sources ) ( Compare ) │
-├────────────────────────────┬─────────────────────────────────────────┤
-│ EDITORIAL CHAPTERS │ CHAPTER CANVAS │
-│ (SmartChapterList variant) │ ▌DERIVED FROM 3 SOURCES (micro) │
-│ 1. Origins ✓ │ ▌ │
-│ ▸2. The Hunt ✓ │ ▌ 2. The Hunt │
-│ 3. Legacy ◐ 40% │ ▌ …paragraph … ↗[S1: Moby-Dick > │
-│ 4. Reception ◌ │ ▌ Ch.36 > The Quarter-Deck]│
-│ ───────────── │ ▌ …paragraph … ↗[S2: The Whale > p.4] │
-│ GENERATE MORE │ ▌ │
-│ [+1][+3][+5][+10] │ PROVENANCE DRAWER (expandable, bottom) │
-│ ══════▌──── 2 of 4 │ ▲ 6 source sections for this chapter │
-│ │ • [Source 1] Moby-Dick > Ch.36 > … ↗ │
-│ │ • [Source 2] The Whale > §4 > … ↗ │
-├────────────────────────────┴─────────────────────────────────────────┤
-│ SOURCES TAB: grid of source BookCards + [ View original book ] each │
-│ COMPARE TAB: cross-source question input → grounded answer with │
-│ [Source n] chips (queryCrossSource) + provenance ↗ │
-└──────────────────────────────────────────────────────────────────────┘
 
-text
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│ HEADER  [←]  Research · "Melville and the Sea"     [Regenerate] [⋯]   │
+├──────────────────────────────────────────────────────────────────────┤
+│ SOURCE STRIP:  [▌Moby-Dick ✕]  [▌The Whale ✕]  [+ Add sources]        │
+├──────────────────────────────────────────────────────────────────────┤
+│ TABS   ( Editorial )  ( Sources )  ( Compare )                        │
+├────────────────────────────┬─────────────────────────────────────────┤
+│ EDITORIAL CHAPTERS         │ CHAPTER CANVAS                          │
+│ (SmartChapterList variant) │  ▌DERIVED FROM 3 SOURCES   (micro)      │
+│  1. Origins        ✓       │  ▌                                      │
+│ ▸2. The Hunt       ✓       │  ▌ 2. The Hunt                          │
+│  3. Legacy         ◐ 40%   │  ▌ …paragraph … ↗[S1: Moby-Dick >       │
+│  4. Reception      ◌       │  ▌            Ch.36 > The Quarter-Deck] │
+│  ─────────────             │  ▌ …paragraph … ↗[S2: The Whale > p.4]  │
+│  GENERATE MORE             │  ▌                                      │
+│  [+1][+3][+5][+10]         │  PROVENANCE DRAWER (expandable, bottom) │
+│  ══════▌────  2 of 4       │  ▲ 6 source sections for this chapter   │
+│                            │   • [Source 1] Moby-Dick > Ch.36 > …  ↗ │
+│                            │   • [Source 2] The Whale > §4 > …     ↗ │
+├────────────────────────────┴─────────────────────────────────────────┤
+│ SOURCES TAB: grid of source BookCards + [ View original book ] each  │
+│ COMPARE TAB:  cross-source question input → grounded answer with     │
+│               [Source n] chips (queryCrossSource) + provenance ↗     │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
 **Mobile:** tabs become a segmented control under the source strip; editorial list is a bottom sheet; canvas full-width; provenance drawer is a full-height sheet.
 
@@ -544,27 +550,29 @@ interface ProvenanceRef {
   chapterId: string; chapterTitle?: string; sectionHeading?: string;
   blockStart: number; blockEnd: number;   // canonical block indices in the source chapter
 }
-ASSUMPTION. blockStart / blockEnd are derivable server-side from the chunk's chapter_id + sequence. If the API only yields chunkId, the frontend resolves it via a chunk lookup (GET /api/chunks/:id → { chapterId, blockStart }); failing that, it degrades gracefully to h-{chapterId}-{slug(sectionHeading)}, then to chapter top. The UI never dead-ends.
+```
 
-Interaction flow:
+> **ASSUMPTION.** `blockStart` / `blockEnd` are derivable server-side from the chunk's `chapter_id` + `sequence`. If the API only yields `chunkId`, the frontend resolves it via a chunk lookup (`GET /api/chunks/:id` → `{ chapterId, blockStart }`); failing that, it degrades gracefully to `h-{chapterId}-{slug(sectionHeading)}`, then to chapter top. The UI never dead-ends.
 
-Affordance. In the lens pane, derived paragraphs end with a superscript ↗ (ArrowUpRight, 14px, text-accent-ink, dotted underline on hover). The provenance drawer lists full [Source n] Book > Chapter > Section references in mono/caption. Both are real <button>s — keyboard reachable, focus-visible ring.
+**Interaction flow:**
 
-Two-pane (≥1280px, Smart). Click → the source pane loads/scrolls the target chapter, then document.getElementById('blk-…').scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' }), applies .provenance-flash (accent-wash background fading over 1.6s; reduced-motion → static 2px accent outline for 3s), moves focus to the anchor (tabIndex={-1}), and announces via role="status": "Jumped to source — Chapter 12, section ‘Biographical'." The lens pane keeps its scroll position; the reader is never lost.
+1. **Affordance.** In the lens pane, derived paragraphs end with a superscript `↗` (`ArrowUpRight`, 14px, `text-accent-ink`, dotted underline on hover). The provenance drawer lists full `[Source n] Book > Chapter > Section` references in mono/caption. Both are real `<button>`s — keyboard reachable, `focus-visible` ring.
+2. **Two-pane (≥1280px, Smart).** Click → the source pane loads/scrolls the target chapter, then `document.getElementById('blk-…').scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' })`, applies `.provenance-flash` (accent-wash background fading over 1.6s; reduced-motion → static 2px accent outline for 3s), moves focus to the anchor (`tabIndex={-1}`), and announces via `role="status"`: "Jumped to source — Chapter 12, section ‘Biographical'." The lens pane keeps its scroll position; the reader is never lost.
+3. **Single-pane (mobile / Original-hosted Smart).** Click → `router.navigate('/read/{bookId}/{chapterId}?rep=original&from=smart#blk-{chapterId}-{blockStart}')`. `ReaderView` runs a post-render effect (`useLayoutEffect` + double `requestAnimationFrame`, after canonical blocks mount) that resolves `location.hash`, scrolls with the same behavior/flash/focus rules, then `history.replaceState` keeps the hash canonical. The smart scroll offset was stored (keyed by `sblk` id) before navigating, so **browser Back restores the exact lens position** — the round-trip Source ↔ Lens is a first-class navigation loop. Origin: C (Claude Sonnet 5) — the only blueprint to name the round-trip as a design principle. F independently adds the `sblk-` target that makes it work.
+4. **Copy link.** Every anchor is URL-shareable (`…?rep=original#blk-c12-42`); a "Copy link to source" item sits in the provenance drawer.
 
-Single-pane (mobile / Original-hosted Smart). Click → router.navigate('/read/{bookId}/{chapterId}?rep=original&from=smart#blk-{chapterId}-{blockStart}'). ReaderView runs a post-render effect (useLayoutEffect + double requestAnimationFrame, after canonical blocks mount) that resolves location.hash, scrolls with the same behavior/flash/focus rules, then history.replaceState keeps the hash canonical. The smart scroll offset was stored (keyed by sblk id) before navigating, so browser Back restores the exact lens position — the round-trip Source ↔ Lens is a first-class navigation loop. Origin: C (Claude Sonnet 5) — the only blueprint to name the round-trip as a design principle. F independently adds the sblk- target that makes it work.
+### §3.4 — State and persistence map
 
-Copy link. Every anchor is URL-shareable (…?rep=original#blk-c12-42); a "Copy link to source" item sits in the provenance drawer.
+All persistence flows through `zustand persist`, namespaced under `sr.`. Nothing else writes to localStorage. This is the full map.
 
-§3.4 — State and persistence map
-All persistence flows through zustand persist, namespaced under sr.. Nothing else writes to localStorage. This is the full map.
+| Key | Shape | Feeds |
+|---|---|---|
+| `sr.theme` | `'default' \| 'warm' \| 'dark' \| 'glass'` | `data-theme` on `<html>` |
+| `sr.reader.prefs` | `{ repModeByBook: Record<string, 'original' \| 'smart'>, fontSize: number (16–22), align: 'left' \| 'justify' }` | Toggle default, `Aa` popover |
+| `sr.progress` | `{ lastRead: { bookId, chapterId }, scrollByChapter: Record<string, number> }` | Resume reading, scroll restore (§8.5) |
+| `sr.onboarding` | `{ aiModeChosen: boolean }` | Gates the first-run `AiSelectionModal` |
 
-Key	Shape	Feeds
-sr.theme	'default' | 'warm' | 'dark' | 'glass'	data-theme on <html>
-sr.reader.prefs	{ repModeByBook: Record<string, 'original' | 'smart'>, fontSize: number (16–22), align: 'left' | 'justify' }	Toggle default, Aa popover
-sr.progress	{ lastRead: { bookId, chapterId }, scrollByChapter: Record<string, number> }	Resume reading, scroll restore (§8.5)
-sr.onboarding	{ aiModeChosen: boolean }	Gates the first-run AiSelectionModal
-Server state is owned entirely by React Query: books, chapters, representations, outlines, jobs, semantic status. The UI is always a projection of real state, never of innerHTML string building. Cache invalidation on mutation success is the contract: invalidateQueries(['books']) after import, ['representations', id] after synthesis, ['jobs'] while any job is active.
+Server state is owned entirely by React Query: books, chapters, representations, outlines, jobs, semantic status. The UI is always a projection of real state, never of `innerHTML` string building. Cache invalidation on mutation success is the contract: `invalidateQueries(['books'])` after import, `['representations', id]` after synthesis, `['jobs']` while any job is active.
 
 No other persistence. No session cookies, no IndexedDB, no additional localStorage keys without a documented update to this section.
 
