@@ -1,0 +1,210 @@
+/* Fonts — same trio as vanilla + mono. Keep preconnect links in index.html. */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* The only other CSS file in the app: canonical block / prose styling. */
+@import './canonical.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Theme tokens: RGB triplets; consumed as rgb(var(--t) / alpha) ── */
+
+:root,
+[data-theme='default'] {
+  color-scheme: light;
+  --bg: 247 246 242;
+  --surface: 255 255 255;
+  --panel: 253 253 252;
+  --subtle: 240 238 233;
+  --line: 229 226 218;
+  --line-strong: 210 206 195;
+  --ink: 28 31 36;
+  --ink-muted: 94 100 110;
+  --ink-light: 137 143 153;
+  --brand: 41 56 69;
+  --accent: 196 109 59;
+  --accent-ink: 161 82 37;
+  --accent-wash: 244 233 223;
+  --ok: 47 125 92;
+  --warn: 176 122 46;
+  --err: 178 59 69;
+  --shadow-sm: 0 1px 2px rgb(28 31 36 / 0.05);
+  --shadow-md: 0 2px 8px rgb(28 31 36 / 0.08);
+  --shadow-lg: 0 8px 24px rgb(28 31 36 / 0.10);
+}
+
+[data-theme='warm'] {
+  color-scheme: light;
+  --bg: 243 234 217;
+  --surface: 250 244 230;
+  --panel: 247 240 223;
+  --subtle: 236 225 203;
+  --line: 224 211 184;
+  --line-strong: 203 185 149;
+  --ink: 59 47 34;
+  --ink-muted: 111 95 73;
+  --ink-light: 149 132 107;
+  --brand: 92 70 50;
+  --accent: 161 92 47;
+  --accent-ink: 143 77 36;
+  --accent-wash: 234 217 194;
+  --ok: 85 122 74;
+  --warn: 160 107 35;
+  --err: 168 64 63;
+  --shadow-sm: 0 1px 2px rgb(58 47 34 / 0.06);
+  --shadow-md: 0 2px 8px rgb(58 47 34 / 0.09);
+  --shadow-lg: 0 8px 24px rgb(58 47 34 / 0.12);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: 21 23 28;
+  --surface: 28 31 38;
+  --panel: 25 28 34;
+  --subtle: 35 39 47;
+  --line: 44 49 58;
+  --line-strong: 58 65 76;
+  --ink: 231 229 223;
+  --ink-muted: 167 171 179;
+  --ink-light: 125 130 139;
+  --brand: 62 80 96;
+  --accent: 208 138 90;
+  --accent-ink: 224 160 117;
+  --accent-wash: 51 38 29;
+  --ok: 102 176 138;
+  --warn: 208 162 79;
+  --err: 212 112 122;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.40);
+  --shadow-md: 0 2px 10px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 8px 28px rgb(0 0 0 / 0.50);
+}
+
+[data-theme='glass'] {
+  color-scheme: light;
+  --bg: 233 231 225;
+  --surface: 255 255 255;
+  --panel: 255 255 255;
+  --subtle: 255 255 255;
+  --line: 255 255 255;
+  --line-strong: 28 31 36;
+  --ink: 28 31 36;
+  --ink-muted: 76 82 91;
+  --ink-light: 115 122 132;
+  --brand: 41 56 69;
+  --accent: 179 95 49;
+  --accent-ink: 156 79 36;
+  --accent-wash: 196 109 59;
+  --ok: 47 125 92;
+  --warn: 160 107 35;
+  --err: 178 59 69;
+  /* Frost alphas */
+  --surface-alpha: 0.72;
+  --panel-alpha: 0.55;
+  --subtle-alpha: 0.40;
+  --line-alpha: 0.65;
+  --line-strong-alpha: 0.14;
+  --accent-wash-alpha: 0.12;
+  --glass-blur: blur(16px) saturate(180%);
+  --glass-gradient: linear-gradient(165deg, #dfe7ee 0%, #efe9dc 48%, #e3e9ef 100%);
+  --shadow-sm: 0 1px 2px rgb(28 31 36 / 0.06);
+  --shadow-md: 0 8px 32px rgb(28 31 36 / 0.12);
+  --shadow-lg: 0 12px 40px rgb(28 31 36 / 0.16);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: rgb(var(--bg));
+    color: rgb(var(--ink));
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    min-height: 100dvh;
+  }
+
+  [data-theme='glass'] body {
+    background-image: var(--glass-gradient);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgb(var(--accent-wash) / var(--accent-wash-alpha, 1));
+    color: rgb(var(--ink));
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
+  }
+
+  .theme-transition,
+  .theme-transition * {
+    transition:
+      background-color 220ms cubic-bezier(0.2, 0, 0, 1),
+      color 220ms cubic-bezier(0.2, 0, 0, 1),
+      border-color 220ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    [data-theme='glass'] {
+      --surface-alpha: 1;
+      --panel-alpha: 1;
+      --subtle-alpha: 1;
+      --line-alpha: 1;
+      --line-strong-alpha: 1;
+      --accent-wash-alpha: 1;
+      --glass-blur: none;
+    }
+    [data-theme='glass'] body { background-image: none; }
+  }
+}
+
+/* Semantic utility classes mapping to Blueprint design tokens */
+@layer utilities {
+  .bg-app { background-color: rgb(var(--bg)); }
+  .bg-surface { background-color: rgb(var(--surface) / var(--surface-alpha, 1)); }
+  .bg-card { background-color: rgb(var(--surface) / var(--surface-alpha, 1)); }
+  .bg-panel { background-color: rgb(var(--panel) / var(--panel-alpha, 1)); }
+  .bg-subtle { background-color: rgb(var(--subtle) / var(--subtle-alpha, 1)); }
+  .bg-brand { background-color: rgb(var(--brand)); }
+  .bg-accent { background-color: rgb(var(--accent)); }
+  .bg-accent-wash { background-color: rgb(var(--accent-wash) / var(--accent-wash-alpha, 1)); }
+  .bg-ok { background-color: rgb(var(--ok)); }
+  .bg-warn { background-color: rgb(var(--warn)); }
+  .bg-err { background-color: rgb(var(--err)); }
+
+  .border-line { border-color: rgb(var(--line)); }
+  .border-line-strong { border-color: rgb(var(--line-strong)); }
+  .border-accent { border-color: rgb(var(--accent)); }
+
+  .text-ink { color: rgb(var(--ink)); }
+  .text-ink-muted, .text-muted { color: rgb(var(--ink-muted)); }
+  .text-ink-light, .text-faint { color: rgb(var(--ink-light)); }
+  .text-brand { color: rgb(var(--brand)); }
+  .text-accent { color: rgb(var(--accent)); }
+  .text-accent-ink { color: rgb(var(--accent-ink)); }
+  .text-ok { color: rgb(var(--ok)); }
+  .text-warn { color: rgb(var(--warn)); }
+  .text-err { color: rgb(var(--err)); }
+
+  .font-display { font-family: 'Cinzel', 'Lora', Georgia, serif; }
+  .font-reading { font-family: 'Lora', Georgia, 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif; }
+  .font-ui { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  .font-mono { font-family: 'JetBrains Mono', Consolas, monospace; }
+}
+
