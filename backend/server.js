@@ -13,8 +13,15 @@ const semanticRoutes = require('./routes/semanticRoutes');
 const synthesisRoutes = require('./routes/synthesisRoutes');
 const aiService = require('./services/ai/aiService');
 const bookService = require('./services/bookService');
+const embeddingService = require('./services/semantic/embeddingService');
 
 const app = express();
+
+// Warm up BGE-M3 model in background
+const t0 = Date.now();
+embeddingService.warmup()
+  .then(() => console.log(`[Boot] BGE-M3 ready in ${Date.now() - t0}ms`))
+  .catch((err) => console.error('[Boot] BGE-M3 warmup failed:', err.message));
 
 // Initialize DB schema
 getDatabase();

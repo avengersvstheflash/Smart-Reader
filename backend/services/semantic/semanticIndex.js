@@ -129,6 +129,8 @@ class SemanticIndex {
     const scored = [];
     for (const chunk of candidates) {
       if (!chunk.embedding || !Array.isArray(chunk.embedding)) continue;
+      // Filter out stale or dimension-mismatched vectors (e.g. legacy 256d vs 1024d)
+      if (chunk.embedding.length !== queryVector.length) continue;
 
       const score = embeddingService.cosineSimilarity(queryVector, chunk.embedding);
       if (score >= threshold) {
@@ -145,6 +147,14 @@ class SemanticIndex {
     return scored.slice(0, topK);
   }
 
+  // Check if a book's chunks have stale embedding dimensions
+  isBookIndexStale(bookId) {
+    const chunks = semanticChunkRepository.getByBookId(bookId);
+    if (!chunks || chunks.length === 0) return false;
+    const currentDim = embeddingService.getDimension();
+    return chunks.some((c) => c.embedding && Array.isArray(c.embedding) && c.embedding.length !== currentDim);
+  }
+
   // Get index statistics for a book
   getStats(bookId) {
     const count = semanticChunkRepository.countByBookId(bookId);
@@ -156,6 +166,7 @@ class SemanticIndex {
       chunkCount: count,
       totalChunks: count,
       dimensions: 256,
+      dimensions: embeddingService.getDimension(),
       status: book ? book.semantic_status : 'unknown',
       indexedAt: book ? book.semantic_indexed_at : null,
       provider: embeddingService.getProviderName(),

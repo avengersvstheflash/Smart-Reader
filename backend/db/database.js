@@ -243,12 +243,16 @@ function initSchema(db) {
   }
 
   // Ensure provenance columns exist on semantic_chunks table
+  // Ensure provenance and embedding_model columns exist on semantic_chunks table
   const chunkCols = db.prepare(`PRAGMA table_info(semantic_chunks)`).all();
   if (!chunkCols.some(c => c.name === 'source_page')) {
     db.exec(`ALTER TABLE semantic_chunks ADD COLUMN source_page INTEGER;`);
   }
   if (!chunkCols.some(c => c.name === 'structural_role')) {
     db.exec(`ALTER TABLE semantic_chunks ADD COLUMN structural_role TEXT DEFAULT 'body';`);
+  }
+  if (!chunkCols.some(c => c.name === 'embedding_model')) {
+    db.exec(`ALTER TABLE semantic_chunks ADD COLUMN embedding_model TEXT DEFAULT 'bge-m3';`);
   }
 
   // Ensure type column exists on editorial_outlines
