@@ -28,6 +28,7 @@ yarn-error.log*
 coverage/
 .pytest_cache/
 temp/
+tmp/
 examples/output_*
 
 # IDE / OS
