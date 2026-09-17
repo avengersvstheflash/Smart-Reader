@@ -29,6 +29,7 @@ coverage/
 .pytest_cache/
 temp/
 tmp/
+scratch/
 examples/output_*
 
 # IDE / OS
