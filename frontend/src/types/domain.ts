@@ -61,17 +61,165 @@ export function normalizeBook(raw: RawBook): Book {
   };
 }
 
+export type CanonicalBlockType =
+  | 'paragraph'
+  | 'heading'
+  | 'quote'
+  | 'list'
+  | 'code'
+  | 'separator'
+  | 'callout'
+  | 'table';
+
+export interface ParagraphBlock {
+  id?: string;
+  type: 'paragraph';
+  text: string;
+}
+
+export interface HeadingBlock {
+  id?: string;
+  type: 'heading';
+  level: number;
+  text: string;
+}
+
+export interface QuoteBlock {
+  id?: string;
+  type: 'quote';
+  text: string;
+}
+
+export interface ListBlock {
+  id?: string;
+  type: 'list';
+  ordered?: boolean;
+  items: (string | CanonicalBlock)[];
+}
+
+export interface CodeBlock {
+  id?: string;
+  type: 'code';
+  language?: string;
+  text: string;
+}
+
+export interface SeparatorBlock {
+  id?: string;
+  type: 'separator';
+}
+
+export interface CalloutBlock {
+  id?: string;
+  type: 'callout';
+  variant?: string;
+  title?: string;
+  text?: string;
+}
+
+export interface TableBlock {
+  id?: string;
+  type: 'table';
+  caption?: string;
+  headers?: string[];
+  rows?: string[][];
+  alignments?: ('left' | 'center' | 'right')[];
+}
+
+export type CanonicalBlock =
+  | ParagraphBlock
+  | HeadingBlock
+  | QuoteBlock
+  | ListBlock
+  | CodeBlock
+  | SeparatorBlock
+  | CalloutBlock
+  | TableBlock;
+
 export interface Chapter {
   id: string;
   number: number;
   title: string;
   wordCount: number;
   status: 'unread' | 'reading' | 'read';
+  bookId?: string;
+  content?: string;
+  canonical_content?: string | CanonicalBlock[];
+  canonicalBlocks?: CanonicalBlock[];
+  canonical_blocks?: CanonicalBlock[];
+  structuralRole?: string;
 }
 
-export interface CanonicalBlock {
-  type: 'paragraph' | 'heading' | 'quote' | 'list' | 'code' | 'separator' | 'callout' | 'table';
-  [key: string]: unknown;
+export interface RawChapter {
+  id: string;
+  book_id?: string;
+  bookId?: string;
+  number: number;
+  title: string;
+  word_count?: number;
+  wordCount?: number;
+  status?: 'unread' | 'reading' | 'read' | string;
+  content?: string;
+  canonical_content?: string | CanonicalBlock[];
+  canonicalContent?: string | CanonicalBlock[];
+  canonical_blocks?: CanonicalBlock[];
+  canonicalBlocks?: CanonicalBlock[];
+  structural_role?: string;
+  structuralRole?: string;
+  has_summary?: number | boolean;
+}
+
+export function normalizeChapter(raw: RawChapter): Chapter {
+  let parsedCanonical: CanonicalBlock[] | undefined = undefined;
+
+  if (Array.isArray(raw.canonicalBlocks)) {
+    parsedCanonical = raw.canonicalBlocks;
+  } else if (Array.isArray(raw.canonical_blocks)) {
+    parsedCanonical = raw.canonical_blocks;
+  } else if (typeof raw.canonical_content === 'string') {
+    try {
+      const parsed = JSON.parse(raw.canonical_content);
+      if (Array.isArray(parsed)) {
+        parsedCanonical = parsed as CanonicalBlock[];
+      }
+    } catch {
+      parsedCanonical = undefined;
+    }
+  } else if (Array.isArray(raw.canonical_content)) {
+    parsedCanonical = raw.canonical_content;
+  }
+
+  const rawStatus = raw.status;
+  const status: 'unread' | 'reading' | 'read' =
+    rawStatus === 'reading' || rawStatus === 'read' ? rawStatus : 'unread';
+
+  return {
+    id: raw.id,
+    bookId: raw.bookId || raw.book_id,
+    number: raw.number,
+    title: raw.title || `Chapter ${raw.number}`,
+    wordCount: raw.wordCount ?? raw.word_count ?? 0,
+    status,
+    content: raw.content,
+    canonical_content: parsedCanonical || raw.canonical_content,
+    canonicalBlocks: parsedCanonical || [],
+    canonical_blocks: parsedCanonical || [],
+    structuralRole: raw.structuralRole || raw.structural_role,
+  };
+}
+
+export interface ChapterRepresentation {
+  id: string;
+  chapter_id?: string;
+  chapterId?: string;
+  book_id: string;
+  bookId?: string;
+  type: string;
+  content: string;
+  metadata_json?: string;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  createdAt?: string;
 }
 
 export interface ProvenanceRef {
