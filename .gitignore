@@ -40,3 +40,6 @@ Thumbs.db
 
 # AI Studio exports
 *.zip
+
+# Session logs — local personal diary, not shared
+docs/session-logs/
