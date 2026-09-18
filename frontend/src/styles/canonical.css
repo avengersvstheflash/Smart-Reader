@@ -75,3 +75,84 @@
   letter-spacing: 0.04em;
 }
 
+/* Canonical block typography — explicit so Tailwind Typography's
+   :where() selectors can't be suppressed by intermediate wrappers. */
+.prose-reader .canonical-block p {
+  margin: 1.25em 0;
+}
+.prose-reader .canonical-block h2 {
+  font-family: Lora, Georgia, serif;
+  font-size: 1.4em;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.75em 0 0.6em;
+  color: rgb(var(--ink));
+}
+.prose-reader .canonical-block h3 {
+  font-family: Lora, Georgia, serif;
+  font-size: 1.2em;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 1.5em 0 0.5em;
+  color: rgb(var(--ink));
+}
+.prose-reader .canonical-block h4 {
+  font-family: Lora, Georgia, serif;
+  font-size: 1.05em;
+  font-weight: 600;
+  margin: 1.25em 0 0.4em;
+  color: rgb(var(--ink));
+}
+.prose-reader .canonical-block ul,
+.prose-reader .canonical-block ol {
+  margin: 1.25em 0;
+  padding-left: 1.75em;
+}
+.prose-reader .canonical-block ul { list-style-type: disc; }
+.prose-reader .canonical-block ol { list-style-type: decimal; }
+.prose-reader .canonical-block li {
+  margin: 0.5em 0;
+  padding-left: 0.25em;
+}
+.prose-reader .canonical-block li::marker {
+  color: rgb(var(--ink-light));
+}
+.prose-reader .canonical-block blockquote {
+  margin: 1.5em 0;
+  padding: 0.25em 0 0.25em 1.1em;
+  border-left: 3px solid rgb(var(--line-strong));
+  font-style: italic;
+  color: rgb(var(--ink-muted));
+}
+.prose-reader .canonical-block blockquote p {
+  margin: 0.5em 0;
+}
+.prose-reader .canonical-block hr {
+  margin: 2em 0;
+  border: 0;
+  border-top: 1px solid rgb(var(--line));
+}
+.prose-reader .canonical-block pre {
+  margin: 1.5em 0;
+  padding: 0.9em 1em;
+  background: rgb(var(--subtle));
+  border: 1px solid rgb(var(--line));
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.85em;
+}
+.prose-reader .canonical-block code {
+  font-family: 'JetBrains Mono', Consolas, monospace;
+}
+.prose-reader .canonical-block :not(pre) > code {
+  background: rgb(var(--subtle));
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+/* First child of the article: no top margin */
+.prose-reader > .canonical-block:first-of-type > :first-child {
+  margin-top: 0;
+}
+
+

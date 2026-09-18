@@ -1,4 +1,5 @@
 import React from 'react';
+import { Feather } from 'lucide-react';
 import { Chapter } from '../../types/domain';
 import { CanonicalBlock } from './CanonicalBlock';
 
@@ -58,7 +59,16 @@ export function ReaderView({
           )}
         </>
       ) : (
-        <div className="text-muted italic">Smart mode wires in B3.</div>
+        <div className="flex flex-col items-center justify-center text-center py-16 px-6">
+          <Feather className="w-8 h-8 text-faint mb-4" aria-hidden="true" />
+          <h2 className="text-h3 font-semibold text-ink mb-2">
+            Smart Reading hasn't been generated yet
+          </h2>
+          <p className="text-body text-ink-muted max-w-md">
+            A derived lens over this chapter. Generation wiring arrives in
+            the next phase.
+          </p>
+        </div>
       )}
     </article>
   );
