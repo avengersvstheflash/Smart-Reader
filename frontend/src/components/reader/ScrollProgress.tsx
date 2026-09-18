@@ -1,4 +1,3 @@
-export const ScrollProgress = () => null;
 import React, { useEffect, useRef } from 'react';
 
 export function ScrollProgress({
