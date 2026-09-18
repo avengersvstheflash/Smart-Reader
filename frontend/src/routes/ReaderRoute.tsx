@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   BookOpenText,
@@ -9,6 +9,12 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useChapters, useChapter } from '../hooks/useChapters';
+import {
+  useEditorial,
+  useEditorialProgress,
+  useGenerateOutline,
+  useSynthesizeNext,
+} from '../hooks/useEditorial';
 import { useReaderStore } from '../store/useReaderStore';
 import { ReaderView } from '../components/reader/ReaderView';
 import { ChapterNav } from '../components/reader/ChapterNav';
@@ -50,6 +56,31 @@ export default function ReaderRoute() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  const {
+    chapters,
+    isLoading: isChaptersLoading,
+    isError: isChaptersError,
+    error: chaptersError,
+    refetch: refetchChapters,
+  } = useChapters(bookId);
+
+  const {
+    chapter,
+    representations,
+    isLoading: isChapterLoading,
+    isError: isChapterError,
+    error: chapterError,
+    refetch: refetchChapter,
+  } = useChapter(chapterId);
+
+  const activeRepresentation = useMemo(() => {
+    if (!representations || representations.length === 0) return null;
+    // Prefer EDITORIAL_SYNTHESIS, fall back to SUMMARY
+    const editorial = representations.find((r) => r.type === 'EDITORIAL_SYNTHESIS');
+    const summary = representations.find((r) => r.type === 'SUMMARY');
+    return editorial ?? summary ?? representations[0];
+  }, [representations]);
+
   const rawRep = searchParams.get('rep');
   const repInUrl: 'original' | 'smart' | null =
     rawRep === 'original' || rawRep === 'smart' ? rawRep : null;
@@ -61,7 +92,12 @@ export default function ReaderRoute() {
   const fontSize = useReaderStore((state) => state.fontSize);
   const align = useReaderStore((state) => state.align);
 
-  const mode: 'original' | 'smart' = repInUrl ?? storedMode ?? 'original';
+  // Auto-detect: if the current chapter has a representation and the
+  // user hasn't explicitly chosen a mode for this book, default to Smart.
+  const storedModeExplicit = storedMode && useReaderStore.getState().repModeByBook[bookId];
+  const inferredMode: 'original' | 'smart' =
+    activeRepresentation ? 'smart' : 'original';
+  const mode: 'original' | 'smart' = repInUrl ?? (storedModeExplicit ? storedMode : inferredMode);
 
   const { direction, isAtTop } = useScrollDirection();
   const navVisible = direction === 'up' || isAtTop;
@@ -97,29 +133,73 @@ export default function ReaderRoute() {
   };
 
   const {
-    chapters,
-    isLoading: isChaptersLoading,
-    isError: isChaptersError,
-    error: chaptersError,
-    refetch: refetchChapters,
-  } = useChapters(bookId);
+    outline,
+    chapterCount: outlineChapterCount,
+    synthesizedCount,
+    refetch: refetchEditorial,
+  } = useEditorial(bookId);
+
+  const hasOutline = Boolean(outline);
+
+  const [generating, setGenerating] = useState(false);
+  const [batchTotal, setBatchTotal] = useState(0);
+
+  useEffect(() => {
+    if (!generating) return;
+    const t = setTimeout(() => {
+      console.warn('[Editorial] generating flag held > 5min, clearing');
+      setGenerating(false);
+    }, 5 * 60 * 1000);
+    return () => clearTimeout(t);
+  }, [generating]);
+
+  const generateOutline = useGenerateOutline(bookId);
+  const synthesizeNext = useSynthesizeNext(bookId);
 
   const {
-    chapter,
-    representations,
-    isLoading: isChapterLoading,
-    isError: isChapterError,
-    error: chapterError,
-    refetch: refetchChapter,
-  } = useChapter(chapterId);
+    synthesized: progressSynthesized,
+    total: progressTotal,
+  } = useEditorialProgress(bookId, generating);
 
-  const activeRepresentation = useMemo(() => {
-    if (!representations || representations.length === 0) return null;
-    // Prefer EDITORIAL_SYNTHESIS, fall back to SUMMARY
-    const editorial = representations.find((r) => r.type === 'EDITORIAL_SYNTHESIS');
-    const summary = representations.find((r) => r.type === 'SUMMARY');
-    return editorial ?? summary ?? representations[0];
-  }, [representations]);
+  const remaining = Math.max(0, (outlineChapterCount ?? 0) - (synthesizedCount ?? 0));
+
+  const currentChapterHasRepresentation = Boolean(activeRepresentation);
+
+  const reallyRemaining = currentChapterHasRepresentation
+    ? remaining
+    : Math.max(remaining, 1); // ensure the buttons render
+
+  const handleBeginSmartReading = async () => {
+    if (generating) return;
+    try {
+      setGenerating(true);
+      await generateOutline.mutateAsync();
+      await synthesizeNext.mutateAsync({ count: 3 });
+    } catch (err) {
+      console.error('[Editorial] generation failed', err);
+    } finally {
+      setGenerating(false);
+      setBatchTotal(0);
+      refetchChapter();
+      refetchEditorial();
+    }
+  };
+
+  const handleGenerate = async (count: number) => {
+    if (generating) return;
+    try {
+      setGenerating(true);
+      setBatchTotal(count);
+      await synthesizeNext.mutateAsync({ count });
+    } catch (err) {
+      console.error('[Editorial] synthesize failed', err);
+    } finally {
+      setGenerating(false);
+      setBatchTotal(0);
+      refetchChapter();
+      refetchEditorial();
+    }
+  };
 
   const isLoading = isChaptersLoading || isChapterLoading;
   const isError = isChaptersError || isChapterError;
@@ -268,6 +348,20 @@ export default function ReaderRoute() {
             mode={mode}
             fontSize={fontSize}
             align={align}
+            smartState={{
+              hasOutline,
+              remaining: reallyRemaining,
+              busy: generating,
+              progress:
+                generating && progressTotal > 0
+                  ? {
+                      synthesized: progressSynthesized,
+                      total: batchTotal > 0 ? Math.min(progressTotal, synthesizedCount + batchTotal) : progressTotal,
+                    }
+                  : null,
+              onGenerate: handleGenerate,
+              onBeginSmartReading: handleBeginSmartReading,
+            }}
           />
         )}
       </div>
