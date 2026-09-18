@@ -102,7 +102,7 @@ export function ChapterNav({
   return (
     <nav
       aria-label="Chapter navigation"
-      className="relative flex items-center justify-between border-t border-line bg-card/60 px-4 py-2"
+      className="relative flex items-center justify-between border-t border-line bg-card px-4 py-2"
     >
       {/* Prev Button */}
       <button

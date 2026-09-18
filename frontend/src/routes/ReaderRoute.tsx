@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   BookOpenText,
@@ -14,6 +14,7 @@ import { ReaderView } from '../components/reader/ReaderView';
 import { ChapterNav } from '../components/reader/ChapterNav';
 import { ScrollProgress } from '../components/reader/ScrollProgress';
 import { EmptyState } from '../components/shared/EmptyState';
+import { useScrollDirection } from '../hooks/useScrollDirection';
 
 function ReaderSkeleton() {
   return (
@@ -62,6 +63,9 @@ export default function ReaderRoute() {
 
   const mode: 'original' | 'smart' = repInUrl ?? storedMode ?? 'original';
 
+  const { direction, isAtTop } = useScrollDirection();
+  const navVisible = direction === 'up' || isAtTop;
+
   useEffect(() => {
     if (!bookId) return;
 
@@ -102,11 +106,20 @@ export default function ReaderRoute() {
 
   const {
     chapter,
+    representations,
     isLoading: isChapterLoading,
     isError: isChapterError,
     error: chapterError,
     refetch: refetchChapter,
   } = useChapter(chapterId);
+
+  const activeRepresentation = useMemo(() => {
+    if (!representations || representations.length === 0) return null;
+    // Prefer EDITORIAL_SYNTHESIS, fall back to SUMMARY
+    const editorial = representations.find((r) => r.type === 'EDITORIAL_SYNTHESIS');
+    const summary = representations.find((r) => r.type === 'SUMMARY');
+    return editorial ?? summary ?? representations[0];
+  }, [representations]);
 
   const isLoading = isChaptersLoading || isChapterLoading;
   const isError = isChaptersError || isChapterError;
@@ -196,7 +209,7 @@ export default function ReaderRoute() {
       <ScrollProgress />
 
       {/* Main Reading Canvas */}
-      <div className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 py-6">
+      <div className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-6 pb-24">
         {/* Top bar with Back Link and Mode Toggle */}
         <div className="flex items-center justify-between py-2 mb-6 border-b border-line/60">
           <button
@@ -251,6 +264,7 @@ export default function ReaderRoute() {
         ) : (
           <ReaderView
             chapter={chapter}
+            representation={activeRepresentation}
             mode={mode}
             fontSize={fontSize}
             align={align}
@@ -260,7 +274,11 @@ export default function ReaderRoute() {
 
       {/* Chapter Navigation Bar */}
       {chapters.length > 0 && (
-        <div className="sticky bottom-0 z-20 w-full">
+        <div
+          className={`sticky bottom-0 z-20 w-full transition-transform duration-200 ease-out motion-reduce:transition-none ${
+            navVisible ? 'translate-y-0' : 'translate-y-full'
+          }`}
+        >
           <ChapterNav
             chapters={chapters}
             currentId={chapterId}

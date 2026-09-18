@@ -1,6 +1,6 @@
 /* Reader prose: map @tailwindcss/typography onto theme tokens.
    Applied as: <article class="prose prose-reader"> */
-.prose-reader {
+article.prose.prose-reader {
   --tw-prose-body: rgb(var(--ink));
   --tw-prose-headings: rgb(var(--ink));
   --tw-prose-lead: rgb(var(--ink-muted));
@@ -20,6 +20,10 @@
   max-width: 34em;
   font-size: var(--reading-size, 1.125rem);
   line-height: 1.75;
+}
+
+article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
+  color: rgb(var(--ink));
 }
 
 /* Japanese source text: mincho fallback already in stack; give it air. */
