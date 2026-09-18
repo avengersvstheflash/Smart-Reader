@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useBook, useBookSummary, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
+import { useModal } from '../store/useModalStore';
 import { getCoverTheme, formatReadingTime } from '../components/library/BookCard';
 import { EmptyState } from '../components/shared/EmptyState';
 
@@ -73,6 +74,7 @@ function BookDetailsSkeleton() {
 export default function BookDetailsRoute() {
   const { bookId = '' } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
+  const { open } = useModal();
 
   const {
     book,
@@ -420,9 +422,13 @@ export default function BookDetailsRoute() {
               <div className="pt-2">
                 <button
                   type="button"
-                  disabled
-                  title="Available in a later phase"
-                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded border border-dashed border-line text-caption text-ink-faint disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() =>
+                    open('addChapter', {
+                      bookId: book.id,
+                      nextNumber: chapters.length + 1,
+                    })
+                  }
+                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded border border-dashed border-line text-caption text-ink hover:bg-subtle hover:border-line-strong transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Add chapter</span>
@@ -513,9 +519,14 @@ export default function BookDetailsRoute() {
           <div className="pt-4 border-t border-line/40">
             <button
               type="button"
-              disabled
-              title="Available in a later phase"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium rounded border border-err/30 text-err bg-err/5 hover:bg-err/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              onClick={() =>
+                open('deleteBook', {
+                  bookId: book.id,
+                  bookTitle: book.title,
+                  chapterCount: chapters.length,
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-caption font-medium rounded border border-err/30 text-err bg-err/5 hover:bg-err/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-err"
             >
               <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Delete book</span>

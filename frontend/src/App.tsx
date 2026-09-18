@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
+import { ModalHost } from './components/shared/ModalHost';
 import { LibraryRoute } from './routes/LibraryRoute';
 import BookDetailsRoute from './routes/BookDetailsRoute';
 import ReaderRoute from './routes/ReaderRoute';
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/book/:bookId" element={<BookDetailsRoute />} />
             <Route path="/read/:bookId/:chapterId" element={<ReaderRoute />} />
           </Routes>
+          <ModalHost />
         </Layout>
       </BrowserRouter>
     </QueryClientProvider>
