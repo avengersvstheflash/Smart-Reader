@@ -1,5 +1,3 @@
-import React from 'react';
-import { Feather } from 'lucide-react';
 import {
   Chapter,
   ChapterRepresentation,
@@ -7,6 +5,7 @@ import {
   parseRepresentationMetadata,
 } from '../../types/domain';
 import { CanonicalBlock } from './CanonicalBlock';
+import { SmartEmptyState } from './SmartEmptyState';
 
 function getSmartBlocks(representation: ChapterRepresentation | null): CanonicalBlockType[] {
   if (!representation) return [];
@@ -28,12 +27,21 @@ export function ReaderView({
   mode,
   fontSize,
   align,
+  smartState,
 }: {
   chapter: Chapter;
   representation: ChapterRepresentation | null;
   mode: 'original' | 'smart';
   fontSize: number;
   align: 'left' | 'justify';
+  smartState?: {
+    hasOutline: boolean;
+    remaining: number;
+    busy: boolean;
+    progress: { synthesized: number; total: number } | null;
+    onGenerate: (n: number) => void;
+    onBeginSmartReading: () => void;
+  };
 }) {
   const wordCount = chapter.wordCount ?? 0;
   const minutes = Math.max(1, Math.round(wordCount / 200));
@@ -115,17 +123,24 @@ export function ReaderView({
             </div>
           ))}
         </div>
+      ) : smartState ? (
+        <SmartEmptyState
+          hasOutline={smartState.hasOutline}
+          remaining={smartState.remaining}
+          busy={smartState.busy}
+          progress={smartState.progress}
+          onGenerate={smartState.onGenerate}
+          onBeginSmartReading={smartState.onBeginSmartReading}
+        />
       ) : (
-        <div className="flex flex-col items-center justify-center text-center py-16 px-6">
-          <Feather className="w-8 h-8 text-faint mb-4" aria-hidden="true" />
-          <h2 className="text-h3 font-semibold text-ink mb-2">
-            Smart Reading hasn't been generated yet
-          </h2>
-          <p className="text-body text-ink-muted max-w-md">
-            Chapters written from the source, every line traceable back to it.
-            The original is never modified.
-          </p>
-        </div>
+        <SmartEmptyState
+          hasOutline={false}
+          remaining={0}
+          busy={false}
+          progress={null}
+          onGenerate={() => {}}
+          onBeginSmartReading={() => {}}
+        />
       )}
     </article>
   );
