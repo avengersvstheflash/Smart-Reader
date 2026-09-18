@@ -1,4 +1,3 @@
-export const ReaderView = () => null;
 import React from 'react';
 import { Chapter } from '../../types/domain';
 import { CanonicalBlock } from './CanonicalBlock';

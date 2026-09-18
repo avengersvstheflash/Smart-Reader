@@ -1,4 +1,3 @@
-export const ChapterNav = () => null;
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Chapter } from '../../types/domain';
