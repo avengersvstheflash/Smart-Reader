@@ -132,15 +132,17 @@ export function Modal({
       <div
         className="fixed inset-0 bg-ink/40 backdrop-blur-[2px] z-40"
         aria-hidden="true"
-        onClick={() => {
-          if (closeOnBackdrop) {
-            onClose('backdrop');
-          }
-        }}
       />
 
       {/* Dialog container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && closeOnBackdrop) {
+            onClose('backdrop');
+          }
+        }}
+      >
         {/* Leading Sentinel */}
         <span
           tabIndex={0}
