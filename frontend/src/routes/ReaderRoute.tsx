@@ -1,4 +1,3 @@
-export const ReaderRoute = () => null;
 import { useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
@@ -272,5 +271,3 @@ export default function ReaderRoute() {
     </div>
   );
 }
-
-export { ReaderRoute };

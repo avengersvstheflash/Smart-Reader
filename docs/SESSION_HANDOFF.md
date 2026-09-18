@@ -129,6 +129,11 @@
 
 Every decision serves this.
 
+
+
+Antigravity write hazard. When asked to replace a stub file, Antigravity's tooling sometimes appends the new content to the existing stub instead of overwriting. Always git diff after a "replace" task to confirm the old placeholder line is gone. If a placeholder remains (export const X = () => null; above real code), it's a silent redeclare error that typecheck may not catch if run before the file write completes.
+
+
 ---
 
 *End of handoff. Update at the end of every session.*
