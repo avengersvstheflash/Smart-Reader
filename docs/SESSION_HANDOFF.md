@@ -6,23 +6,20 @@
 
 ## 1. Where we are
 
-**Last shipped commit:** `36fb643` — Phase 1, Library route with real backend data.
-**Last tag:** `v0.4.5` — BGE-M3 1024d embedding provider.
-**Test state:** 13/13 root suites green. Frontend build passes, typecheck 0 errors.
-
-**Repo:** https://github.com/avengersvstheflash/Smart-Reader
-
-**Stack:**
-- Backend: Node 22 + Express + better-sqlite3 + pdfjs-dist
-- AI: OpenRouter → DeepSeek V4 Flash (text), BGE-M3 1024d (embeddings, local)
-- Frontend: React 18.3.1 + Vite 5.1.6 + TS 5.3.3 strict + Tailwind 3.4.1
-- Allowed deps: `react-router-dom`, `zustand`, `@tanstack/react-query`, `lucide-react`, `@tailwindcss/typography`
-
-**Live:**
-- Backend ingests PDFs/EPUBs/web, chunks, embeds (BGE-M3), outlines, auto-synthesizes 3 Smart Chapters
-- Frontend serves Library route at `localhost:5173` with real backend data via Vite proxy `/api` → `:3000`
-
-**Not yet built:** Reader route (Original + Smart toggle), Canonical block renderer, Import route UI, Research route UI, 11 modals, Progressive Smart Reading UI, Audio (Build 5), Discussion (Build 6), Story (Build 7), Tauri wrap (Phase 4.5 decision gate)
+**Last shipped commit:** `4823f98` — Phase 3 C2, canonical typography.
+**Test state:** 13/13 root suites green. Frontend build passes,
+typecheck 0 errors.
+**Live in browser (`localhost:5173` with backend on `:3000`):**
+- Library → Book Details → Reader works via clicks
+- Book Details: hero with title-hash cover, synopsis panel, chapter
+  list with roving tabindex, semantic intelligence panel with real
+  chunk count from backend
+- Reader: canonical blocks render with correct typography (headings
+  at proper weight, list bullets, blockquote left-rule, code blocks)
+- Original ↔ Smart toggle works; Smart mode shows honest empty state
+- Dark mode persists across all routes
+- Commit history is clean — Phase 1, Phase 2 (B1/B2/B3), Phase 3
+  (C1/C2/C3) each as their own labeled commit
 
 ---
 
@@ -57,23 +54,29 @@
 
 ---
 
-## 4. Tomorrow — Phase 2 (Reader + Canonical)
+## 4. Tomorrow — Phase 3.5 (Modals + Generation wiring)
 
-**Deliverable:** Reading a real chapter from the backend in a browser, with Original/Smart toggle working, canonical blocks rendering.
+**Deliverables:**
+1. `ModalProvider` + `Modal` shell (per spec §S.4.14, §S.5.1)
+2. Wire "Generate synopsis" → `POST /api/books/:id/synopsis`
+3. Wire "Ask this book" → `POST /api/books/:id/ask`
+4. Wire "Attach source" → Supporting Material modal
+5. Wire "Delete book" → ConfirmDelete modal (typed title confirmation
+   for books with >0 chapters, per spec §S.5.1)
+6. Wire "+ Add chapter" → AddChapter modal
+7. Smart mode render: pass representations from `useChapter` into
+   `ReaderView`; render synthesized canonicalBlocks when a representation
+   exists
+8. Smart empty state: `+1 / +3 / +5 / +10` buttons → `POST /api/books/
+   :id/editorial/synthesize-next`, poll `/api/books/:id/editorial/progress`
+   via React Query
 
-**Scope:**
-1. `frontend/src/hooks/useChapters.ts` — React Query: `GET /api/books/:id/chapters`, `GET /api/chapters/:id`
-2. `frontend/src/components/reader/CanonicalBlock.tsx` — recursive renderer (paragraph, heading, quote, list, code, separator, callout, table)
-3. `frontend/src/routes/ReaderRoute.tsx`
-4. `frontend/src/components/reader/ReaderView.tsx` — `<article class="prose prose-reader source-text">`, `id="blk-{chapterId}-{i}"` wrappers
-5. `frontend/src/components/reader/ChapterNav.tsx` — prev/next + jumper (roving tabindex)
-6. `frontend/src/components/reader/ScrollProgress.tsx` — 2px hairline, `aria-hidden`
-7. Original↔Smart toggle in header — `?rep=`, defaults `original`, persists per-book in `sr.reader.prefs`
-8. `frontend/src/store/useReaderStore.ts` — zustand, persisted
+**Model:** Gemini 3.8 Flash · Medium (mechanical). Escalate to Pro High
+only if ModalProvider design stalls.
 
-**Verification:** `cd frontend && npm run dev` → `localhost:5173/read/<bookId>/<chapterId>` → real chapter text → toggle Smart mode.
-
-**Model:** Gemini 3.8 Flash · Medium. Contract in `FRONTEND_BLUEPRINT_SPEC.md` §S.4.8–§S.4.10.
+**Milestone:** every disabled button on Book Details becomes live; the
+two-representation invariant demos end-to-end (Original → Smart with
+real synthesis).
 
 ---
 
@@ -133,6 +136,30 @@ Every decision serves this.
 
 Antigravity write hazard. When asked to replace a stub file, Antigravity's tooling sometimes appends the new content to the existing stub instead of overwriting. Always git diff after a "replace" task to confirm the old placeholder line is gone. If a placeholder remains (export const X = () => null; above real code), it's a silent redeclare error that typecheck may not catch if run before the file write completes.
 
+---
+
+## 8. Known polish items
+
+1. **Chapter word count edge case.** Book `book-1789676305176-jd52f`
+   shows chapter 1 with `4 words` while other chapters show 402. Either
+   the chapter is heading-only (legit) or wordCount normalization is
+   off. Investigate when convenient.
+
+2. **Tailwind Typography plugin registered in C3.** After C3, `.prose`
+   classes emit real styles. C2's explicit `.prose-reader
+   .canonical-block` rules remain as the override layer — do not delete
+   them.
+
+3. **`renderInlineText` is non-recursive.** TODO comment in
+   `CanonicalBlock.tsx` documents this. Sufficient for current content.
+   Replace with a real markdown parser only if nested emphasis shows up
+   in real imported files.
+
+4. **Spec drift noted.** The Original↔Smart toggle in `ReaderRoute.tsx`
+   renders inline above the canvas rather than in the Header's
+   `contextual` slot as spec §3.1 originally suggested. This is a
+   deliberate implementation improvement (mobile-friendlier, keeps the
+   global header clean). Consider updating spec §3.1 to match.
 
 ---
 
