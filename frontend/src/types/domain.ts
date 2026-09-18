@@ -242,3 +242,13 @@ export interface SmartChapter {
   progress?: number;
   representationId?: string;
 }
+
+export interface BookSummary {
+  content: string;
+}
+
+export interface SemanticStatus {
+  chunkCount: number;
+  dimensions?: number;
+  status?: string;
+}
