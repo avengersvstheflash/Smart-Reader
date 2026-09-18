@@ -208,18 +208,38 @@ export function normalizeChapter(raw: RawChapter): Chapter {
   };
 }
 
+export interface RepresentationMetadata {
+  canonicalBlocks?: CanonicalBlock[];
+  provenance?: ProvenanceRef[];
+  provider?: string;
+  model?: string;
+  fell_back?: boolean;
+  [key: string]: unknown;
+}
+
 export interface ChapterRepresentation {
   id: string;
   chapter_id?: string;
   chapterId?: string;
   book_id: string;
   bookId?: string;
-  type: string;
+  type: string;             // 'SUMMARY' | 'EDITORIAL_SYNTHESIS' | ...
   content: string;
-  metadata_json?: string;
-  metadata?: Record<string, unknown>;
+  metadata_json?: string;   // raw JSON from DB
+  metadata?: RepresentationMetadata;  // parsed if available
   created_at?: string;
   createdAt?: string;
+}
+
+export function parseRepresentationMetadata(rep: ChapterRepresentation): RepresentationMetadata {
+  if (rep.metadata && typeof rep.metadata === 'object') return rep.metadata;
+  if (typeof rep.metadata_json === 'string') {
+    try {
+      const parsed = JSON.parse(rep.metadata_json);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch { /* fall through */ }
+  }
+  return {};
 }
 
 export interface ProvenanceRef {

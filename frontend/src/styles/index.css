@@ -174,33 +174,11 @@
   }
 }
 
-/* Semantic utility classes mapping to Blueprint design tokens */
+/* Semantic utility aliases mapping to Blueprint design tokens */
 @layer utilities {
   .bg-app { background-color: rgb(var(--bg)); }
-  .bg-surface { background-color: rgb(var(--surface) / var(--surface-alpha, 1)); }
-  .bg-card { background-color: rgb(var(--surface) / var(--surface-alpha, 1)); }
-  .bg-panel { background-color: rgb(var(--panel) / var(--panel-alpha, 1)); }
-  .bg-subtle { background-color: rgb(var(--subtle) / var(--subtle-alpha, 1)); }
-  .bg-brand { background-color: rgb(var(--brand)); }
-  .bg-accent { background-color: rgb(var(--accent)); }
-  .bg-accent-wash { background-color: rgb(var(--accent-wash) / var(--accent-wash-alpha, 1)); }
-  .bg-ok { background-color: rgb(var(--ok)); }
-  .bg-warn { background-color: rgb(var(--warn)); }
-  .bg-err { background-color: rgb(var(--err)); }
-
-  .border-line { border-color: rgb(var(--line)); }
-  .border-line-strong { border-color: rgb(var(--line-strong)); }
-  .border-accent { border-color: rgb(var(--accent)); }
-
-  .text-ink { color: rgb(var(--ink)); }
-  .text-ink-muted, .text-muted { color: rgb(var(--ink-muted)); }
-  .text-ink-light, .text-faint { color: rgb(var(--ink-light)); }
-  .text-brand { color: rgb(var(--brand)); }
-  .text-accent { color: rgb(var(--accent)); }
-  .text-accent-ink { color: rgb(var(--accent-ink)); }
-  .text-ok { color: rgb(var(--ok)); }
-  .text-warn { color: rgb(var(--warn)); }
-  .text-err { color: rgb(var(--err)); }
+  .text-muted { color: rgb(var(--ink-muted)); }
+  .text-faint { color: rgb(var(--ink-light)); }
 
   .font-display { font-family: 'Cinzel', 'Lora', Georgia, serif; }
   .font-reading { font-family: 'Lora', Georgia, 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif; }
