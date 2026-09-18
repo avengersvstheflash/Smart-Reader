@@ -6,7 +6,7 @@
 
 ## 1. Where we are
 
-**Last shipped commit:** `4823f98` — Phase 3 C2, canonical typography.
+**Last shipped commit:** `6260aa5` — Phase 3.5 D3, progressive Smart generation wiring.
 **Test state:** 13/13 root suites green. Frontend build passes,
 typecheck 0 errors.
 **Live in browser (`localhost:5173` with backend on `:3000`):**
@@ -16,10 +16,15 @@ typecheck 0 errors.
   chunk count from backend
 - Reader: canonical blocks render with correct typography (headings
   at proper weight, list bullets, blockquote left-rule, code blocks)
-- Original ↔ Smart toggle works; Smart mode shows honest empty state
-- Dark mode persists across all routes
-- Commit history is clean — Phase 1, Phase 2 (B1/B2/B3), Phase 3
-  (C1/C2/C3) each as their own labeled commit
+- Reader Smart mode: Smart mode defaults when representation exists;
+  SmartEmptyState shows honest state with +1/+3/+5/+10 buttons and Stop button
+- Progressive synthesis wired to real backend DeepSeek synthesis endpoints
+  with real progress polling and 5-min safety timeout
+- `docs/PRODUCT_VISION.md` added (`f458667`) as North Star governing document
+- **Namespace mismatch identified but unfixed:** editorial synthesis
+  writes representations keyed to synthetic chapter ids
+  (`book-editorial-<bookId>-ch-plan-N`), while reader navigates by source
+  chapter id (`chapterId`). Phase 4 target.
 
 ---
 
@@ -54,29 +59,23 @@ typecheck 0 errors.
 
 ---
 
-## 4. Tomorrow — Phase 3.5 (Modals + Generation wiring)
+## 4. Tomorrow — Phase 4: Namespace fix + Smart-default product reframe
 
-**Deliverables:**
-1. `ModalProvider` + `Modal` shell (per spec §S.4.14, §S.5.1)
-2. Wire "Generate synopsis" → `POST /api/books/:id/synopsis`
-3. Wire "Ask this book" → `POST /api/books/:id/ask`
-4. Wire "Attach source" → Supporting Material modal
-5. Wire "Delete book" → ConfirmDelete modal (typed title confirmation
-   for books with >0 chapters, per spec §S.5.1)
-6. Wire "+ Add chapter" → AddChapter modal
-7. Smart mode render: pass representations from `useChapter` into
-   `ReaderView`; render synthesized canonicalBlocks when a representation
-   exists
-8. Smart empty state: `+1 / +3 / +5 / +10` buttons → `POST /api/books/
-   :id/editorial/synthesize-next`, poll `/api/books/:id/editorial/progress`
-   via React Query
+**Deliverables (in order):**
+1. Backend: editorial chapters must resolve from source chapter ids.
+   Either (a) write per-source-chapter representation keys during
+   synthesis, or (b) add a lookup endpoint that maps source chapter
+   id → editorial representation id. Choose after reading
+   editorialService.js outline creation + metadata_json.provenance.
+2. Frontend: reader uses the mapping so Smart mode shows the real
+   representation for the current source chapter.
+3. Synopsis generation moved to run BEFORE chapters (from preface +
+   TOC + strategic samples per PRODUCT_VISION.md).
+4. Auto-run on import with real progress UI (game-like loading
+   animation driven by processing_jobs).
 
-**Model:** Gemini 3.8 Flash · Medium (mechanical). Escalate to Pro High
-only if ModalProvider design stalls.
-
-**Milestone:** every disabled button on Book Details becomes live; the
-two-representation invariant demos end-to-end (Original → Smart with
-real synthesis).
+**Reference:** docs/PRODUCT_VISION.md supersedes UI-first
+interpretations.
 
 ---
 
@@ -160,6 +159,32 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
    `contextual` slot as spec §3.1 originally suggested. This is a
    deliberate implementation improvement (mobile-friendlier, keeps the
    global header clean). Consider updating spec §3.1 to match.
+
+5. **Editorial-to-source-chapter namespace mismatch (critical).**
+   Editorial synthesis writes representations keyed to synthetic chapter
+   ids (`book-editorial-<bookId>-ch-plan-N`), but reader navigates by
+   source chapter id.
+
+6. **Sentence-level citation enforcement not yet implemented.**
+   Prompt-level citations (`[1]`, `[2]`), 80% validation threshold with
+   automated retry, and UI-level distinction for uncited sentences
+   per `docs/PRODUCT_VISION.md`.
+
+7. **Smart Chapter independent titles not yet implemented.**
+   Smart Chapters to have their own titles, numbering, and length targets.
+
+8. **Synopsis-before-chapters sequencing not yet implemented.**
+   Synopsis to be generated from preface + TOC + strategic samples
+   before chapters synthesize.
+
+9. **Source view text-first rendering not yet implemented.**
+   v1 to render stored parsed text with highlighted target passage
+   instead of in-browser PDF.
+
+10. **Inline source tracker not yet implemented.**
+    Cross-platform interaction pattern (desktop hover/click, tablet
+    tap-and-hold, mobile long-press) opening in-reader source overlay/side
+    panel with round-trip position return.
 
 ---
 
