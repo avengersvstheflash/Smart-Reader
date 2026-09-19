@@ -2,6 +2,48 @@ export type Theme = 'default' | 'warm' | 'dark' | 'glass';
 export type RepMode = 'original' | 'smart';
 export type JobState = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
+export interface Job {
+  id: string;
+  bookId: string;
+  chapterId?: string | null;
+  type: string;
+  status: string;
+  progress: number;
+  error?: string | null;
+  startedAt: string;
+  completedAt?: string | null;
+}
+
+export interface RawJob {
+  id: string;
+  book_id?: string | null;
+  bookId?: string | null;
+  chapter_id?: string | null;
+  chapterId?: string | null;
+  type: string;
+  status: string;
+  progress?: number | null;
+  error?: string | null;
+  started_at?: string;
+  startedAt?: string;
+  completed_at?: string | null;
+  completedAt?: string | null;
+}
+
+export function normalizeJob(raw: RawJob): Job {
+  return {
+    id: raw.id,
+    bookId: raw.bookId || raw.book_id || '',
+    chapterId: raw.chapterId || raw.chapter_id || null,
+    type: raw.type,
+    status: raw.status,
+    progress: typeof raw.progress === 'number' ? raw.progress : 0,
+    error: raw.error || null,
+    startedAt: raw.startedAt || raw.started_at || '',
+    completedAt: raw.completedAt || raw.completed_at || null,
+  };
+}
+
 export interface Book {
   id: string;
   title: string;

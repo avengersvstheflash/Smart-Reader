@@ -1,10 +1,11 @@
-export const ImportRoute = () => null;
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, RotateCw, CheckCircle2, ArrowRight, PlusCircle, BookOpen } from 'lucide-react';
 import { ImportDropzone } from '../components/import/ImportDropzone';
 import { ImportProgress } from '../components/import/ImportProgress';
+import { PipelineStepper } from '../components/import/PipelineStepper';
+import { useJobs } from '../hooks/useJobs';
 import { Book, normalizeBook, RawBook } from '../types/domain';
 
 export function ImportRoute() {
@@ -17,6 +18,9 @@ export function ImportRoute() {
   const [importedBook, setImportedBook] = useState<Book | null>(null);
   const [lastFile, setLastFile] = useState<File | null>(null);
   const [selectedFilename, setSelectedFilename] = useState<string>('');
+
+  const { activeJob, pipelineComplete, jobs } = useJobs(importedBook ? importedBook.id : null);
+  const failedJob = jobs.find((j) => j.status.toLowerCase() === 'failed');
 
   const handleUpload = (file: File) => {
     setError(null);
@@ -169,12 +173,12 @@ export function ImportRoute() {
           />
         )}
 
-        {/* State 2: Success result card */}
+        {/* State 2: Success result card with PipelineStepper */}
         {!uploading && importedBook && (
           <div
             className="w-full max-w-xl mx-auto rounded-xl border border-line bg-panel p-6 shadow-sm flex flex-col gap-5"
             role="status"
-            aria-label="Import successful"
+            aria-label="Import status"
           >
             <div className="flex items-start gap-3.5">
               <div className="w-10 h-10 rounded-full bg-ok/15 text-ok flex items-center justify-center shrink-0">
@@ -206,23 +210,62 @@ export function ImportRoute() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2 border-t border-line">
-              <button
-                type="button"
-                onClick={() => navigate(`/book/${importedBook.id}`)}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-brand text-white font-medium text-ui-sm hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none shadow-sm"
+            {/* Pipeline Stepper */}
+            <div className="pt-3 pb-1 border-t border-line">
+              <PipelineStepper jobs={jobs} activeJob={activeJob} />
+            </div>
+
+            {/* Background Job Error if any */}
+            {failedJob && (
+              <div
+                role="alert"
+                className="rounded-lg border border-err/30 bg-err/10 p-3 text-ink text-ui-sm flex items-start gap-2.5"
               >
-                <span>Open book</span>
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={handleReset}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-line bg-card hover:bg-subtle text-ink font-medium text-ui-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none"
-              >
-                <PlusCircle className="w-4 h-4 text-ink-muted" aria-hidden="true" />
-                <span>Add another</span>
-              </button>
+                <AlertCircle className="w-4 h-4 text-err shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="flex-1">
+                  <p className="font-medium text-err">Processing error</p>
+                  <p className="text-ink-muted mt-0.5">
+                    {failedJob.error || 'A background processing job encountered an error.'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Actions and Caption */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-line">
+              <div className="text-caption text-ink-muted select-none">
+                {failedJob
+                  ? 'Processing encountered an error'
+                  : pipelineComplete
+                  ? 'Import complete'
+                  : activeJob
+                  ? 'Background processing…'
+                  : 'Ready'}
+              </div>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-line bg-card hover:bg-subtle text-ink font-medium text-ui-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none"
+                >
+                  <PlusCircle className="w-4 h-4 text-ink-muted" aria-hidden="true" />
+                  <span>Add another</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate(`/book/${importedBook.id}`)}
+                  className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-ui-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none ${
+                    pipelineComplete
+                      ? 'bg-brand text-white hover:opacity-90 shadow-sm'
+                      : 'border border-line bg-subtle/50 text-ink-muted hover:bg-subtle hover:text-ink'
+                  }`}
+                >
+                  <span>Open book</span>
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </div>
             </div>
           </div>
         )}
