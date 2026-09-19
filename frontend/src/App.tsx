@@ -5,6 +5,7 @@ import { ModalHost } from './components/shared/ModalHost';
 import { LibraryRoute } from './routes/LibraryRoute';
 import BookDetailsRoute from './routes/BookDetailsRoute';
 import ReaderRoute from './routes/ReaderRoute';
+import { ImportRoute } from './routes/ImportRoute';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="/" element={<LibraryRoute />} />
             <Route path="/library" element={<Navigate to="/" replace />} />
             <Route path="/book/:bookId" element={<BookDetailsRoute />} />
+            <Route path="/import" element={<ImportRoute />} />
             <Route path="/read/:bookId/:chapterId" element={<ReaderRoute />} />
           </Routes>
           <ModalHost />
