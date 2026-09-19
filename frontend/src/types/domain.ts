@@ -214,6 +214,8 @@ export interface RepresentationMetadata {
   provider?: string;
   model?: string;
   fell_back?: boolean;
+  duplicate?: boolean;
+  fallback_reason?: string;
   [key: string]: unknown;
 }
 

@@ -66,23 +66,55 @@ class SynthesisService {
     let rawSynthesis = '';
     let providerName = 'deterministic_synthesizer';
     let modelName = 'smart_reader_v4';
+    let fellBack = false;
+    let fallbackReason = null;
 
     if (!options.fast && aiService.isAvailable && aiService.isAvailable()) {
       try {
         const response = await aiService.generateText(promptWithTargetBudget, {
           temperature: 0.3,
         });
-        if (response && response.text) {
+        if (response && response.text && response.text.trim().length > 0) {
           rawSynthesis = response.text;
           providerName = response.provider || 'gemini';
           modelName = response.model || 'gemini-1.5-flash';
+        } else {
+          fellBack = true;
+          fallbackReason = 'provider_unavailable';
         }
       } catch (err) {
         console.warn('[SynthesisService] AI generation fallback:', err.message);
+        fellBack = true;
+        const msg = (err.message || '').toLowerCase();
+        if (
+          msg.includes('timeout') ||
+          msg.includes('timed out') ||
+          err.code === 'ETIMEDOUT' ||
+          err.code === 'ESOCKETTIMEDOUT' ||
+          err.name === 'TimeoutError'
+        ) {
+          fallbackReason = 'provider_timeout';
+        } else if (
+          msg.includes('json') ||
+          msg.includes('parse') ||
+          msg.includes('syntaxerror') ||
+          err.name === 'SyntaxError'
+        ) {
+          fallbackReason = 'invalid_json';
+        } else {
+          fallbackReason = 'provider_unavailable';
+        }
       }
+    } else {
+      fellBack = true;
+      fallbackReason = 'provider_unavailable';
     }
 
     if (!rawSynthesis || rawSynthesis.trim() === '') {
+      if (!fellBack) {
+        fellBack = true;
+        fallbackReason = 'provider_unavailable';
+      }
       rawSynthesis = this.generateDeterministicSynthesis(chapter, context.includedChunks);
     }
 
@@ -93,6 +125,40 @@ class SynthesisService {
     const chunkIds = chunks.map((c) => c.id);
     const repId = `rep-cross-${outlineId}-${chapterId}`;
     const synthesisType = outline.type === 'single_book' ? 'single_book' : 'cross_source';
+
+    // Check if the same book already has a fallback chapter with identical content
+    let isDuplicate = false;
+    if (fellBack) {
+      const bookKey = outline.collectionId || outlineId;
+      const db = getDatabase();
+      const existingReps = db.prepare(`
+        SELECT id, chapter_id, content, metadata_json
+        FROM chapter_representations
+        WHERE (book_id = ? OR book_id = ?) AND chapter_id != ? AND id != ?
+      `).all(bookKey, outlineId, chapterId, repId);
+
+      for (const rep of existingReps) {
+        let repMeta = {};
+        try {
+          repMeta = typeof rep.metadata_json === 'string' ? JSON.parse(rep.metadata_json) : (rep.metadata || {});
+        } catch {
+          repMeta = {};
+        }
+
+        const isFallbackChapter = repMeta.fell_back === true || repMeta.provider === 'deterministic_synthesizer';
+        if (isFallbackChapter && rep.content) {
+          const normCurrent = rawSynthesis.trim();
+          const normExisting = rep.content.trim();
+          const bodyCurrent = normCurrent.replace(/^###\s+[^\n]*\n+/, '').trim();
+          const bodyExisting = normExisting.replace(/^###\s+[^\n]*\n+/, '').trim();
+
+          if (normCurrent === normExisting || (bodyCurrent.length > 50 && bodyCurrent === bodyExisting)) {
+            isDuplicate = true;
+            break;
+          }
+        }
+      }
+    }
 
     const metadata = {
       outlineId,
@@ -105,6 +171,11 @@ class SynthesisService {
       provider: providerName,
       model: modelName,
       generatedAt: new Date().toISOString(),
+      ...(fellBack ? {
+        fell_back: true,
+        fallback_reason: fallbackReason || 'provider_unavailable',
+        ...(isDuplicate ? { duplicate: true } : {}),
+      } : {}),
     };
 
     const savedRepresentation = chapterRepository.saveRepresentation({
