@@ -43,3 +43,9 @@ Thumbs.db
 
 # Session logs — local personal diary, not shared
 docs/session-logs/
+
+# Agent scratch files (Antigravity, one-off diagnostics)
+scratch-*.js
+tmp-*.js
+query*.js
+patch*.js
