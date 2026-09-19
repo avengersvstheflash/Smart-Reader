@@ -1,4 +1,3 @@
-export const ImportDropzone = () => null;
 import { useState, useRef, DragEvent, KeyboardEvent, ChangeEvent } from 'react';
 import { Upload } from 'lucide-react';
 
