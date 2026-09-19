@@ -193,6 +193,31 @@ class ChapterRepository {
     return rows.map((r) => this.formatRepresentation(r));
   }
 
+  getEditorialRepresentationsForSourceChapter(sourceChapterId) {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      SELECT DISTINCT
+        eo.outlineId,
+        je.value AS editorialChapterJson,
+        cr.id AS representationId,
+        cr.content,
+        cr.metadata_json,
+        cr.synthesisType,
+        cr.created_at,
+        cr.*
+      FROM editorial_outlines eo
+      JOIN json_each(eo.chapters) je
+      JOIN json_each(json_extract(je.value, '$.sourceSectionIds')) ssid
+      JOIN semantic_chunks sc ON sc.id = ssid.value
+      JOIN chapter_representations cr
+        ON cr.chapter_id = json_extract(je.value, '$.chapterId')
+      WHERE sc.chapter_id = ?
+      ORDER BY cr.created_at DESC
+    `);
+    const rows = stmt.all(sourceChapterId);
+    return rows.map(r => this.formatRepresentation(r));
+  }
+
   deleteRepresentation(id) {
     const db = getDatabase();
     const res = db.prepare('DELETE FROM chapter_representations WHERE id = ?').run(id);
