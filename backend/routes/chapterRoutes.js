@@ -10,6 +10,10 @@ router.get('/:id', (req, res, next) => {
   try {
     const chapter = bookService.getChapter(req.params.id);
     const representations = chapterRepository.getRepresentations(chapter.id);
+    if (representations.length === 0) {
+      const editorial = chapterRepository.getEditorialRepresentationsForSourceChapter(chapter.id);
+      return res.json({ chapter, representations: editorial });
+    }
     res.json({ chapter, representations });
   } catch (err) {
     next(err);
