@@ -6,27 +6,31 @@
 
 ## 1. Where we are
 
-**Last shipped commit:** `6260aa5` — Phase 3.5 D3, progressive Smart generation wiring.
-**Test state:** 13/13 root suites green. Frontend build passes,
+**Last shipped commit:** f3a9873 — Phase 4 complete:
+import route with real XHR upload progress + job-driven pipeline stepper.
+**Test state:** 13/13 root suites green. Frontend build clean,
 typecheck 0 errors.
-**Live in browser (`localhost:5173` with backend on `:3000`):**
-- Library → Book Details → Reader works via clicks
-- Book Details: hero with title-hash cover, synopsis panel, chapter
-  list with roving tabindex, semantic intelligence panel with real
-  chunk count from backend
-- Reader: canonical blocks render with correct typography (headings
-  at proper weight, list bullets, blockquote left-rule, code blocks)
-- Reader Smart mode: Smart mode defaults when representation exists;
-  SmartEmptyState shows honest state with +1/+3/+5/+10 buttons and Stop button
-- Progressive synthesis wired to real backend DeepSeek synthesis endpoints
-  with real progress polling and 5-min safety timeout
-- `docs/PRODUCT_VISION.md` added (`f458667`) as North Star governing document
-- **Namespace mismatch identified but unfixed:** editorial synthesis
-  writes representations keyed to synthetic chapter ids
-  (`book-editorial-<bookId>-ch-plan-N`), while reader navigates by source
-  chapter id (`chapterId`). Phase 4 target.
 
----
+**Live in browser:**
+- Library -> Book Details -> Reader works via clicks
+- Reader resolves editorial representations from source chapter ids
+  (Phase 4 Gate 1, `fe78429`) via the semantic_chunks bridge
+- Fallback chapters marked with fell_back / fallback_reason /
+  duplicate metadata and honest UI captions (Gate 2.5, `0f36f4e`)
+- Synopsis-first sequencing: preface + TOC + samples before chapters
+  (Gate 3, `1d768e0`)
+- Import route: file upload with real XHR progress, result card,
+  [Open book] navigation (Gate 4 Step 1, `0e7d279`)
+- Import pipeline stepper: 4 real jobs (INGEST, SEMANTIC_INDEX,
+  SYNOPSIS, BOOK_SUMMARY) polled via `/api/jobs/book/:bookId`
+  (Gate 4 Step 2)
+
+**Open items carried forward:**
+- `[Source N]` markers still visible in rendered Smart chapter text
+- Book opens per-chapter Smart/Original; not yet "book opens in Smart"
+- Original still a route peer, not a source panel from Smart
+- Editorial outline + chapter synthesis do NOT write to
+  processing_jobs (stepper shows 4 steps, not 7)
 
 ## 2. How we work
 
@@ -59,25 +63,50 @@ typecheck 0 errors.
 
 ---
 
-## 4. Tomorrow — Phase 4: Namespace fix + Smart-default product reframe
+## 4. Phase 4.5 — Reading UX refinements (next session)
 
-**Deliverables (in order):**
-1. Backend: editorial chapters must resolve from source chapter ids.
-   Either (a) write per-source-chapter representation keys during
-   synthesis, or (b) add a lookup endpoint that maps source chapter
-   id → editorial representation id. Choose after reading
-   editorialService.js outline creation + metadata_json.provenance.
-2. Frontend: reader uses the mapping so Smart mode shows the real
-   representation for the current source chapter.
-3. Synopsis generation moved to run BEFORE chapters (from preface +
-   TOC + strategic samples per PRODUCT_VISION.md).
-4. Auto-run on import with real progress UI (game-like loading
-   animation driven by processing_jobs).
+The following changes align the frontend with the PRODUCT_VISION model
+of "Smart is the surface, Original is depth":
 
-**Reference:** docs/PRODUCT_VISION.md supersedes UI-first
-interpretations.
+### A. Hide [Source N] markers from rendered text (immediate, ~20 min)
+Currently synthesized Smart chapters include inline `[Source 1]`,
+`[Source 2]` markers in body text. These are backend bookkeeping and
+should not appear to the reader.
 
----
+v1 implementation:
+  - In `frontend/src/components/reader/CanonicalBlock.tsx`, strip
+    `\[Source \d+\]` from paragraph and quote text before render
+  - Optional: render a subtle superscript dot instead of nothing
+  - Do NOT modify backend synthesis prompt yet (v2 work)
+
+### B. Book opens in Smart mode by default (~30 min)
+Currently per-chapter mode resolution (Phase 3.5 D3). Users opening a
+book from Library see inconsistent behavior — some chapters Smart,
+some Original.
+
+Change: on book open (`BookDetailsRoute` Read/Smart-read buttons),
+resolve the first chapter with a representation and route to it in
+Smart mode. Original remains accessible via toggle (until C lands).
+
+### C. Original becomes a source panel, not a route (2-3 sessions)
+This is the inline source tracker workstream — the moat made
+interactive.
+
+Target UX: Smart is the view. Clicking [Source N] or hover/long-press
+opens a source panel inside the reader at the exact position. Original
+is never reached by toggle — only by tracing from a Smart passage.
+
+Requirements:
+  - Sentence-level citation enforcement (backend prompt change)
+  - SourcePanel / SourceOverlay component (frontend)
+  - Cross-format position resolution (PDF page / EPUB location / line)
+  - Round-trip scroll restoration (return to exact Smart position)
+  - Mobile interaction pattern (long-press + haptic)
+
+Reference: docs/PRODUCT_VISION.md §"Inline source tracker" and
+§"The frontend model".
+
+**Model:** A and B are Flash · Medium. C is Pro · High.
 
 ## 5. Remaining roadmap
 
@@ -186,7 +215,24 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
     tap-and-hold, mobile long-press) opening in-reader source overlay/side
     panel with round-trip position return.
 
+11. **Book Details "DERIVED · SYNOPSIS" panel fetches BOOK_SUMMARY, not SYNOPSIS.** Confirm which type the UI intends to show before fixing.
+
+- `[Source N]` markers exposed in rendered Smart text (planned fix in
+  Phase 4.5 A)
+- Book opens per-chapter; not yet whole-book Smart default (Phase 4.5 B)
+- Original still a route peer, not a source panel from Smart
+  (Phase 4.5 C)
+- `processing_jobs` only tracks INGEST, WEB_IMPORT, SEMANTIC_INDEX,
+  SYNOPSIS, BOOK_SUMMARY. Editorial outline planning and chapter
+  synthesis do NOT record job rows. Stepper UI therefore shows four
+  steps, not seven. Instrumenting synthesis to write jobs is a
+  follow-up refactor.
+- Job status strings are inconsistent: 'PROCESSING' vs 'in_progress'.
+  Frontend normalizes both; backend cleanup needed eventually.
+- `GET /api/jobs` lacks `?bookId=` query param, but a path-based
+  variant `GET /api/jobs/book/:bookId` already exists and is the
+  correct endpoint for per-book polling.
+
 ---
 
-*End of handoff. Update at the end of every session.*    -   B o o k   D e t a i l s   " D E R I V E D   �   S Y N O P S I S "   p a n e l   f e t c h e s   B O O K _ S U M M A R Y ,   n o t   S Y N O P S I S .   C o n f i r m   w h i c h   t y p e   t h e   U I   i n t e n d s   t o   s h o w   b e f o r e   f i x i n g .  
- 
+*End of handoff. Update at the end of every session.*
