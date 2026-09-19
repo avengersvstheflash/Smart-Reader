@@ -39,7 +39,7 @@ class SectionFilter {
       } else {
         const filteredEntry = {
           ...section,
-          status: 'low_information',
+          status: evaluation.status || 'low_information',
           reason: evaluation.reason,
         };
         filtered.push(filteredEntry);
@@ -70,6 +70,16 @@ class SectionFilter {
     // 1. Separator blocks
     if (type === 'separator' || /^[-—_=\s*~]{3,}$/.test(cleanTitle)) {
       return { isCandidate: false, reason: 'separator' };
+    }
+
+    // 1.5 Preface & Front Matter
+    const prefacePatterns = [
+      /^(?:preface|foreword|prologue|introduction to the (?:edition|book))$/i,
+    ];
+    for (const pat of prefacePatterns) {
+      if (pat.test(cleanTitle)) {
+        return { isCandidate: false, reason: 'preface', status: 'front_matter' };
+      }
     }
 
     // 2. Navigation, UI chrome, social & subscription

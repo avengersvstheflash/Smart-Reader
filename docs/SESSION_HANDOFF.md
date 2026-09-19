@@ -188,4 +188,5 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
 
 ---
 
-*End of handoff. Update at the end of every session.*
+*End of handoff. Update at the end of every session.*    -   B o o k   D e t a i l s   " D E R I V E D   ·   S Y N O P S I S "   p a n e l   f e t c h e s   B O O K _ S U M M A R Y ,   n o t   S Y N O P S I S .   C o n f i r m   w h i c h   t y p e   t h e   U I   i n t e n d s   t o   s h o w   b e f o r e   f i x i n g .  
+ 

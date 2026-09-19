@@ -322,8 +322,15 @@ class BookService {
             console.log(
               `[Import] Auto-synthesizing initial chapters for ${book.id}...`
             );
-            const editorialService = require('./synthesis/editorialService');
-            return editorialService.synthesizeNextChapters(book.id, 3);
+            const intelligentSummarizer = require('./ai/intelligentSummarizer');
+            return intelligentSummarizer.generateSynopsis(book.id, { fast: true })
+              .catch((err) => {
+                console.warn(`[Import] Synopsis failed: ${err.message}`);
+              })
+              .then(() => {
+                const editorialService = require('./synthesis/editorialService');
+                return editorialService.synthesizeNextChapters(book.id, 3);
+              });
           })
           .then((result) => {
             if (result) {

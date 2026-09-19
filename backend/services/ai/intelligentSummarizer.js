@@ -28,19 +28,71 @@ class IntelligentSummarizer {
     });
 
     try {
-      // 1. Retrieve representative chunks (premise, theme, opening, core concepts)
-      const retrieval = await retrievalService.retrieveForBook(bookId, `${book.title} core premise thematic question foundation`, {
-        topK: 6,
-        diverse: true,
+      // 1. Retrieve Preface + TOC + strategic samples
+      const tStart = Date.now();
+      console.log('[Synopsis] Building from preface + TOC + samples...');
+      
+      const semanticChunkRepository = require('../../repositories/semanticChunkRepository');
+      const allChunks = semanticChunkRepository.getByBookId(bookId) || [];
+      const sectionsForFilter = allChunks.map(c => ({
+        id: c.id,
+        sectionTitle: c.sectionHeading || c.sourceReference,
+        wordCount: c.tokenCount || (c.textContent || '').split(/\s+/).length,
+      }));
+      
+      const sectionFilter = require('../synthesis/sectionFilter');
+      const { filtered } = sectionFilter.filter(sectionsForFilter);
+
+      const prefaceIds = new Set(filtered.filter(s => s.reason === 'preface').map(s => s.id));
+      const tocIds = new Set(filtered.filter(s => s.reason === 'navigation' && /table of contents|contents|toc/i.test(s.sectionTitle)).map(s => s.id));
+      
+      const prefaceChunks = allChunks.filter(c => prefaceIds.has(c.id));
+      const tocChunks = allChunks.filter(c => tocIds.has(c.id));
+      
+      const chapters = chapterRepository.getByBookId(bookId) || [];
+      const bodyChapters = chapters.filter(ch => {
+        const chChunks = allChunks.filter(c => c.chapterId === ch.id);
+        if (chChunks.length === 0) return true;
+        const isPreface = prefaceIds.has(chChunks[0].id);
+        const isToc = tocIds.has(chChunks[0].id);
+        return !isPreface && !isToc;
       });
+
+      let ch1Chunk = null;
+      if (bodyChapters.length > 0) {
+        ch1Chunk = allChunks.find(c => c.chapterId === bodyChapters[0].id);
+      }
+      
+      let lastChChunk = null;
+      if (bodyChapters.length > 1) {
+        lastChChunk = allChunks.find(c => c.chapterId === bodyChapters[bodyChapters.length - 1].id);
+      }
+      
+      const selectedChunks = [
+        ...prefaceChunks,
+        ...tocChunks
+      ];
+      if (ch1Chunk && !selectedChunks.some(c => c.id === ch1Chunk.id)) selectedChunks.push(ch1Chunk);
+      if (lastChChunk && !selectedChunks.some(c => c.id === lastChChunk.id)) selectedChunks.push(lastChChunk);
+
+      const retrieval = {
+        book,
+        chunks: selectedChunks,
+      };
+
+      console.log(`[Synopsis] Ready in ${Date.now() - tStart}ms`);
 
       jobRepository.update(jobId, { progress: 40 });
 
       // 2. Build focused context
       const context = contextBuilder.buildRetrievalContext(retrieval, {
         purpose: 'synopsis',
-        maxTokens: 2500,
+        maxTokens: 5000,
       });
+      
+      console.log('--- SYNOPSIS PROMPT CONTEXT ---');
+      console.log(context.contextText);
+      console.log('-------------------------------');
 
       // 3. AI Generation or Grounded Synthesis
       jobRepository.update(jobId, { progress: 70 });
