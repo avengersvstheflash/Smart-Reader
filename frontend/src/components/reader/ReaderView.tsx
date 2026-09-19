@@ -100,8 +100,10 @@ export function ReaderView({
           </div>
 
           {meta.fell_back === true && (
-            <p className="text-caption text-muted italic mt-1 mb-0">
-              Structured extract — model unavailable.
+            <p className="text-caption text-ink-muted mt-1 mb-0">
+              {meta.duplicate === true
+                ? 'Duplicate fallback — the AI was unable to generate distinct content for this chapter.'
+                : 'Structured extract — model unavailable. This chapter was not synthesized by the AI.'}
             </p>
           )}
 
