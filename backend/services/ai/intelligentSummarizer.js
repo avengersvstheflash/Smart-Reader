@@ -101,11 +101,53 @@ class IntelligentSummarizer {
         book,
         options,
       });
+      let aiResult = null;
+      let rawSynopsis = '';
+      let fellBack = false;
+      let fallbackReason = null;
 
       let rawSynopsis = aiResult ? aiResult.summary : '';
       let usedFallback = false;
+      try {
+        aiResult = await this.executeAIGeneration(context, {
+          task: 'synopsis',
+          book,
+          options,
+        });
+        if (aiResult && aiResult.summary && aiResult.summary.trim()) {
+          rawSynopsis = aiResult.summary;
+        } else {
+          fellBack = true;
+          fallbackReason = 'provider_unavailable';
+        }
+      } catch (err) {
+        fellBack = true;
+        const msg = String(err.message || '').toLowerCase();
+        if (
+          msg.includes('timeout') ||
+          msg.includes('timed out') ||
+          err.code === 'ETIMEDOUT' ||
+          err.code === 'ESOCKETTIMEDOUT' ||
+          err.name === 'TimeoutError'
+        ) {
+          fallbackReason = 'provider_timeout';
+        } else if (
+          msg.includes('json') ||
+          msg.includes('parse') ||
+          msg.includes('syntaxerror') ||
+          err.name === 'SyntaxError'
+        ) {
+          fallbackReason = 'invalid_json';
+        } else {
+          fallbackReason = 'provider_unavailable';
+        }
+      }
 
       if (!rawSynopsis || !rawSynopsis.trim()) {
+        if (!fellBack) {
+          fellBack = true;
+          fallbackReason = 'provider_unavailable';
+        }
         rawSynopsis = this.fallbackSynthesizeSynopsis(book, context);
         usedFallback = true;
       }
@@ -115,6 +157,27 @@ class IntelligentSummarizer {
 
       // 5. Store Representation in book_representations
       const durationMs = Date.now() - startTime;
+      const metadata = {
+        jobId,
+        durationMs,
+        chunkCount: context.chunkCount,
+        includedChunks: context.includedChunks,
+        generatedAt: new Date().toISOString(),
+        grounded: true,
+        sourceCount: context.includedChunks ? context.includedChunks.length : 0,
+      };
+
+      if (fellBack) {
+        metadata.fell_back = true;
+        metadata.fallback_reason = fallbackReason || 'provider_unavailable';
+        metadata.provider = 'local-semantic-fallback';
+        metadata.model = 'deterministic-semantic-v1';
+      } else {
+        metadata.fell_back = false;
+        metadata.provider = (aiResult && aiResult.provider) || 'gemini';
+        metadata.model = (aiResult && aiResult.model) || 'gemini-3.8-flash';
+      }
+
       const representation = representationRepository.saveBookRepresentation({
         bookId: book.id,
         type: 'SYNOPSIS',
@@ -131,6 +194,7 @@ class IntelligentSummarizer {
           grounded: true,
           sourceCount: context.includedChunks ? context.includedChunks.length : 0,
         },
+        metadata,
       });
 
       // Also update books.description if appropriate

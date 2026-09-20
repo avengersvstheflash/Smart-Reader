@@ -317,6 +317,8 @@ export interface BookSummary {
 
 export interface BookSynopsis {
   content: string;
+  fellBack?: boolean;
+  fallbackReason?: string;
 }
 
 export interface SemanticStatus {

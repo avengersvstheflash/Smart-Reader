@@ -112,6 +112,8 @@ interface SynopsisResponse {
   success?: boolean;
   representation?: {
     content?: string;
+    metadata?: Record<string, unknown>;
+    metadata_json?: string;
     [key: string]: unknown;
   } | null;
   synopsis?: string | {
@@ -131,14 +133,48 @@ export function useBookSynopsis(bookId: string) {
         let content = '';
         if (res.representation && typeof res.representation.content === 'string') {
           content = res.representation.content;
+        let fellBack: boolean | undefined = undefined;
+        let fallbackReason: string | undefined = undefined;
+
+        const rep = res.representation;
+        if (rep && typeof rep.content === 'string') {
+          content = rep.content;
         } else if (typeof res.synopsis === 'string') {
           content = res.synopsis;
         } else if (res.synopsis && typeof res.synopsis.content === 'string') {
           content = res.synopsis.content;
         }
 
+        // Extract metadata from representation if present
+        let rawMeta = rep?.metadata;
+        if (!rawMeta && typeof rep?.metadata_json === 'string') {
+          try {
+            rawMeta = JSON.parse(rep.metadata_json);
+          } catch {
+            rawMeta = undefined;
+          }
+        }
+
+        if (rawMeta && typeof rawMeta === 'object') {
+          const metaObj = rawMeta as Record<string, unknown>;
+          if (
+            metaObj.fell_back === true ||
+            metaObj.provider === 'local-semantic-fallback' ||
+            metaObj.model === 'deterministic-semantic-v1'
+          ) {
+            fellBack = true;
+          } else if (metaObj.fell_back === false) {
+            fellBack = false;
+          }
+
+          if (typeof metaObj.fallback_reason === 'string') {
+            fallbackReason = metaObj.fallback_reason;
+          }
+        }
+
         if (!content) return null;
         return { content };
+        return { content, fellBack, fallbackReason };
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
           return null;
