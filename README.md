@@ -227,7 +227,6 @@ Active development phases (full roadmap in
   reasoning-aware token budget
 - **Phase 4.8.2** ✅ — Front matter filter for editorial candidates
 - **Phase 4.9** ✅ — Synopsis fallback honesty
-- **Phase 4.13** ⏳ — Synopsis + book summary prompt rewrite
 - **Phase 4.13** ✅ — Synopsis + book summary prompt rewrite
 - **Phase 4.10** ⏳ — Auto-classification on import (contentType, tags,
   reading level)
