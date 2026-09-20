@@ -96,18 +96,10 @@ class IntelligentSummarizer {
 
       // 3. AI Generation or Grounded Synthesis
       jobRepository.update(jobId, { progress: 70 });
-      let aiResult = await this.executeAIGeneration(context, {
-        task: 'synopsis',
-        book,
-        options,
-      });
       let aiResult = null;
       let rawSynopsis = '';
       let fellBack = false;
       let fallbackReason = null;
-
-      let rawSynopsis = aiResult ? aiResult.summary : '';
-      let usedFallback = false;
       try {
         aiResult = await this.executeAIGeneration(context, {
           task: 'synopsis',
