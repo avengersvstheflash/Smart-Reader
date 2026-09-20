@@ -4,186 +4,185 @@
 
 **Repository:** https://github.com/avengersvstheflash/Smart-Reader  
 **Status:** Active development — Pre-release  
-**License:** [MIT / LICENSE](./LICENSE)  
-**Current Version:** `v0.4.5`  
+**License:** [see LICENSE](./LICENSE)  
+**Current version:** `v0.4.5`  
 
 ---
 
-## Overview & Core Thesis
+## What this is
 
-Smart Reader is a **reading and comprehension platform**, not a lossy summarization utility. 
+Smart Reader is a **reading and comprehension platform**, not a lossy summarization utility. The distinction is the whole product:
 
-Traditional summarization treats input as disposable text to be condensed into a shallow gist. Smart Reader implements **loss-bounded semantic compression**: preserving concepts, structural hierarchy, and specific factual claims while achieving an average **7:1 compression ratio**.
+- **Original Reading** is immutable. It is the source text exactly as you uploaded it. Nothing in the app ever modifies it.
+- **Smart Reading** is a derived lens. It is a compressed representation of the source — 250–360 words per ~1,500–2,500-word source unit — with every sentence traceable to the specific source chunks it draws from.
 
-Every generated insight remains anchored to the original document via the **Two-Representation Invariant**:
+This is the **two-representation invariant**:
 
-```
-┌─────────────────────────┐         Deterministic Mapping         ┌─────────────────────────┐
-│    ORIGINAL READING     │ ────────────────────────────────────> │      SMART READING      │
-│ (Immutable Source Text) │ <──────────────────────────────────── │ (Derived Semantic Lens) │
-└─────────────────────────┘          Passage Provenance           └─────────────────────────┘
-```
-
-- **Original Reading (Paper):** The source text remains immutable, rendered in clean typography with zero accent chrome.
-- **Smart Reading (Lens):** A derived, high-density representation (250–360 words per 1,500–2,500-word source block) where every synthesized assertion links back to its exact origin chunks.
-
----
-
-## Architectural Compression Bounds
-
-The fundamental quality benchmark of Smart Reader is conceptual retention across bounded token budgets:
-
-| Metric | Target Specification | Enforcement Mechanism |
-|---|---|---|
-| **Source Processing Unit** | 1,500–2,500 words | Semantic paragraph chunking |
-| **Smart Chapter Output** | 250–360 words | Hard bounding (180 min / 450 max) |
-| **Target Compression Ratio** | ~7:1 | Grounded token-budgeted synthesis |
-| **Embedding Dimension** | 1024d | BGE-M3 Multilingual INT8 |
-| **Provenance Resolution** | Passage / Block level | Bidirectional chunk UUID index |
-
-*For formal definitions and architectural trade-offs, see [`docs/PRODUCT_VISION.md`](./docs/PRODUCT_VISION.md).*
-
----
-
-## Feature Matrix
-
-### Ingestion & Document Intelligence
-- **Multi-Format Extraction:** Native parsing for PDF (`pdfjs-dist` with custom layout heuristics), EPUB, Markdown, raw UTF-8 text, and remote web articles (`cheerio` DOM sanitization).
-- **Structural Analysis:** Heuristic chapter detection, front/back matter classification, multi-signal heading recognition, and running header/footer suppression.
-- **Local Semantic Indexing:** 350–500 word chunking embedded locally via **BGE-M3 (1024-dimensional, INT8 quantized)** across 170+ languages without external API roundtrips.
-- **Hybrid Retrieval:** Cross-source rank fusion combining dense vector cosine similarity, keyword BM25 scoring, and maximal marginal relevance (MMR) diversity re-ranking.
-
-### Editorial & Synthesis Engine
-- **Outline & Editorial Planning:** Chapter grouping driven by hierarchical LLM planning with a deterministic graph-clustering fallback.
-- **Bounded Neural Compression:** Synthesis routed via OpenRouter (DeepSeek V4 Flash / local Ollama models) with reasoning-aware prompt budgeting to prevent hallucinated narrative creep.
-- **Progressive Synopsis Pipeline:** Pre-synthesizes book-level structural overviews from prefaces, tables of contents, and strategic boundary passages prior to chapter-level compression.
-- **Fallback Transparency:** Any representation produced by heuristic or deterministic fallback pipelines carries immutable `fell_back: true` metadata, visibly reflected in the reader UI.
-
-### Frontend Reader Experience
-- **Dual-Pane Adaptive Reader:** Simultaneous or toggled inspection between Original and Smart representations with synchronized roving scroll.
-- **Canonical Block Renderer:** Strict recursive parser handling standard headings, blockquotes, code blocks, tables, callouts, and semantic segment dividers.
-- **Reactive Library Interface:** Virtualized book catalog with content-type classification badges, real-time chunk metrics, and pipeline stepper progress (INGEST → SEMANTIC_INDEX → SYNOPSIS → CHAPTER_SYNTHESIS).
-- **Accessible Design System:** WCAG AA compliant typography across four calibrated themes (`default`, `warm`, `dark`, `glass`).
-
----
-
-## System Architecture
-
-```
-User Document (PDF / EPUB / URL)
-  │
-  ├──> [Ingestion & Normalization Engine]
-  │      └── Strips headers/footers, extracts clean canonical blocks
-  │
-  ├──> [Structural Analysis & Chunker]
-  │      └── Front-matter detection, 350-500w chunk boundary segmentation
-  │
-  ├──> [Vector Indexing Subsystem]
-  │      └── Local BGE-M3 INT8 Embeddings (1024d) -> SQLite vector store
-  │
-  ├──> [Editorial Organizer]
-  │      └── Hierarchical chapter planning & synopsis synthesis
-  │
-  └──> [Bounded Neural Compressor]
-         └── Strict word bounds (250-360w) with deterministic chunk citations
+```text
+ORIGINAL READING  →  immutable source, never touched
+SMART READING     →  derived lens, fully traceable back to source
 ```
 
-Detailed technical documentation:
-- [`docs/ARCHITECTURE_AUDIT.md`](./docs/ARCHITECTURE_AUDIT.md) — 25 architectural questions & system designs
-- [`docs/FRONTEND_ARCHITECTURE.md`](./docs/FRONTEND_ARCHITECTURE.md) — State machine and component graph
-- [`docs/FRONTEND_BLUEPRINT_SPEC.md`](./docs/FRONTEND_BLUEPRINT_SPEC.md) — Frontend engineering contracts
-- [`docs/CANONICAL_TEST_BOOK.md`](./docs/CANONICAL_TEST_BOOK.md) — Standardized benchmarking dataset
+Every feature serves it. The toggle, the two-pane reader, the provenance chain, the fallback markers, the synopsis panel — all of it exists to keep the relationship between source and lens visible and honest.
 
----
+## Why compression, not summarization
 
-## Technology Stack
+A summarizer asks *"what is the gist?"* and produces output proportional to input. A compressor asks *"what would this say if every sentence carried 5–8× its information?"* and preserves every distinct concept, argument, and factual claim.
 
-- **Runtime Environment:** Node.js 22 LTS (pinned via `.nvmrc`)
-- **Persistence Layer:** SQLite via `better-sqlite3` (WAL mode enabled, cascading foreign keys, strict transactions)
-- **Local Inference:** `@huggingface/transformers` (local quantized BGE-M3 ONNX pipeline)
-- **Frontend Architecture:** React 18, Vite, Tailwind CSS, Lucide Icons
-- **AI Gateway:** OpenRouter / DeepSeek API (cloud) or Ollama (fully offline inference)
-- **Testing:** Native Node test runner with 13 comprehensive integration suites
+Smart Reader implements **loss-bounded semantic compression**. The compression ratio is the fundamental quality metric:
 
----
+| Metric | Target Specification |
+|---|---|
+| Source processing unit | 1,500–2,500 words |
+| Smart Chapter output | 250–360 words (hard bounds 180–450) |
+| Target compression ratio | ~7:1 |
 
-## Getting Started
+See [`docs/PRODUCT_VISION.md`](./docs/PRODUCT_VISION.md) §"Compression, not summarization" for the full distinction.
+
+## What ships today
+
+### Backend
+- **Ingestion** — PDF (`pdfjs-dist` with layout heuristics), EPUB, HTML, Markdown, plain text, and web URLs (`cheerio` with chrome stripping)
+- **Structural analysis** — chapter detection, front/back matter classification, multi-signal heading recognition, header/footer suppression
+- **Semantic indexing** — 350–500 word chunks, BGE-M3 1024d embeddings (local, INT8 quantized, multilingual 170+ languages)
+- **Retrieval** — hybrid cross-source search (vector similarity + keyword scoring + diversity re-rank)
+- **Editorial planning** — outline generation via LLM or deterministic clustering fallback
+- **Compression** — grounded Smart Chapter synthesis via OpenRouter → DeepSeek V4 Flash with reasoning disabled and hard word bounds
+- **Synopsis** — generated from preface + TOC + strategic samples (chapter 1 first paragraph, last chapter first paragraph), before chapter compression
+- **Fallback honesty** — every deterministic-fallback representation carries `fell_back: true` metadata; the UI renders an honest caption
+
+### Frontend
+- **Library** — responsive book grid with search, content-type filters, and a "Smart" badge on books with editorial content
+- **Book Details** — hero, synopsis panel, chapter list with roving tabindex, semantic intelligence panel with live chunk count
+- **Reader** — dual-mode Original/Smart with automatic Smart default when a representation exists
+- **Canonical block renderer** — recursive rendering of headings, paragraphs, quotes, lists, code, tables, callouts, separators
+- **Import route** — file upload with real XHR progress, job-driven pipeline stepper (INGEST → SEMANTIC_INDEX → SYNOPSIS → BOOK_SUMMARY)
+- **Design system** — four themes (default / warm / dark / glass), full Tailwind token set, WCAG AA baseline
+
+### Infrastructure
+- **Node 22** pinned via `.nvmrc`
+- **SQLite** via `better-sqlite3`, WAL mode, cascading foreign keys
+- **Test suite** — 14 regression suites, real fixtures, ~2 minute runtime
+- **Local-first** — no cloud calls except configured AI providers; BGE-M3 runs entirely on-device
+
+## Architecture
+
+```text
+User Material  →  Extraction  →  Parsing  →  Canonical Source
+                →  Structural Analysis  →  Semantic Chunking
+                →  Semantic Index  →  Editorial Organizer
+                →  Editorial Chapter Plan  →  Compression
+                →  Grounded Reader-Facing Content
+```
+
+Full architecture documentation:
+
+- [`docs/ARCHITECTURE_AUDIT.md`](./docs/ARCHITECTURE_AUDIT.md) — 25 Q&A walkthrough
+- [`docs/FRONTEND_ARCHITECTURE.md`](./docs/FRONTEND_ARCHITECTURE.md) — component tree, state map
+- [`docs/FRONTEND_BLUEPRINT.md`](./docs/FRONTEND_BLUEPRINT.md) — design narrative
+- [`docs/FRONTEND_BLUEPRINT_SPEC.md`](./docs/FRONTEND_BLUEPRINT_SPEC.md) — engineering contract
+- [`docs/CANONICAL_TEST_BOOK.md`](./docs/CANONICAL_TEST_BOOK.md) — canonical verification fixture
+- [`docs/PRODUCT_VISION.md`](./docs/PRODUCT_VISION.md) — north star
+
+## Getting started
 
 ### Prerequisites
-- **Node.js:** `v22.x` (managed via `nvm use`)
-- **Disk Space:** ~1.2 GB (for local INT8 BGE-M3 weights on initial download)
-- **Inference Provider:** OpenRouter API key (optional, for cloud synthesis) or Ollama running locally
+- Node.js 22 LTS (see `.nvmrc`)
+- ~1.2 GB free disk space (INT8 BGE-M3 model downloads on first run)
+- Optional: OpenRouter API key for real AI compression
+- Optional: Ollama running locally for fully offline AI inference
 
-### Installation
+### Install
 
 ```bash
-# Clone the repository
 git clone [https://github.com/avengersvstheflash/Smart-Reader.git](https://github.com/avengersvstheflash/Smart-Reader.git)
 cd Smart-Reader
-
-# Pin Node version and install dependencies
-nvm use
+nvm use            # or manually install Node 22
 npm install
-
-# Configure environment variables
 cp .env.example .env
-# Set OPENROUTER_API_KEY or OLLAMA_BASE_URL in .env
+# edit .env with your API keys
 ```
 
-### Running Locally
+### Run
 
 ```bash
-# Start backend service (Port 3000)
+# Backend (port 3000)
 node backend/server.js
 
-# Start frontend development server (Port 5173, in a separate terminal)
+# Frontend (port 5173, in a second terminal)
 cd frontend
 npm run dev
 ```
 
-Visit `http://localhost:5173` to access the library.
+Open `http://localhost:5173/` and import a book.
 
-### Verification Suite
+### Test
 
 ```bash
-# Execute all 13 regression suites (runtime: ~2 minutes)
-npm test
+npm test           # 14 regression suites, ~2 minutes
 ```
 
----
+## Roadmap
 
-## Engineering Roadmap
+Active development phases (full roadmap in [`docs/ROADMAP_2026-09.md`](./docs/ROADMAP_2026-09.md)):
 
-- [x] **Phase 0:** Local BGE-M3 1024d embedding upgrade & INT8 quantization
-- [x] **Phases 1–3:** React 18 architectural migration (Library, Reader, Details pane)
-- [x] **Phase 3.5:** Progressive Smart generation & background pipeline dispatch
-- [x] **Phase 4:** Editorial namespace normalization, synopsis-first sequencing, and fallback honesty
-- [x] **Phase 4.8:** Hard boundary token compression enforcement (250–360 words)
-- [x] **Phase 4.13:** Synopsis & multi-chapter synthesis prompt hardening
-- [ ] **Phase 4.10:** Automatic document categorization & lexical reading-level index
-- [ ] **Phase 5:** Interactive bi-directional inline source highlighting (the provenance moat)
-- [ ] **Phase 6:** Native desktop packaging via Tauri / Rust
-- [ ] **Phase 7:** Offline multi-agent inquiry mode via Ollama & local Kokoro-82M TTS
+- **Phase 0** ✅ — BGE-M3 1024d embedding upgrade & quantization
+- **Phase 1–3** ✅ — React migration: Library, Reader, Book Details
+- **Phase 3.5** ✅ — Modal system, progressive Smart generation
+- **Phase 4** ✅ — Editorial-to-source namespace fix, synopsis-first sequencing, import pipeline, fallback honesty
+- **Phase 4.5** ✅ — Reading UX refinements
+- **Phase 4.8** ✅ — Compression enforcement (word count bounds)
+- **Phase 4.8.1** ✅ — Compressor prompt + input sizing + reasoning-aware token budget
+- **Phase 4.8.2** ✅ — Front matter filter for editorial candidates
+- **Phase 4.9** ✅ — Synopsis fallback honesty
+- **Phase 4.13** ✅ — Synopsis + book summary prompt rewrite
+- **Phase 4.10** ⏳ — Auto-classification on import (contentType, tags, reading level)
+- **Phase 4.6** ⏳ — Web + Paste import tabs
+- **Phase 4.7** ⏳ — Cinematic import experience
+- **Phase 4.12** ⏳ — Compressor terminology refactor
+- **Phase 5** ⏳ — Inline source tracker (the provenance moat made interactive)
+- **Phase 6** ⏳ — Tauri packaging (native desktop app)
+- **Build 5** ⏳ — Audio mode (local Kokoro-82M TTS)
+- **Build 6** ⏳ — Discussion mode (local Ollama multi-agent)
+- **Build 7** ⏳ — Story mode (narrative + image pipeline)
 
----
+## Design philosophy
 
-## Target Architecture & Privacy Tenets
+Three laws. Every feature serves them:
 
-Smart Reader is architected specifically for privacy-conscious researchers, knowledge workers, and technical professionals:
+1. **Source is paper.** Original reading renders on calm neutral paper with zero accent chrome. It looks like a book because it *is* the book.
+2. **The lens is tinted.** Smart reading carries a quiet accent identity. You know which representation you're in without reading a word.
+3. **Derivation never masquerades as source.** Smart text is never rendered without a provenance affordance. Copy never calls derived text "the book."
 
-1. **Local-First Sovereignty:** Raw books, personal annotations, and vector embeddings remain on your local storage. Cloud inference is strictly optional and isolated to bounded synthesis tasks.
-2. **Deterministic Transparency:** A derived representation must never impersonate source material. Every synthesized claim provides an explicit trail to the backing text.
-3. **Predictable Ergonomics:** Original text is presented as neutral paper. The compressed lens is tinted with subdued accents, making reading modes instantly discernable.
+### The market this is for
 
----
+Not San Francisco. Readers in **Japan** and the **Nordics** first — high reading culture, privacy-first by law, willing to pay for quality tools. Germany and France second. The pitch that sells there:
 
-## Contributing & Conventions
+> *"Your personal library, understood by local AI, with every compressed view traceable back to the source. You own the content. You own the AI. You own the outputs."*
 
-Contributions and architectural critiques are welcome via GitHub issues and pull requests.
+Sells in Tokyo, Berlin, Amsterdam, Stockholm. Doesn't sell in SF — they don't care about local-first.
 
-- **Commits:** Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, `phase<N>.<M>:`)
-- **Quality Gate:** All 13 regression test suites must pass clean (`13/13 passing`) before any commit lands on `main`.
+## Contributing
 
----
+This project is under active solo development. Issues and discussion are welcome via the GitHub issue tracker.
 
-*High-density neural text compression with deterministic source provenance.*
+Commit conventions:
+- `feat(scope): <description>` — new capability
+- `fix(scope): <description>` — bug fix
+- `docs: <description>` — documentation only
+- `chore: <description>` — build, deps, tooling
+- `phase<N>.<M>: <description>` — roadmap phase work
+
+Test suite must stay green (`npm test` → 14/14 passing) through every commit.
+
+## Acknowledgements
+
+Built with:
+- [pdfjs-dist](https://github.com/mozilla/pdf.js) — PDF parsing
+- [@huggingface/transformers](https://github.com/huggingface/transformers.js) — local inference
+- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) — SQLite
+- [React](https://react.dev/) + [Vite](https://vitejs.dev/) + [Tailwind CSS](https://tailwindcss.com/)
+- [OpenRouter](https://openrouter.ai/) — cloud LLM gateway
+- [DeepSeek](https://deepseek.com/) — V4 Flash for chapter compression
+
+Canonical test book: *Practical Machine Learning: A Beginner's Guide with Ethical Insights* by Nyamawe et al. (CRC Press, 2025, CC-BY-NC-ND 4.0).
