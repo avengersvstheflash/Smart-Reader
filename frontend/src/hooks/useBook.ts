@@ -131,8 +131,6 @@ export function useBookSynopsis(bookId: string) {
         if (!res) return null;
 
         let content = '';
-        if (res.representation && typeof res.representation.content === 'string') {
-          content = res.representation.content;
         let fellBack: boolean | undefined = undefined;
         let fallbackReason: string | undefined = undefined;
 
@@ -173,7 +171,6 @@ export function useBookSynopsis(bookId: string) {
         }
 
         if (!content) return null;
-        return { content };
         return { content, fellBack, fallbackReason };
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
