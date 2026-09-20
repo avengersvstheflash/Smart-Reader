@@ -99,6 +99,11 @@ class EditorialService {
     for (const b of books) {
       const bookChunks = semanticChunkRepository.getByBookId(b.id);
       for (const c of bookChunks) {
+        const role = (c.structuralRole || c.structural_role || '').toLowerCase();
+        if (role && (role === 'front_matter' || role === 'back_matter' || role === 'index' || role === 'appendix')) {
+          continue;
+        }
+
         if (!seenChunkIds.has(c.id)) {
           seenChunkIds.add(c.id);
           const text = c.textContent || '';
@@ -110,6 +115,7 @@ class EditorialService {
             sourceTitle: b.title,
             sectionTitle: c.sectionHeading || c.sourceReference || 'Section',
             sectionType: c.contentType || 'paragraph',
+            structuralRole: role || 'chapter',
             contentType: b.content_type || 'research',
             wordCount: text.split(/\s+/).filter(Boolean).length,
             summary: text.slice(0, 140),

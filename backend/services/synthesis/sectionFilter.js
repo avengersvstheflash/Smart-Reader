@@ -72,6 +72,16 @@ class SectionFilter {
       return { isCandidate: false, reason: 'separator' };
     }
 
+    // 1.2 Non-body structural roles (front_matter, back_matter, index, appendix)
+    const role = (section.structuralRole || section.structural_role || '').toLowerCase();
+    if (role && (role === 'front_matter' || role === 'back_matter' || role === 'index' || role === 'appendix')) {
+      // If it looks like a preface, preserve reason: 'preface' for intelligentSummarizer
+      if (/^(?:preface|foreword|prologue|introduction to the (?:edition|book))$/i.test(cleanTitle)) {
+        return { isCandidate: false, reason: 'preface', status: 'front_matter' };
+      }
+      return { isCandidate: false, reason: role, status: 'excluded_structural_role' };
+    }
+
     // 1.5 Preface & Front Matter
     const prefacePatterns = [
       /^(?:preface|foreword|prologue|introduction to the (?:edition|book))$/i,
