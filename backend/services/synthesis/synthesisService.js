@@ -110,6 +110,7 @@ OUTPUT:`;
         let response = await aiService.generateText(compressionPrompt, {
           temperature: 0.3,
           maxTokens: 550,
+          reasoning: { enabled: false },
         });
         
         // Post-generation validation
@@ -120,6 +121,7 @@ OUTPUT:`;
             response = await aiService.generateText(compressionPrompt, {
               temperature: 0.2,
               maxTokens: 550,
+              reasoning: { enabled: false },
             });
             if (response && response.text) {
               wordCount = response.text.trim().split(/\s+/).length;
