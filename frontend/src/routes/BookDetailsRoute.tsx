@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useBook, useBookSummary, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
+import { useEditorial } from '../hooks/useEditorial';
 import { useModal } from '../store/useModalStore';
 import { getCoverTheme, formatReadingTime } from '../components/library/BookCard';
 import { EmptyState } from '../components/shared/EmptyState';
@@ -100,6 +101,8 @@ export default function BookDetailsRoute() {
     isLoading: isSemanticLoading,
     refetch: refetchSemantic,
   } = useSemanticStatus(bookId);
+
+  const { outline, synthesizedCount } = useEditorial(bookId);
 
   // Keyboard navigation for roving tabindex in chapter list
   const [focusedChapterIndex, setFocusedChapterIndex] = useState(0);
@@ -282,16 +285,22 @@ export default function BookDetailsRoute() {
 
           {/* Action Buttons Row */}
           <div className="flex flex-wrap items-center gap-3 pt-4">
-            <button
-              type="button"
-              disabled={!hasChapters}
-              title={!hasChapters ? 'No chapters' : 'Read original text'}
-              onClick={() => navigate(`/read/${book.id}/${firstChapterId}?rep=original`)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              <span>▶</span>
-              <span>Read</span>
-            </button>
+            {(() => {
+              const hasSmartContent = Boolean(outline) && synthesizedCount > 0;
+              const targetMode = hasSmartContent ? 'smart' : 'original';
+              return (
+                <button
+                  type="button"
+                  disabled={!hasChapters}
+                  title={!hasChapters ? 'No chapters' : hasSmartContent ? 'Read smart synthesis' : 'Read original text'}
+                  onClick={() => navigate(`/read/${book.id}/${firstChapterId}?rep=${targetMode}`)}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <span>▶</span>
+                  <span>Read</span>
+                </button>
+              );
+            })()}
 
             <button
               type="button"

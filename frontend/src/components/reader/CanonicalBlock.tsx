@@ -60,8 +60,12 @@ function getAlignClass(align?: string): string | undefined {
 
 export function CanonicalBlock({ block }: { block: CanonicalBlockType }): React.ReactElement | null {
   switch (block.type) {
-    case 'paragraph':
-      return <p>{renderInlineText(block.text)}</p>;
+    case 'paragraph': {
+      // Strip inline [Source N] citation markers — backend provenance
+      // bookkeeping, not reader UX. Same for [Source N][Source M] chains.
+      const cleaned = (block.text || '').replace(/\s*\[Source \d+\]/g, '').trim();
+      return <p>{renderInlineText(cleaned)}</p>;
+    }
 
     case 'heading': {
       const level = block.level ?? 2;
@@ -74,12 +78,16 @@ export function CanonicalBlock({ block }: { block: CanonicalBlockType }): React.
       return <h4>{renderInlineText(block.text)}</h4>;
     }
 
-    case 'quote':
+    case 'quote': {
+      // Strip inline [Source N] citation markers — backend provenance
+      // bookkeeping, not reader UX. Same for [Source N][Source M] chains.
+      const cleaned = (block.text || '').replace(/\s*\[Source \d+\]/g, '').trim();
       return (
         <blockquote>
-          <p>{renderInlineText(block.text)}</p>
+          <p>{renderInlineText(cleaned)}</p>
         </blockquote>
       );
+    }
 
     case 'list': {
       const ListTag = block.ordered ? 'ol' : 'ul';
