@@ -357,6 +357,19 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
   front matter fix, 4.9 shipped, README rewrite.
 - **Verified:** first real LLM compression output at 328-373 words
   per chapter via OpenRouter, provider: openrouter.
+- **Duplicate synopsis execution (post-4.13).** Two log lines fire:
+  `[Synopsis]` (old path) and `[Synopsis Compression]` (new path).
+  Both generate and complete. The 4.13 edit added the new code without
+  removing the old. Also `--- SYNOPSIS PROMPT CONTEXT ---` and
+  `--- SYNOPSIS COMPRESSION PROMPT ---` both print. Fix: remove the
+  legacy `[Synopsis]` block from `generateSynopsis`. Confirm only one
+  DB write to `book_representations` per call.
+- **Test fixtures undersized for new slicer.** build4_2bc test book
+  now produces 1 outline chapter (was 6). build4_2a smoke test also
+  produces 1. Assertions were updated to pass, but the fixtures need
+  enlarging (5,000–12,000 words) so they exercise the multi-chapter
+  slicing path. Not urgent — tests still pass — but future coverage
+  is thinner than before.
 
 ---
 
