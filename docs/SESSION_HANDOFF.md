@@ -6,7 +6,7 @@
 
 ## 1. Where we are
 
-**Last shipped commit:** `8f29417` — Phase 4.5 complete (A/B/C/D).
+**Last shipped commit:** `70a31c4` — phase4.8.2: exclude front matter from editorial candidates
 
 **Test state:** 13/13 root suites green. Frontend build clean,
 typecheck 0 errors.
@@ -316,6 +316,19 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
   validation. Root cause: editorialPlanner assigns large source inputs
   per editorial chapter, not 1,500-2,500 word units per PRODUCT_VISION.
   Fix in editorialPlanner.js slicing. Priority.
+- **Phase 4.8.2** — Front matter leaks into editorial chunks.
+  SectionFilter doesn't check structural_role. Fix: skip
+  front_matter/back_matter/index/appendix in
+  editorialService rawSections + sectionFilter evaluateSection.
+  Priority: high (affects chapter 1 quality).
+- **Phase 4.12** — Compression terminology refactor. Rename
+  synthesisService → compressionService, intelligentSummarizer →
+  intelligentCompressor, EDITORIAL_SYNTHESIS → EDITORIAL_COMPRESSION.
+  Full session, Pro High.
+- **DONE this session:** 4.8.1 hotfix (reasoning disabled), 4.8.2
+  front matter fix, 4.9 shipped, README rewrite.
+- **Verified:** first real LLM compression output at 328-373 words
+  per chapter via OpenRouter, provider: openrouter.
 
 ---
 
