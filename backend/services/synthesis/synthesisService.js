@@ -51,51 +51,88 @@ class SynthesisService {
       chunks = allChunks.slice(0, 4);
     }
 
-    // Step b: Build synthesis context
+    // Step b: Build compression context
     const targetWordCount = typeof chapter.targetWordCount === 'number' && chapter.targetWordCount > 0
       ? chapter.targetWordCount
       : 300;
+    const M = targetWordCount;
+    const hardCeiling = M + 30;
+    const hardFloor = Math.max(0, M - 30);
 
     const context = contextBuilder.buildSynthesisContext(chapter, chunks);
+    const K = chunks.length;
 
-    // TASK 6: Update synthesis prompt to instruct model on targetWordCount
-    const synthesisInstruction = `\n\nTarget approximately ${targetWordCount} words. Do not pad to reach it. If evidence is insufficient, stop early and state the limitation in a final paragraph.`;
-    const promptWithTargetBudget = `${context.contextText}${synthesisInstruction}`;
+    let totalSourceWords = 0;
+    for (const c of chunks) {
+      const text = c.textContent || c.content || c.text_content || '';
+      totalSourceWords += text.trim().split(/\s+/).filter(Boolean).length;
+    }
+    const N = totalSourceWords;
+    const ratio = (N > 0 && M > 0) ? (N / M).toFixed(1) : '7.0';
 
-    // Step c: Call AI provider or deterministic grounded synthesizer
-    let rawSynthesis = '';
+    const compressionPrompt = `You are compressing a source text, not summarizing or synthesizing it.
+
+INPUT: ${N} source words across ${K} chunks.
+OUTPUT: exactly ${M} words. Hard ceiling: ${hardCeiling}. Hard floor: ${hardFloor}.
+Compression ratio for this task: ~${ratio}:1.
+
+Rules:
+
+Preserve every distinct concept, argument, example, and factual claim from the source. If the source names 14 methods, name 14.
+
+Do not add narrative framing, introductions, transitions, or conclusions not present in the source.
+
+Do not paraphrase away specificity. "Gradient descent, SGD, and OLS" must not become "several optimization methods".
+
+Use the source's own structure denser, not a rewritten structure.
+
+Every sentence must cite its source chunk at the end: [Source N].
+
+If M is too small for the source's information density, emit [INSUFFICIENT_M: needs ~X words] as the final line instead of exceeding the ceiling.
+
+Do NOT exceed ${hardCeiling} words. This is a hard ceiling, not a target.
+
+SOURCE MATERIAL:
+${context.sourceMaterialText || context.contextText}
+
+OUTPUT:`;
+
+    // Step c: Call AI provider or deterministic grounded compressor
+    let rawCompression = '';
     let providerName = 'deterministic_synthesizer';
     let modelName = 'smart_reader_v4';
     let fellBack = false;
     let fallbackReason = null;
-    let length_violation = false;
+    let compression_violation = false;
 
     if (!options.fast && aiService.isAvailable && aiService.isAvailable()) {
       try {
-        let response = await aiService.generateText(promptWithTargetBudget, {
+        let response = await aiService.generateText(compressionPrompt, {
           temperature: 0.3,
+          maxTokens: 550,
         });
         
         // Post-generation validation
         if (response && response.text && response.text.trim().length > 0) {
           let wordCount = response.text.trim().split(/\s+/).length;
           if (wordCount < 180 || wordCount > 450) {
-            console.warn(`[SynthesisService] Word count ${wordCount} out of bounds, retrying...`);
-            response = await aiService.generateText(promptWithTargetBudget, {
-              temperature: 0.3,
+            console.warn(`[SynthesisService] Word count ${wordCount} out of bounds, retrying with compression prompt...`);
+            response = await aiService.generateText(compressionPrompt, {
+              temperature: 0.2,
+              maxTokens: 550,
             });
             if (response && response.text) {
               wordCount = response.text.trim().split(/\s+/).length;
               if (wordCount < 180 || wordCount > 450) {
-                length_violation = true;
-                console.warn(`[SynthesisService] Retry also out of bounds (${wordCount}). Flagging length_violation.`);
+                compression_violation = true;
+                console.warn(`[SynthesisService] Retry also out of bounds (${wordCount}). Flagging compression_violation.`);
               }
             }
           }
         }
 
         if (response && response.text && response.text.trim().length > 0) {
-          rawSynthesis = response.text;
+          rawCompression = response.text;
           providerName = response.provider || 'gemini';
           modelName = response.model || 'gemini-1.5-flash';
         } else {
@@ -130,16 +167,16 @@ class SynthesisService {
       fallbackReason = 'provider_unavailable';
     }
 
-    if (!rawSynthesis || rawSynthesis.trim() === '') {
+    if (!rawCompression || rawCompression.trim() === '') {
       if (!fellBack) {
         fellBack = true;
         fallbackReason = 'provider_unavailable';
       }
-      rawSynthesis = this.generateDeterministicSynthesis(chapter, context.includedChunks);
+      rawCompression = this.generateDeterministicSynthesis(chapter, context.includedChunks);
     }
 
     // Step d: Normalize output into canonical blocks
-    const canonicalBlocks = aiNormalizer.normalize(rawSynthesis);
+    const canonicalBlocks = aiNormalizer.normalize(rawCompression);
 
     // Step e: Persist as a chapter_representation with appropriate synthesisType and provenance=chunkIds
     const chunkIds = chunks.map((c) => c.id);
@@ -167,7 +204,7 @@ class SynthesisService {
 
         const isFallbackChapter = repMeta.fell_back === true || repMeta.provider === 'deterministic_synthesizer';
         if (isFallbackChapter && rep.content) {
-          const normCurrent = rawSynthesis.trim();
+          const normCurrent = rawCompression.trim();
           const normExisting = rep.content.trim();
           const bodyCurrent = normCurrent.replace(/^###\s+[^\n]*\n+/, '').trim();
           const bodyExisting = normExisting.replace(/^###\s+[^\n]*\n+/, '').trim();
@@ -180,6 +217,7 @@ class SynthesisService {
       }
     }
 
+    const actualWordCount = rawCompression.trim().split(/\s+/).filter(Boolean).length;
     const metadata = {
       outlineId,
       chapterId,
@@ -191,12 +229,14 @@ class SynthesisService {
       provider: providerName,
       model: modelName,
       generatedAt: new Date().toISOString(),
+      actual_word_count: actualWordCount,
+      source_word_count: N,
       ...(fellBack ? {
         fell_back: true,
         fallback_reason: fallbackReason || 'provider_unavailable',
         ...(isDuplicate ? { duplicate: true } : {}),
       } : {}),
-      ...(length_violation ? { length_violation: true } : {})
+      ...(compression_violation ? { compression_violation: true } : {}),
     };
 
     const savedRepresentation = chapterRepository.saveRepresentation({
@@ -204,7 +244,7 @@ class SynthesisService {
       chapterId,
       bookId: outline.collectionId || outlineId,
       type: options.type || 'EDITORIAL_SYNTHESIS',
-      content: rawSynthesis,
+      content: rawCompression,
       metadata,
       provenance: chunkIds,
       synthesisType,

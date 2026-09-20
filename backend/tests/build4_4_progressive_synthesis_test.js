@@ -65,15 +65,15 @@ async function runTests() {
   const sampleMarkdown = [
     '# Practical Distributed Machine Learning\n\n',
     '## Chapter 1: Introduction to Scalable Intelligence\n\n',
-    longParagraph.repeat(6),
+    longParagraph.repeat(30),
     '## Chapter 2: Mathematics for Large-Scale Optimization\n\n',
-    longParagraph.repeat(6),
+    longParagraph.repeat(30),
     '## Chapter 3: Data Preparation and Cleansing Pipelines\n\n',
-    longParagraph.repeat(6),
+    longParagraph.repeat(30),
     '## Chapter 4: Distributed Training and Model Parallelism\n\n',
-    longParagraph.repeat(6),
+    longParagraph.repeat(30),
     '## Chapter 5: Evaluation Metrics and Production Monitoring\n\n',
-    longParagraph.repeat(6),
+    longParagraph.repeat(30),
   ].join('');
 
   const importResult = await bookService.importBook({

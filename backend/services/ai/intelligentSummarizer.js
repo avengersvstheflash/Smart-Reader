@@ -141,7 +141,6 @@ class IntelligentSummarizer {
           fallbackReason = 'provider_unavailable';
         }
         rawSynopsis = this.fallbackSynthesizeSynopsis(book, context);
-        usedFallback = true;
       }
 
       // 4. Normalize AI output into canonical blocks (preventing markdown leakage)
@@ -175,17 +174,6 @@ class IntelligentSummarizer {
         type: 'SYNOPSIS',
         content: rawSynopsis,
         canonicalBlocks,
-        metadata: {
-          jobId,
-          durationMs,
-          chunkCount: context.chunkCount,
-          includedChunks: context.includedChunks,
-          generatedAt: new Date().toISOString(),
-          provider: usedFallback ? 'local-semantic-fallback' : (aiResult.provider || 'gemini'),
-          model: usedFallback ? 'deterministic-semantic-v1' : (aiResult.model || 'gemini-3.8-flash'),
-          grounded: true,
-          sourceCount: context.includedChunks ? context.includedChunks.length : 0,
-        },
         metadata,
       });
 

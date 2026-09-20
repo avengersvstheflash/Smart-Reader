@@ -78,7 +78,7 @@ async function runTests() {
   const firstChap = outline.chapters[0];
   assert(firstChap.id, 'Chapter must have id');
   assert(firstChap.title, 'Chapter must have title');
-  assert(firstChap.targetWordCount >= 400 && firstChap.targetWordCount <= 3000, `Target word count ${firstChap.targetWordCount} should be 400-3000`);
+  assert(firstChap.targetWordCount >= 180 && firstChap.targetWordCount <= 360, `Target word count ${firstChap.targetWordCount} should be 180-360`);
   assert(Array.isArray(firstChap.sourceSectionIds) && firstChap.sourceSectionIds.length > 0, 'Chapter must have sourceSectionIds');
   console.log(`  ✓ Test 1 passed: Generated outline with ${outline.chapters.length} chapters, type: ${outline.type}\n`);
 

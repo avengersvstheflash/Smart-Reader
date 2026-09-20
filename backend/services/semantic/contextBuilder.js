@@ -175,19 +175,21 @@ Answer the reader's question directly and concisely, citing the specific source 
       });
     }
 
-    const instructionsText = `INSTRUCTIONS: Synthesize, do not concatenate. Distinguish agreement vs. difference vs. conflict. Preserve uncertainty. Cite sources inline using [Source N].`;
+    const sourceMaterialText = sourceBlocks.length > 0 ? sourceBlocks.join('\n\n') : 'No source excerpts retrieved.';
+    const instructionsText = `INSTRUCTIONS: Compress, do not summarize or concatenate. Preserve every distinct concept, argument, and factual claim. Preserve uncertainty. Cite sources inline using [Source N].`;
 
-    const fullContextText = `EDITORIAL TASK: Synthesize chapter "${chapterTitle}".
+    const fullContextText = `EDITORIAL TASK: Compress chapter "${chapterTitle}".
 
 SOURCE MATERIAL:
-${sourceBlocks.length > 0 ? sourceBlocks.join('\n\n') : 'No source excerpts retrieved.'}
+${sourceMaterialText}
 
 ${instructionsText}`;
 
     return {
       contextText: fullContextText,
+      sourceMaterialText,
       instructions: instructionsText,
-      editorialTask: `EDITORIAL TASK: Synthesize chapter "${chapterTitle}".`,
+      editorialTask: `EDITORIAL TASK: Compress chapter "${chapterTitle}".`,
       outlineChapter: typeof outlineChapter === 'object' ? outlineChapter : { title: chapterTitle },
       includedChunks,
       chunkCount: includedChunks.length,

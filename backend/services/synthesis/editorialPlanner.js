@@ -89,12 +89,67 @@ class EditorialPlanner {
   }
 
   /**
+   * Slices candidate sections/chunks into source units of ~1,500–2,500 words.
+   * Walks chunks in order. Closes unit when:
+   *  (a) wordCount >= 1500 AND next chunk would push past 2500, OR
+   *  (b) wordCount >= 2500
+   * Chunks are never split.
+   */
+  sliceIntoSourceUnits(sections = []) {
+    const units = [];
+    let currentUnit = [];
+    let currentWords = 0;
+
+    for (let i = 0; i < sections.length; i++) {
+      const sec = sections[i];
+      let secWords = 0;
+      if (typeof sec.wordCount === 'number' && sec.wordCount > 0) {
+        secWords = sec.wordCount;
+      } else if (sec.content || sec.textContent) {
+        secWords = (sec.content || sec.textContent).trim().split(/\s+/).filter(Boolean).length;
+      } else {
+        secWords = 250;
+      }
+
+      if (currentUnit.length > 0) {
+        const wouldExceedUpper = currentWords >= 1500 && (currentWords + secWords > 2500);
+        const reachedHardMax = currentWords >= 2500;
+        if (wouldExceedUpper || reachedHardMax) {
+          units.push({
+            sections: currentUnit,
+            wordCount: currentWords,
+          });
+          currentUnit = [];
+          currentWords = 0;
+        }
+      }
+
+      currentUnit.push(sec);
+      currentWords += secWords;
+    }
+
+    if (currentUnit.length > 0) {
+      units.push({
+        sections: currentUnit,
+        wordCount: currentWords,
+      });
+    }
+
+    return units;
+  }
+
+  /**
    * Calculate targetWordCount for a planned chapter based on mapped source sections
    * Task 4 Rules:
    * - Target ~1,500–3,000 words per chapter
    * - Sum of wordCounts of mapped source sections divided by compression ratio (0.4)
    * - Clamp to [1500, 3000]. If material is thin, allow shorter down to minimum 400 words.
    * - Do NOT pad to reach target.
+   * Rules:
+   * - targetWordCount = round(sourceUnitWordCount / 7)
+   * - Clamp to [250, 360]
+   * - If source unit < 1,200 words: targetWordCount = 180 (honest short chapter)
+   * - If source unit > 2,800 words: log a warning
    */
   computeChapterWordBudget(sourceSectionIds = [], sectionLookup = new Map()) {
     let rawSourceWordCount = 0;
@@ -105,6 +160,8 @@ class EditorialPlanner {
           rawSourceWordCount += sec.wordCount;
         } else if (sec.content) {
           rawSourceWordCount += sec.content.split(/\s+/).filter(Boolean).length;
+        } else if (sec.content || sec.textContent) {
+          rawSourceWordCount += (sec.content || sec.textContent).split(/\s+/).filter(Boolean).length;
         } else {
           rawSourceWordCount += 250; // reasonable baseline estimate per section
         }
@@ -113,6 +170,12 @@ class EditorialPlanner {
 
     const compressionRatio = 0.15;
     const estimatedWords = Math.round(rawSourceWordCount * compressionRatio);
+    if (rawSourceWordCount < 1200) {
+      return 180;
+    }
+    if (rawSourceWordCount > 2800) {
+      this.logger.warn(`[EditorialPlanner] Source unit exceeds 2800 words (${rawSourceWordCount})`);
+    }
 
     if (estimatedWords < 250) {
       // Thin material: allow shorter, down to minimum 180 words
@@ -120,6 +183,8 @@ class EditorialPlanner {
     }
     // Substantial material: clamp to [250, 360]
     return Math.min(360, estimatedWords);
+    const target = Math.round(rawSourceWordCount / 7);
+    return Math.max(250, Math.min(360, target));
   }
 
   /**
@@ -327,21 +392,20 @@ class EditorialPlanner {
     const chapters = [];
     let order = 1;
 
-    // For narrative content: preserve chronology across sections
-    if (organizationStrategy === 'chronological') {
-      const targetCount = totalSections > 20 ? 8 : Math.max(2, Math.min(6, totalSections));
-      const chunkSize = Math.max(1, Math.ceil(totalSections / targetCount));
+    // For single-source books or chronological content: slice into source units of ~1,500–2,500 words
+    if (!isMultiSource || organizationStrategy === 'chronological') {
+      const units = this.sliceIntoSourceUnits(candidateSections);
 
-      for (let i = 0; i < totalSections; i += chunkSize) {
-        const slice = candidateSections.slice(i, i + chunkSize);
-        const sectionIds = slice.map((s) => s.sectionId || s.id);
-        const firstTitle = slice[0].sectionTitle || slice[0].title || `Act ${order}`;
+      for (const unit of units) {
+        const sectionIds = unit.sections.map((s) => s.sectionId || s.id);
+        const firstSec = unit.sections[0] || {};
+        const firstTitle = firstSec.sectionTitle || firstSec.title || `Part ${order}`;
         const targetWordCount = this.computeChapterWordBudget(sectionIds, sectionLookup);
 
         chapters.push({
           chapterId: `ch-plan-${order}`,
           title: `Part ${order}: ${firstTitle}`,
-          purpose: `Chronological progression covering sections ${i + 1} through ${Math.min(totalSections, i + chunkSize)}`,
+          purpose: `Compressed representation covering ${sectionIds.length} source section(s)`,
           sourceSectionIds: sectionIds,
           sourceSections: sectionIds.map((id) => {
             const sec = sectionLookup.get(id);
@@ -351,7 +415,7 @@ class EditorialPlanner {
               sectionTitle: sec ? (sec.sectionTitle || sec.title || id) : id,
             };
           }),
-          topics: slice.map((s) => s.sectionTitle || s.title).slice(0, 3),
+          topics: unit.sections.map((s) => s.sectionTitle || s.title).filter(Boolean).slice(0, 3),
           targetWordCount,
           order: order++,
         });
@@ -443,6 +507,7 @@ RULES:
 2. Carefully read the supplied content excerpts to determine how ideas, themes, and evidence connect across sections.
 3. Organize for human reading comprehension: group related material across source sections and eliminate redundancy.
 4. Each planned chapter must target approximately 250–360 words based on the depth of mapped material (or fewer, down to 180 words, if the material is thin).
+4. Each planned chapter must be a compressed representation of ~1,500-2,500 source words, producing 250-360 output words. Chapters are compression units, not thematic containers.
 5. Every sourceSectionId in your chapters MUST come directly from the supplied sectionIds. NEVER invent or hallucinate section IDs.
 6. Every chapter must have at least one valid sourceSectionId. Do not produce empty chapters.
 7. Return strict JSON matching the schema below. No conversational prose or markdown surrounding text.
