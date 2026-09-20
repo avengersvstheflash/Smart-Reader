@@ -62,7 +62,7 @@ See [`docs/PRODUCT_VISION.md`](./docs/PRODUCT_VISION.md) §"Compression, not sum
 ### Infrastructure
 - **Node 22** pinned via `.nvmrc`
 - **SQLite** via `better-sqlite3`, WAL mode, cascading foreign keys
-- **Test suite** — 14 regression suites, real fixtures, ~2 minute runtime
+- **Test suite** — 13 regression suites, real fixtures, ~2 minute runtime
 - **Local-first** — no cloud calls except configured AI providers; BGE-M3 runs entirely on-device
 
 ## Architecture
@@ -119,7 +119,7 @@ Open `http://localhost:5173/` and import a book.
 ### Test
 
 ```bash
-npm test           # 14 regression suites, ~2 minutes
+npm test           # 13 regression suites, ~2 minutes
 ```
 
 ## Roadmap
@@ -173,7 +173,7 @@ Commit conventions:
 - `chore: <description>` — build, deps, tooling
 - `phase<N>.<M>: <description>` — roadmap phase work
 
-Test suite must stay green (`npm test` → 14/14 passing) through every commit.
+Test suite must stay green (`npm test` → 13/13 passing) through every commit.
 
 ## Acknowledgements
 
