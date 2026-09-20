@@ -26,7 +26,7 @@ async function runTests() {
               title: 'Chapter 1: Foundational Theory',
               purpose: 'Introduction to foundational theory',
               sourceSectionIds: ['sec-1', 'sec-2'],
-              targetWordCount: 2200,
+              targetWordCount: 300,
               topics: ['foundations'],
             },
           ],
@@ -81,14 +81,14 @@ async function runTests() {
   const sectionLookupSubstantial = new Map();
   candidateSectionsSubstantial.forEach((s) => sectionLookupSubstantial.set(s.sectionId, s));
 
-  // sec-1 (1800 words) + sec-2 (2400 words) = 4200 words. At 0.4 ratio = 1680 words.
+  // sec-1 (1800 words) + sec-2 (2400 words) = 4200 words. At 0.15 ratio = 630 words.
   const substantialBudget = editorialPlanner.computeChapterWordBudget(['sec-1', 'sec-2'], sectionLookupSubstantial);
   console.log(`  Substantial chapter budget computed: ${substantialBudget} words (from 4200 raw words)`);
-  assert(substantialBudget >= 1500 && substantialBudget <= 3000, `Expected budget in [1500, 3000], got ${substantialBudget}`);
+  assert(substantialBudget >= 250 && substantialBudget <= 360, `Expected budget in [250, 360], got ${substantialBudget}`);
 
   // Also verify through plan output
-  assert(planResult1.chapters[0].targetWordCount >= 1500 && planResult1.chapters[0].targetWordCount <= 3000,
-    `Planned chapter targetWordCount should be clamped in [1500, 3000], got ${planResult1.chapters[0].targetWordCount}`);
+  assert(planResult1.chapters[0].targetWordCount >= 250 && planResult1.chapters[0].targetWordCount <= 360,
+    `Planned chapter targetWordCount should be clamped in [250, 360], got ${planResult1.chapters[0].targetWordCount}`);
   console.log('  ✓ Test 2 passed: Substantial chapter assigned appropriate targetWordCount.\n');
 
   // ---------------------------------------------------------------------------
@@ -108,12 +108,12 @@ async function runTests() {
   const thinLookup = new Map();
   thinSections.forEach((s) => thinLookup.set(s.sectionId, s));
 
-  // 200 words * 0.4 = 80 words -> should clamp to minimum 400 words
+  // 200 words * 0.15 = 30 words -> should clamp to minimum 180 words
   const thinBudget = editorialPlanner.computeChapterWordBudget(['thin-1'], thinLookup);
   console.log(`  Thin chapter budget computed: ${thinBudget} words (from 200 raw words)`);
-  assert.strictEqual(thinBudget, 400, `Expected thin budget clamped to minimum 400 words, got ${thinBudget}`);
+  assert.strictEqual(thinBudget, 180, `Expected thin budget clamped to minimum 180 words, got ${thinBudget}`);
 
-  // Medium-thin test: 2000 raw words * 0.4 = 800 words (between 400 and 1500)
+  // Medium-thin test: 2000 raw words * 0.15 = 300 words (between 180 and 360)
   const medThinSections = [
     {
       sectionId: 'med-1',
@@ -128,8 +128,8 @@ async function runTests() {
   medThinSections.forEach((s) => medThinLookup.set(s.sectionId, s));
   const medThinBudget = editorialPlanner.computeChapterWordBudget(['med-1'], medThinLookup);
   console.log(`  Medium-thin budget computed: ${medThinBudget} words (from 2000 raw words)`);
-  assert(medThinBudget >= 400 && medThinBudget < 1500, `Expected medThinBudget in [400, 1500), got ${medThinBudget}`);
-  console.log('  ✓ Test 3 passed: Thin chapter assigned shorter targetWordCount down to minimum 400 words.\n');
+  assert(medThinBudget >= 180 && medThinBudget <= 360, `Expected medThinBudget in [180, 360], got ${medThinBudget}`);
+  console.log('  ✓ Test 3 passed: Thin chapter assigned shorter targetWordCount down to minimum 180 words.\n');
 
   // ---------------------------------------------------------------------------
   // TEST 4: Invalid sourceSectionIds in LLM output are discarded and logged
@@ -294,7 +294,7 @@ async function runTests() {
     assert(ch.chapterId, 'Chapter must have chapterId');
     assert(ch.title, 'Chapter must have title');
     assert(Array.isArray(ch.sourceSectionIds) && ch.sourceSectionIds.length > 0, 'Chapter must have valid sourceSectionIds');
-    assert(typeof ch.targetWordCount === 'number' && ch.targetWordCount >= 400, 'Chapter must have targetWordCount >= 400');
+    assert(typeof ch.targetWordCount === 'number' && ch.targetWordCount >= 180, 'Chapter must have targetWordCount >= 180');
   }
 
   console.log(`  Smoke test generated ${outline.chapters.length} chapters with target word counts: ${outline.chapters.map((c) => c.targetWordCount).join(', ')}`);

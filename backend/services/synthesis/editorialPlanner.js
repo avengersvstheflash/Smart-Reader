@@ -111,15 +111,15 @@ class EditorialPlanner {
       }
     }
 
-    const compressionRatio = 0.4;
+    const compressionRatio = 0.15;
     const estimatedWords = Math.round(rawSourceWordCount * compressionRatio);
 
-    if (estimatedWords < 1500) {
-      // Thin material: allow shorter, down to minimum 400 words
-      return Math.max(400, estimatedWords);
+    if (estimatedWords < 250) {
+      // Thin material: allow shorter, down to minimum 180 words
+      return Math.max(180, estimatedWords);
     }
-    // Substantial material: clamp to [1500, 3000]
-    return Math.min(3000, estimatedWords);
+    // Substantial material: clamp to [250, 360]
+    return Math.min(360, estimatedWords);
   }
 
   /**
@@ -254,8 +254,8 @@ class EditorialPlanner {
           : this.computeChapterWordBudget(validIds, sectionLookup);
 
         // Clamp according to specification rules
-        if (targetWordCount > 3000) {
-          targetWordCount = 3000;
+        if (targetWordCount > 450) {
+          targetWordCount = 450;
         }
 
         sanitizedChapters.push({
@@ -442,7 +442,7 @@ RULES:
 1. You are an editorial planner, not a writer. Do NOT write chapter text.
 2. Carefully read the supplied content excerpts to determine how ideas, themes, and evidence connect across sections.
 3. Organize for human reading comprehension: group related material across source sections and eliminate redundancy.
-4. Each planned chapter must target approximately 1,500–3,000 words based on the depth of mapped material (or fewer, down to 400 words, if the material is thin).
+4. Each planned chapter must target approximately 250–360 words based on the depth of mapped material (or fewer, down to 180 words, if the material is thin).
 5. Every sourceSectionId in your chapters MUST come directly from the supplied sectionIds. NEVER invent or hallucinate section IDs.
 6. Every chapter must have at least one valid sourceSectionId. Do not produce empty chapters.
 7. Return strict JSON matching the schema below. No conversational prose or markdown surrounding text.
@@ -464,7 +464,7 @@ SCHEMA:
       "purpose": "What this chapter synthesizes for the reader",
       "topics": ["topic 1", "topic 2"],
       "sourceSectionIds": ["exact-section-id-from-input-1", "exact-section-id-from-input-2"],
-      "targetWordCount": 2000
+      "targetWordCount": 300
     }
   ]
 }

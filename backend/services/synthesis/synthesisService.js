@@ -54,7 +54,7 @@ class SynthesisService {
     // Step b: Build synthesis context
     const targetWordCount = typeof chapter.targetWordCount === 'number' && chapter.targetWordCount > 0
       ? chapter.targetWordCount
-      : 2000;
+      : 300;
 
     const context = contextBuilder.buildSynthesisContext(chapter, chunks);
 
@@ -68,12 +68,32 @@ class SynthesisService {
     let modelName = 'smart_reader_v4';
     let fellBack = false;
     let fallbackReason = null;
+    let length_violation = false;
 
     if (!options.fast && aiService.isAvailable && aiService.isAvailable()) {
       try {
-        const response = await aiService.generateText(promptWithTargetBudget, {
+        let response = await aiService.generateText(promptWithTargetBudget, {
           temperature: 0.3,
         });
+        
+        // Post-generation validation
+        if (response && response.text && response.text.trim().length > 0) {
+          let wordCount = response.text.trim().split(/\s+/).length;
+          if (wordCount < 180 || wordCount > 450) {
+            console.warn(`[SynthesisService] Word count ${wordCount} out of bounds, retrying...`);
+            response = await aiService.generateText(promptWithTargetBudget, {
+              temperature: 0.3,
+            });
+            if (response && response.text) {
+              wordCount = response.text.trim().split(/\s+/).length;
+              if (wordCount < 180 || wordCount > 450) {
+                length_violation = true;
+                console.warn(`[SynthesisService] Retry also out of bounds (${wordCount}). Flagging length_violation.`);
+              }
+            }
+          }
+        }
+
         if (response && response.text && response.text.trim().length > 0) {
           rawSynthesis = response.text;
           providerName = response.provider || 'gemini';
@@ -176,6 +196,7 @@ class SynthesisService {
         fallback_reason: fallbackReason || 'provider_unavailable',
         ...(isDuplicate ? { duplicate: true } : {}),
       } : {}),
+      ...(length_violation ? { length_violation: true } : {})
     };
 
     const savedRepresentation = chapterRepository.saveRepresentation({
