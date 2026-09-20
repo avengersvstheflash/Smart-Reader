@@ -74,6 +74,76 @@ which source chapter that chunk belongs to, and which position.
 
 ---
 
+## Compression, not summarization
+
+Smart Reader is a **compression** engine, not a **summarization**
+engine. The difference is the whole product.
+
+A summarizer:
+- Skips content to fit a narrative
+- Adds framing not in the source
+- Produces output length proportional to input
+- Invents connective tissue between ideas
+- Answers the question "what is the gist?"
+
+A compressor:
+- Preserves every distinct concept, argument, and factual claim
+- Adds nothing that isn't in the source
+- Produces output length dictated by the instruction, not the input
+- Uses the source's own structure, denser
+- Answers the question "what would this say if every sentence
+  carried 5–8× its information?"
+
+Every Smart Chapter is a **compressed** representation of its source
+unit. Every sentence is a compression of one or more source sentences.
+The ideas survive; the phrasing doesn't.
+
+This is why the two-representation invariant works: the original is
+the fully expanded source; Smart is the compressed lens. Nothing is
+lost, only densified. Trace any compressed line back and you'll find
+the full source idea it derived from.
+
+### The ratio
+
+- Source unit: 1,500–2,500 words
+- Smart Chapter target: 250–360 words
+- Compression ratio: **~5:1 to ~10:1, target ~7:1**
+- Hard output bounds: 180 minimum, 450 maximum
+- If a source unit is only 800 words, output ~200 words — short
+  but honest. Do not pad.
+- If a source unit is 5,000 words, split into two source units
+  before synthesis. Do not compress at 15:1 — quality collapses.
+
+### Implementation implications
+
+- **Prompts must say "compress," never "synthesize" or "summarize."**
+  The word sets the mode. "Synthesize" invites narrative
+  transformation; "compress" demands preservation.
+- **Output length is a hard ceiling, not a target.** The prompt
+  must use "exactly N words" with explicit hard bounds, not
+  "approximately N words."
+- **Retry behavior:** if the LLM overflows, retry with stricter
+  framing (explicit ratio, explicit "do not exceed").
+- **Failure mode:** if the source's information density is too
+  high for the target M, the LLM should emit `[INSUFFICIENT_M:
+  needs ~X words]` as the last line rather than silently overflowing.
+- **Length violations (>M+30 or <M-30) are compression failures**,
+  not content failures. Flag them as such in metadata
+  (`compression_violation: true` rather than `length_violation`).
+- **The compression ratio is the fundamental quality metric.**
+  2,000 source words → 300 output words is a ~6.7:1 compression.
+  Ratio outside [4:1, 10:1] is a red flag worth investigating.
+
+### What this rules out
+
+- Calling the pipeline "synthesis" in code, prompts, or docs
+  (rename over time, not in one pass)
+- Any prompt that says "provide a comprehensive overview of..."
+- Any prompt that says "summarize the following..."
+- Any output that adds framing not present in the source
+
+---
+
 ## The frontend model — Smart is the surface, Original is the depth
 
 ### Reader defaults to Smart

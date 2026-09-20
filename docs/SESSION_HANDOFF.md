@@ -91,6 +91,65 @@ target range. Show the DB word count.
 
 Reference: docs/PRODUCT_VISION.md §"The backend model".
 
+## Phase 4.8.1 — Compressor prompt + input sizing (~1 session, Pro High)
+
+**Root cause (2026-09-20):** Smart Reader produces **summaries**, not
+**compressions**. The LLM is prompted to "synthesize" and produces
+output proportional to source size. Evidence: 3023-word Smart chapter
+from ~15k words of source, in classic summarizer register ("Machine
+learning represents one of the most transformative technologies...").
+Phase 4.8's word count validation fired correctly — the LLM just
+ignored it because the prompt framing invited essays.
+
+**The vision clarification:** PRODUCT_VISION.md §"Compression, not
+summarization" now states the distinction explicitly. Every prompt in
+the pipeline must be reframed from synthesis to compression.
+
+**Fix (two coupled changes):**
+
+1. **Prompt language rewrite** in `synthesisService.js`
+   - Replace "synthesize" / "comprehensive overview" with "compress"
+   - New prompt shape:
+     * State source word count and output word count explicitly
+     * "Compress {N} source words into exactly {M} words"
+     * "Preserve every distinct concept, argument, and factual claim"
+     * "Do not add narrative framing, introductions, or conclusions
+       not in the source"
+     * "Do not paraphrase away specificity. 'Gradient descent, SGD,
+       and OLS' is not 'several optimization methods'"
+     * Hard ceiling: "Do not exceed {M+30} words"
+     * Escape hatch: "If M is too small for the source's information
+       density, emit [INSUFFICIENT_M: needs ~X words] as the last line
+       instead of exceeding the ceiling"
+     * Every sentence ends with [Source N]
+
+2. **Input sizing** in `editorialPlanner.js`
+   - Slice body source into 1,500–2,500 word units BEFORE assigning
+     to editorial chapters
+   - One editorial chapter per source unit
+   - `targetWordCount = round(sourceWordCount / 7)` clamped to
+     [250, 360]
+   - If source unit < 1,200 words → `targetWordCount = 180` (honest
+     short)
+   - If source unit > 2,800 words → split into two units first
+
+3. **max_tokens ceiling** in `openrouterProvider.js`
+   - Pass `maxTokens: 550` on synthesis calls (roughly 1.5× the 360
+     hard ceiling). This is a server-side backstop if the prompt
+     fails; the prompt does the primary work.
+
+**Verification:**
+- Regenerate outline + synthesis on the canonical test book
+  (`backend/tests/fixtures/practical_machine_learning.pdf`)
+- Expect 8–12 editorial chapters (not 15)
+- Each Smart Chapter 250–360 words (target), max 450
+- `length_violation` not set on any chapter
+- Smart text reads as compressed source, not summarized source
+- No invented introductions, no "comprehensive overview" phrases
+
+**Reference:** docs/PRODUCT_VISION.md §"Compression, not
+summarization"; docs/CANONICAL_TEST_BOOK.md §Known issues.
+
 ## Phase 4.9 — Synopsis fallback honesty (~30 min, Flash Medium)
 
 PROBLEM: DERIVED · SYNOPSIS panel renders deterministic fallback text
@@ -253,6 +312,10 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
 - Synopsis fallback shows fiction template for textbook; no marker
   distinguishes fallback from real synthesis (Phase 4.9)
 - Import defaults contentType to 'novel' for every file (Phase 4.10)
+- **Phase 4.8.1** — Smart chapters output 2692-3023 words despite 4.8
+  validation. Root cause: editorialPlanner assigns large source inputs
+  per editorial chapter, not 1,500-2,500 word units per PRODUCT_VISION.
+  Fix in editorialPlanner.js slicing. Priority.
 
 ---
 
