@@ -165,19 +165,52 @@ CHANGE:
      render honest caption: "Structured synopsis — model unavailable"
   3. Consistent with Gate 2.5 chapter fallback pattern
 
-## Phase 4.10 — contentType detection on import (~1 session, Pro High)
+## Phase 4.10 — Auto-classification on import (~1 session, Pro High)
 
-PROBLEM: Import endpoint defaults contentType to 'novel'. Every
-imported PDF gets tagged NOVEL. A machine learning textbook was
-tagged NOVEL.
+Two problems, one fix:
 
-CHANGE (pick after diagnostic):
-  (a) Infer contentType from content structure + vocabulary
-  (b) Add contentType selector to Import UI (File tab)
-  (c) Both
+PROBLEM A: Import defaults contentType to 'novel' for every file.
+PROBLEM B: Library has no topic/level/tool filtering. Tags do not
+exist as data.
 
-Also: synopsis synthesizer template should be content-type-aware —
-the fiction template is wrong for technical books.
+FIX: Single LLM call after ingestion completes. Same context as
+synopsis (title, author, TOC, ch1 opening paragraph).
+
+INPUT:
+  - Book title, author
+  - TOC entries
+  - First paragraph of chapter 1
+  - Optional: preface text
+
+OUTPUT (structured JSON):
+  {
+    "contentType": "textbook" | "novel" | "essay" | "paper" |
+                   "reference" | "memo" | "article" | "other",
+    "tags": ["machine-learning", "python", "ethics", ...],
+    "readingLevel": "introductory" | "intermediate" | "advanced" |
+                    "research",
+    "targetAudience": "one line",
+    "prerequisites": ["..."],
+    "toolsCovered": ["..."]
+  }
+
+STORAGE: books.metadata_json.classification (new key).
+  Existing books default to no classification.
+
+FRONTEND:
+  - Book Details: chips row showing contentType + readingLevel +
+    top 5 tags.
+  - Library: filter chips extend to include top N tags across the
+    collection.
+  - Book cards: existing contentType badge stays; now accurate.
+
+COST: one ~500-token OpenRouter call per import.
+
+VERIFY on canonical test book:
+  - contentType becomes "textbook" not "novel"
+  - tags are non-trivial and accurate
+  - Library filter chips populate
+  - Synopsis still produces independent of classification result
 
 ## 5. Remaining roadmap
 
@@ -316,11 +349,6 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
   validation. Root cause: editorialPlanner assigns large source inputs
   per editorial chapter, not 1,500-2,500 word units per PRODUCT_VISION.
   Fix in editorialPlanner.js slicing. Priority.
-- **Phase 4.8.2** — Front matter leaks into editorial chunks.
-  SectionFilter doesn't check structural_role. Fix: skip
-  front_matter/back_matter/index/appendix in
-  editorialService rawSections + sectionFilter evaluateSection.
-  Priority: high (affects chapter 1 quality).
 - **Phase 4.12** — Compression terminology refactor. Rename
   synthesisService → compressionService, intelligentSummarizer →
   intelligentCompressor, EDITORIAL_SYNTHESIS → EDITORIAL_COMPRESSION.
