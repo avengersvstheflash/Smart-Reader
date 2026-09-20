@@ -58,6 +58,7 @@ export interface Book {
   sourceFormat?: string;
   sourceSite?: string;
   sourceUrl?: string;
+  hasSmartContent?: boolean;
 }
 
 export interface RawBook {
@@ -83,6 +84,8 @@ export interface RawBook {
   sourceSite?: string;
   source_url?: string;
   sourceUrl?: string;
+  has_smart_content?: boolean;
+  hasSmartContent?: boolean;
 }
 
 export function normalizeBook(raw: RawBook): Book {
@@ -100,6 +103,7 @@ export function normalizeBook(raw: RawBook): Book {
     sourceFormat: raw.sourceFormat || raw.source_format,
     sourceSite: raw.sourceSite || raw.source_site,
     sourceUrl: raw.sourceUrl || raw.source_url,
+    hasSmartContent: Boolean(raw.hasSmartContent ?? raw.has_smart_content ?? false),
   };
 }
 
@@ -308,6 +312,10 @@ export interface SmartChapter {
 }
 
 export interface BookSummary {
+  content: string;
+}
+
+export interface BookSynopsis {
   content: string;
 }
 

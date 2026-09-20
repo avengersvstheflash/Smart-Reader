@@ -9,11 +9,29 @@ const upload = multer({
   storage: multer.memoryStorage(),
 });
 
+const { getDatabase } = require('../db/database');
+
 // GET /api/books - list all books
 router.get('/', (req, res, next) => {
   try {
     const books = bookService.getAllBooks();
     res.json({ books });
+    const db = getDatabase();
+    const smartRows = db.prepare(`
+      SELECT DISTINCT eo.collectionId AS book_id
+      FROM editorial_outlines eo
+      JOIN chapter_representations cr
+        ON (cr.book_id = eo.collectionId OR cr.book_id = eo.outlineId)
+      WHERE cr.type = 'EDITORIAL_SYNTHESIS'
+    `).all();
+    const smartSet = new Set(smartRows.map((r) => r.book_id));
+
+    const booksWithSmart = books.map((b) => ({
+      ...b,
+      has_smart_content: smartSet.has(b.id),
+    }));
+
+    res.json({ books: booksWithSmart });
   } catch (err) {
     next(err);
   }

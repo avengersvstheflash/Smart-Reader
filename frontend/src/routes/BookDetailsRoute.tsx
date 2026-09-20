@@ -14,7 +14,7 @@ import {
   Plus,
   Send,
 } from 'lucide-react';
-import { useBook, useBookSummary, useSemanticStatus } from '../hooks/useBook';
+import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
 import { useEditorial } from '../hooks/useEditorial';
 import { useModal } from '../store/useModalStore';
@@ -92,9 +92,9 @@ export default function BookDetailsRoute() {
   } = useChapters(bookId);
 
   const {
-    summary,
-    refetch: refetchSummary,
-  } = useBookSummary(bookId);
+    synopsis,
+    refetch: refetchSynopsis,
+  } = useBookSynopsis(bookId);
 
   const {
     status: semanticStatus,
@@ -131,7 +131,7 @@ export default function BookDetailsRoute() {
           onClick={() => {
             refetchBook();
             refetchChapters();
-            refetchSummary();
+            refetchSynopsis();
             refetchSemantic();
           }}
           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-md bg-brand text-white hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -319,15 +319,15 @@ export default function BookDetailsRoute() {
       {/* ── SYNOPSIS PANEL ── */}
       <section aria-labelledby="synopsis-heading">
         <div className="rounded-md border border-line bg-card p-5 transition-colors">
-          {summary && summary.content ? (
+          {synopsis && synopsis.content ? (
             <div className="space-y-2">
               <span className="text-micro font-bold tracking-wider uppercase text-faint select-none">
                 DERIVED · SYNOPSIS
               </span>
               <p className="text-body text-ink leading-relaxed">
-                {summary.content.length > 300
-                  ? `${summary.content.slice(0, 300)}…`
-                  : summary.content}
+                {synopsis.content.length > 300
+                  ? `${synopsis.content.slice(0, 300)}…`
+                  : synopsis.content}
               </p>
             </div>
           ) : (

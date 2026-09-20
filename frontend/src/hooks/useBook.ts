@@ -5,6 +5,7 @@ import {
   RawBook,
   normalizeBook,
   BookSummary,
+  BookSynopsis,
   SemanticStatus,
 } from '../types/domain';
 
@@ -100,6 +101,56 @@ export function useBookSummary(bookId: string) {
 
   return {
     summary: data ?? null,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  };
+}
+
+interface SynopsisResponse {
+  success?: boolean;
+  representation?: {
+    content?: string;
+    [key: string]: unknown;
+  } | null;
+  synopsis?: string | {
+    content?: string;
+    [key: string]: unknown;
+  } | null;
+}
+
+export function useBookSynopsis(bookId: string) {
+  const { data, isLoading, isError, error, refetch } = useQuery<BookSynopsis | null, Error>({
+    queryKey: ['book-synopsis', bookId],
+    queryFn: async () => {
+      try {
+        const res = await apiClient<SynopsisResponse>(`/api/books/${bookId}/synopsis`);
+        if (!res) return null;
+
+        let content = '';
+        if (res.representation && typeof res.representation.content === 'string') {
+          content = res.representation.content;
+        } else if (typeof res.synopsis === 'string') {
+          content = res.synopsis;
+        } else if (res.synopsis && typeof res.synopsis.content === 'string') {
+          content = res.synopsis.content;
+        }
+
+        if (!content) return null;
+        return { content };
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          return null;
+        }
+        throw err;
+      }
+    },
+    enabled: Boolean(bookId),
+  });
+
+  return {
+    synopsis: data ?? null,
     isLoading,
     isError,
     error,
