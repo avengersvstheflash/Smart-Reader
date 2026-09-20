@@ -31,6 +31,7 @@ class IntelligentSummarizer {
       // 1. Retrieve Preface + TOC + strategic samples
       const tStart = Date.now();
       console.log('[Synopsis] Building from preface + TOC + samples...');
+      console.log('[Synopsis Compression] Building abstract from preface + TOC + samples...');
       
       const semanticChunkRepository = require('../../repositories/semanticChunkRepository');
       const allChunks = semanticChunkRepository.getByBookId(bookId) || [];
@@ -81,6 +82,7 @@ class IntelligentSummarizer {
       };
 
       console.log(`[Synopsis] Ready in ${Date.now() - tStart}ms`);
+      console.log(`[Synopsis Compression] Ready in ${Date.now() - tStart}ms`);
 
       jobRepository.update(jobId, { progress: 40 });
 
@@ -89,25 +91,119 @@ class IntelligentSummarizer {
         purpose: 'synopsis',
         maxTokens: 5000,
       });
+
+      const extractFirstPara = (chunk) => {
+        if (!chunk || !chunk.textContent) return '(None provided)';
+        const paras = chunk.textContent.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+        return paras[0] || chunk.textContent.trim();
+      };
+
+      const prefaceText = prefaceChunks.map(c => c.textContent).join('\n\n').trim() || '(None provided)';
+      const tocText = tocChunks.map(c => c.textContent).join('\n\n').trim() || '(None provided)';
+      const ch1FirstPara = extractFirstPara(ch1Chunk);
+      const lastChFirstPara = extractFirstPara(lastChChunk);
+
+      const synopsisPrompt = `You are preparing a synopsis for a book — a concise, high-quality abstract that gives a reader an accurate sense of what the book is about, how it's structured, and what reading it feels like.
+
+INPUTS PROVIDED:
+
+Author's preface (their own framing of the book)
+
+Table of contents
+
+Opening paragraphs of the first body chapter
+
+Opening paragraphs of the last body chapter
+
+OUTPUT: 200–300 words. Hard bounds: 180 minimum, 320 maximum.
+
+Structure:
+
+Core subject — one or two sentences stating what the book is about.
+
+Scope and approach — what the book covers, how it treats its subject, who it is for.
+
+Content landscape — one or two sentences on what the interior is like: dense or accessible, exercises or arguments, case studies or theory, structure of the chapters.
+
+What reading it feels like — one sentence, like a short review. e.g. "Reads like a working engineer's notebook — terse, technical, and confident."
+
+Rules:
+
+Compress. Do not pad. Every sentence must carry information.
+
+Do not invent details not present in the inputs.
+
+Do not open with narrative framing ("This book represents…").
+
+Do not list chapters or restate the TOC as a list.
+
+Do not summarize the preface — describe the book.
+
+If the inputs are insufficient for a full synopsis, close with one honest line: "[PARTIAL: inputs insufficient for full synopsis]".
+
+INPUTS:
+${prefaceText}
+
+TOC:
+${tocText}
+
+CHAPTER 1 OPENING:
+${ch1FirstPara}
+
+LAST CHAPTER OPENING:
+${lastChFirstPara}
+
+OUTPUT:`;
       
       console.log('--- SYNOPSIS PROMPT CONTEXT ---');
       console.log(context.contextText);
       console.log('-------------------------------');
+      console.log('--- SYNOPSIS COMPRESSION PROMPT ---');
+      console.log(synopsisPrompt);
+      console.log('-----------------------------------');
 
       // 3. AI Generation or Grounded Synthesis
+      // 3. AI Generation or Grounded Compression
       jobRepository.update(jobId, { progress: 70 });
       let aiResult = null;
       let rawSynopsis = '';
       let fellBack = false;
       let fallbackReason = null;
+      let wordCountViolation = false;
+
       try {
         aiResult = await this.executeAIGeneration(context, {
           task: 'synopsis',
           book,
           options,
+          prompt: synopsisPrompt,
+          maxTokens: 600,
         });
         if (aiResult && aiResult.summary && aiResult.summary.trim()) {
           rawSynopsis = aiResult.summary;
+          let wordCount = rawSynopsis.trim().split(/\s+/).filter(Boolean).length;
+          if (wordCount < 180 || wordCount > 320) {
+            console.warn(`[Synopsis Compression] Output word count (${wordCount}) outside bounds [180, 320]. Retrying once with stricter constraint...`);
+            const retryPrompt = `${synopsisPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous attempt was ${wordCount} words, which violates the required length. Return exactly 250 words. Do not exceed 300 words. Hard bounds: 180 minimum, 320 maximum.`;
+            const retryResult = await this.executeAIGeneration(context, {
+              task: 'synopsis',
+              book,
+              options,
+              prompt: retryPrompt,
+              maxTokens: 600,
+            });
+            if (retryResult && retryResult.summary && retryResult.summary.trim()) {
+              rawSynopsis = retryResult.summary;
+              aiResult = retryResult;
+              wordCount = rawSynopsis.trim().split(/\s+/).filter(Boolean).length;
+              if (wordCount < 180 || wordCount > 320) {
+                wordCountViolation = true;
+                console.warn(`[Synopsis Compression] Retry word count (${wordCount}) still outside bounds [180, 320]. Flagging word_count_violation.`);
+              }
+            } else {
+              wordCountViolation = true;
+            }
+          }
         } else {
           fellBack = true;
           fallbackReason = 'provider_unavailable';
@@ -143,6 +239,11 @@ class IntelligentSummarizer {
         rawSynopsis = this.fallbackSynthesizeSynopsis(book, context);
       }
 
+      const finalWordCount = rawSynopsis.trim().split(/\s+/).filter(Boolean).length;
+      if (!fellBack && (finalWordCount < 180 || finalWordCount > 320)) {
+        wordCountViolation = true;
+      }
+
       // 4. Normalize AI output into canonical blocks (preventing markdown leakage)
       const canonicalBlocks = aiNormalizer.normalize(rawSynopsis);
 
@@ -156,6 +257,8 @@ class IntelligentSummarizer {
         generatedAt: new Date().toISOString(),
         grounded: true,
         sourceCount: context.includedChunks ? context.includedChunks.length : 0,
+        word_count: finalWordCount,
+        word_count_violation: wordCountViolation,
       };
 
       if (fellBack) {
@@ -229,21 +332,166 @@ class IntelligentSummarizer {
         maxTokens: 5000,
       });
 
+      // Gather chapter-level representations if available
+      const chapters = chapterRepository.getByBookId(bookId) || [];
+      const chapterReps = chapterRepository.getRepresentationsByBook(bookId) || [];
+      const repByChapterId = new Map();
+      for (const rep of chapterReps) {
+        if (!repByChapterId.has(rep.chapterId) || rep.type === 'EDITORIAL_SYNTHESIS') {
+          repByChapterId.set(rep.chapterId, rep);
+        }
+      }
+
+      let chapterSummariesText = '';
+      if (chapters.length > 0 && repByChapterId.size > 0) {
+        const sections = [];
+        for (let i = 0; i < chapters.length; i++) {
+          const ch = chapters[i];
+          const rep = repByChapterId.get(ch.id);
+          if (rep && rep.content) {
+            sections.push(`[Chapter ${ch.number || (i + 1)}: ${ch.title}]\n${rep.content.trim()}`);
+          }
+        }
+        chapterSummariesText = sections.join('\n\n');
+      }
+
+      if (!chapterSummariesText.trim()) {
+        chapterSummariesText = (context.includedChunks || []).map((c, i) => {
+          const ref = c.sectionHeading || c.sourceReference || `Section ${i + 1}`;
+          return `[Source ${i + 1}: ${ref}]\n${c.textContent || ''}`;
+        }).join('\n\n') || '(No chapter summaries available)';
+      }
+
+      const bookMeta = `Title: ${book.title}\nAuthor: ${book.author || 'Unknown Author'}\nFormat: ${book.format || book.content_type || 'Book'}`;
+
+      const summaryPrompt = `You are preparing a comprehensive book summary from the aggregated chapter-level representations already produced for this book. This is a compressed structural overview, not a narrative retelling.
+
+INPUTS PROVIDED:
+
+Chapter-level summaries for all chapters of the book
+
+Book metadata (title, author, format)
+
+OUTPUT: 600–900 words. Hard bounds: 500 minimum, 1000 maximum.
+
+Structure:
+
+Central thesis or argument (2–3 sentences)
+
+Structural overview — the book's arc, in 3–5 short paragraphs, one per major movement or section
+
+Key concepts and frameworks introduced (bullet list, 5–10 items)
+
+Who this is for and what it demands of the reader
+
+What stays with you after closing it — one closing paragraph
+
+Rules:
+
+Compress aggressively. No filler sentences.
+
+No chapter-by-chapter walkthrough — group by movement, not order.
+
+No invented claims not present in the chapter summaries.
+
+No bullet-list dumping — mix prose and structure.
+
+Cite [Chapter N] where a specific claim comes from.
+
+INPUTS:
+${chapterSummariesText}
+
+BOOK METADATA:
+${bookMeta}
+
+OUTPUT:`;
+
+      console.log('--- BOOK SUMMARY COMPRESSION PROMPT ---');
+      console.log(summaryPrompt);
+      console.log('---------------------------------------');
+
       jobRepository.update(jobId, { progress: 65 });
 
       // 3. AI Generation
-      let aiResult = await this.executeAIGeneration(context, {
-        task: 'book_summary',
-        book,
-        options,
-      });
-
-      let rawSummary = aiResult ? aiResult.summary : '';
+      let aiResult = null;
+      let rawSummary = '';
       let usedFallback = false;
+      let fallbackReason = null;
+      let wordCountViolation = false;
+
+      try {
+        aiResult = await this.executeAIGeneration(context, {
+          task: 'book_summary',
+          book,
+          options,
+          prompt: summaryPrompt,
+          maxTokens: 1400,
+        });
+
+        if (aiResult && aiResult.summary && aiResult.summary.trim()) {
+          rawSummary = aiResult.summary;
+          let wordCount = rawSummary.trim().split(/\s+/).filter(Boolean).length;
+          if (wordCount < 500 || wordCount > 1000) {
+            console.warn(`[Book Summary Compression] Output word count (${wordCount}) outside bounds [500, 1000]. Retrying once with stricter constraint...`);
+            const retryPrompt = `${summaryPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous attempt was ${wordCount} words, which violates the required length. Return between 600 and 900 words. Do not exceed 1000 words. Hard bounds: 500 minimum, 1000 maximum.`;
+            const retryResult = await this.executeAIGeneration(context, {
+              task: 'book_summary',
+              book,
+              options,
+              prompt: retryPrompt,
+              maxTokens: 1400,
+            });
+            if (retryResult && retryResult.summary && retryResult.summary.trim()) {
+              rawSummary = retryResult.summary;
+              aiResult = retryResult;
+              wordCount = rawSummary.trim().split(/\s+/).filter(Boolean).length;
+              if (wordCount < 500 || wordCount > 1000) {
+                wordCountViolation = true;
+                console.warn(`[Book Summary Compression] Retry word count (${wordCount}) still outside bounds [500, 1000]. Flagging word_count_violation.`);
+              }
+            } else {
+              wordCountViolation = true;
+            }
+          }
+        } else {
+          usedFallback = true;
+          fallbackReason = 'provider_unavailable';
+        }
+      } catch (err) {
+        usedFallback = true;
+        const msg = String(err.message || '').toLowerCase();
+        if (
+          msg.includes('timeout') ||
+          msg.includes('timed out') ||
+          err.code === 'ETIMEDOUT' ||
+          err.code === 'ESOCKETTIMEDOUT' ||
+          err.name === 'TimeoutError'
+        ) {
+          fallbackReason = 'provider_timeout';
+        } else if (
+          msg.includes('json') ||
+          msg.includes('parse') ||
+          msg.includes('syntaxerror') ||
+          err.name === 'SyntaxError'
+        ) {
+          fallbackReason = 'invalid_json';
+        } else {
+          fallbackReason = 'provider_unavailable';
+        }
+      }
 
       if (!rawSummary || !rawSummary.trim()) {
+        if (!usedFallback) {
+          usedFallback = true;
+          fallbackReason = 'provider_unavailable';
+        }
         rawSummary = this.fallbackSynthesizeBookSummary(book, context);
         usedFallback = true;
+      }
+
+      const finalWordCount = rawSummary.trim().split(/\s+/).filter(Boolean).length;
+      if (!usedFallback && (finalWordCount < 500 || finalWordCount > 1000)) {
+        wordCountViolation = true;
       }
 
       // 4. Normalize AI output into canonical blocks (preventing raw markdown leakage)
@@ -266,6 +514,10 @@ class IntelligentSummarizer {
           model: usedFallback ? 'deterministic-semantic-v1' : (aiResult.model || 'gemini-3.8-flash'),
           grounded: true,
           sourceCount: context.includedChunks ? context.includedChunks.length : 0,
+          fell_back: usedFallback,
+          ...(fallbackReason ? { fallback_reason: fallbackReason } : {}),
+          word_count: finalWordCount,
+          word_count_violation: wordCountViolation,
         },
       });
 
@@ -338,18 +590,20 @@ class IntelligentSummarizer {
     };
   }
 
-  async executeAIGeneration(context, { task, book, options = {} }) {
+  async executeAIGeneration(context, { task, book, options = {}, prompt = null, maxTokens = null }) {
     if (options && options.fast) return null;
     try {
       const provider = aiService.getActiveProvider();
       const health = await provider.checkHealth();
       if (!health || !health.available) return null;
 
-      const fullPrompt = `${context.groundingPrompt}\n\n${context.contextText}\n\nProduce the ${task.replace('_', ' ')} based strictly on the above source excerpts:`;
+      const fullPrompt = prompt || `${context.groundingPrompt}\n\n${context.contextText}\n\nProduce the ${task.replace('_', ' ')} based strictly on the above source excerpts:`;
       const timeoutMs = (options && options.timeout) || 25000;
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('AI provider timeout')), timeoutMs)
       );
+
+      const tokens = maxTokens || (task === 'book_summary' ? 1400 : 600);
 
       const result = await Promise.race([
         provider.summarize({
@@ -359,6 +613,8 @@ class IntelligentSummarizer {
             isPrompt: true,
             task,
             contentType: book.content_type,
+            maxTokens: tokens,
+            reasoning: { enabled: false },
             ...options,
           },
         }),
@@ -371,13 +627,13 @@ class IntelligentSummarizer {
         model: result.model || provider.model || 'gemini-3.8-flash',
       };
     } catch (err) {
-      console.warn(`External AI provider call failed for ${task}, using semantic synthesis fallback:`, err.message);
+      console.warn(`External AI provider call failed for ${task}, using semantic compression fallback:`, err.message);
       return null;
     }
   }
 
   fallbackSynthesizeSynopsis(book, context) {
-    const chunks = (context.includedChunks || []).slice(0, 3);
+    const chunks = (context.includedChunks || []).slice(0, 4);
     const contentType = (book.content_type || 'work').toLowerCase();
 
     let coreIdea = '';
@@ -401,15 +657,17 @@ class IntelligentSummarizer {
       text += `The narrative develops its central tensions and character arcs across interconnected chapters. `;
     }
 
-    if (chunks.length > 0) {
-      const sectionRefs = chunks
-        .map((c) => c.sectionHeading || c.sourceReference)
-        .filter(Boolean)
-        .slice(0, 3);
-      if (sectionRefs.length > 0) {
-        text += `\n\nKey structural pillars highlighted throughout the text include *${sectionRefs.join('*, *')}*, demonstrating consistent conceptual continuity.\n`;
-      }
+    text += `Across its foundational movements, the work balances analytical depth with structured domain exposition, addressing both theoretical grounding and pragmatic application for serious practitioners.\n\n`;
+
+    const sectionRefs = chunks
+      .map((c) => c.sectionHeading || c.sourceReference)
+      .filter(Boolean)
+      .slice(0, 3);
+    if (sectionRefs.length > 0) {
+      text += `Key structural pillars highlighted throughout the text include *${sectionRefs.join('*, *')}*, demonstrating consistent conceptual continuity. The interior balances precise formulations, structural paradigms, and progressive inquiries designed to guide the reader through complex domain mechanics without unnecessary digressions.\n\n`;
     }
+
+    text += `The text reads like an authoritative reference manual — disciplined, methodical, and conceptually rigorous. [PARTIAL: inputs insufficient for full synopsis]`;
 
     return text;
   }
@@ -419,10 +677,10 @@ class IntelligentSummarizer {
     const contentType = (book.content_type || 'work').toLowerCase();
 
     let text = `## Comprehensive Architectural Summary: ${book.title}\n\n`;
-    text += `### 1. Core Premise & System Architecture\n`;
-    text += `Authored by **${book.author || 'Unknown Author'}**, *${book.title}* functions as a multi-chapter ${contentType}. Across its sections, the material establishes rigorous foundations grounded directly in its source chapters.\n\n`;
+    text += `### 1. Central Thesis & System Framework\n`;
+    text += `Authored by **${book.author || 'Unknown Author'}**, *${book.title}* functions as a multi-chapter ${contentType}. Across its sections, the material establishes rigorous foundations grounded directly in its source chapters, articulating core principles and architectural frameworks to guide technical understanding.\n\n`;
 
-    text += `### 2. Conceptual Progression\n`;
+    text += `### 2. Structural Overview & Conceptual Progression\n`;
     if (chunks.length > 0) {
       text += `The document progresses through several primary conceptual anchors:\n\n`;
       for (const ex of chunks.slice(0, 4)) {
@@ -432,14 +690,22 @@ class IntelligentSummarizer {
       text += `\n`;
     }
 
-    text += `### 3. Core Insights & Evidence\n`;
+    text += `### 3. Key Concepts & Frameworks\n`;
     if (contentType === 'research' || contentType === 'technical') {
       text += `- **Methodological Rigor**: Primary evidence demonstrates consistent structural progression across chapters.\n`;
       text += `- **Empirical Coherence**: Grounded observations validate the central premise.\n`;
+      text += `- **Systemic Architecture**: Modularity and formal interfaces minimize operational complexity.\n`;
     } else {
       text += `- **Narrative Continuity**: Key tensions develop consistently across consecutive chapters.\n`;
       text += `- **Thematic Depth**: The work balances structural pacing with focused conceptual development.\n`;
     }
+    text += `\n`;
+
+    text += `### 4. Target Audience & Requirements\n`;
+    text += `This work is designed for practitioners, engineers, and researchers seeking end-to-end domain mastery. It demands active engagement with structural concepts, analytical frameworks, and foundational proofs.\n\n`;
+
+    text += `### 5. Lasting Takeaway\n`;
+    text += `Upon closing *${book.title}*, the reader retains a unified mental model of its subject matter, equipped to apply its core principles to real-world architectures with confidence.\n`;
 
     return text;
   }
