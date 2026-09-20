@@ -6,31 +6,29 @@
 
 ## 1. Where we are
 
-**Last shipped commit:** f3a9873 — Phase 4 complete:
-import route with real XHR upload progress + job-driven pipeline stepper.
+**Last shipped commit:** `8f29417` — Phase 4.5 complete (A/B/C/D).
+
 **Test state:** 13/13 root suites green. Frontend build clean,
 typecheck 0 errors.
 
 **Live in browser:**
-- Library -> Book Details -> Reader works via clicks
-- Reader resolves editorial representations from source chapter ids
-  (Phase 4 Gate 1, `fe78429`) via the semantic_chunks bridge
-- Fallback chapters marked with fell_back / fallback_reason /
-  duplicate metadata and honest UI captions (Gate 2.5, `0f36f4e`)
-- Synopsis-first sequencing: preface + TOC + samples before chapters
-  (Gate 3, `1d768e0`)
-- Import route: file upload with real XHR progress, result card,
-  [Open book] navigation (Gate 4 Step 1, `0e7d279`)
-- Import pipeline stepper: 4 real jobs (INGEST, SEMANTIC_INDEX,
-  SYNOPSIS, BOOK_SUMMARY) polled via `/api/jobs/book/:bookId`
-  (Gate 4 Step 2)
+- `[Source N]` markers hidden from rendered Smart text (Phase 4.5 A)
+- Books with Smart content open in Smart by default via [Read]
+  button (Phase 4.5 B)
+- Book Details synopsis panel now fetches SYNOPSIS, not BOOK_SUMMARY
+  (Phase 4.5 C)
+- Library cards show "Smart" badge on books with editorial content
+  (Phase 4.5 D)
+- Parser verified against a real PDF (new import landed in Original
+  form, no breakage)
 
 **Open items carried forward:**
-- `[Source N]` markers still visible in rendered Smart chapter text
-- Book opens per-chapter Smart/Original; not yet "book opens in Smart"
-- Original still a route peer, not a source panel from Smart
-- Editorial outline + chapter synthesis do NOT write to
-  processing_jobs (stepper shows 4 steps, not 7)
+- Smart chapters output ~2100 words; PRODUCT_VISION specifies 250–360.
+  editorialPlanner target and synthesis prompt are the conflict. See
+  Phase 4.8 in Known Polish Items.
+- Parenthetical `(Sources 1-3)` source markers not caught by current
+  strip regex — needs second pass.
+- Original remains a route peer; source-in-reader panel is Phase 5C.
 
 ## 2. How we work
 
@@ -63,50 +61,64 @@ typecheck 0 errors.
 
 ---
 
-## 4. Phase 4.5 — Reading UX refinements (next session)
+## 4. Phase 4.6 + 4.7 + 4.8
 
-The following changes align the frontend with the PRODUCT_VISION model
-of "Smart is the surface, Original is depth":
+## Phase 4.6 — Web + Paste import (~1 session, Flash Medium)
+## Phase 4.7 — Cinematic import experience (~1–2 sessions, Pro High)
+## Phase 4.8 — Smart chapter word count enforcement (~1 session, Pro High)
 
-### A. Hide [Source N] markers from rendered text (immediate, ~20 min)
-Currently synthesized Smart chapters include inline `[Source 1]`,
-`[Source 2]` markers in body text. These are backend bookkeeping and
-should not appear to the reader.
+Phase 4.8 is now the priority backend fix. Details:
 
-v1 implementation:
-  - In `frontend/src/components/reader/CanonicalBlock.tsx`, strip
-    `\[Source \d+\]` from paragraph and quote text before render
-  - Optional: render a subtle superscript dot instead of nothing
-  - Do NOT modify backend synthesis prompt yet (v2 work)
+PROBLEM: Editorial planner targets 1500–3000 words per chapter.
+PRODUCT_VISION.md specifies 250–360 words (hard bounds 180–450).
 
-### B. Book opens in Smart mode by default (~30 min)
-Currently per-chapter mode resolution (Phase 3.5 D3). Users opening a
-book from Library see inconsistent behavior — some chapters Smart,
-some Original.
+Real evidence: an imported 2125-word Smart chapter. Compression
+ratio today is ~1:1 (compression didn't happen).
 
-Change: on book open (`BookDetailsRoute` Read/Smart-read buttons),
-resolve the first chapter with a representation and route to it in
-Smart mode. Original remains accessible via toggle (until C lands).
+CHANGE:
+  1. backend/services/synthesis/editorialPlanner.js — target
+     250–360 words per editorial chapter, not 1500–3000.
+  2. backend/services/synthesis/synthesisService.js — synthesis
+     prompt must instruct: "Output must be 250–360 words. If you
+     exceed 360, cut content."
+  3. Validation: if output < 180 or > 450, regenerate once. Log
+     the failure if the retry also exceeds.
+  4. If batching source chunks is needed to fit the smaller target,
+     resolve in editorialPlanner (chunk-to-chapter mapping).
 
-### C. Original becomes a source panel, not a route (2-3 sessions)
-This is the inline source tracker workstream — the moat made
-interactive.
+Verify: synthesize a fresh chapter and confirm word count in the
+target range. Show the DB word count.
 
-Target UX: Smart is the view. Clicking [Source N] or hover/long-press
-opens a source panel inside the reader at the exact position. Original
-is never reached by toggle — only by tracing from a Smart passage.
+Reference: docs/PRODUCT_VISION.md §"The backend model".
 
-Requirements:
-  - Sentence-level citation enforcement (backend prompt change)
-  - SourcePanel / SourceOverlay component (frontend)
-  - Cross-format position resolution (PDF page / EPUB location / line)
-  - Round-trip scroll restoration (return to exact Smart position)
-  - Mobile interaction pattern (long-press + haptic)
+## Phase 4.9 — Synopsis fallback honesty (~30 min, Flash Medium)
 
-Reference: docs/PRODUCT_VISION.md §"Inline source tracker" and
-§"The frontend model".
+PROBLEM: DERIVED · SYNOPSIS panel renders deterministic fallback text
+(fiction template for a textbook — "structured as an in-depth novel"
+appeared on a machine learning PDF). No marker distinguishes fallback
+from real synthesis. Same trust hole as Gate 2.5, in the synopsis surface.
 
-**Model:** A and B are Flash · Medium. C is Pro · High.
+CHANGE:
+  1. backend/services/ai/intelligentSummarizer.js — set
+     metadata.fell_back = true when the deterministic synthesizer
+     produces the synopsis
+  2. BookDetailsRoute synopsis panel — when fell_back is true,
+     render honest caption: "Structured synopsis — model unavailable"
+  3. Consistent with Gate 2.5 chapter fallback pattern
+
+## Phase 4.10 — contentType detection on import (~1 session, Pro High)
+
+PROBLEM: Import endpoint defaults contentType to 'novel'. Every
+imported PDF gets tagged NOVEL. A machine learning textbook was
+tagged NOVEL.
+
+CHANGE (pick after diagnostic):
+  (a) Infer contentType from content structure + vocabulary
+  (b) Add contentType selector to Import UI (File tab)
+  (c) Both
+
+Also: synopsis synthesizer template should be content-type-aware —
+the fiction template is wrong for technical books.
 
 ## 5. Remaining roadmap
 
@@ -232,6 +244,15 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
 - `GET /api/jobs` lacks `?bookId=` query param, but a path-based
   variant `GET /api/jobs/book/:bookId` already exists and is the
   correct endpoint for per-book polling.
+- Smart chapters output ~2100 words vs 250–360 target. Backend
+  refactor needed (Phase 4.8).
+- Parenthetical source markers `(Sources 1-3)` not stripped by
+  Phase 4.5 A regex — extend to second pass when convenient.
+- Parser verified against real PDF (2026-09-20): imported a real
+  book, landed cleanly in Original form.
+- Synopsis fallback shows fiction template for textbook; no marker
+  distinguishes fallback from real synthesis (Phase 4.9)
+- Import defaults contentType to 'novel' for every file (Phase 4.10)
 
 ---
 
