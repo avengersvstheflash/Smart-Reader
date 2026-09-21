@@ -123,6 +123,7 @@ router.post('/import-multi', async (req, res, next) => {
       integrityWarning: result.integrityWarning || '',
       chapters: result.chapters,
       sourcesCount: result.sourcesCount,
+      job: result.job,
     });
   } catch (err) {
     res.status(err.statusCode || 400).json({

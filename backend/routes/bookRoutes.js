@@ -37,9 +37,22 @@ router.get('/', (req, res, next) => {
   }
 });
 
-// POST /api/books - create empty or metadata-only book
-router.post('/', (req, res, next) => {
+// POST /api/books - create empty or metadata-only book, OR ingest pasted text
+router.post('/', async (req, res, next) => {
   try {
+    const text = typeof req.body.text === 'string' ? req.body.text.trim() : '';
+    if (text.length > 0) {
+      // Paste import: run through full importBook pipeline (chapters + background jobs)
+      const result = await bookService.importBook({
+        title: req.body.title,
+        author: req.body.author,
+        description: req.body.description,
+        contentType: req.body.contentType || 'other',
+        text,
+      });
+      return res.status(201).json(result);
+    }
+    // Metadata-only create (unchanged)
     const book = bookService.createBook(req.body);
     res.status(201).json({ book });
   } catch (err) {

@@ -199,132 +199,231 @@ class WebAcquisitionService {
     const bookTitle = (title && title.trim()) || `Web Research Dossier (${sources.length} Sources)`;
     const bookContentType = contentType || 'research';
 
-    const sourceProvenanceList = [];
-    const allChapters = [];
-    let currentChapterNum = 1;
-    let totalWords = 0;
-
-    for (let i = 0; i < sources.length; i++) {
-      const sourceItem = sources[i];
-      const sourceUrl = typeof sourceItem === 'string' ? sourceItem : sourceItem.url;
-      if (!sourceUrl) continue;
-
-      try {
-        const fetchResult = await webFetcher.fetch(sourceUrl);
-        const { metadata, canonicalDoc } = webExtractor.extract(fetchResult.html, fetchResult.url);
-        const detectedSections = webStructureDetector.structure(canonicalDoc, metadata);
-
-        sourceProvenanceList.push({
-          sourceIndex: i + 1,
-          url: sourceUrl,
-          title: sourceItem.title || metadata.title,
-          siteName: metadata.siteName,
-          author: metadata.author,
-          retrievalDate: metadata.retrievalDate,
-        });
-
-        // Each source contributes chapters, clearly preserving source boundary
-        for (const sec of detectedSections) {
-          const chapterTitle = detectedSections.length > 1
-            ? `[Source ${i + 1}: ${metadata.siteName}] ${sec.title}`
-            : `[Source ${i + 1}] ${sourceItem.title || metadata.title}`;
-
-          // Prepend a provenance callout block to the canonical content
-          const provenanceBlock = {
-            id: `blk-prov-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-            type: 'callout',
-            variant: 'note',
-            title: `Source Provenance: ${metadata.siteName}`,
-            text: `Original URL: ${sourceUrl} | Retrieved: ${new Date(metadata.retrievalDate).toLocaleDateString()} by Smart Reader`,
-          };
-
-          const combinedBlocks = [provenanceBlock, ...sec.canonicalBlocks];
-          totalWords += sec.wordCount || 0;
-
-          allChapters.push({
-            number: currentChapterNum++,
-            title: chapterTitle,
-            content: `[Source: ${sourceUrl}]\n\n${sec.content}`,
-            wordCount: sec.wordCount,
-            canonicalBlocks: combinedBlocks,
-          });
-        }
-      } catch (err) {
-        console.warn(`[WebAcquisitionService] Skipping source "${sourceUrl}":`, err.message);
-      }
-    }
-
-    if (allChapters.length === 0) {
-      throw new Error('None of the selected web sources could be acquired.');
-    }
-
-    const estPages = Math.max(1, Math.ceil(totalWords / 250));
-    const totalSections = allChapters.reduce((sum, c) => sum + (c.sectionCount || (c.sections ? c.sections.length : 0)), 0);
-
-    // Create container book
-    const book = bookRepository.create({
-      id: bookId,
-      title: bookTitle,
-      author: `Multiple Sources (${sourceProvenanceList.length} contributors)`,
-      description: description || `Structured multi-source research dossier containing ${sourceProvenanceList.length} verified web sources.`,
-      content_type: bookContentType,
-      status: 'active',
-      source_format: 'web',
-      source_url: sourceProvenanceList[0]?.url || '',
-      source_site: 'Multi-Source Dossier',
-      page_count: estPages,
-      section_count: totalSections,
-      integrity_status: totalWords === 0 ? 'empty_content' : 'valid',
-      integrity_warning: totalWords === 0 ? 'Content extraction incomplete: sources contained no readable text.' : '',
-      metadata_json: {
-        isMultiSource: true,
-        sourcesCount: sourceProvenanceList.length,
-        sources: sourceProvenanceList,
-        retrievalDate: new Date().toISOString(),
-      },
+    // Create WEB_IMPORT job so PipelineStepper can track this dossier
+    const ingestJob = jobRepository.create({
+      book_id: bookId,
+      type: 'WEB_IMPORT',
+      status: 'PROCESSING',
+      progress: 5,
     });
 
-    // Save chapters
-    const savedChapters = [];
-    for (const ch of allChapters) {
-      const chapterId = `chap-${Date.now()}-${ch.number}-${Math.random().toString(36).substring(2, 5)}`;
-      const saved = chapterRepository.create({
-        id: chapterId,
-        book_id: bookId,
-        number: ch.number,
-        title: ch.title,
-        structural_role: ch.structuralRole || 'chapter',
-        section_count: ch.sectionCount || (ch.sections ? ch.sections.length : 0),
-        content: ch.content,
-        word_count: ch.wordCount,
-        canonical_content: ch.canonicalBlocks,
-        metadata_json: ch.metadata || {},
-      });
-      savedChapters.push(saved);
-    }
+    try {
+      const sourceProvenanceList = [];
+      const allChapters = [];
+      let currentChapterNum = 1;
+      let totalWords = 0;
 
-    if (totalWords > 0) {
-      try {
-        const semanticLifecycle = require('../semantic/semanticLifecycle');
-        await semanticLifecycle.indexBook(bookId, { skipJob: true });
-      } catch (e) {
-        console.warn('Dossier indexing warning:', e.message);
+      for (let i = 0; i < sources.length; i++) {
+        const sourceItem = sources[i];
+        const sourceUrl = typeof sourceItem === 'string' ? sourceItem : sourceItem.url;
+        if (!sourceUrl) continue;
+
+        jobRepository.update(ingestJob.id, { progress: Math.round(5 + ((i + 1) / sources.length) * 60) });
+
+        try {
+          const fetchResult = await webFetcher.fetch(sourceUrl);
+          const { metadata, canonicalDoc } = webExtractor.extract(fetchResult.html, fetchResult.url);
+          const detectedSections = webStructureDetector.structure(canonicalDoc, metadata);
+
+          sourceProvenanceList.push({
+            sourceIndex: i + 1,
+            url: sourceUrl,
+            title: sourceItem.title || metadata.title,
+            siteName: metadata.siteName,
+            author: metadata.author,
+            retrievalDate: metadata.retrievalDate,
+          });
+
+          // Each source contributes chapters, clearly preserving source boundary
+          for (const sec of detectedSections) {
+            const chapterTitle = detectedSections.length > 1
+              ? `[Source ${i + 1}: ${metadata.siteName}] ${sec.title}`
+              : `[Source ${i + 1}] ${sourceItem.title || metadata.title}`;
+
+            // Prepend a provenance callout block to the canonical content
+            const provenanceBlock = {
+              id: `blk-prov-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              type: 'callout',
+              variant: 'note',
+              title: `Source Provenance: ${metadata.siteName}`,
+              text: `Original URL: ${sourceUrl} | Retrieved: ${new Date(metadata.retrievalDate).toLocaleDateString()} by Smart Reader`,
+            };
+
+            const combinedBlocks = [provenanceBlock, ...sec.canonicalBlocks];
+            totalWords += sec.wordCount || 0;
+
+            allChapters.push({
+              number: currentChapterNum++,
+              title: chapterTitle,
+              content: `[Source: ${sourceUrl}]\n\n${sec.content}`,
+              wordCount: sec.wordCount,
+              canonicalBlocks: combinedBlocks,
+            });
+          }
+        } catch (err) {
+          console.warn(`[WebAcquisitionService] Skipping source "${sourceUrl}":`, err.message);
+        }
       }
-    }
 
-    return {
-      book: bookRepository.getById(bookId) || book,
-      format: 'web',
-      chapterCount: savedChapters.length,
-      pageCount: estPages,
-      sectionCount: 0,
-      tablesCount: 0,
-      totalWordCount: totalWords,
-      integrityStatus: totalWords === 0 ? 'empty_content' : 'valid',
-      integrityWarning: totalWords === 0 ? 'Multi-source dossier contains no readable text across any of the provided sources.' : '',
-      chapters: savedChapters,
-      sourcesCount: sourceProvenanceList.length,
-    };
+      if (allChapters.length === 0) {
+        throw new Error('None of the selected web sources could be acquired.');
+      }
+
+      const estPages = Math.max(1, Math.ceil(totalWords / 250));
+      const totalSections = allChapters.reduce((sum, c) => sum + (c.sectionCount || (c.sections ? c.sections.length : 0)), 0);
+
+      // Create container book
+      const book = bookRepository.create({
+        id: bookId,
+        title: bookTitle,
+        author: `Multiple Sources (${sourceProvenanceList.length} contributors)`,
+        description: description || `Structured multi-source research dossier containing ${sourceProvenanceList.length} verified web sources.`,
+        content_type: bookContentType,
+        status: 'active',
+        source_format: 'web',
+        source_url: sourceProvenanceList[0]?.url || '',
+        source_site: 'Multi-Source Dossier',
+        page_count: estPages,
+        section_count: totalSections,
+        integrity_status: totalWords === 0 ? 'empty_content' : 'valid',
+        integrity_warning: totalWords === 0 ? 'Content extraction incomplete: sources contained no readable text.' : '',
+        metadata_json: {
+          isMultiSource: true,
+          sourcesCount: sourceProvenanceList.length,
+          sources: sourceProvenanceList,
+          retrievalDate: new Date().toISOString(),
+        },
+      });
+
+      // Save chapters
+      const savedChapters = [];
+      for (const ch of allChapters) {
+        const chapterId = `chap-${Date.now()}-${ch.number}-${Math.random().toString(36).substring(2, 5)}`;
+        const saved = chapterRepository.create({
+          id: chapterId,
+          book_id: bookId,
+          number: ch.number,
+          title: ch.title,
+          structural_role: ch.structuralRole || 'chapter',
+          section_count: ch.sectionCount || (ch.sections ? ch.sections.length : 0),
+          content: ch.content,
+          word_count: ch.wordCount,
+          canonical_content: ch.canonicalBlocks,
+          metadata_json: ch.metadata || {},
+        });
+        savedChapters.push(saved);
+      }
+
+      // Mark WEB_IMPORT job complete
+      jobRepository.complete(ingestJob.id);
+
+      // Trigger post-import background pipeline (same chain as bookService.importBook)
+      const isValidContent = totalWords > 0 && savedChapters.length > 0;
+      if (isValidContent) {
+        const qualifiesForOutline = savedChapters.length >= 3 && totalWords >= 2000;
+
+        const indexJob = jobRepository.create({
+          book_id: bookId,
+          type: 'SEMANTIC_INDEX',
+          status: 'PROCESSING',
+          progress: 0,
+        });
+
+        Promise.resolve()
+          .then(() => {
+            const semanticLifecycle = require('../semantic/semanticLifecycle');
+            return semanticLifecycle.indexBook(bookId, { skipJob: false, jobId: indexJob.id });
+          })
+          .then(() => {
+            jobRepository.complete(indexJob.id);
+          })
+          .catch((err) => {
+            console.warn(`[importMulti] Indexing failed: ${err.message}`);
+            jobRepository.fail(indexJob.id, err);
+          })
+          .then(() => {
+            const bookClassifier = require('../ai/bookClassifier');
+            return bookClassifier.classifyBook(bookId, { fast: false })
+              .catch((err) => {
+                console.warn(`[importMulti] Classification failed: ${err.message}`);
+              });
+          })
+          .then(() => {
+            if (!qualifiesForOutline) return null;
+            const editorialService = require('../synthesis/editorialService');
+            return editorialService.generateSingleBookOutline(bookId, { fast: true })
+              .catch((err) => {
+                console.warn(`[importMulti] Outline failed: ${err.message}`);
+                return null;
+              });
+          })
+          .then((outline) => {
+            const synopsisJob = jobRepository.create({
+              book_id: bookId,
+              type: 'SYNOPSIS',
+              status: 'PROCESSING',
+              progress: 0,
+            });
+            const intelligentSummarizer = require('../ai/intelligentSummarizer');
+            return intelligentSummarizer
+              .generateSynopsis(bookId, { fast: true, jobId: synopsisJob.id })
+              .then(() => {
+                jobRepository.complete(synopsisJob.id);
+              })
+              .catch((err) => {
+                console.warn(`[importMulti] Synopsis failed: ${err.message}`);
+                jobRepository.fail(synopsisJob.id, err);
+              })
+              .then(() => outline);
+          })
+          .then((outline) => {
+            if (!outline || !outline.chapters || outline.chapters.length === 0) return null;
+            const synthesisJob = jobRepository.create({
+              book_id: bookId,
+              type: 'SYNTHESIS',
+              status: 'PROCESSING',
+              progress: 0,
+            });
+            const editorialService = require('../synthesis/editorialService');
+            return editorialService
+              .synthesizeNextChapters(bookId, 3, { jobId: synthesisJob.id })
+              .then((result) => {
+                jobRepository.complete(synthesisJob.id);
+                return result;
+              })
+              .catch((err) => {
+                console.warn(`[importMulti] Synthesis failed: ${err.message}`);
+                jobRepository.fail(synthesisJob.id, err);
+                return null;
+              });
+          })
+          .catch((err) => {
+            console.error(`[importMulti] Background pipeline failed for ${bookId}:`, err.message);
+          });
+      }
+
+      return {
+        book: bookRepository.getById(bookId) || book,
+        format: 'web',
+        chapterCount: savedChapters.length,
+        pageCount: estPages,
+        sectionCount: 0,
+        tablesCount: 0,
+        totalWordCount: totalWords,
+        integrityStatus: totalWords === 0 ? 'empty_content' : 'valid',
+        integrityWarning: totalWords === 0 ? 'Multi-source dossier contains no readable text across any of the provided sources.' : '',
+        chapters: savedChapters,
+        sourcesCount: sourceProvenanceList.length,
+        job: jobRepository.getById(ingestJob.id),
+      };
+    } catch (err) {
+      jobRepository.update(ingestJob.id, {
+        status: 'FAILED',
+        error: err.message,
+        completed_at: new Date().toISOString(),
+      });
+      throw err;
+    }
   }
 
   /**
