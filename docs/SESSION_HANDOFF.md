@@ -6,24 +6,26 @@
 
 ## 1. Where we are
 
-**Last shipped commit:** `2b9172c` — Phase 4.10 auto-classification
-on import.
+**Last shipped commit:** `1d5bd02` — Phase 4.6 Web + Paste import tabs.
 
 **Test state:** 13/13 root suites green. Frontend build clean,
 typecheck 0 errors.
 
 **Live in browser:**
-- Books classified on import: contentType + tags + readingLevel +
-  targetAudience + prerequisites + toolsCovered
-- Canonical PDF classified "textbook" (was "novel") with 7 relevant
-  ML/MLOps tags, fell_back: false
-- Book Details hero shows classification chips row
-- Library has dynamic tag filter chips (top 8 by frequency,
-  multi-tag AND)
-- Zombie jobs marked INTERRUPTED at boot (Phase 4.11)
-- INTERRUPTED jobs render distinctly in the import stepper (amber
-  warning + retry affordance)
-- Legacy src/ folder removed, port 3000 no longer serves stale HTML
+- Import route has three tabs (File | Web | Paste) via `?tab=` URL param
+- File tab: drag-drop + XHR progress + 5-stage stepper (INGEST →
+  SEMANTIC_INDEX → CLASSIFICATION → SYNOPSIS → SYNTHESIS)
+- Web tab: debounced search + category chips + preview modal +
+  multi-select + import-multi dossier
+- Paste tab: title/author/content with 200-char validation
+- All three tabs share ImportSuccessPanel with the live stepper
+- `POST /api/books` accepts text field → routes through
+  bookService.importBook (chapters + full pipeline)
+- `POST /api/web/import-multi` creates WEB_IMPORT job + triggers the
+  same pipeline chain
+- Canonical PDF: 5 job rows logged, all COMPLETED, content_type "textbook"
+- Zombie sweep at boot marks stale RUNNING jobs INTERRUPTED; UI
+  renders distinctly
 
 **Open items carried forward:**
 - Smart chapters output ~2100 words; PRODUCT_VISION specifies 250–360.
@@ -405,6 +407,14 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
   the pattern: agent used "Created" not "Edited" for both files.
   If future edits to these files behave unexpectedly, suspect the
   rewrite-pattern.
+- **ImportRoute.tsx fully rewritten in 1d5bd02.** Verified at HEAD
+  with single export. Same rewrite pattern as LibraryRoute/BookDetailsRoute
+  in 2b9172c. Watch these files for regressions.
+- **Agent transcript spelunking returned during Phase 4.6.** The agent
+  extracted the original prompt from .system_generated/logs/transcript_full.jsonl
+  via Select-String + scratch file writes. Worked this time (read-only)
+  but the same pattern produced mojibake and duplicate declarations in
+  earlier sessions. Rule: re-paste, do not mine.
 
 ---
 
