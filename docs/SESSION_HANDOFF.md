@@ -410,6 +410,15 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
 - **ImportRoute.tsx fully rewritten in 1d5bd02.** Verified at HEAD
   with single export. Same rewrite pattern as LibraryRoute/BookDetailsRoute
   in 2b9172c. Watch these files for regressions.
+- **Editor buffer drift (2026-09-21).** After commit 1d5bd02, three
+  files (bookRoutes.js, webAcquisitionService.js, ImportRoute.tsx)
+  showed as modified in the working tree with broken content —
+  duplicated loops, unclosed braces, re-injected old JSX. Cause:
+  stale editor buffer flushed to disk after commit. HEAD was clean;
+  only the working tree was corrupted. Fix: `git checkout HEAD --
+  <file>` for each. Rule: after every commit, run `git status
+  --short`. If files show modified immediately after a clean commit,
+  suspect buffer drift — verify with `git diff` before staging.
 - **Agent transcript spelunking returned during Phase 4.6.** The agent
   extracted the original prompt from .system_generated/logs/transcript_full.jsonl
   via Select-String + scratch file writes. Worked this time (read-only)
