@@ -354,7 +354,8 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
   intelligentCompressor, EDITORIAL_SYNTHESIS → EDITORIAL_COMPRESSION.
   Full session, Pro High.
 - **DONE this session:** 4.8.1 hotfix (reasoning disabled), 4.8.2
-  front matter fix, 4.9 shipped, README rewrite.
+  front matter fix, 4.9 shipped, README rewrite, 4.11 boot-time reconciliation,
+  4.11.5 removed legacy vanilla frontend (`src/`).
 - **Verified:** first real LLM compression output at 328-373 words
   per chapter via OpenRouter, provider: openrouter.
 - **Duplicate synopsis execution (post-4.13).** Two log lines fire:

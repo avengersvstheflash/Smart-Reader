@@ -32,8 +32,6 @@ app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-// Static frontend assets
-app.use(express.static(path.join(__dirname, '../src')));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -90,14 +88,6 @@ app.use('/api', (req, res) => {
   });
 });
 
-// Fallback to index.html for client-side GET navigation
-app.use((req, res, next) => {
-  if (req.method === 'GET' && !req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../src/index.html'));
-  } else {
-    next();
-  }
-});
 
 // Centralized error handling (MUST be the last middleware in the chain)
 app.use((err, req, res, next) => {
