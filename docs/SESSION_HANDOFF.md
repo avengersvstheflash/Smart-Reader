@@ -6,21 +6,24 @@
 
 ## 1. Where we are
 
-**Last shipped commit:** `70a31c4` — phase4.8.2: exclude front matter from editorial candidates
+**Last shipped commit:** `2b9172c` — Phase 4.10 auto-classification
+on import.
 
 **Test state:** 13/13 root suites green. Frontend build clean,
 typecheck 0 errors.
 
 **Live in browser:**
-- `[Source N]` markers hidden from rendered Smart text (Phase 4.5 A)
-- Books with Smart content open in Smart by default via [Read]
-  button (Phase 4.5 B)
-- Book Details synopsis panel now fetches SYNOPSIS, not BOOK_SUMMARY
-  (Phase 4.5 C)
-- Library cards show "Smart" badge on books with editorial content
-  (Phase 4.5 D)
-- Parser verified against a real PDF (new import landed in Original
-  form, no breakage)
+- Books classified on import: contentType + tags + readingLevel +
+  targetAudience + prerequisites + toolsCovered
+- Canonical PDF classified "textbook" (was "novel") with 7 relevant
+  ML/MLOps tags, fell_back: false
+- Book Details hero shows classification chips row
+- Library has dynamic tag filter chips (top 8 by frequency,
+  multi-tag AND)
+- Zombie jobs marked INTERRUPTED at boot (Phase 4.11)
+- INTERRUPTED jobs render distinctly in the import stepper (amber
+  warning + retry affordance)
+- Legacy src/ folder removed, port 3000 no longer serves stale HTML
 
 **Open items carried forward:**
 - Smart chapters output ~2100 words; PRODUCT_VISION specifies 250–360.
@@ -61,11 +64,27 @@ typecheck 0 errors.
 
 ---
 
-## 4. Phase 4.6 + 4.7 + 4.8
+## 4. Tomorrow
 
-## Phase 4.6 — Web + Paste import (~1 session, Flash Medium)
-## Phase 4.7 — Cinematic import experience (~1–2 sessions, Pro High)
-## Phase 4.8 — Smart chapter word count enforcement (~1 session, Pro High)
+## Phase 4.6 — Web + Paste import tabs (~1 session, Flash Medium)
+
+The Library becomes a real multi-source digital library. File import
+already works. Add two more import paths:
+
+1. **Web tab** — search input + category chips + result cards with
+   multi-select + preview panel + sticky "Import N selected" bar.
+   Backend endpoints already exist: GET /api/web/search,
+   POST /api/web/preview, POST /api/web/import-multi.
+2. **Paste tab** — title + author + content textarea → POST
+   /api/books with JSON body.
+
+Both feed through the same pipeline as file import — classification,
+synopsis, chapter compression all run automatically.
+
+VERIFY: import a web article and a pasted text blob; confirm both
+classify correctly and produce Smart content.
+
+Reference: docs/FRONTEND_BLUEPRINT.md §2.5 (Ingestion wireframe).
 
 Phase 4.8 is now the priority backend fix. Details:
 
@@ -371,6 +390,21 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
   enlarging (5,000–12,000 words) so they exercise the multi-chapter
   slicing path. Not urgent — tests still pass — but future coverage
   is thinner than before.
+
+- **Import pipeline stages skip job rows.** Import calls
+  SEMANTIC_INDEX, SYNOPSIS, and SYNTHESIS with `{ skipJob: true }`,
+  so only INGEST and CLASSIFICATION appear in `processing_jobs`
+  during import. Artifacts are created (chunks, reps, outline rows
+  all present) but the stepper cannot show real progress for
+  SYNOPSIS/SYNTHESIS stages. Decision needed for Phase 4.7 cinematic
+  import: (a) flip skipJob: false for those stages, or (b) infer
+  from artifacts. Phase 4.7 prerequisite.
+
+- **BookDetailsRoute + LibraryRoute full rewrites in 2b9172c.**
+  Verified clean at HEAD (no append-hazard duplicates), but note
+  the pattern: agent used "Created" not "Edited" for both files.
+  If future edits to these files behave unexpectedly, suspect the
+  rewrite-pattern.
 
 ---
 
