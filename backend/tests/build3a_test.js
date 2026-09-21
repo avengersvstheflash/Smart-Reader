@@ -244,6 +244,7 @@ async function runTests() {
   bookRepository.delete(manualBook.book.id);
 
   console.log('\n✅ All Build 3A Verification Tests Passed Successfully!');
+  process.exit(0);
 }
 
 runTests().catch(err => {
