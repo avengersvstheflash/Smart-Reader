@@ -1,4 +1,4 @@
-import { Check, Loader2, Circle, AlertCircle } from 'lucide-react';
+import { Check, Loader2, Circle, AlertCircle, AlertTriangle } from 'lucide-react';
 import { Job } from '../../types/domain';
 import { isActiveStatus } from '../../hooks/useJobs';
 
@@ -21,8 +21,10 @@ const STEPS: StepConfig[] = [
 ];
 
 export function PipelineStepper({ jobs, activeJob }: PipelineStepperProps) {
+  const hasInterrupted = jobs.some((j) => j.status.toUpperCase() === 'INTERRUPTED');
+  const hasFailed = jobs.some((j) => j.status.toLowerCase() === 'failed');
   const hasCompletedAny = jobs.some((j) => j.status === 'COMPLETED');
-  const pipelineComplete = !activeJob && hasCompletedAny;
+  const pipelineComplete = !activeJob && hasCompletedAny && !hasInterrupted && !hasFailed;
 
   const findJobForStep = (stepJobType: string): Job | undefined => {
     if (stepJobType === 'INGEST') {
@@ -44,7 +46,7 @@ export function PipelineStepper({ jobs, activeJob }: PipelineStepperProps) {
           const job = findJobForStep(step.jobType);
 
           // Determine step state
-          let status: 'completed' | 'active' | 'pending' | 'failed' = 'pending';
+          let status: 'completed' | 'active' | 'pending' | 'failed' | 'interrupted' = 'pending';
 
           if (pipelineComplete) {
             status = 'completed';
@@ -55,6 +57,8 @@ export function PipelineStepper({ jobs, activeJob }: PipelineStepperProps) {
               status = 'active';
             } else if (job.status.toLowerCase() === 'failed') {
               status = 'failed';
+            } else if (job.status.toUpperCase() === 'INTERRUPTED') {
+              status = 'interrupted';
             }
           } else if (activeStepIndex > idx) {
             // Prior step whose job completed or was implied
@@ -80,23 +84,37 @@ export function PipelineStepper({ jobs, activeJob }: PipelineStepperProps) {
                 {status === 'failed' && (
                   <AlertCircle className="w-4 h-4 text-err shrink-0" aria-hidden="true" />
                 )}
+                {status === 'interrupted' && (
+                  <AlertTriangle className="w-4 h-4 text-warn shrink-0" aria-hidden="true" />
+                )}
               </div>
 
               {/* Right text column */}
               <div className="flex-1 flex items-center justify-between min-w-0">
-                <span
-                  className={
-                    status === 'completed'
-                      ? 'text-ink font-medium'
-                      : status === 'active'
-                      ? 'text-accent-ink font-semibold'
-                      : status === 'failed'
-                      ? 'text-err font-medium'
-                      : 'text-ink-muted/60'
-                  }
-                >
-                  {step.label}
-                </span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={
+                      status === 'completed'
+                        ? 'text-ink font-medium'
+                        : status === 'active'
+                        ? 'text-accent-ink font-semibold'
+                        : status === 'failed'
+                        ? 'text-err font-medium'
+                        : status === 'interrupted'
+                        ? 'text-warn font-medium'
+                        : 'text-ink-muted/60'
+                    }
+                  >
+                    {step.label}
+                    {status === 'interrupted' && ' (interrupted)'}
+                  </span>
+
+                  {status === 'interrupted' && (
+                    <span className="text-caption text-ink-muted select-none">
+                      Retry is safe
+                    </span>
+                  )}
+                </div>
 
                 {status === 'active' && job && typeof job.progress === 'number' && job.progress > 0 && (
                   <span className="text-micro font-mono text-accent-ink px-1.5 py-0.5 rounded bg-accent-wash/30">
@@ -120,4 +138,3 @@ export function PipelineStepper({ jobs, activeJob }: PipelineStepperProps) {
 }
 
 export default PipelineStepper;
-

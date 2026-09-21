@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, RotateCw, CheckCircle2, ArrowRight, PlusCircle, BookOpen } from 'lucide-react';
+import { AlertCircle, AlertTriangle, RotateCw, CheckCircle2, ArrowRight, PlusCircle, BookOpen } from 'lucide-react';
 import { ImportDropzone } from '../components/import/ImportDropzone';
 import { ImportProgress } from '../components/import/ImportProgress';
 import { PipelineStepper } from '../components/import/PipelineStepper';
@@ -21,6 +21,7 @@ export function ImportRoute() {
 
   const { activeJob, pipelineComplete, jobs } = useJobs(importedBook ? importedBook.id : null);
   const failedJob = jobs.find((j) => j.status.toLowerCase() === 'failed');
+  const interruptedJob = jobs.find((j) => j.status.toUpperCase() === 'INTERRUPTED');
 
   const handleUpload = (file: File) => {
     setError(null);
@@ -97,6 +98,14 @@ export function ImportRoute() {
     setUploading(false);
     setLastFile(null);
     setSelectedFilename('');
+  };
+
+  const handleRetry = () => {
+    if (lastFile) {
+      handleUpload(lastFile);
+    } else {
+      handleReset();
+    }
   };
 
   return (
@@ -231,12 +240,37 @@ export function ImportRoute() {
               </div>
             )}
 
+            {/* Background Job Interrupted Notice */}
+            {interruptedJob && (
+              <div
+                role="status"
+                className="rounded-lg border border-warn/30 bg-warn/10 p-3 text-ink text-ui-sm flex items-start gap-2.5"
+              >
+                <AlertTriangle className="w-4 h-4 text-warn shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="flex-1">
+                  <p className="text-ink">
+                    Import was interrupted.{' '}
+                    <button
+                      type="button"
+                      onClick={handleRetry}
+                      className="font-medium text-ink underline hover:text-accent-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                    >
+                      Retry import
+                    </button>{' '}
+                    to resume.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Actions and Caption */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-line">
               <div className="text-caption text-ink-muted select-none">
                 {failedJob
                   ? 'Processing encountered an error'
-                  : pipelineComplete
+                  : interruptedJob
+                  ? 'Import was interrupted'
+                  : pipelineComplete && !interruptedJob
                   ? 'Import complete'
                   : activeJob
                   ? 'Background processing…'
@@ -257,8 +291,10 @@ export function ImportRoute() {
                   type="button"
                   onClick={() => navigate(`/book/${importedBook.id}`)}
                   className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-ui-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none ${
-                    pipelineComplete
+                    pipelineComplete && !interruptedJob
                       ? 'bg-brand text-white hover:opacity-90 shadow-sm'
+                      : interruptedJob
+                      ? 'border border-line bg-card text-ink hover:bg-subtle shadow-sm'
                       : 'border border-line bg-subtle/50 text-ink-muted hover:bg-subtle hover:text-ink'
                   }`}
                 >
