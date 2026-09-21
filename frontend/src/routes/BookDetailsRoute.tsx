@@ -279,6 +279,40 @@ export default function BookDetailsRoute() {
             {book.author || 'Unknown Author'}
           </p>
 
+          {/* Classification Chips Row */}
+          {book.classification && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5" aria-label="Book classification">
+              {book.classification.contentType && (
+                <span className="text-micro uppercase font-semibold px-2 py-0.5 rounded bg-brand/10 text-brand tracking-wider select-none">
+                  {book.classification.contentType}
+                </span>
+              )}
+              {book.classification.readingLevel && (
+                <span className="text-caption font-medium px-2 py-0.5 rounded bg-subtle text-ink-muted capitalize select-none">
+                  {book.classification.readingLevel}
+                </span>
+              )}
+              {Array.isArray(book.classification.tags) && book.classification.tags.length > 0 && (
+                <>
+                  <span className="text-ink-muted/40 text-caption select-none">·</span>
+                  {book.classification.tags.slice(0, 5).map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-caption font-medium px-2 py-0.5 rounded bg-accent-wash text-accent-ink select-none"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                  {book.classification.tags.length > 5 && (
+                    <span className="text-caption text-ink-muted select-none">
+                      +{book.classification.tags.length - 5} more
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           <p className="text-caption text-ink-faint pt-1">
             {chapterCount} {chapterCount === 1 ? 'chapter' : 'chapters'} · {wordCount.toLocaleString()} words · {readingTimeCaption}
           </p>

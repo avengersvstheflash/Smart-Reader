@@ -727,6 +727,11 @@ OUTPUT:`;
     text += `\nBased directly on these excerpts, the text establishes the corresponding thematic or structural connection without extrapolation beyond the source material.\n`;
     return text;
   }
+
+  async classifyBook(bookId, options = {}) {
+    const bookClassifier = require('./bookClassifier');
+    return bookClassifier.classifyBook(bookId, options);
+  }
 }
 
 module.exports = new IntelligentSummarizer();

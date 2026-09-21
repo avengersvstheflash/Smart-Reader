@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Search, AlertCircle, RotateCw, CheckSquare, Plus } from 'lucide-react';
 import { useBooks } from '../hooks/useBooks';
@@ -11,6 +11,7 @@ import { useLibraryStore } from '../store/useLibraryStore';
 export const LibraryRoute: React.FC = () => {
   const navigate = useNavigate();
   const { books, isLoading, isError, error, refetch } = useBooks();
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const {
     searchQuery,
@@ -39,7 +40,26 @@ export const LibraryRoute: React.FC = () => {
     ];
   }, [books]);
 
-  // Filtered books based on search and content type
+  // Top 8 tags across the collection sorted by frequency
+  const topTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const b of books) {
+      if (b.classification && Array.isArray(b.classification.tags)) {
+        for (const tag of b.classification.tags) {
+          if (tag) {
+            counts.set(tag, (counts.get(tag) || 0) + 1);
+          }
+        }
+      }
+    }
+    if (counts.size === 0) return [];
+    return Array.from(counts.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+      .slice(0, 8);
+  }, [books]);
+
+  // Filtered books based on search, content type, and tags (AND combination)
   const filteredBooks = useMemo(() => {
     let list = books;
 
@@ -54,6 +74,14 @@ export const LibraryRoute: React.FC = () => {
       }
     }
 
+    // Filter by tags (AND combination)
+    if (selectedTags.length > 0) {
+      list = list.filter((b) => {
+        const bookTags = b.classification?.tags || [];
+        return selectedTags.every((st) => bookTags.includes(st));
+      });
+    }
+
     // Filter by search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -66,11 +94,12 @@ export const LibraryRoute: React.FC = () => {
     }
 
     return list;
-  }, [books, filterType, searchQuery]);
+  }, [books, filterType, selectedTags, searchQuery]);
 
   const handleClearFilters = () => {
     setSearchQuery('');
     setFilterType('all');
+    setSelectedTags([]);
   };
 
   return (
@@ -117,18 +146,67 @@ export const LibraryRoute: React.FC = () => {
 
       {/* Search & Filter Toolbar */}
       {books.length > 0 && (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2">
-          <SearchField
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search title, author, description…"
-          />
+        <div className="space-y-3 pt-2">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <SearchField
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search title, author, description…"
+            />
 
-          <FilterChips
-            options={filterOptions}
-            value={filterType}
-            onChange={(val) => setFilterType(val as string)}
-          />
+            <FilterChips
+              options={filterOptions}
+              value={filterType}
+              onChange={(val) => setFilterType(val as string)}
+            />
+          </div>
+
+          {/* Tags Filter Row (only rendered when tags exist in collection) */}
+          {topTags.length > 0 && (
+            <div
+              role="toolbar"
+              aria-label="Filter by tags"
+              className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none min-h-[32px]"
+            >
+              <span className="text-caption text-ink-muted font-medium mr-1 shrink-0 select-none">
+                Tags:
+              </span>
+              {topTags.map(({ tag, count }) => {
+                const isSelected = selectedTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() =>
+                      setSelectedTags((prev) =>
+                        prev.includes(tag)
+                          ? prev.filter((t) => t !== tag)
+                          : [...prev, tag]
+                      )
+                    }
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-caption font-medium transition-all whitespace-nowrap select-none border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                      isSelected
+                        ? 'bg-accent-wash text-accent-ink border-accent/40 shadow-xs'
+                        : 'bg-subtle text-ink-muted border-transparent hover:bg-card hover:text-ink hover:border-line'
+                    }`}
+                  >
+                    <span>{tag}</span>
+                    <span className="text-[10px] opacity-70">({count})</span>
+                  </button>
+                );
+              })}
+              {selectedTags.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedTags([])}
+                  className="text-caption text-ink-muted hover:text-ink underline ml-1.5 shrink-0 select-none"
+                >
+                  Clear tags
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

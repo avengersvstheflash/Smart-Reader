@@ -302,6 +302,22 @@ class BookService {
           .indexBook(book.id, { skipJob: true })
           .then(() => {
             console.log(`[Import] Indexed ${book.id}`);
+            console.log(`[Import] Classifying ${book.id}...`);
+            const bookClassifier = require('./ai/bookClassifier');
+            return bookClassifier.classifyBook(book.id, { fast: false })
+              .catch((err) => {
+                console.warn(`[Import] Classification failed: ${err.message}`);
+              });
+          })
+          .then(() => {
+            console.log(`[Import] Generating synopsis for ${book.id}...`);
+            const intelligentSummarizer = require('./ai/intelligentSummarizer');
+            return intelligentSummarizer.generateSynopsis(book.id, { fast: true })
+              .catch((err) => {
+                console.warn(`[Import] Synopsis failed: ${err.message}`);
+              });
+          })
+          .then(() => {
             if (!qualifiesForOutline) return null;
 
             console.log(`[Import] Generating outline for ${book.id}...`);
@@ -331,6 +347,8 @@ class BookService {
                 const editorialService = require('./synthesis/editorialService');
                 return editorialService.synthesizeNextChapters(book.id, 3);
               });
+            const editorialService = require('./synthesis/editorialService');
+            return editorialService.synthesizeNextChapters(book.id, 3);
           })
           .then((result) => {
             if (result) {

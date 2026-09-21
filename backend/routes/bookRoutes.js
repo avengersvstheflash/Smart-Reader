@@ -136,7 +136,23 @@ router.post('/:id/supporting', async (req, res, next) => {
 });
 
 const intelligentSummarizer = require('../services/ai/intelligentSummarizer');
+const bookClassifier = require('../services/ai/bookClassifier');
 const representationRepository = require('../repositories/representationRepository');
+
+// POST /api/books/:id/classify - trigger classification for a book
+router.post('/:id/classify', async (req, res, next) => {
+  try {
+    const classification = await bookClassifier.classifyBook(req.params.id, req.body || {});
+    const book = bookService.getBook(req.params.id);
+    res.json({
+      success: true,
+      classification,
+      book,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Failed to classify book.' });
+  }
+});
 
 // POST /api/books/:id/synopsis - generate grounded editorial synopsis
 router.post('/:id/synopsis', async (req, res, next) => {

@@ -44,6 +44,17 @@ export function normalizeJob(raw: RawJob): Job {
   };
 }
 
+export interface BookClassification {
+  contentType: string;
+  tags: string[];
+  readingLevel?: 'introductory' | 'intermediate' | 'advanced' | 'research' | string;
+  targetAudience?: string;
+  prerequisites?: string[];
+  toolsCovered?: string[];
+  fell_back?: boolean;
+  classifiedAt?: string;
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -59,6 +70,7 @@ export interface Book {
   sourceSite?: string;
   sourceUrl?: string;
   hasSmartContent?: boolean;
+  classification?: BookClassification;
 }
 
 export interface RawBook {
@@ -86,9 +98,26 @@ export interface RawBook {
   sourceUrl?: string;
   has_smart_content?: boolean;
   hasSmartContent?: boolean;
+  metadata_json?: string | { classification?: BookClassification; [key: string]: unknown };
+  metadata?: { classification?: BookClassification; [key: string]: unknown };
+  classification?: BookClassification;
 }
 
 export function normalizeBook(raw: RawBook): Book {
+  let classification: BookClassification | undefined;
+  if (raw.classification) {
+    classification = raw.classification;
+  } else if (raw.metadata_json) {
+    try {
+      const parsed = typeof raw.metadata_json === 'string' ? JSON.parse(raw.metadata_json) : raw.metadata_json;
+      if (parsed && parsed.classification) {
+        classification = parsed.classification;
+      }
+    } catch {}
+  } else if (raw.metadata && raw.metadata.classification) {
+    classification = raw.metadata.classification;
+  }
+
   return {
     id: raw.id,
     title: raw.title || 'Untitled',
@@ -104,6 +133,7 @@ export function normalizeBook(raw: RawBook): Book {
     sourceSite: raw.sourceSite || raw.source_site,
     sourceUrl: raw.sourceUrl || raw.source_url,
     hasSmartContent: Boolean(raw.hasSmartContent ?? raw.has_smart_content ?? false),
+    classification,
   };
 }
 
