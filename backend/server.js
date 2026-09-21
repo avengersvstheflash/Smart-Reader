@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const config = require('./config');
-const { getDatabase } = require('./db/database');
+const { getDatabase, closeDatabase } = require('./db/database');
 
 const bookRoutes = require('./routes/bookRoutes');
 const chapterRoutes = require('./routes/chapterRoutes');
@@ -14,6 +14,7 @@ const synthesisRoutes = require('./routes/synthesisRoutes');
 const aiService = require('./services/ai/aiService');
 const bookService = require('./services/bookService');
 const embeddingService = require('./services/semantic/embeddingService');
+const jobRepository = require('./repositories/jobRepository');
 
 const app = express();
 
@@ -107,6 +108,37 @@ app.use((err, req, res, next) => {
     code: err.code || undefined,
   });
 });
+
+// Boot-time zombie job reconciliation (synchronous sweep before listening)
+try {
+  const staleCount = jobRepository.markStaleJobsInterrupted();
+  console.log(`[Boot] Marked ${staleCount} stale jobs as INTERRUPTED.`);
+} catch (err) {
+  console.error('[Boot] Stale job reconciliation failed:', err.message);
+}
+
+// Clean shutdown handler (courtesy for SIGINT / SIGTERM; kill -9 / OOM bypasses it,
+// so the boot-time sweep above serves as the primary resilience safety net).
+function gracefulShutdown(reason) {
+  console.log(`[Shutdown] Received ${reason}. Performing clean shutdown...`);
+  try {
+    const count = jobRepository.markStaleJobsInterrupted();
+    if (count > 0) {
+      console.log(`[Shutdown] Marked ${count} in-flight jobs as INTERRUPTED.`);
+    }
+  } catch (err) {
+    console.error('[Shutdown] Failed to mark jobs interrupted:', err.message);
+  }
+  try {
+    closeDatabase();
+  } catch (err) {
+    console.error('[Shutdown] Failed to close database:', err.message);
+  }
+  process.exit(0);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 app.listen(config.PORT, '0.0.0.0', () => {
   console.log(`Smart Reader backend running on http://0.0.0.0:${config.PORT}`);

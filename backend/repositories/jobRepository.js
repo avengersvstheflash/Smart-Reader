@@ -63,6 +63,21 @@ class JobRepository {
       completed_at: new Date().toISOString(),
     });
   }
+
+  markStaleJobsInterrupted() {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+
+    const info = db.prepare(`
+      UPDATE processing_jobs
+      SET status = 'INTERRUPTED',
+          interrupted_at = ?,
+          error = COALESCE(error, 'Interrupted by server restart')
+      WHERE status IN ('PENDING', 'PROCESSING', 'RUNNING', 'in_progress')
+    `).run(now);
+
+    return info.changes;
+  }
 }
 
 module.exports = new JobRepository();

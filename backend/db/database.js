@@ -261,6 +261,12 @@ function initSchema(db) {
     db.exec(`ALTER TABLE editorial_outlines ADD COLUMN type TEXT DEFAULT 'multi_source';`);
   }
 
+  // Ensure interrupted_at column exists on processing_jobs
+  const jobCols = db.prepare(`PRAGMA table_info(processing_jobs)`).all();
+  if (!jobCols.some(c => c.name === 'interrupted_at')) {
+    db.exec(`ALTER TABLE processing_jobs ADD COLUMN interrupted_at TEXT;`);
+  }
+
   seedDefaultBookIfEmpty(db);
 }
 
@@ -478,7 +484,19 @@ When documents are ingested across disparate formats—Markdown, plain text, or 
   }
 }
 
+function closeDatabase() {
+  if (dbInstance) {
+    try {
+      dbInstance.close();
+    } catch {
+      // ignore if already closed
+    }
+    dbInstance = null;
+  }
+}
+
 module.exports = {
   getDatabase,
+  closeDatabase,
   resetAndSeedDatabase,
 };
