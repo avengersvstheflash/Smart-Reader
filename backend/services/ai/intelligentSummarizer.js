@@ -18,14 +18,18 @@ class IntelligentSummarizer {
     if (!book) throw new Error(`Book not found: ${bookId}`);
 
     const startTime = Date.now();
-    const jobId = `job-synopsis-${bookId}-${Date.now()}`;
-    jobRepository.create({
-      id: jobId,
-      bookId,
-      type: 'SYNOPSIS',
-      status: 'in_progress',
-      progress: 15,
-    });
+    const jobId = options.jobId || `job-synopsis-${bookId}-${Date.now()}`;
+    if (!options.jobId) {
+      jobRepository.create({
+        id: jobId,
+        book_id: bookId,
+        type: 'SYNOPSIS',
+        status: 'PROCESSING',
+        progress: 15,
+      });
+    } else {
+      jobRepository.update(jobId, { status: 'PROCESSING', progress: 15 });
+    }
 
     try {
       // 1. Retrieve Preface + TOC + strategic samples

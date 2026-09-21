@@ -298,23 +298,31 @@ class BookService {
           chapterEntities.length >= 3 && totalWords >= 2000;
 
         console.log(`[Import] Indexing ${book.id}...`);
-        semanticLifecycle
-          .indexBook(book.id, { skipJob: true })
+        const indexJob = jobRepository.create({
+          book_id: book.id,
+          type: 'SEMANTIC_INDEX',
+          status: 'PROCESSING',
+          progress: 0,
+        });
+
+        Promise.resolve()
           .then(() => {
+            return semanticLifecycle.indexBook(book.id, { skipJob: false, jobId: indexJob.id });
+          })
+          .then(() => {
+            jobRepository.complete(indexJob.id);
             console.log(`[Import] Indexed ${book.id}`);
+          })
+          .catch((err) => {
+            console.warn(`[Import] Indexing failed: ${err.message}`);
+            jobRepository.fail(indexJob.id, err);
+          })
+          .then(() => {
             console.log(`[Import] Classifying ${book.id}...`);
             const bookClassifier = require('./ai/bookClassifier');
             return bookClassifier.classifyBook(book.id, { fast: false })
               .catch((err) => {
                 console.warn(`[Import] Classification failed: ${err.message}`);
-              });
-          })
-          .then(() => {
-            console.log(`[Import] Generating synopsis for ${book.id}...`);
-            const intelligentSummarizer = require('./ai/intelligentSummarizer');
-            return intelligentSummarizer.generateSynopsis(book.id, { fast: true })
-              .catch((err) => {
-                console.warn(`[Import] Synopsis failed: ${err.message}`);
               });
           })
           .then(() => {
@@ -324,38 +332,67 @@ class BookService {
             const editorialService = require('./synthesis/editorialService');
             return editorialService.generateSingleBookOutline(book.id, {
               fast: true,
+            }).catch((err) => {
+              console.warn(`[Import] Outline failed: ${err.message}`);
+              return null;
             });
           })
           .then((outline) => {
-            if (!outline) return null;
-            if (!outline.chapters || outline.chapters.length === 0) {
-              console.warn(
-                `[Import] No outline for ${book.id}; skipping auto-synthesis`
-              );
+            console.log(`[Import] Generating synopsis for ${book.id}...`);
+            const synopsisJob = jobRepository.create({
+              book_id: book.id,
+              type: 'SYNOPSIS',
+              status: 'PROCESSING',
+              progress: 0,
+            });
+            const intelligentSummarizer = require('./ai/intelligentSummarizer');
+            return intelligentSummarizer
+              .generateSynopsis(book.id, { fast: true, jobId: synopsisJob.id })
+              .then(() => {
+                jobRepository.complete(synopsisJob.id);
+              })
+              .catch((err) => {
+                console.warn(`[Import] Synopsis failed: ${err.message}`);
+                jobRepository.fail(synopsisJob.id, err);
+              })
+              .then(() => outline);
+          })
+          .then((outline) => {
+            if (!outline || !outline.chapters || outline.chapters.length === 0) {
+              if (qualifiesForOutline) {
+                console.warn(
+                  `[Import] No outline for ${book.id}; skipping auto-synthesis`
+                );
+              }
               return null;
             }
 
             console.log(
               `[Import] Auto-synthesizing initial chapters for ${book.id}...`
             );
-            const intelligentSummarizer = require('./ai/intelligentSummarizer');
-            return intelligentSummarizer.generateSynopsis(book.id, { fast: true })
-              .catch((err) => {
-                console.warn(`[Import] Synopsis failed: ${err.message}`);
-              })
-              .then(() => {
-                const editorialService = require('./synthesis/editorialService');
-                return editorialService.synthesizeNextChapters(book.id, 3);
-              });
+            const synthesisJob = jobRepository.create({
+              book_id: book.id,
+              type: 'SYNTHESIS',
+              status: 'PROCESSING',
+              progress: 0,
+            });
             const editorialService = require('./synthesis/editorialService');
-            return editorialService.synthesizeNextChapters(book.id, 3);
-          })
-          .then((result) => {
-            if (result) {
-              console.log(
-                `[Import] Auto-synthesized ${result.synthesizedCount}/3 chapters for ${book.id}`
-              );
-            }
+            return editorialService
+              .synthesizeNextChapters(book.id, 3, { jobId: synthesisJob.id })
+              .then((result) => {
+                jobRepository.complete(synthesisJob.id);
+                if (result) {
+                  console.log(
+                    `[Import] Auto-synthesized ${result.synthesizedCount}/3 chapters for ${book.id}`
+                  );
+                }
+                return result;
+              })
+              .catch((err) => {
+                console.warn(`[Import] Synthesis failed: ${err.message}`);
+                jobRepository.fail(synthesisJob.id, err);
+                return null;
+              });
           })
           .catch((err) => {
             console.error(

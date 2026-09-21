@@ -16,13 +16,17 @@ class SemanticLifecycle {
 
     // Record job if not already started
     if (!options.skipJob) {
-      jobRepository.create({
-        id: jobId,
-        bookId,
-        type: 'SEMANTIC_INDEX',
-        status: 'in_progress',
-        progress: 10,
-      });
+      if (!options.jobId) {
+        jobRepository.create({
+          id: jobId,
+          book_id: bookId,
+          type: 'SEMANTIC_INDEX',
+          status: 'PROCESSING',
+          progress: 10,
+        });
+      } else {
+        jobRepository.update(jobId, { status: 'PROCESSING', progress: 10 });
+      }
     }
 
     try {

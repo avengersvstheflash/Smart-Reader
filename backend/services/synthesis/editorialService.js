@@ -431,6 +431,11 @@ class EditorialService {
 
           synthesizedCount++;
           if (progress) progress.completedCount++;
+          if (options.jobId) {
+            const jobRepository = require('../../repositories/jobRepository');
+            const pct = Math.round(((i + 1) / toSynthesize.length) * 100);
+            jobRepository.update(options.jobId, { progress: Math.min(pct, 95) });
+          }
 
           chapterResults.push({
             chapterId: targetChapter.chapterId,

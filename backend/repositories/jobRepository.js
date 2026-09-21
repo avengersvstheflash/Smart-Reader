@@ -1,15 +1,17 @@
 const { getDatabase } = require('../db/database');
 
 class JobRepository {
-  create({ id, book_id, chapter_id, type, status = 'PENDING', progress = 0 }) {
+  create({ id, book_id, bookId, chapter_id, chapterId, type, status = 'PENDING', progress = 0 }) {
     const db = getDatabase();
     const jobId = id || `job-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
+    const resolvedBookId = book_id || bookId || null;
+    const resolvedChapterId = chapter_id || chapterId || null;
 
     db.prepare(`
       INSERT INTO processing_jobs (id, book_id, chapter_id, type, status, progress, error, started_at, completed_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(jobId, book_id || null, chapter_id || null, type, status, progress, null, now, null);
+    `).run(jobId, resolvedBookId, resolvedChapterId, type, status, progress, null, now, null);
 
     return this.getById(jobId);
   }

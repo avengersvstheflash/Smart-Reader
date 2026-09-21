@@ -16,8 +16,9 @@ interface StepConfig {
 const STEPS: StepConfig[] = [
   { key: 'ingest', label: 'Intake & parse', jobType: 'INGEST' },
   { key: 'index', label: 'Semantic index', jobType: 'SEMANTIC_INDEX' },
+  { key: 'classification', label: 'Classification', jobType: 'CLASSIFICATION' },
   { key: 'synopsis', label: 'Synopsis', jobType: 'SYNOPSIS' },
-  { key: 'summary', label: 'Book summary', jobType: 'BOOK_SUMMARY' },
+  { key: 'synthesis', label: 'Smart chapters', jobType: 'SYNTHESIS' },
 ];
 
 export function PipelineStepper({ jobs, activeJob }: PipelineStepperProps) {
