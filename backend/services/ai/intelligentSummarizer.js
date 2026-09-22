@@ -34,7 +34,6 @@ class IntelligentSummarizer {
     try {
       // 1. Retrieve Preface + TOC + strategic samples
       const tStart = Date.now();
-      console.log('[Synopsis] Building from preface + TOC + samples...');
       console.log('[Synopsis Compression] Building abstract from preface + TOC + samples...');
       
       const semanticChunkRepository = require('../../repositories/semanticChunkRepository');
@@ -85,7 +84,6 @@ class IntelligentSummarizer {
         chunks: selectedChunks,
       };
 
-      console.log(`[Synopsis] Ready in ${Date.now() - tStart}ms`);
       console.log(`[Synopsis Compression] Ready in ${Date.now() - tStart}ms`);
 
       jobRepository.update(jobId, { progress: 40 });
@@ -159,14 +157,10 @@ ${lastChFirstPara}
 
 OUTPUT:`;
       
-      console.log('--- SYNOPSIS PROMPT CONTEXT ---');
-      console.log(context.contextText);
-      console.log('-------------------------------');
       console.log('--- SYNOPSIS COMPRESSION PROMPT ---');
       console.log(synopsisPrompt);
       console.log('-----------------------------------');
 
-      // 3. AI Generation or Grounded Synthesis
       // 3. AI Generation or Grounded Compression
       jobRepository.update(jobId, { progress: 70 });
       let aiResult = null;
