@@ -34,6 +34,7 @@ const SUITES = [
   'build4_5_bge_migration_test.js',
   'build4_14_eval_harness_test.js',
   'build4_19_contract_test.js',
+  'build4_15_parser_stress_test.js',
 ];
 
 let passed = 0;
