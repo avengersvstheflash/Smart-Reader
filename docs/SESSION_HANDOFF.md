@@ -70,41 +70,20 @@ typecheck 0 errors.
 
 ## 4. Tomorrow
 
-## Phase 4.8.3 — Even-distribution source slicing (~30 min, Flash Medium)
+## Phase 4.7 — Cinematic import experience (~1-2 sessions, Pro High)
 
-Currently the planner accumulates chunks until ~2,500 words, so a
-book's final unit can be a small remainder (observed in 4.14 eval:
-396-word unit → 1.76:1 ratio). Fix: compute N = round(W / 2000),
-slice evenly into N units of ~S = W/N words, snapping each boundary
-to the nearest chapter break if within ±10%. Every unit lands in the
-1,500–2,500 word band. Matches PRODUCT_VISION §"The backend model."
+Real backend signals drive a game-like pipeline animation:
+  - INGEST 10%: pages turning, file being "read"
+  - INGEST 60%: chapter cards materializing
+  - SEMANTIC_INDEX: chunk particles gathering
+  - CLASSIFICATION: tags animating in
+  - SYNOPSIS: scan-over-preface sweep
+  - SYNTHESIS: lines streaming per chapter
+Every step reads from real processing_jobs progress. No setTimeout.
+Reduced-motion fallback: static equivalent for every animation.
 
-After 4.8.3 lands, Phase 4.7 — cinematic import experience
-(~1-2 sessions, Pro High).
-
-Phase 4.8 is now the priority backend fix. Details:
-
-PROBLEM: Editorial planner targets 1500–3000 words per chapter.
-PRODUCT_VISION.md specifies 250–360 words (hard bounds 180–450).
-
-Real evidence: an imported 2125-word Smart chapter. Compression
-ratio today is ~1:1 (compression didn't happen).
-
-CHANGE:
-  1. backend/services/synthesis/editorialPlanner.js — target
-     250–360 words per editorial chapter, not 1500–3000.
-  2. backend/services/synthesis/synthesisService.js — synthesis
-     prompt must instruct: "Output must be 250–360 words. If you
-     exceed 360, cut content."
-  3. Validation: if output < 180 or > 450, regenerate once. Log
-     the failure if the retry also exceeds.
-  4. If batching source chunks is needed to fit the smaller target,
-     resolve in editorialPlanner (chunk-to-chapter mapping).
-
-Verify: synthesize a fresh chapter and confirm word count in the
-target range. Show the DB word count.
-
-Reference: docs/PRODUCT_VISION.md §"The backend model".
+After 4.7: Phase 4.12 (compressor terminology refactor), then
+Phase 5 (paragraph-level provenance + inline tracker).
 
 ## Phase 4.8.1 — Compressor prompt + input sizing (~1 session, Pro High)
 
