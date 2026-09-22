@@ -7,6 +7,17 @@
 
 ---
 
+## Working title
+
+**Omnitome** — omni + tome, literally "all books."
+
+The repo name (`Smart-Reader`) is historical and the directory name.
+The product name is not decided. Omnitome is a working label while
+the app ships as a personal tool. Renaming the repo is a future
+decision, not required for the app to function.
+
+---
+
 ## The core insight
 
 Smart Reader is not a summary app. It is a **navigable lens over source
