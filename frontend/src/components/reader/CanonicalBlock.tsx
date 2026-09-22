@@ -62,8 +62,12 @@ export function CanonicalBlock({ block }: { block: CanonicalBlockType }): React.
   switch (block.type) {
     case 'paragraph': {
       // Strip inline [Source N] citation markers — backend provenance
-      // bookkeeping, not reader UX. Same for [Source N][Source M] chains.
-      const cleaned = (block.text || '').replace(/\s*\[Source \d+\]/g, '').trim();
+      // bookkeeping, not reader UX. Same for [Source N][Source M] chains
+      // and parenthetical (Sources N-M) variants.
+      const cleaned = (block.text || '')
+        .replace(/\s*\[Source \d+\]/g, '')
+        .replace(/\s*\(Sources? \d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\)/g, '')
+        .trim();
       return <p>{renderInlineText(cleaned)}</p>;
     }
 
@@ -80,8 +84,12 @@ export function CanonicalBlock({ block }: { block: CanonicalBlockType }): React.
 
     case 'quote': {
       // Strip inline [Source N] citation markers — backend provenance
-      // bookkeeping, not reader UX. Same for [Source N][Source M] chains.
-      const cleaned = (block.text || '').replace(/\s*\[Source \d+\]/g, '').trim();
+      // bookkeeping, not reader UX. Same for [Source N][Source M] chains
+      // and parenthetical (Sources N-M) variants.
+      const cleaned = (block.text || '')
+        .replace(/\s*\[Source \d+\]/g, '')
+        .replace(/\s*\(Sources? \d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\)/g, '')
+        .trim();
       return (
         <blockquote>
           <p>{renderInlineText(cleaned)}</p>
