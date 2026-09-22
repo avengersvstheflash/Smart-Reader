@@ -424,6 +424,16 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
   via Select-String + scratch file writes. Worked this time (read-only)
   but the same pattern produced mojibake and duplicate declarations in
   earlier sessions. Rule: re-paste, do not mine.
+- **Phase 4.8.3 — Even-distribution source slicing.** Current planner
+  accumulates chunks until ~2,500 words, so a book's final unit can
+  be a small remainder (observed in 4.14 eval: 396-word unit → 1.76:1
+  ratio, flagged as outlier). Fix: compute N = round(W / 2000), slice
+  the whole body evenly into N units of ~S = W/N words, snapping each
+  boundary to the nearest chapter break if within ±10%. Every unit
+  lands in the 1,500–2,500 word band. Matches PRODUCT_VISION
+  §"The backend model" — word-count-driven, not chapter-driven.
+  ~30 min, Flash Medium. Priority: medium. Recorded 2026-09-22,
+  not yet performed.
 
 ---
 
