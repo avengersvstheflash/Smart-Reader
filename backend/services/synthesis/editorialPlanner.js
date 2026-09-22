@@ -89,49 +89,91 @@ class EditorialPlanner {
   }
 
   /**
-   * Slices candidate sections/chunks into source units of ~1,500–2,500 words.
-   * Walks chunks in order. Closes unit when:
-   *  (a) wordCount >= 1500 AND next chunk would push past 2500, OR
-   *  (b) wordCount >= 2500
-   * Chunks are never split.
+   * Slices candidate sections/chunks into evenly distributed source units of ~1,500–2,500 words.
+   * Algorithm (Phase 4.8.3):
+   *  a. Computes totalBodyWords W = sum of all section/chunk word counts
+   *  b. Computes N = max(1, round(W / 2000))
+   *  c. Computes ideal unit size S = W / N
+   *  d. Walks sections tracking cumulative words
+   *  e. For each boundary i (1 to N-1), snaps to nearest chapter break within ±10% of S,
+   *     or closest section boundary if none
+   *  f. Produces exactly N units
    */
   sliceIntoSourceUnits(sections = []) {
-    const units = [];
-    let currentUnit = [];
-    let currentWords = 0;
+    if (!Array.isArray(sections) || sections.length === 0) {
+      return [];
+    }
 
-    for (let i = 0; i < sections.length; i++) {
-      const sec = sections[i];
-      let secWords = 0;
+    const getWordCount = (sec) => {
       if (typeof sec.wordCount === 'number' && sec.wordCount > 0) {
-        secWords = sec.wordCount;
-      } else if (sec.content || sec.textContent) {
-        secWords = (sec.content || sec.textContent).trim().split(/\s+/).filter(Boolean).length;
-      } else {
-        secWords = 250;
+        return sec.wordCount;
       }
+      if (sec.content || sec.textContent) {
+        return (sec.content || sec.textContent).trim().split(/\s+/).filter(Boolean).length;
+      }
+      return 250;
+    };
 
-      if (currentUnit.length > 0) {
-        const wouldExceedUpper = currentWords >= 1500 && (currentWords + secWords > 2500);
-        const reachedHardMax = currentWords >= 2500;
-        if (wouldExceedUpper || reachedHardMax) {
-          units.push({
-            sections: currentUnit,
-            wordCount: currentWords,
-          });
-          currentUnit = [];
-          currentWords = 0;
+    const sectionWords = sections.map(getWordCount);
+    const W = sectionWords.reduce((sum, w) => sum + w, 0);
+
+    // For thin content (W < 3000 words), single section, or small source: produce 1 unit
+    const N = Math.min(sections.length, Math.max(1, Math.round(W / 2000)));
+    if (N <= 1) {
+      return [{
+        sections: [...sections],
+        wordCount: W,
+      }];
+    }
+
+    const S = W / N;
+
+    // Cumulative words: cumWords[k] = total words before index k
+    const cumWords = new Array(sections.length + 1);
+    cumWords[0] = 0;
+    for (let i = 0; i < sections.length; i++) {
+      cumWords[i + 1] = cumWords[i] + sectionWords[i];
+    }
+
+    const splits = [0];
+    for (let i = 1; i < N; i++) {
+      const target = i * S;
+      const minIdx = splits[i - 1] + 1;
+      const maxIdx = sections.length - (N - i);
+
+      let bestK = minIdx;
+      let bestDist = Math.abs(cumWords[minIdx] - target);
+      let chapterBreakK = null;
+      let chapterBreakDist = Infinity;
+
+      for (let k = minIdx; k <= maxIdx; k++) {
+        const dist = Math.abs(cumWords[k] - target);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestK = k;
+        }
+
+        const secTitle = (sections[k]?.sectionTitle || sections[k]?.title || '').trim();
+        const isChapterBreak = /^(?:chapter|part)\s+\d+/i.test(secTitle);
+        if (isChapterBreak && dist <= 0.10 * S) {
+          if (dist < chapterBreakDist) {
+            chapterBreakDist = dist;
+            chapterBreakK = k;
+          }
         }
       }
 
-      currentUnit.push(sec);
-      currentWords += secWords;
+      splits.push(chapterBreakK !== null ? chapterBreakK : bestK);
     }
+    splits.push(sections.length);
 
-    if (currentUnit.length > 0) {
+    const units = [];
+    for (let i = 0; i < N; i++) {
+      const unitSections = sections.slice(splits[i], splits[i + 1]);
+      const unitWords = unitSections.reduce((sum, s, idx) => sum + sectionWords[splits[i] + idx], 0);
       units.push({
-        sections: currentUnit,
-        wordCount: currentWords,
+        sections: unitSections,
+        wordCount: unitWords,
       });
     }
 
