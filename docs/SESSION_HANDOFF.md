@@ -8,26 +8,26 @@
 
 ## 1. Where we are
 
-**Last shipped commit:** `1d5bd02` — Phase 4.6 Web + Paste import tabs.
+**Last shipped commit:** `523898d` — Phase 4.16 (Omnitome working
+title).
 
-**Test state:** 13/13 root suites green. Frontend build clean,
+**Test state:** 17/17 root suites green. Frontend build clean,
 typecheck 0 errors.
 
 **Live in browser:**
-- Import route has three tabs (File | Web | Paste) via `?tab=` URL param
-- File tab: drag-drop + XHR progress + 5-stage stepper (INGEST →
-  SEMANTIC_INDEX → CLASSIFICATION → SYNOPSIS → SYNTHESIS)
-- Web tab: debounced search + category chips + preview modal +
-  multi-select + import-multi dossier
-- Paste tab: title/author/content with 200-char validation
-- All three tabs share ImportSuccessPanel with the live stepper
-- `POST /api/books` accepts text field → routes through
-  bookService.importBook (chapters + full pipeline)
-- `POST /api/web/import-multi` creates WEB_IMPORT job + triggers the
-  same pipeline chain
-- Canonical PDF: 5 job rows logged, all COMPLETED, content_type "textbook"
-- Zombie sweep at boot marks stale RUNNING jobs INTERRUPTED; UI
-  renders distinctly
+- Compression eval harness reports ratio distribution per chapter
+  (4.14)
+- Pre-hydration contract test validates all API data shapes before
+  frontend consumption (4.19)
+- Parser stress test passes on 4 real-world PDFs: ResNet arXiv,
+  NIST AES, Apple 10-K, Think Python (4.15a)
+- Front/back matter filter verified on all 4 stress fixtures with
+  zero leaks (4.15b)
+- Parenthetical (Sources N-M) markers stripped from rendered Smart
+  text (4.7.5)
+- Book Details shows active AI provider with honest disclosure
+  tooltip (4.10.5)
+- Working title Omnitome recorded in docs (4.16)
 
 **Open items carried forward:**
 - Smart chapters output ~2100 words; PRODUCT_VISION specifies 250–360.
@@ -70,25 +70,17 @@ typecheck 0 errors.
 
 ## 4. Tomorrow
 
-## Phase 4.6 — Web + Paste import tabs (~1 session, Flash Medium)
+## Phase 4.8.3 — Even-distribution source slicing (~30 min, Flash Medium)
 
-The Library becomes a real multi-source digital library. File import
-already works. Add two more import paths:
+Currently the planner accumulates chunks until ~2,500 words, so a
+book's final unit can be a small remainder (observed in 4.14 eval:
+396-word unit → 1.76:1 ratio). Fix: compute N = round(W / 2000),
+slice evenly into N units of ~S = W/N words, snapping each boundary
+to the nearest chapter break if within ±10%. Every unit lands in the
+1,500–2,500 word band. Matches PRODUCT_VISION §"The backend model."
 
-1. **Web tab** — search input + category chips + result cards with
-   multi-select + preview panel + sticky "Import N selected" bar.
-   Backend endpoints already exist: GET /api/web/search,
-   POST /api/web/preview, POST /api/web/import-multi.
-2. **Paste tab** — title + author + content textarea → POST
-   /api/books with JSON body.
-
-Both feed through the same pipeline as file import — classification,
-synopsis, chapter compression all run automatically.
-
-VERIFY: import a web article and a pasted text blob; confirm both
-classify correctly and produce Smart content.
-
-Reference: docs/FRONTEND_BLUEPRINT.md §2.5 (Ingestion wireframe).
+After 4.8.3 lands, Phase 4.7 — cinematic import experience
+(~1-2 sessions, Pro High).
 
 Phase 4.8 is now the priority backend fix. Details:
 
@@ -445,6 +437,14 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
   not inherit source chapter counts. Only front/back matter
   classification matters, and 4.15b verifies that holds. Informational,
   not a fix.
+- **math-heavy.pdf yields 1 editorial candidate from 61 chunks.**
+  4.15b: NIST FIPS 197 is 8 front_matter + 52 appendix + 1 chapter.
+  Filter correctly rejects 60/61 chunks as non-body. Honest behavior
+  for a document shape that isn't book-like — a NIST standard
+  produces a 1-chapter Smart Reading. Informational, not a fix.
+- **Full suite runtime is ~5-6 min.** Adding more tests will push
+  past convenient. Future: two-tier npm scripts (test:fast with
+  no-LLM suites, test:full including synthesis). Informational.
 
 ---
 
