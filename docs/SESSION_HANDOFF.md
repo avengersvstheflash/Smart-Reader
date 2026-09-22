@@ -434,6 +434,15 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
   §"The backend model" — word-count-driven, not chapter-driven.
   ~30 min, Flash Medium. Priority: medium. Recorded 2026-09-22,
   not yet performed.
+- **Parser chapter detection on SEC filings and two-column papers
+  is shallow (by design).** 4.15a: ResNet arXiv detected as 2 sections
+  vs ~8 real; Apple 10-K detected as 3 vs ~20 real. This does NOT
+  block the product — the editorial planner re-segments body content
+  into 1,500–2,500 word units regardless of source chapter boundaries.
+  Smart Reader creates its own editorial chapter structure; it does
+  not inherit source chapter counts. Only front/back matter
+  classification matters, and 4.15b verifies that holds. Informational,
+  not a fix.
 
 ---
 
