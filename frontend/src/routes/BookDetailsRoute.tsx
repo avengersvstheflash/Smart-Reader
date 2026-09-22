@@ -21,6 +21,15 @@ import { useModal } from '../store/useModalStore';
 import { getCoverTheme, formatReadingTime } from '../components/library/BookCard';
 import { EmptyState } from '../components/shared/EmptyState';
 
+function formatAiProvider(raw?: string): string | null {
+  if (!raw) return null;
+  const lower = raw.trim().toLowerCase();
+  if (lower === 'openrouter') return 'OpenRouter';
+  if (lower === 'ollama') return 'Ollama (local)';
+  if (lower === 'gemini') return 'Gemini';
+  return null;
+}
+
 function BookDetailsSkeleton() {
   return (
     <div className="space-y-8 animate-pulse" aria-busy="true">
@@ -103,6 +112,8 @@ export default function BookDetailsRoute() {
   } = useSemanticStatus(bookId);
 
   const { outline, synthesizedCount } = useEditorial(bookId);
+
+  const providerLabel = formatAiProvider(book?.aiProvider);
 
   // Keyboard navigation for roving tabindex in chapter list
   const [focusedChapterIndex, setFocusedChapterIndex] = useState(0);
@@ -515,6 +526,16 @@ export default function BookDetailsRoute() {
                 </>
               )}
             </div>
+            {providerLabel && (
+              <div>
+                <span
+                  className="text-caption text-ink-muted"
+                  title="Source text is sent to the configured provider for compression. Configure Ollama in .env for fully local mode."
+                >
+                  Provider: {providerLabel}
+                </span>
+              </div>
+            )}
             {(!semanticStatus || semanticStatus.chunkCount === 0) && !isSemanticLoading && (
               <p className="text-caption text-ink-faint">
                 Vector chunking is pending or unindexed for this book.

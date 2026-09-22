@@ -93,6 +93,8 @@ router.get('/:id', (req, res, next) => {
   try {
     const book = bookService.getBook(req.params.id);
     res.json({ book });
+    const config = require('../config');
+    res.json({ book: { ...book, ai_provider: config.AI_PROVIDER } });
   } catch (err) {
     next(err);
   }

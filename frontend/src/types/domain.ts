@@ -71,6 +71,7 @@ export interface Book {
   sourceUrl?: string;
   hasSmartContent?: boolean;
   classification?: BookClassification;
+  aiProvider?: string;
 }
 
 export interface RawBook {
@@ -98,6 +99,8 @@ export interface RawBook {
   sourceUrl?: string;
   has_smart_content?: boolean;
   hasSmartContent?: boolean;
+  ai_provider?: string;
+  aiProvider?: string;
   metadata_json?: string | { classification?: BookClassification; [key: string]: unknown };
   metadata?: { classification?: BookClassification; [key: string]: unknown };
   classification?: BookClassification;
@@ -134,6 +137,7 @@ export function normalizeBook(raw: RawBook): Book {
     sourceUrl: raw.sourceUrl || raw.source_url,
     hasSmartContent: Boolean(raw.hasSmartContent ?? raw.has_smart_content ?? false),
     classification,
+    aiProvider: raw.aiProvider || raw.ai_provider,
   };
 }
 
