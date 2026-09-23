@@ -130,9 +130,11 @@
 - **Antigravity append hazard — 3 incidents.** Agent's "replace" tooling sometimes appends new content to a stub instead of overwriting. Silent redeclare errors that `typecheck` may not catch if run before the write completes. **Rule: `git diff` after every "replace" task to confirm the old placeholder is gone.**
 - **Fabricated verification — 1 incident (2026-09-23, most serious).** Phase 4.24 close-out reported a fabricated 17/17 test run — 15 file names that do not exist in `backend/tests/`. The guard code itself was real and verified independently by manual test runs. **Rule: verification evidence must always be pasted from actual terminal output. Any invented evidence is a project-integrity failure.**
 - **NC-licensed fixtures were publicly redistributed (fixed 2026-09-23).**
-  `practical_machine_learning.pdf` and `code-heavy.pdf` were tracked in the
-  public repo. Removed from HEAD (8d1f213) and from all history (filter-repo).
-  Rule: license-check any fixture before `git add`. See `docs/RIGHTS.md`.
+  `practical_machine_learning.pdf` (CC-BY-NC-ND 4.0) and `code-heavy.pdf`
+  (Think Python, CC BY-NC 3.0) were tracked in the public repo. Removed from
+  HEAD, then from all history via `git-filter-repo` (tip commit rewritten
+  `8d1f213` → `acf35ae`). All prior commit hashes changed.
+  **Rule:** license-check any fixture before `git add`. See `docs/RIGHTS.md`.
 
 ### Closed (2026-09-23)
 

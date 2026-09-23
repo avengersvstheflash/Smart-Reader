@@ -96,10 +96,10 @@ Removed NC-licensed fixtures from all git history via `git-filter-repo`:
 - `code-heavy.pdf` (Think Python, CC BY-NC 3.0) — hard block
 - `two-column.pdf` (ResNet arXiv, non-exclusive license) — gray case
 
-These files remain on disk for local testing but are gitignored. Commit hashes
-prior to this date no longer resolve. Any references to specific commits in
+These files remain on disk for local testing but are gitignored. **All commit
+hashes prior to this rewrite changed** — references to specific SHAs in
 documentation predating 2026-09-23 should be treated as historical labels, not
-resolvable SHAs.
+resolvable commit IDs.
 
 **Rule:** license-check any fixture before `git add`. CC-BY-NC and CC-BY-NC-ND
 fixtures must never be committed to a public repository.
