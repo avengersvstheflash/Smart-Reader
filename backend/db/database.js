@@ -203,8 +203,19 @@ function initSchema(db) {
     db.exec(`ALTER TABLE chapters ADD COLUMN metadata_json TEXT DEFAULT '{}';`);
   }
 
+  // Cleanup historical phantom books: processing with 0 chapters -> failed
+  db.exec(`
+    UPDATE books
+    SET status = 'failed'
+    WHERE status = 'processing'
+      AND (SELECT COUNT(*) FROM chapters c WHERE c.book_id = books.id) = 0;
+  `);
+
   // Ensure metadata columns exist on books table
   const bookCols = db.prepare(`PRAGMA table_info(books)`).all();
+  if (!bookCols.some(c => c.name === 'status')) {
+    db.exec(`ALTER TABLE books ADD COLUMN status TEXT DEFAULT 'active';`);
+  }
   if (!bookCols.some(c => c.name === 'source_format')) {
     db.exec(`ALTER TABLE books ADD COLUMN source_format TEXT DEFAULT 'text';`);
   }

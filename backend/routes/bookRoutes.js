@@ -15,7 +15,6 @@ const { getDatabase } = require('../db/database');
 router.get('/', (req, res, next) => {
   try {
     const books = bookService.getAllBooks();
-    res.json({ books });
     const db = getDatabase();
     const smartRows = db.prepare(`
       SELECT DISTINCT eo.collectionId AS book_id
@@ -31,7 +30,7 @@ router.get('/', (req, res, next) => {
       has_smart_content: smartSet.has(b.id),
     }));
 
-    res.json({ books: booksWithSmart });
+    return res.json({ books: booksWithSmart });
   } catch (err) {
     next(err);
   }
@@ -54,7 +53,7 @@ router.post('/', async (req, res, next) => {
     }
     // Metadata-only create (unchanged)
     const book = bookService.createBook(req.body);
-    res.status(201).json({ book });
+    return res.status(201).json({ book });
   } catch (err) {
     next(err);
   }
@@ -82,7 +81,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       originalFilename,
     });
 
-    res.status(201).json(result);
+    return res.status(201).json(result);
   } catch (err) {
     next(err);
   }
@@ -92,9 +91,8 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
 router.get('/:id', (req, res, next) => {
   try {
     const book = bookService.getBook(req.params.id);
-    res.json({ book });
     const config = require('../config');
-    res.json({ book: { ...book, ai_provider: config.AI_PROVIDER } });
+    return res.json({ book: { ...book, ai_provider: config.AI_PROVIDER } });
   } catch (err) {
     next(err);
   }

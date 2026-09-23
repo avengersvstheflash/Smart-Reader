@@ -204,7 +204,7 @@ OUTPUT:`;
           }
         } else {
           fellBack = true;
-          fallbackReason = 'provider_unavailable';
+          fallbackReason = (options && options.fast) ? 'deferred_fast_path' : 'provider_unavailable';
         }
       } catch (err) {
         fellBack = true;
@@ -225,14 +225,14 @@ OUTPUT:`;
         ) {
           fallbackReason = 'invalid_json';
         } else {
-          fallbackReason = 'provider_unavailable';
+          fallbackReason = (options && options.fast) ? 'deferred_fast_path' : 'provider_unavailable';
         }
       }
 
       if (!rawSynopsis || !rawSynopsis.trim()) {
         if (!fellBack) {
           fellBack = true;
-          fallbackReason = 'provider_unavailable';
+          fallbackReason = (options && options.fast) ? 'deferred_fast_path' : 'provider_unavailable';
         }
         rawSynopsis = this.fallbackSynthesizeSynopsis(book, context);
       }
@@ -589,6 +589,8 @@ OUTPUT:`;
   }
 
   async executeAIGeneration(context, { task, book, options = {}, prompt = null, maxTokens = null }) {
+    // If fast: true is passed, bypass external AI generation immediately.
+    // Callers using this bypass must ensure fallback_reason is recorded as 'deferred_fast_path'.
     if (options && options.fast) return null;
     try {
       const provider = aiService.getActiveProvider();
@@ -642,8 +644,7 @@ OUTPUT:`;
       }
     }
 
-    let text = `## Editorial Synopsis: ${book.title}\n\n`;
-    text += `**${book.title}** by **${book.author || 'Unknown Author'}** is structured as an in-depth ${contentType}. `;
+    let text = `${book.title} by ${book.author || 'Unknown Author'} is structured as an in-depth ${contentType}. `;
 
     if (coreIdea) {
       text += `At its core, ${coreIdea.charAt(0).toLowerCase() + coreIdea.slice(1)} `;
@@ -662,12 +663,15 @@ OUTPUT:`;
       .filter(Boolean)
       .slice(0, 3);
     if (sectionRefs.length > 0) {
-      text += `Key structural pillars highlighted throughout the text include *${sectionRefs.join('*, *')}*, demonstrating consistent conceptual continuity. The interior balances precise formulations, structural paradigms, and progressive inquiries designed to guide the reader through complex domain mechanics without unnecessary digressions.\n\n`;
+      text += `Key structural pillars highlighted throughout the text include ${sectionRefs.join(', ')}, demonstrating consistent conceptual continuity. The interior balances precise formulations, structural paradigms, and progressive inquiries designed to guide the reader through complex domain mechanics without unnecessary digressions.\n\n`;
     }
 
     text += `The text reads like an authoritative reference manual — disciplined, methodical, and conceptually rigorous. [PARTIAL: inputs insufficient for full synopsis]`;
 
-    return text;
+    return text
+      .replace(/[*_#]/g, '')
+      .replace(/^[ \t]*[-*+]\s+/gm, '')
+      .trim();
   }
 
   fallbackSynthesizeBookSummary(book, context) {

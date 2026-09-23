@@ -9,6 +9,7 @@ class BookRepository {
         (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id AND c.status = 'read') as read_chapter_count,
         (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
       FROM books b
+      WHERE b.status != 'failed'
       ORDER BY b.updated_at DESC
     `).all();
     return books;

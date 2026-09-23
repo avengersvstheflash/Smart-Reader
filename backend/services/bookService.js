@@ -401,7 +401,7 @@ class BookService {
             });
             const intelligentSummarizer = require('./ai/intelligentSummarizer');
             return intelligentSummarizer
-              .generateSynopsis(book.id, { fast: true, jobId: synopsisJob.id })
+              .generateSynopsis(book.id, { jobId: synopsisJob.id })
               .then(() => {
                 jobRepository.complete(synopsisJob.id);
               })
@@ -473,6 +473,9 @@ class BookService {
       };
     } catch (err) {
       jobRepository.fail(job.id, err);
+      try {
+        bookRepository.update(book.id, { status: 'failed' });
+      } catch (_) {}
       throw err;
     }
   }
