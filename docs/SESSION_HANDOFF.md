@@ -81,22 +81,12 @@ typecheck 0 errors.
 
 ---
 
-## 4. Tomorrow
+## 4. Tomorrow (Next Task)
 
-## Phase 4.7 — Cinematic import experience (~1-2 sessions, Pro High)
+> **Phase 4 CLOSED 2026-09-23.** All 17 test suites green (verified by manual terminal run). Trust path intact. Import pipeline verified end-to-end.
 
-Real backend signals drive a game-like pipeline animation:
-  - INGEST 10%: pages turning, file being "read"
-  - INGEST 60%: chapter cards materializing
-  - SEMANTIC_INDEX: chunk particles gathering
-  - CLASSIFICATION: tags animating in
-  - SYNOPSIS: scan-over-preface sweep
-  - SYNTHESIS: lines streaming per chapter
-Every step reads from real processing_jobs progress. No setTimeout.
-Reduced-motion fallback: static equivalent for every animation.
-
-After 4.7: Phase 4.12 (compressor terminology refactor), then
-Phase 5 (paragraph-level provenance + inline tracker).
+### Phase 5.1 — Paragraph-level provenance resolution
+Define the backend contract that maps a Smart Chapter sentence or paragraph back to its source chunk(s). No UI yet. The click-through pattern (Phase 5.2) depends on this contract being solid.
 
 ## Phase 4.8.1 — Compressor prompt + input sizing (~1 session, Pro High)
 
@@ -495,47 +485,45 @@ import. All nine targeted for fix in tonight's session.
    displayed value toward each new target over the polling interval.
    Never overshoot; snap to 100 on completion.
 
-7. **Book Details feels "numb."** Structurally correct — hero, chips,
-   chapter list, semantic panel all present — but lacks visual
-   weight. No cover tint behind title, no subtle depth on cards.
-   Deferred to Phase 5.5 (Library polish).
-
-8. **`/research` route is an empty placeholder.** Phase 4.6 shipped
-   the Web + Paste *import tabs*. The collection-view half — where
-   a research dossier across multiple books is displayed — never
-   shipped. `/research` renders nothing.
-
-9. **Kaggle import duplicated.** "Kaggle and Code Dojo 1" appears
+7. **Kaggle import duplicated.** "Kaggle and Code Dojo 1" appears
    twice in Library with the same title. Likely same content hashed
    differently on two import attempts, or leftover from testing.
    Cleanup: identify the duplicate ID and mark one status='failed'.
 
-10. **Phase 5.x: Tag chips relocation (UI/UX phase).**
-    - *Current:* Book Details hero row shows all classification tags inline
-      alongside content-type and reading-level.
-    - *Desired:* Hero shows content-type + reading-level only. Tags move to
-      a collapsed expander or into a dedicated filter/search surface.
-    - *Rationale:* Hero row gets visually crowded on books with 5–8 tags.
-      Filter chips belong in the Library filter system, not the hero.
-      Defer to the UI/UX polish phase (likely Phase 5.5).
+### Informational & architectural notes
 
-11. **Informational finding: synopsis prompt degraded for sources without preface/TOC.**
-    Observed during Apple 10-K import (2026-09-23): synopsis compression
-    prompt received `INPUTS: (None provided)`, `TOC: (None provided)`. Only
-    chapter-1-opening and last-chapter-opening were supplied. Result: output
-    landed 139 words (below 180 floor), retried once, produced acceptable
-    prose. Not a bug — SEC filings genuinely lack preface and TOC. But the
-    synopsis path depends on structured inputs (preface + TOC + samples)
-    that some source types (SEC filings, pasted text, some web dumps) don't
-    provide. The retry logic saves it, but the path is fragile. Log as
-    informational; no fix scheduled.
+- **AI planning path — oversize units.** The AI planning path (`plan()`, used only when `options.fast` is false — not during import) can assign 3000–4200 word source units to a single chapter. This is by design — the 4.24 defensive guard applies only to `sliceIntoSourceUnits` (the deterministic path). Tests `build4_1` and `build4_2a` exercise the AI path and log oversize units as expected. Not a bug; documented so future sessions don't re-investigate.
+- **Model swap lever (contingency).** DeepSeek V4 Flash is current. If the 4.24 guard produces repeated `[EditorialPlanner]` errors, swap to a stronger model for the planner path specifically.
+- **Synopsis degradation on preface-less sources.** SEC filings, pasted text, and some web dumps lack preface + TOC. Synopsis prompt receives `(None provided)`. Retry logic saves it today. Fragile. No fix scheduled.
+- **Hazard: Fabricated verification incident (2026-09-23).** The Phase 4.24 close-out reported a fabricated 17/17 test run — 15 file names that do not exist in `backend/tests/`. The guard code itself was real and verified independently by manual test runs. Verification evidence must always be pasted from actual terminal output, never asserted. This is the seventh agent-integrity incident; first involving invented evidence.
 
-### Phase 4.21.1 verification findings (deferred)
+### Phase 4.21.1 / 4.25 findings (closed 2026-09-23)
 
-- **Test DB is shared with dev DB (resetAndSeedDatabase wipes user's Library).** `backend/tests/build3b_test.js:19` and `backend/tests/build3b_finalization_test.js:13` call `resetAndSeedDatabase()`, which drops and re-seeds non-fixture rows on the shared `storage/data.db`. Every test run wipes the user's working Library on the dev machine. Fix scope: isolate the test DB to a separate file (e.g. `storage/test-data.db`) or gate the seed behind an env flag. Not scheduled.
-- **Job status strings: SUCCESS vs COMPLETED — verify against PipelineStepper.tsx.** Phase 4.11.1 close-out showed COMPLETED. Phase 4.21.1 close-out showed SUCCESS. If `PipelineStepper` matches on COMPLETED, this is a regression. Verify against `frontend/src/components/import/PipelineStepper.tsx` before touching. Not scheduled.
-- **Synthesis reps uniform 250 chars in 4.21.1 canonical import.** Phase 4.21.1 canonical import showed 8 SYNTHESIS reps each with length: 250. Uniform length suggests a cap, truncation, or fallback template. Inspect one rep's `metadata_json` for `fell_back`. If `fell_back: false`, verify whether 250-char output is within spec (Smart Chapter target is 250–360 WORDS, not chars — 250 chars ≈ 40 words, well under spec). If `fell_back: true`, the synthesis fallback may be silently firing on the canonical fixture, contradicting the clean synopsis path. Not scheduled.
-- **has_outline: false on synopsis metadata during 4.21.1 canonical import.** Synopsis metadata reported `has_outline: false`, but pipeline order is CLASSIFICATION → SYNOPSIS → SYNTHESIS and outline runs before synopsis. Either the flag is miscomputed or the metadata write path is wrong. Not scheduled.
+- **A1 (FIXED in 4.25): Test DB isolation.** Test runner sets `DB_PATH=storage/test-data.db`. Dev DB (`storage/data.db`) is no longer wiped by tests. Standalone test runs (bypassing `scripts/run-all-tests.js`) still use the real DB. Documented limitation.
+- **A2 (CLOSED, not a bug): Job status strings.** Reconciled across backend and frontend. Writer (`jobRepository.complete()`) writes `'COMPLETED'`, and readers (`PipelineStepper.tsx`, `ImportCinematic.tsx`, `useJobs.ts`, `domain.ts`) match on `'COMPLETED'`. There is no mismatch (writer == reader); the Phase 4.21.1 close-out note had an inaccurate reference to "SUCCESS".
+- **A3 (DEFERRED, hard dependency): Synthesis reps landed at 250 chars uniformly on canonical import.** Cannot verify without Phase 5.6 validation loop. Do not investigate A3 before Phase 5.6 ships.
+- **A4 (FIXED in 4.25): has_outline flag.** Synopsis metadata now checks `outlineRepository.getByBookId(book.id)` and records `has_outline: true` (or `false` if none exists). Since outline generation precedes synopsis in the import pipeline, canonical import correctly writes `has_outline: true`.
+
+### Phase 5.6 — Validation and refine loops (design intent)
+
+Two loops, to build after Phase 5.1 defines the paragraph-level provenance contract:
+
+- **Loop 1 — Pre-LLM source guard.** After slicing, verify all source units fall within [1500, 2500] words. If any unit is out of band: re-slice → re-verify → only when clean, dispatch to the LLM.
+- **Loop 2 — Post-LLM output guard.** After the LLM returns a Smart Chapter, verify: word band [250, 360], grounding (each sentence traces to a source chunk), no fallback markers. If any check fails: re-prompt with stricter compression bounds → re-verify → ship clean or mark `fell_back` honestly.
+- **Why deferred:** The post-LLM guard's most important check is grounding density. Phase 5.1 defines the resolution contract that makes grounding measurable.
+
+## 9. Phase 5 backlog — UI/UX
+
+1. **Tag chips relocation (UI/UX phase).**
+   - *Current:* Book Details hero row shows all classification tags inline alongside content-type and reading-level.
+   - *Desired:* Hero shows content-type + reading-level only. Tags move to a collapsed expander or into a dedicated filter/search surface.
+   - *Rationale:* Hero row gets visually crowded on books with 5–8 tags. Filter chips belong in the Library filter system, not the hero. Defer to the UI/UX polish phase (likely Phase 5.5).
+
+2. **Book Details visual weight.**
+   - Structurally correct — hero, chips, chapter list, semantic panel all present — but lacks visual weight. No cover tint behind title, no subtle depth on cards. Deferred to Phase 5.5 (Library polish).
+
+3. **`/research` route collection view.**
+   - Phase 4.6 shipped the Web + Paste *import tabs*. The collection-view half — where a research dossier across multiple books is displayed — never shipped. `/research` renders nothing.
 
 ## OCR deferred to Python sidecar (decision, 2026-09-23)
 
