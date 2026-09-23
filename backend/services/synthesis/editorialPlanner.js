@@ -114,6 +114,105 @@ class EditorialPlanner {
       return 250;
     };
 
+    // Phase 4.24: Flatten any section whose wordCount exceeds 2500 into multiple sub-sections
+    const flattenedSections = [];
+    for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+      const sec = sections[sIdx];
+      const secWords = getWordCount(sec);
+      if (secWords <= 2500) {
+        flattenedSections.push(sec);
+        continue;
+      }
+
+      const originalSectionId = sec.sectionId || sec.id || `section-${sIdx}`;
+      const text = (sec.content || sec.textContent || '').trim();
+
+      if (!text) {
+        const targetCount = Math.ceil(secWords / 2000);
+        const pieceSize = Math.floor(secWords / targetCount);
+        let remaining = secWords;
+        for (let pIdx = 0; pIdx < targetCount; pIdx++) {
+          const pieceWords = (pIdx === targetCount - 1) ? remaining : pieceSize;
+          remaining -= pieceWords;
+          flattenedSections.push({
+            ...sec,
+            sectionId: `${originalSectionId}-p${pIdx}`,
+            ...(sec.id ? { id: `${originalSectionId}-p${pIdx}` } : {}),
+            wordCount: pieceWords,
+          });
+        }
+        continue;
+      }
+
+      // Split at paragraph boundaries (\n\n)
+      let paragraphs = text.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+      if (paragraphs.length === 0) {
+        paragraphs = [text];
+      }
+
+      // If a paragraph is itself >2500 words, split at sentence boundaries ([.!?] followed by whitespace)
+      const blocks = [];
+      for (const para of paragraphs) {
+        const paraWords = para.split(/\s+/).filter(Boolean).length;
+        if (paraWords <= 2500) {
+          blocks.push({ text: para, words: paraWords });
+        } else {
+          const sentences = para.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+          for (const sentence of sentences) {
+            const sentWords = sentence.split(/\s+/).filter(Boolean).length;
+            if (sentWords <= 2500) {
+              blocks.push({ text: sentence, words: sentWords });
+            } else {
+              const words = sentence.split(/\s+/).filter(Boolean);
+              for (let w = 0; w < words.length; w += 2000) {
+                const subWords = words.slice(w, w + 2000);
+                blocks.push({ text: subWords.join(' '), words: subWords.length });
+              }
+            }
+          }
+        }
+      }
+
+      let currentPieceBlocks = [];
+      let currentPieceWords = 0;
+      let pieceIndex = 0;
+
+      const emitPiece = (blocksToEmit, wordsCount) => {
+        const pieceText = blocksToEmit.map(b => b.text).join('\n\n');
+        const piece = {
+          ...sec,
+          sectionId: `${originalSectionId}-p${pieceIndex}`,
+          ...(sec.id ? { id: `${originalSectionId}-p${pieceIndex}` } : {}),
+          wordCount: wordsCount,
+        };
+        if (sec.content !== undefined) piece.content = pieceText;
+        if (sec.textContent !== undefined) piece.textContent = pieceText;
+        if (sec.content === undefined && sec.textContent === undefined) {
+          piece.content = pieceText;
+          piece.textContent = pieceText;
+        }
+        flattenedSections.push(piece);
+        pieceIndex++;
+      };
+
+      for (const block of blocks) {
+        if (currentPieceWords > 0 && currentPieceWords + block.words > 2500) {
+          emitPiece(currentPieceBlocks, currentPieceWords);
+          currentPieceBlocks = [block];
+          currentPieceWords = block.words;
+        } else {
+          currentPieceBlocks.push(block);
+          currentPieceWords += block.words;
+        }
+      }
+
+      if (currentPieceBlocks.length > 0) {
+        emitPiece(currentPieceBlocks, currentPieceWords);
+      }
+    }
+
+    sections = flattenedSections;
+
     const sectionWords = sections.map(getWordCount);
     const W = sectionWords.reduce((sum, w) => sum + w, 0);
 
@@ -217,6 +316,7 @@ class EditorialPlanner {
     }
     if (rawSourceWordCount > 2800) {
       this.logger.warn(`[EditorialPlanner] Source unit exceeds 2800 words (${rawSourceWordCount})`);
+      this.logger.error(`[EditorialPlanner] Source unit exceeds 2800 words (${rawSourceWordCount})`);
     }
 
     if (estimatedWords < 250) {
