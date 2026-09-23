@@ -283,7 +283,7 @@ export function ImportRoute() {
                         onClick={() => navigate(`/book/${importedBook.id}`)}
                         className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md font-medium text-ui-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none ${
                           pipelineComplete
-                            ? 'bg-brand text-white hover:opacity-90 shadow-sm'
+                            ? 'bg-brand text-white hover:opacity-90 shadow-sm animate-button-glow'
                             : 'border border-line bg-subtle/50 text-ink-muted hover:bg-subtle hover:text-ink'
                         }`}
                       >

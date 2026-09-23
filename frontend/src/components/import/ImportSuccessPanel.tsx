@@ -136,7 +136,7 @@ export function ImportSuccessPanel({
             onClick={() => navigate(`/book/${book.id}`)}
             className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-ui-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none ${
               pipelineComplete && !interruptedJob
-                ? 'bg-brand text-white hover:opacity-90 shadow-sm'
+                ? 'bg-brand text-white hover:opacity-90 shadow-sm animate-button-glow'
                 : interruptedJob
                 ? 'border border-line bg-card text-ink hover:bg-subtle shadow-sm'
                 : 'border border-line bg-subtle/50 text-ink-muted hover:bg-subtle hover:text-ink'

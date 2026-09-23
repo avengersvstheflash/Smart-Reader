@@ -219,12 +219,22 @@ export function ImportCinematic({ jobs, activeJob, onDismiss }: ImportCinematicP
             </div>
           </div>
         ) : pipelineComplete ? (
-          <div className="flex flex-col items-center justify-center gap-2 text-center py-2">
-            <div className="w-12 h-12 rounded-full bg-ok/15 text-ok flex items-center justify-center">
-              <Check className="w-6 h-6" aria-hidden="true" />
+          <div className="flex flex-col items-center justify-center gap-4 text-center py-2">
+            <div className="flex gap-2">
+              {STAGES.map((s, i) => (
+                <div
+                  key={s.key}
+                  className={`w-8 h-8 rounded-full bg-ok/15 text-ok flex items-center justify-center ${reducedMotion ? '' : 'animate-check-cascade'}`}
+                  style={{ animationDelay: `${i * 80}ms` }}
+                >
+                  <Check className="w-5 h-5" aria-hidden="true" />
+                </div>
+              ))}
             </div>
-            <p className="font-display font-medium text-ink">Everything is ready</p>
-            <p className="text-caption text-ink-muted">All synthesis chapters and semantic indices generated.</p>
+            <div className="flex flex-col gap-1">
+              <p className="font-display font-medium text-ink">Everything is ready</p>
+              <p className="text-caption text-ink-muted">All synthesis chapters and semantic indices generated.</p>
+            </div>
           </div>
         ) : reducedMotion ? (
           /* Reduced-motion fallback: static text showing exact stage and percentage */
@@ -338,23 +348,51 @@ export function ImportCinematic({ jobs, activeJob, onDismiss }: ImportCinematicP
               </div>
             )}
 
-            {/* Stage 4: SYNOPSIS (Session 2 placeholder) */}
+            {/* Stage 4: SYNOPSIS */}
             {currentStage.key === 'synopsis' && (
               <div className="flex flex-col items-center justify-center gap-2 text-center">
                 <div className="w-8 h-8 rounded-full bg-accent-wash flex items-center justify-center text-accent-ink animate-pulse">
                   <BookOpen className="w-4 h-4" />
                 </div>
-                <p className="text-caption text-ink-muted">Synthesizing executive synopsis…</p>
+                <p className="text-caption text-ink-muted">
+                  {stageProgress < 20 ? 'Scanning preface…' :
+                   stageProgress < 60 ? 'Extracting thesis…' :
+                   stageProgress < 95 ? 'Structuring outline…' :
+                   'Abstract ready.'}
+                </p>
               </div>
             )}
 
-            {/* Stage 5: SYNTHESIS (Session 2 placeholder) */}
+            {/* Stage 5: SYNTHESIS */}
             {currentStage.key === 'synthesis' && (
-              <div className="flex flex-col items-center justify-center gap-2 text-center">
-                <div className="w-8 h-8 rounded-full bg-brand/10 flex items-center justify-center text-brand animate-pulse">
-                  <div className="w-3 h-3 rounded-full bg-brand" />
-                </div>
-                <p className="text-caption text-ink-muted">Composing Smart Chapters…</p>
+              <div className="flex flex-col gap-2 w-full max-w-sm mx-auto overflow-hidden">
+                {Array.from({ length: 5 }).map((_, idx) => {
+                  const isCompleted = Math.floor((stageProgress / 100) * 5) > idx;
+                  const isStreaming = Math.floor((stageProgress / 100) * 5) === idx && stageProgress < 100 && !pipelineComplete;
+                  
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex gap-3 p-3 rounded-lg border border-line bg-card ${isCompleted || isStreaming ? 'opacity-100' : 'opacity-40'}`}
+                    >
+                      <div className="w-0.5 min-h-[1.5rem] bg-brand rounded-full shrink-0" />
+                      <div className="flex-1 flex flex-col gap-2">
+                        {isCompleted ? (
+                          <div className="h-4 w-3/4 bg-brand/10 rounded text-[10px] font-medium text-brand flex items-center px-2">
+                            Chapter {idx + 1} Synthesized
+                          </div>
+                        ) : (
+                          <div className="h-4 w-3/4 bg-line-strong rounded" />
+                        )}
+                        <div className="flex flex-col gap-1.5">
+                          <div className={`h-1.5 bg-line rounded ${isStreaming && !reducedMotion ? 'animate-line-stream' : ''}`} style={{ width: isCompleted || reducedMotion ? '90%' : '0%', animationDelay: isStreaming ? '100ms' : '0ms' }} />
+                          <div className={`h-1.5 bg-line rounded ${isStreaming && !reducedMotion ? 'animate-line-stream' : ''}`} style={{ width: isCompleted || reducedMotion ? '75%' : '0%', animationDelay: isStreaming ? '200ms' : '0ms' }} />
+                          <div className={`h-1.5 bg-line rounded ${isStreaming && !reducedMotion ? 'animate-line-stream' : ''}`} style={{ width: isCompleted || reducedMotion ? '60%' : '0%', animationDelay: isStreaming ? '300ms' : '0ms' }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>
@@ -373,12 +411,15 @@ export function ImportCinematic({ jobs, activeJob, onDismiss }: ImportCinematicP
         </div>
 
         <div className="flex items-center justify-between text-caption text-ink-muted select-none">
-          <span>
-            {pipelineComplete
-              ? 'Stage 5 of 5 · Complete'
-              : `Stage ${currentStageIndex + 1} of ${totalStages} · ${currentStage.label}`}
+          <span className="truncate pr-2">
+            <span className="hidden sm:inline">
+              {pipelineComplete
+                ? 'Stage 5 of 5 · '
+                : `Stage ${currentStageIndex + 1} of ${totalStages} · `}
+            </span>
+            {pipelineComplete ? 'Complete' : currentStage.label}
           </span>
-          <span className="font-mono text-micro text-ink-light">
+          <span className="font-mono text-micro text-ink-light shrink-0">
             {pipelineComplete ? '100%' : `${Math.round(overallFill * 100)}%`}
           </span>
         </div>

@@ -17,9 +17,16 @@ export function useJobs(bookId: string | null) {
     refetchInterval: (query) => {
       const jobs = query.state.data;
       if (!jobs) return false;
-      // keep polling while ANY job is active
-      const active = jobs.some((j) => isActiveStatus(j.status));
-      return active ? 1500 : false;
+      const active = jobs.filter((j) => isActiveStatus(j.status));
+      if (active.length === 0) return false;
+      
+      const hasIngestFast = active.some((j) => j.type === 'INGEST' && j.progress < 60);
+      if (hasIngestFast) return 500;
+      
+      const hasSynthesis = active.some((j) => j.type === 'SYNTHESIS');
+      if (hasSynthesis) return 800;
+      
+      return 1200;
     },
   });
 
