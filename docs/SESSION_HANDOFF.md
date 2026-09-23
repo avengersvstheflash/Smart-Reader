@@ -1,4 +1,4 @@
-# Smart Reader — Session Handoff
+﻿# Smart Reader — Session Handoff
 
 > **Purpose.** Any assistant (Claude, GPT, Gemini, or a fresh DeepSeek) reads this and is fully oriented. Companion to `docs/ROADMAP_2026-09.md` (long-term), `docs/FRONTEND_BLUEPRINT.md` (narrative), `docs/FRONTEND_BLUEPRINT_SPEC.md` (contract). This file answers: *where are we, how do we work, what's next.*
 >
@@ -8,62 +8,56 @@
 
 ## 1. Where we are
 
-**Last shipped commit:** `523898d` — Phase 4.16 (Omnitome working
-title).
-**Last shipped commit:** `832658e` — Phase 4.7.1 cinematic import
-session 2 (SYNOPSIS + SYNTHESIS + completion).
+**Phase 4 CLOSED 2026-09-23.** All 17 test suites green (verified by manual terminal run). Trust path intact. Import pipeline verified end-to-end.
 
-**Test state:** 17/17 root suites green. Frontend build clean,
-typecheck 0 errors.
+**Last shipped commit:** `3aeb7d6` — docs: close Phase 4, log A3 deferred, fabricated-verification hazard, Phase 5.6 design intent.
 
-**Live in browser:**
-- Compression eval harness reports ratio distribution per chapter
-  (4.14)
-- Pre-hydration contract test validates all API data shapes before
-  frontend consumption (4.19)
-- Parser stress test passes on 4 real-world PDFs: ResNet arXiv,
-  NIST AES, Apple 10-K, Think Python (4.15a)
-- Front/back matter filter verified on all 4 stress fixtures with
-  zero leaks (4.15b)
-- Parenthetical (Sources N-M) markers stripped from rendered Smart
-  text (4.7.5)
-- Book Details shows active AI provider with honest disclosure
-  tooltip (4.10.5)
-- Working title Omnitome recorded in docs (4.16)
-- Import shows full cinematic: INGEST (page-turn), SEMANTIC_INDEX
-  (chunk gather), CLASSIFICATION (tag fade), SYNOPSIS (progress-
-  driven text at 15/35/40/65/70), SYNTHESIS (5-card stack with
-  streaming lines)
-- Completion: 5-dot cascade (80ms stagger) + one-time glow on
-  [Open book]
-- Dynamic polling: 500ms during INGEST<60%, 800ms during SYNTHESIS,
-  1200ms otherwise
-- Reduced-motion: all animations collapse to static; no cascade,
-  no stream, no sweep
-- Mobile: no overflow at 375px; "Stage N of 5" hidden on small
+**Test state:** 17/17 root suites green. Frontend build clean, typecheck 0 errors. Runtime ~5–7 min.
 
-**Open items carried forward:**
-- Smart chapters output ~2100 words; PRODUCT_VISION specifies 250–360.
-  editorialPlanner target and synthesis prompt are the conflict. See
-  Phase 4.8 in Known Polish Items.
-- Parenthetical `(Sources 1-3)` source markers not caught by current
-  strip regex — needs second pass.
-- Original remains a route peer; source-in-reader panel is Phase 5C.
+**Next phase:** Phase 5.1 — Paragraph-level provenance resolution.
+
+### What ships today
+
+**Backend**
+- PDF/EPUB/web/paste ingestion with structural recovery (chapter/section hierarchy, front/back matter classification)
+- BGE-M3 1024d local embeddings (INT8, multilingual, 170+ languages, CLS pooling)
+- Semantic chunking (350–500 word chunks) + indexing across chapter/book/library scopes
+- Auto-classification on import: `contentType`, tags, reading level, target audience (4.10)
+- Editorial outline generation with 1,500–2,500 word source-unit slicing (4.8.3, 4.24 guard)
+- Compression-not-summarization synthesis, 250–360 word Smart Chapters, ratio band [4.82, 7.28] (4.8.1)
+- Synopsis from preface + TOC + strategic samples with word-count validation and retry (4.13)
+- Job lifecycle: 5 stages (INGEST, SEMANTIC_INDEX, CLASSIFICATION, SYNOPSIS, SYNTHESIS), boot-time zombie sweep, INTERRUPTED rendering (4.11)
+- Fallback honesty: `fell_back`, `fallback_reason`, `compression_violation`, `word_count_violation` metadata
+- Test DB isolation — test runs no longer wipe the dev Library (4.25/A1)
+
+**Frontend**
+- Library with dynamic tag filter chips + Smart badge
+- Book Details: hero, classification chips, synopsis panel, chapter list, semantic intelligence panel, AI provider disclosure (4.10.5)
+- Reader: Original/Smart toggle, three-layer mode resolution, keyboard shortcuts, auto-hide nav
+- Import: File / Web / Paste tabs via `?tab=` URL param, full cinematic (page-turn → chunk-gather → tag-fade → synopsis text → chapter-card stack → completion cascade), reduced-motion collapse, mobile at 375px (4.7/4.7.1)
+- Real upload progress via XHR, job-driven pipeline stepper polling at 500/800/1200ms (dynamic)
+
+### Phase 4 shipped, complete list
+
+4.5 → 4.6 → 4.7 → 4.7.1 → 4.7.5 → 4.8 → 4.8.1 → 4.8.2 → 4.8.3 → 4.9 → 4.10 → 4.10.5 → 4.11 → 4.11.1 → 4.11.5 → 4.11.6 → 4.12 (partially staged) → 4.13 → 4.13.1 → 4.14 → 4.15a → 4.15b → 4.16 → 4.19 → 4.20 → 4.21 → 4.21.1 → 4.24 → 4.25
+
+---
 
 ## 2. How we work
 
 **Standard:** *"Something I can talk about with confidence, not shame."* Every claim verified against raw output, not model summaries. No commits on a dirty tree. No commits on a red suite. Divergence rebased, never force-pushed.
 
 **Guardrails:**
-- Root `package.json`, `scripts/run-all-tests.js`, and `backend/` frozen
-- `npm test` must stay 13/13 green through every change
 - One workstream per session
 - Commit docs before code
 - Never commit `.env` or keys
 - Chat logs are historical; the filesystem is current
 - Escalate model thinking level only after failure
+- **Verification evidence must always be pasted from actual terminal output, never asserted.** Fabricated evidence is a project-integrity failure (see §6).
+- **Re-paste, don't mine.** If the prompt doesn't appear in current context, paste it again. Do NOT let the agent extract prompts from its own transcript logs.
+- **After every commit, run `git status --short`.** If unexpected `M` lines appear, suspect buffer drift — `git diff` first, then `git checkout HEAD -- <file>`. Never `git reset --hard`.
 
-**Content flow:** chat draft → user saves file in VS Code → commit. Antigravity writes to disk only from explicit prompts, not from extracting its own transcript (that path corrupted files twice).
+**Content flow:** chat draft → user saves file in VS Code → commit. Antigravity writes to disk only from explicit prompts.
 
 ---
 
@@ -77,157 +71,139 @@ typecheck 0 errors.
 | Build runs, git ops, file creation | Gemini 3.8 Flash | Low |
 | Concurrency/timing bugs (escalation only) | Gemini 3.8 Flash | High |
 | AI inference (production) | OpenRouter → DeepSeek V4 Flash | n/a |
+| AI inference (planner path contingency) | TBD — upgrade if 4.24 guard produces repeated errors | — |
 | Chat assistant / thinking partner | any capable model | — |
 
 ---
 
-## 4. Tomorrow (Next Task)
-
-> **Phase 4 CLOSED 2026-09-23.** All 17 test suites green (verified by manual terminal run). Trust path intact. Import pipeline verified end-to-end.
+## 4. Next task
 
 ### Phase 5.1 — Paragraph-level provenance resolution
-Define the backend contract that maps a Smart Chapter sentence or paragraph back to its source chunk(s). No UI yet. The click-through pattern (Phase 5.2) depends on this contract being solid.
 
-## Phase 4.8.1 — Compressor prompt + input sizing (~1 session, Pro High)
+**Goal:** Define the backend contract that maps a Smart Chapter sentence or paragraph back to its source chunk(s). No UI yet. The click-through pattern (Phase 5.2) depends on this contract being solid.
 
-**Root cause (2026-09-20):** Smart Reader produces **summaries**, not
-**compressions**. The LLM is prompted to "synthesize" and produces
-output proportional to source size. Evidence: 3023-word Smart chapter
-from ~15k words of source, in classic summarizer register ("Machine
-learning represents one of the most transformative technologies...").
-Phase 4.8's word count validation fired correctly — the LLM just
-ignored it because the prompt framing invited essays.
+**Context:** PRODUCT_VISION.md reframed the product thesis on 2026-09-23: *"Smart is the product. Original is the proof."* The Original | Smart toggle is not a peer switch — the reader defaults to Smart and offers a subtle "Source" affordance. Clicking a Smart sentence opens the source panel at that passage. This round-trip is what makes the compression trustworthy and is the moat of the product.
 
-**The vision clarification:** PRODUCT_VISION.md §"Compression, not
-summarization" now states the distinction explicitly. Every prompt in
-the pipeline must be reframed from synthesis to compression.
-
-**Fix (two coupled changes):**
-
-1. **Prompt language rewrite** in `synthesisService.js`
-   - Replace "synthesize" / "comprehensive overview" with "compress"
-   - New prompt shape:
-     * State source word count and output word count explicitly
-     * "Compress {N} source words into exactly {M} words"
-     * "Preserve every distinct concept, argument, and factual claim"
-     * "Do not add narrative framing, introductions, or conclusions
-       not in the source"
-     * "Do not paraphrase away specificity. 'Gradient descent, SGD,
-       and OLS' is not 'several optimization methods'"
-     * Hard ceiling: "Do not exceed {M+30} words"
-     * Escape hatch: "If M is too small for the source's information
-       density, emit [INSUFFICIENT_M: needs ~X words] as the last line
-       instead of exceeding the ceiling"
-     * Every sentence ends with [Source N]
-
-2. **Input sizing** in `editorialPlanner.js`
-   - Slice body source into 1,500–2,500 word units BEFORE assigning
-     to editorial chapters
-   - One editorial chapter per source unit
-   - `targetWordCount = round(sourceWordCount / 7)` clamped to
-     [250, 360]
-   - If source unit < 1,200 words → `targetWordCount = 180` (honest
-     short)
-   - If source unit > 2,800 words → split into two units first
-
-3. **max_tokens ceiling** in `openrouterProvider.js`
-   - Pass `maxTokens: 550` on synthesis calls (roughly 1.5× the 360
-     hard ceiling). This is a server-side backstop if the prompt
-     fails; the prompt does the primary work.
-
-**Verification:**
-- Regenerate outline + synthesis on the canonical test book
-  (`backend/tests/fixtures/practical_machine_learning.pdf`)
-- Expect 8–12 editorial chapters (not 15)
-- Each Smart Chapter 250–360 words (target), max 450
-- `length_violation` not set on any chapter
-- Smart text reads as compressed source, not summarized source
-- No invented introductions, no "comprehensive overview" phrases
-
-**Reference:** docs/PRODUCT_VISION.md §"Compression, not
-summarization"; docs/CANONICAL_TEST_BOOK.md §Known issues.
-
-## Phase 4.9 — Synopsis fallback honesty (~30 min, Flash Medium)
-
-PROBLEM: DERIVED · SYNOPSIS panel renders deterministic fallback text
-(fiction template for a textbook — "structured as an in-depth novel"
-appeared on a machine learning PDF). No marker distinguishes fallback
-from real synthesis. Same trust hole as Gate 2.5, in the synopsis surface.
-
-CHANGE:
-  1. backend/services/ai/intelligentSummarizer.js — set
-     metadata.fell_back = true when the deterministic synthesizer
-     produces the synopsis
-  2. BookDetailsRoute synopsis panel — when fell_back is true,
-     render honest caption: "Structured synopsis — model unavailable"
-  3. Consistent with Gate 2.5 chapter fallback pattern
-
-## Phase 4.10 — Auto-classification on import (~1 session, Pro High)
-
-Two problems, one fix:
-
-PROBLEM A: Import defaults contentType to 'novel' for every file.
-PROBLEM B: Library has no topic/level/tool filtering. Tags do not
-exist as data.
-
-FIX: Single LLM call after ingestion completes. Same context as
-synopsis (title, author, TOC, ch1 opening paragraph).
-
-INPUT:
-  - Book title, author
-  - TOC entries
-  - First paragraph of chapter 1
-  - Optional: preface text
-
-OUTPUT (structured JSON):
-  {
-    "contentType": "textbook" | "novel" | "essay" | "paper" |
-                   "reference" | "memo" | "article" | "other",
-    "tags": ["machine-learning", "python", "ethics", ...],
-    "readingLevel": "introductory" | "intermediate" | "advanced" |
-                    "research",
-    "targetAudience": "one line",
-    "prerequisites": ["..."],
-    "toolsCovered": ["..."]
-  }
-
-STORAGE: books.metadata_json.classification (new key).
-  Existing books default to no classification.
-
-FRONTEND:
-  - Book Details: chips row showing contentType + readingLevel +
-    top 5 tags.
-  - Library: filter chips extend to include top N tags across the
-    collection.
-  - Book cards: existing contentType badge stays; now accurate.
-
-COST: one ~500-token OpenRouter call per import.
-
-VERIFY on canonical test book:
-  - contentType becomes "textbook" not "novel"
-  - tags are non-trivial and accurate
-  - Library filter chips populate
-  - Synopsis still produces independent of classification result
-
-## 5. Remaining roadmap
-
-**Phase 3** — Modals + Import + Research + Book Details routes, Progressive Smart Reading UI (1–2 evenings)
-
-**Phase 4** — Progressive Smart Reading polish, streaming arrivals, cancel batch (1 evening)
-
-**Phase 4.5** — Tauri decision gate (2–4 weeks if yes)
-
-**Build 5** — Audio Mode: local Kokoro-82M default, cloud Qwen premium (2–3 evenings)
-
-**Build 6** — Discussion Mode: local Ollama multi-agent (2–3 evenings)
-
-**Build 7** — Story Mode: character sheet + one-scene-back + SDXL + manga layout (8–10 evenings)
-
-**Build 8** — Cross-lingual polish, JP/EU market readiness
+**Sequencing:**
+- **5.1** — Backend provenance resolution contract (this task)
+- **5.2** — Reader click-through UI
+- **5.3** — Research mode collection view (depends on 5.1)
+- **5.5** — Library polish + UI/UX backlog (see §8)
+- **5.6** — Validation and refine loops (see §7)
+- **5.7** — Python sidecar architecture decision (see §9)
 
 ---
 
-## 6. Continuity if this chat is lost
+## 5. Roadmap
+
+**Phase 5** — Inline source tracker (the moat made interactive). 5.1 → 5.7 above.
+**Phase 6** — Tauri package (3–5 sessions after Phase 5).
+**Build 5** — Audio mode (Kokoro-82M default, cloud Qwen premium).
+**Build 6** — Discussion mode (local Ollama multi-agent) + Python sidecar.
+**Build 7** — Story mode (character sheet + SDXL + manga layout). Frozen until winter–spring 2027.
+**Build 8** — Cross-lingual polish, JP/EU market readiness.
+
+---
+
+## 6. Tracked items
+
+### Active bugs / observations (unresolved)
+
+- **A3 — Synthesis reps landed at uniform 250 chars on canonical import (2026-09-23).** Cannot verify whether this is a cap, spec mismatch, or silent fallback without the Phase 5.6 validation loop. **Hard dependency on Phase 5.6.** Do not investigate A3 before 5.6 ships.
+- **Kaggle import duplicated.** "Kaggle and Code Dojo 1" appears twice in Library with the same title. Cleanup: identify duplicate ID, mark one `status='failed'`.
+- **Smoothed progress counter.** Backend emits discrete checkpoints; frontend snaps on poll. Fix: `useSmoothedProgress` hook — animate displayed value toward each new target. Never overshoot; snap to 100 on completion.
+- **Test fixtures undersized for slicer.** `build4_2bc` test book now produces 1 outline chapter (was 6); `build4_2a` smoke test also produces 1. Assertions updated to pass, but fixtures should enlarge to 5,000–12,000 words for multi-chapter coverage. Not urgent.
+
+### Informational — by design, not bugs
+
+- **AI planning path — oversize units.** `plan()` (used only when `options.fast` is false — not during import) can assign 3,000–4,200 word source units to a single chapter. The 4.24 defensive guard applies only to `sliceIntoSourceUnits` (deterministic path). Tests `build4_1` and `build4_2a` exercise this and log oversize units as expected. Not a bug.
+- **Parser chapter detection on SEC filings and two-column papers is shallow by design.** 4.15a: ResNet arXiv detected as 2 sections vs ~8 real; Apple 10-K as 3 vs ~20 real. The editorial planner re-segments body content into 1,500–2,500 word units regardless of source chapter boundaries — Smart Reader creates its own editorial structure, doesn't inherit source chapter counts.
+- **`math-heavy.pdf` yields 1 editorial candidate from 61 chunks.** NIST FIPS 197 is 8 front_matter + 52 appendix + 1 chapter. Filter correctly rejects 60/61 as non-body. Honest behavior for a document shape that isn't book-like.
+- **Synopsis degradation on preface-less sources.** SEC filings, pasted text, and some web dumps lack preface + TOC. Synopsis prompt receives `(None provided)`. Retry logic saves it today. Fragile. No fix scheduled.
+- **Full suite runtime ~5–7 min.** Future: two-tier npm scripts (`test:fast` no-LLM, `test:full` including synthesis). Informational.
+
+### Hazards (rules learned from incidents)
+
+- **Transcript spelunking — 7 incidents.** Agent searches its own `.system_generated/logs/transcript*.jsonl` for prompts rather than using pasted text. Caused wrong-phase execution once, mojibake and duplicate declarations in earlier sessions. **Rule: re-paste, don't mine.**
+- **Buffer drift — 3 incidents.** Stale editor buffer flushes post-commit, corrupting working tree (duplicate loops, unclosed braces, re-injected old JSX). HEAD stays clean; only working tree corrupted. **Rule: after every commit, `git status --short`. If unexpected `M` lines appear, `git diff` then `git checkout HEAD -- <file>`.**
+- **`git reset --hard HEAD` — 1 incident.** Used to discard drift post-commit. Safe once, destructive habit. **Rule: use `git checkout HEAD -- <file>`, never `git reset --hard` on a pushed branch.**
+- **Antigravity append hazard — 3 incidents.** Agent's "replace" tooling sometimes appends new content to a stub instead of overwriting. Silent redeclare errors that `typecheck` may not catch if run before the write completes. **Rule: `git diff` after every "replace" task to confirm the old placeholder is gone.**
+- **Fabricated verification — 1 incident (2026-09-23, most serious).** Phase 4.24 close-out reported a fabricated 17/17 test run — 15 file names that do not exist in `backend/tests/`. The guard code itself was real and verified independently by manual test runs. **Rule: verification evidence must always be pasted from actual terminal output. Any invented evidence is a project-integrity failure.**
+
+### Closed (2026-09-23)
+
+- **A1 — Test DB isolation.** FIXED in 4.25. Test runner sets `DB_PATH=storage/test-data.db`. Dev DB (`storage/data.db`) no longer wiped by tests. Standalone test runs (bypassing `scripts/run-all-tests.js`) still use the real DB — documented limitation.
+- **A2 — Job status strings.** CLOSED, not a bug. Writer (`jobRepository.complete()`) writes `'COMPLETED'`; all readers (`PipelineStepper.tsx`, `ImportCinematic.tsx`, `useJobs.ts`, `domain.ts`) match on `'COMPLETED'`. The 4.21.1 close-out note had an inaccurate reference to "SUCCESS."
+- **A4 — `has_outline` flag.** FIXED in 4.25. Synopsis metadata now checks `outlineRepository.getByBookId(book.id)` and records `has_outline` honestly. Canonical import correctly writes `has_outline: true`.
+- **A5 — Double-log cleanup.** FIXED in 4.25. `computeChapterWordBudget` emits only `logger.error` for the >2800 word condition.
+- **Nine-bug cluster (4.21).** All targeted bugs addressed: `ERR_HTTP_HEADERS_SENT`, phantom books, synopsis fallback firing, raw markdown in fallback, editorial planner oversize. Two frontend polish items carried forward (progress counter, tag relocation).
+- **Phase 4.24 — Editorial planner guard.** Reproduction could not confirm the original 3,153 / 3,477 trigger through the live pipeline. Both fixtures produce in-band units (min 1,853, max 2,230). Defensive subdivision guard added at top of `sliceIntoSourceUnits` — any section >2,500 words splits at paragraph boundaries before the even-distribution pass.
+
+---
+
+## 7. Phase 5.6 — Validation and refine loops (design intent)
+
+Two loops, to build after Phase 5.1 defines the paragraph-level provenance contract:
+
+- **Loop 1 — Pre-LLM source guard.** After slicing, verify all source units fall within [1,500, 2,500] words. If any unit is out of band: re-slice → re-verify → only when clean, dispatch to the LLM.
+- **Loop 2 — Post-LLM output guard.** After the LLM returns a Smart Chapter, verify: word band [250, 360], grounding (each sentence traces to a source chunk), no fallback markers. If any check fails: re-prompt with stricter compression bounds → re-verify → ship clean or mark `fell_back` honestly.
+
+**Why deferred:** The post-LLM guard's most important check is grounding density. Phase 5.1 defines the resolution contract that makes grounding measurable. Building the guard before 5.1 means validating against a shape we can't yet see.
+
+---
+
+## 8. Phase 5 backlog — UI/UX
+
+1. **Tag chips relocation.** Book Details hero currently renders all classification tags inline alongside content-type and reading-level. Move to a collapsed expander or into the dedicated filter/search surface. Hero row gets visually crowded on books with 5–8 tags.
+2. **Book Details visual weight.** Structurally correct but feels "numb" — no cover tint behind title, no subtle depth on cards.
+3. **`/research` route collection view.** Phase 4.6 shipped the Web + Paste *import tabs*. The collection-view half — where a research dossier across multiple books is displayed — never shipped. Depends on Phase 5.1 for cross-source citation traceability.
+
+---
+
+## 9. Deferred — Python sidecar (winter Build 6–7)
+
+**Context.** During 4.21 verification, an image-only PDF failed with the honest message: *"This PDF document contains little or no selectable text. It may be a scanned image or bitmap document, which requires OCR."*
+
+**Decision.** OCR is deferred to the winter Build 6–7 window, where part of the codebase moves from pure Node to a Node + Python sidecar architecture.
+
+**Rationale.**
+- Node OCR options are thin. Tesseract.js is the only serious one and it's WASM-based: slow, weak on CJK, requires `@napi-rs/canvas` per-platform native binding.
+- Python has the mature stack: PaddleOCR (strongest CJK), EasyOCR, `pytesseract`. The same sidecar carries Discussion Mode (Ollama) and Story Mode (Diffusers).
+- Doing OCR now in Node is throwaway work when the sidecar lands.
+- Node core stays orchestrator. Python handles model-heavy workloads. Communication is localhost-only. Additive, not a rewrite.
+
+**Until then.** Empty-content PDFs fail honestly with the current message. Phase 4.21 ensured this failure path is clean: no phantom books, no stuck jobs, no header cascade.
+
+**Target structure (winter refactor).**
+Node (existing) Python sidecar (new)
+───────────────────── ──────────────────────
+API server OCR service (PaddleOCR)
+Pipeline orchestration Discussion service (Ollama)
+SQLite Story service (Diffusers)
+BGE-M3 embeddings Model management
+Frontend API
+↓ ↑
+└─────── localhost HTTP ───────┘
+
+text
+
+**Roadmap impact.** Add Phase 5.7 — Python sidecar architecture decision. Bundle OCR, Discussion (Build 6), Story (Build 7) into it.
+
+---
+
+## 10. The invariant
+
+**ORIGINAL READING** is immutable source. Never touched.
+**SMART READING** is a derived lens. Fully traceable back to source.
+
+Every decision serves this. Three laws:
+1. Source is paper.
+2. Lens is tinted.
+3. Derivation never masquerades.
+
+---
+
+## 11. Continuity if this chat is lost
 
 **Survives regardless of model:**
 - Repo
@@ -236,11 +212,14 @@ VERIFY on canonical test book:
 - `docs/FRONTEND_BLUEPRINT_SPEC.md` — engineering contract
 - `docs/ARCHITECTURE_AUDIT.md` — backend architecture
 - `docs/SCAFFOLD_PLAN.md` — frontend structure
+- `docs/PRODUCT_VISION.md` — thesis, two-representation invariant, three laws
+- `docs/CANONICAL_TEST_BOOK.md` — test fixture ground truth
+- `docs/RIGHTS.md` — licensing state, pre-launch checklist
 - `docs/SESSION_HANDOFF.md` — this file
 
 **To restart with a new assistant:**
 1. Open fresh chat
-2. Paste: *"Read `docs/SESSION_HANDOFF.md`, `docs/ROADMAP_2026-09.md`, and `docs/FRONTEND_BLUEPRINT_SPEC.md`. Confirm orientation, then tell me tomorrow's Phase 2 task in one paragraph."*
+2. Paste: *"Read `docs/SESSION_HANDOFF.md`, `docs/PRODUCT_VISION.md`, and `docs/CONTINUITY.md`. Confirm orientation, then tell me tomorrow's Phase 5.1 task in one paragraph."*
 3. Any competent model orients in one turn
 
 **Carry forward:**
@@ -249,331 +228,9 @@ VERIFY on canonical test book:
 - Raw-output verification over model summaries
 - One workstream per session
 - Commit docs before code
+- Verification evidence is pasted, never asserted
 
 **Don't carry forward:** my tone or phrasing — any model can hold the standard in its own voice.
-
----
-
-## 7. The invariant
-
-**ORIGINAL READING** is immutable source. Never touched.
-**SMART READING** is a derived lens. Fully traceable back to source.
-
-Every decision serves this.
-
-
-
-Antigravity write hazard. When asked to replace a stub file, Antigravity's tooling sometimes appends the new content to the existing stub instead of overwriting. Always git diff after a "replace" task to confirm the old placeholder line is gone. If a placeholder remains (export const X = () => null; above real code), it's a silent redeclare error that typecheck may not catch if run before the file write completes.
-
----
-
-## 8. Known polish items
-
-1. **Chapter word count edge case.** Book `book-1789676305176-jd52f`
-   shows chapter 1 with `4 words` while other chapters show 402. Either
-   the chapter is heading-only (legit) or wordCount normalization is
-   off. Investigate when convenient.
-
-2. **Tailwind Typography plugin registered in C3.** After C3, `.prose`
-   classes emit real styles. C2's explicit `.prose-reader
-   .canonical-block` rules remain as the override layer — do not delete
-   them.
-
-3. **`renderInlineText` is non-recursive.** TODO comment in
-   `CanonicalBlock.tsx` documents this. Sufficient for current content.
-   Replace with a real markdown parser only if nested emphasis shows up
-   in real imported files.
-
-4. **Spec drift noted.** The Original↔Smart toggle in `ReaderRoute.tsx`
-   renders inline above the canvas rather than in the Header's
-   `contextual` slot as spec §3.1 originally suggested. This is a
-   deliberate implementation improvement (mobile-friendlier, keeps the
-   global header clean). Consider updating spec §3.1 to match.
-
-5. **Editorial-to-source-chapter namespace mismatch (critical).**
-   Editorial synthesis writes representations keyed to synthetic chapter
-   ids (`book-editorial-<bookId>-ch-plan-N`), but reader navigates by
-   source chapter id.
-
-6. **Sentence-level citation enforcement not yet implemented.**
-   Prompt-level citations (`[1]`, `[2]`), 80% validation threshold with
-   automated retry, and UI-level distinction for uncited sentences
-   per `docs/PRODUCT_VISION.md`.
-
-7. **Smart Chapter independent titles not yet implemented.**
-   Smart Chapters to have their own titles, numbering, and length targets.
-
-8. **Synopsis-before-chapters sequencing not yet implemented.**
-   Synopsis to be generated from preface + TOC + strategic samples
-   before chapters synthesize.
-
-9. **Source view text-first rendering not yet implemented.**
-   v1 to render stored parsed text with highlighted target passage
-   instead of in-browser PDF.
-
-10. **Inline source tracker not yet implemented.**
-    Cross-platform interaction pattern (desktop hover/click, tablet
-    tap-and-hold, mobile long-press) opening in-reader source overlay/side
-    panel with round-trip position return.
-
-11. **Book Details "DERIVED · SYNOPSIS" panel fetches BOOK_SUMMARY, not SYNOPSIS.** Confirm which type the UI intends to show before fixing.
-
-- `[Source N]` markers exposed in rendered Smart text (planned fix in
-  Phase 4.5 A)
-- Book opens per-chapter; not yet whole-book Smart default (Phase 4.5 B)
-- Original still a route peer, not a source panel from Smart
-  (Phase 4.5 C)
-- `processing_jobs` only tracks INGEST, WEB_IMPORT, SEMANTIC_INDEX,
-  SYNOPSIS, BOOK_SUMMARY. Editorial outline planning and chapter
-  synthesis do NOT record job rows. Stepper UI therefore shows four
-  steps, not seven. Instrumenting synthesis to write jobs is a
-  follow-up refactor.
-- Job status strings are inconsistent: 'PROCESSING' vs 'in_progress'.
-  Frontend normalizes both; backend cleanup needed eventually.
-- `GET /api/jobs` lacks `?bookId=` query param, but a path-based
-  variant `GET /api/jobs/book/:bookId` already exists and is the
-  correct endpoint for per-book polling.
-- Smart chapters output ~2100 words vs 250–360 target. Backend
-  refactor needed (Phase 4.8).
-- Parenthetical source markers `(Sources 1-3)` not stripped by
-  Phase 4.5 A regex — extend to second pass when convenient.
-- Parser verified against real PDF (2026-09-20): imported a real
-  book, landed cleanly in Original form.
-- Synopsis fallback shows fiction template for textbook; no marker
-  distinguishes fallback from real synthesis (Phase 4.9)
-- Import defaults contentType to 'novel' for every file (Phase 4.10)
-- **Phase 4.8.1** — Smart chapters output 2692-3023 words despite 4.8
-  validation. Root cause: editorialPlanner assigns large source inputs
-  per editorial chapter, not 1,500-2,500 word units per PRODUCT_VISION.
-  Fix in editorialPlanner.js slicing. Priority.
-- **Phase 4.12** — Compression terminology refactor. Rename
-  synthesisService → compressionService, intelligentSummarizer →
-  intelligentCompressor, EDITORIAL_SYNTHESIS → EDITORIAL_COMPRESSION.
-  Full session, Pro High.
-- **DONE this session:** 4.8.1 hotfix (reasoning disabled), 4.8.2
-  front matter fix, 4.9 shipped, README rewrite, 4.11 boot-time reconciliation,
-  4.11.5 removed legacy vanilla frontend (`src/`).
-- **Verified:** first real LLM compression output at 328-373 words
-  per chapter via OpenRouter, provider: openrouter.
-- **Duplicate synopsis execution (post-4.13).** Two log lines fire:
-  `[Synopsis]` (old path) and `[Synopsis Compression]` (new path).
-  Both generate and complete. The 4.13 edit added the new code without
-  removing the old. Also `--- SYNOPSIS PROMPT CONTEXT ---` and
-  `--- SYNOPSIS COMPRESSION PROMPT ---` both print. Fix: remove the
-  legacy `[Synopsis]` block from `generateSynopsis`. Confirm only one
-  DB write to `book_representations` per call.
-- **Test fixtures undersized for new slicer.** build4_2bc test book
-  now produces 1 outline chapter (was 6). build4_2a smoke test also
-  produces 1. Assertions were updated to pass, but the fixtures need
-  enlarging (5,000–12,000 words) so they exercise the multi-chapter
-  slicing path. Not urgent — tests still pass — but future coverage
-  is thinner than before.
-
-- **Import pipeline stages skip job rows.** Import calls
-  SEMANTIC_INDEX, SYNOPSIS, and SYNTHESIS with `{ skipJob: true }`,
-  so only INGEST and CLASSIFICATION appear in `processing_jobs`
-  during import. Artifacts are created (chunks, reps, outline rows
-  all present) but the stepper cannot show real progress for
-  SYNOPSIS/SYNTHESIS stages. Decision needed for Phase 4.7 cinematic
-  import: (a) flip skipJob: false for those stages, or (b) infer
-  from artifacts. Phase 4.7 prerequisite.
-
-- **BookDetailsRoute + LibraryRoute full rewrites in 2b9172c.**
-  Verified clean at HEAD (no append-hazard duplicates), but note
-  the pattern: agent used "Created" not "Edited" for both files.
-  If future edits to these files behave unexpectedly, suspect the
-  rewrite-pattern.
-- **ImportRoute.tsx fully rewritten in 1d5bd02.** Verified at HEAD
-  with single export. Same rewrite pattern as LibraryRoute/BookDetailsRoute
-  in 2b9172c. Watch these files for regressions.
-- **Editor buffer drift (2026-09-21).** After commit 1d5bd02, three
-  files (bookRoutes.js, webAcquisitionService.js, ImportRoute.tsx)
-  showed as modified in the working tree with broken content —
-  duplicated loops, unclosed braces, re-injected old JSX. Cause:
-  stale editor buffer flushed to disk after commit. HEAD was clean;
-  only the working tree was corrupted. Fix: `git checkout HEAD --
-  <file>` for each. Rule: after every commit, run `git status
-  --short`. If files show modified immediately after a clean commit,
-  suspect buffer drift — verify with `git diff` before staging.
-- **Agent transcript spelunking returned during Phase 4.6.** The agent
-  extracted the original prompt from .system_generated/logs/transcript_full.jsonl
-  via Select-String + scratch file writes. Worked this time (read-only)
-  but the same pattern produced mojibake and duplicate declarations in
-  earlier sessions. Rule: re-paste, do not mine.
-- **Phase 4.8.3 — Even-distribution source slicing.** Current planner
-  accumulates chunks until ~2,500 words, so a book's final unit can
-  be a small remainder (observed in 4.14 eval: 396-word unit → 1.76:1
-  ratio, flagged as outlier). Fix: compute N = round(W / 2000), slice
-  the whole body evenly into N units of ~S = W/N words, snapping each
-  boundary to the nearest chapter break if within ±10%. Every unit
-  lands in the 1,500–2,500 word band. Matches PRODUCT_VISION
-  §"The backend model" — word-count-driven, not chapter-driven.
-  ~30 min, Flash Medium. Priority: medium. Recorded 2026-09-22,
-  not yet performed.
-- **Parser chapter detection on SEC filings and two-column papers
-  is shallow (by design).** 4.15a: ResNet arXiv detected as 2 sections
-  vs ~8 real; Apple 10-K detected as 3 vs ~20 real. This does NOT
-  block the product — the editorial planner re-segments body content
-  into 1,500–2,500 word units regardless of source chapter boundaries.
-  Smart Reader creates its own editorial chapter structure; it does
-  not inherit source chapter counts. Only front/back matter
-  classification matters, and 4.15b verifies that holds. Informational,
-  not a fix.
-- **math-heavy.pdf yields 1 editorial candidate from 61 chunks.**
-  4.15b: NIST FIPS 197 is 8 front_matter + 52 appendix + 1 chapter.
-  Filter correctly rejects 60/61 chunks as non-body. Honest behavior
-  for a document shape that isn't book-like — a NIST standard
-  produces a 1-chapter Smart Reading. Informational, not a fix.
-- **Full suite runtime is ~5-6 min.** Adding more tests will push
-  past convenient. Future: two-tier npm scripts (test:fast with
-  no-LLM suites, test:full including synthesis). Informational.
-- **Transcript spelunking — 6th incident (2026-09-23).** During
-  4.7.1 the agent searched transcript.jsonl / transcript_full.jsonl
-  for the prompt instead of using the pasted text. Recovered
-  successfully this time but the pattern persists across every
-  session. Rule for all future prompts: if the prompt doesn't
-  appear in the current context, re-paste — do NOT let the agent
-  mine its own transcript logs.
-- **`git reset --hard HEAD` used post-commit (2026-09-23).** After
-  committing 832658e, the agent ran `git reset --hard HEAD` to
-  discard drift. Safe this time (nothing meaningful was lost), but
-  destructive habit. Rule: use `git checkout HEAD -- <file>` for
-  targeted cleanup, never `git reset --hard` on a pushed branch.
-
-## Phase 4.21 — Bug cluster (2026-09-23 discovery + fix session)
-
-Nine bugs surfaced during manual verification of 4.7.1 cinematic
-import. All nine targeted for fix in tonight's session.
-
-### Backend bugs (high severity)
-
-1. **`ERR_HTTP_HEADERS_SENT` fires 42× on failed import.**
-   Route handler at `backend/routes/bookRoutes.js` responds via
-   `res.json()` and then falls through to the error handler which
-   calls `res.status().json()` again. Stack trace pointed to
-   bookRoutes.js:34 and :97. Missing `return` statements.
-
-2. **Phantom books appear in Library after failed imports.**
-   Import of an OCR-needed PDF created a `books` row that survives
-   the parse failure. Library shows it as `0 ch · 0 min`. The row
-   has no `status='failed'` marker and no chapter cleanup on error.
-
-### Backend bugs (medium severity)
-
-3. **Synopsis fallback fires for canonical PDF.** During verification
-   the DERIVED · SYNOPSIS panel showed "Structured synopsis — model
-   unavailable. This synopsis was not generated by the AI." for the
-   canonical book. Either (a) the AI provider is not configured in
-   .env, or (b) the fallback path fires too eagerly. Diagnostic
-   required to determine which.
-
-4. **Synopsis fallback renders raw markdown.** The fallback text
-   contains literal `## Editorial Synopsis:` and `** bold **` markers
-   that render as plain text in the UI. Even honest fallback should
-   not display raw markdown — strip it or pass through the canonical
-   block renderer.
-
-5. **EditorialPlanner produces oversize units despite 4.8.3.**
-   Bug 5 — Editorial planner oversize units. Reproduction on 2026-09-23 could not confirm the original 3,153 / 3,477 trigger through the live pipeline. Both the canonical PDF and the Apple 10-K produce in-band units (min 1,853, max 2,230). The failure is only reachable by feeding chapter-level sections directly to sliceIntoSourceUnits, which no current caller does. Phase 4.24 added a defensive subdivision guard in sliceIntoSourceUnits: any section >2500 words is split at paragraph boundaries before the even-distribution pass. The 2800-word warning was upgraded to error level. No further action expected; if the warning fires again, the source book's input shape should be captured for investigation.
-
-### Frontend bugs (polish)
-
-6. **Progress number jumps 0 → 45 → 67 → 93 → 100.** Backend emits
-   discrete checkpoints; frontend polls at 500/800/1200ms intervals.
-   Between polls the number is frozen; on poll it snaps. UX expects
-   a smooth count up. Fix: `useSmoothedProgress` hook — animate the
-   displayed value toward each new target over the polling interval.
-   Never overshoot; snap to 100 on completion.
-
-7. **Kaggle import duplicated.** "Kaggle and Code Dojo 1" appears
-   twice in Library with the same title. Likely same content hashed
-   differently on two import attempts, or leftover from testing.
-   Cleanup: identify the duplicate ID and mark one status='failed'.
-
-### Informational & architectural notes
-
-- **AI planning path — oversize units.** The AI planning path (`plan()`, used only when `options.fast` is false — not during import) can assign 3000–4200 word source units to a single chapter. This is by design — the 4.24 defensive guard applies only to `sliceIntoSourceUnits` (the deterministic path). Tests `build4_1` and `build4_2a` exercise the AI path and log oversize units as expected. Not a bug; documented so future sessions don't re-investigate.
-- **Model swap lever (contingency).** DeepSeek V4 Flash is current. If the 4.24 guard produces repeated `[EditorialPlanner]` errors, swap to a stronger model for the planner path specifically.
-- **Synopsis degradation on preface-less sources.** SEC filings, pasted text, and some web dumps lack preface + TOC. Synopsis prompt receives `(None provided)`. Retry logic saves it today. Fragile. No fix scheduled.
-- **Hazard: Fabricated verification incident (2026-09-23).** The Phase 4.24 close-out reported a fabricated 17/17 test run — 15 file names that do not exist in `backend/tests/`. The guard code itself was real and verified independently by manual test runs. Verification evidence must always be pasted from actual terminal output, never asserted. This is the seventh agent-integrity incident; first involving invented evidence.
-
-### Phase 4.21.1 / 4.25 findings (closed 2026-09-23)
-
-- **A1 (FIXED in 4.25): Test DB isolation.** Test runner sets `DB_PATH=storage/test-data.db`. Dev DB (`storage/data.db`) is no longer wiped by tests. Standalone test runs (bypassing `scripts/run-all-tests.js`) still use the real DB. Documented limitation.
-- **A2 (CLOSED, not a bug): Job status strings.** Reconciled across backend and frontend. Writer (`jobRepository.complete()`) writes `'COMPLETED'`, and readers (`PipelineStepper.tsx`, `ImportCinematic.tsx`, `useJobs.ts`, `domain.ts`) match on `'COMPLETED'`. There is no mismatch (writer == reader); the Phase 4.21.1 close-out note had an inaccurate reference to "SUCCESS".
-- **A3 (DEFERRED, hard dependency): Synthesis reps landed at 250 chars uniformly on canonical import.** Cannot verify without Phase 5.6 validation loop. Do not investigate A3 before Phase 5.6 ships.
-- **A4 (FIXED in 4.25): has_outline flag.** Synopsis metadata now checks `outlineRepository.getByBookId(book.id)` and records `has_outline: true` (or `false` if none exists). Since outline generation precedes synopsis in the import pipeline, canonical import correctly writes `has_outline: true`.
-
-### Phase 5.6 — Validation and refine loops (design intent)
-
-Two loops, to build after Phase 5.1 defines the paragraph-level provenance contract:
-
-- **Loop 1 — Pre-LLM source guard.** After slicing, verify all source units fall within [1500, 2500] words. If any unit is out of band: re-slice → re-verify → only when clean, dispatch to the LLM.
-- **Loop 2 — Post-LLM output guard.** After the LLM returns a Smart Chapter, verify: word band [250, 360], grounding (each sentence traces to a source chunk), no fallback markers. If any check fails: re-prompt with stricter compression bounds → re-verify → ship clean or mark `fell_back` honestly.
-- **Why deferred:** The post-LLM guard's most important check is grounding density. Phase 5.1 defines the resolution contract that makes grounding measurable.
-
-## 9. Phase 5 backlog — UI/UX
-
-1. **Tag chips relocation (UI/UX phase).**
-   - *Current:* Book Details hero row shows all classification tags inline alongside content-type and reading-level.
-   - *Desired:* Hero shows content-type + reading-level only. Tags move to a collapsed expander or into a dedicated filter/search surface.
-   - *Rationale:* Hero row gets visually crowded on books with 5–8 tags. Filter chips belong in the Library filter system, not the hero. Defer to the UI/UX polish phase (likely Phase 5.5).
-
-2. **Book Details visual weight.**
-   - Structurally correct — hero, chips, chapter list, semantic panel all present — but lacks visual weight. No cover tint behind title, no subtle depth on cards. Deferred to Phase 5.5 (Library polish).
-
-3. **`/research` route collection view.**
-   - Phase 4.6 shipped the Web + Paste *import tabs*. The collection-view half — where a research dossier across multiple books is displayed — never shipped. `/research` renders nothing.
-
-## OCR deferred to Python sidecar (decision, 2026-09-23)
-
-**Context.** During 4.21 verification, an image-only PDF (a chat
-export) failed with the honest message: "This PDF document contains
-little or no selectable text. It may be a scanned image or bitmap
-document, which requires OCR (not supported in Build 2)."
-
-**Decision.** OCR is deferred to the winter Build 6-7 window, where
-part of the codebase moves from pure Node to a Node + Python sidecar
-architecture.
-
-**Rationale.**
-- Node OCR options are thin. Tesseract.js is the only serious one
-  and it's WASM-based: slower than native, weak on CJK, and its
-  rasterization path requires `@napi-rs/canvas` (per-platform native
-  binding). Workable, but a lot of scaffolding for a subsystem that
-  only needs to exist once.
-- Python has the mature stack. PaddleOCR (strongest CJK), EasyOCR,
-  and `pytesseract` are all Python-first. The same sidecar that will
-  carry Discussion Mode (Ollama) and Story Mode (Diffusers) can
-  carry OCR with no additional runtime.
-- Doing OCR now in Node = throwaway work when the Python sidecar
-  lands in winter.
-- The Node core stays the orchestrator. Python handles model-heavy
-  workloads. Communication is localhost-only. No architectural
-  rewrite — additive.
-
-**Until then.**
-- Empty-content PDFs fail honestly with the current message.
-- Phase 4.21 ensures this failure path is clean: no phantom books,
-  no stuck jobs, no ERR_HTTP_HEADERS_SENT cascade.
-- When a user hits OCR-needed content, they get a clear message and
-  the book does not appear in the Library.
-
-**Target structure (for the winter refactor).**
-  Node (existing)                Python sidecar (new)
-  ─────────────────────          ──────────────────────
-  API server                     OCR service (PaddleOCR)
-  Pipeline orchestration         Discussion service (Ollama)
-  SQLite                         Story service (Diffusers)
-  BGE-M3 embeddings              Model management
-  Frontend API
-        ↓                              ↑
-        └─────── localhost HTTP ───────┘
-
-**Roadmap impact.** Add Phase 5.7 — Python sidecar architecture
-decision. Bundle OCR, Discussion (Build 6), Story (Build 7) into it.
-Update the winter window label from "Build 6-7" to "Build 6-7 +
-sidecar."
 
 ---
 
