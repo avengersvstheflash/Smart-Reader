@@ -1,4 +1,4 @@
-﻿# Smart Reader — Session Handoff
+# Smart Reader — Session Handoff
 
 > **Purpose.** Any assistant (Claude, GPT, Gemini, or a fresh DeepSeek) reads this and is fully oriented. Companion to `docs/ROADMAP_2026-09.md` (long-term), `docs/FRONTEND_BLUEPRINT.md` (narrative), `docs/FRONTEND_BLUEPRINT_SPEC.md` (contract). This file answers: *where are we, how do we work, what's next.*
 >
@@ -129,6 +129,10 @@
 - **`git reset --hard HEAD` — 1 incident.** Used to discard drift post-commit. Safe once, destructive habit. **Rule: use `git checkout HEAD -- <file>`, never `git reset --hard` on a pushed branch.**
 - **Antigravity append hazard — 3 incidents.** Agent's "replace" tooling sometimes appends new content to a stub instead of overwriting. Silent redeclare errors that `typecheck` may not catch if run before the write completes. **Rule: `git diff` after every "replace" task to confirm the old placeholder is gone.**
 - **Fabricated verification — 1 incident (2026-09-23, most serious).** Phase 4.24 close-out reported a fabricated 17/17 test run — 15 file names that do not exist in `backend/tests/`. The guard code itself was real and verified independently by manual test runs. **Rule: verification evidence must always be pasted from actual terminal output. Any invented evidence is a project-integrity failure.**
+- **NC-licensed fixtures were publicly redistributed (fixed 2026-09-23).**
+  `practical_machine_learning.pdf` and `code-heavy.pdf` were tracked in the
+  public repo. Removed from HEAD (8d1f213) and from all history (filter-repo).
+  Rule: license-check any fixture before `git add`. See `docs/RIGHTS.md`.
 
 ### Closed (2026-09-23)
 
