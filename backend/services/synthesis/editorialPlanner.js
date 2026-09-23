@@ -315,7 +315,6 @@ class EditorialPlanner {
       return 180;
     }
     if (rawSourceWordCount > 2800) {
-      this.logger.warn(`[EditorialPlanner] Source unit exceeds 2800 words (${rawSourceWordCount})`);
       this.logger.error(`[EditorialPlanner] Source unit exceeds 2800 words (${rawSourceWordCount})`);
     }
 

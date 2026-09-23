@@ -2,9 +2,9 @@
 /**
  * scripts/run-all-tests.js
  *
- * Runs all 13 regression suites in order.
+ * Runs all 17 regression suites in order.
  * Stops immediately on the first failure and exits with code 1.
- * Exits code 0 with "ALL 13 SUITES PASS" if all pass.
+ * Exits code 0 with "ALL 17 SUITES PASS" if all pass.
  *
  * Dependency-free — uses only node:child_process and node:path.
  */
@@ -15,6 +15,9 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
+
+// Isolate test DB from dev DB so test runs do not wipe user Library
+process.env.DB_PATH = path.join(ROOT, 'storage', 'test-data.db');
 
 const TIMEOUT_MS = 150_000;
 

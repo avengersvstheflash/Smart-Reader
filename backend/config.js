@@ -42,7 +42,7 @@ module.exports = {
   COVERS_DIR: path.join(STORAGE_DIR, 'covers'),
   PAGES_DIR: path.join(STORAGE_DIR, 'pages'),
   GENERATED_DIR: path.join(STORAGE_DIR, 'generated'),
-  DB_PATH: process.env.DB_PATH || path.join(STORAGE_DIR, 'data.db'),
+  DB_PATH: process.env.DB_PATH || path.join(__dirname, '..', 'storage', 'data.db'),
   
   // AI Provider Configuration (strictly safe identifier, never secrets)
   AI_PROVIDER: resolveSafeProvider(process.env.AI_PROVIDER || 'ollama'),
