@@ -315,5 +315,32 @@ Chapter set arrives over the next minute.
 
 ---
 
+## Smart is the product. Original is the proof.
+
+Smart Reading is not a feature of the app — it is the app. The
+reading experience is Smart-Reading-first. Original reading is the
+ground truth you reach by clicking a specific line in Smart.
+
+This reframes several earlier decisions:
+
+1. **The Original | Smart toggle is not a peer switch.** Under this
+   framing they are not peers. The reader should default to Smart
+   and offer a subtle "Source" or "Original" affordance — not a
+   symmetric two-option control in the top bar.
+
+2. **Default is always Smart** when the book has representations.
+   No automatic per-chapter fallback to Original.
+
+3. **Click-through is the primary path.** Clicking a [Source N] line
+   in Smart opens the source panel at that passage — the round-trip
+   pattern promised by the Phase 5 inline tracker.
+
+The Phase 3.5 / 4.5 reader UI (peer toggle, per-chapter mode
+resolution) is superseded by this framing. Implementation is a
+Phase 5.x item — do not retro-fit in this session.
+
+---
+
 *End of vision. Revision requires its own commit.*
+
 
