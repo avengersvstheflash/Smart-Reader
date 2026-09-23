@@ -49,3 +49,8 @@ scratch-*.js
 tmp-*.js
 query*.js
 patch*.js
+
+
+backend/tests/fixtures/*.pdf
+backend/tests/fixtures/stress/*.pdf
+!backend/tests/fixtures/stress/NOTICE.md
