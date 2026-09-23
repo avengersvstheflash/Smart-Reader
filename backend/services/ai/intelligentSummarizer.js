@@ -5,6 +5,7 @@ const aiService = require('./aiService');
 const representationRepository = require('../../repositories/representationRepository');
 const bookRepository = require('../../repositories/bookRepository');
 const chapterRepository = require('../../repositories/chapterRepository');
+const outlineRepository = require('../../repositories/outlineRepository');
 const jobRepository = require('../../repositories/jobRepository');
 const { getDatabase } = require('../../db/database');
 
@@ -247,6 +248,11 @@ OUTPUT:`;
 
       // 5. Store Representation in book_representations
       const durationMs = Date.now() - startTime;
+      const existingOutline = outlineRepository.getByBookId(book.id);
+      const hasOutline = (options && options.has_outline !== undefined)
+        ? Boolean(options.has_outline)
+        : Boolean(existingOutline && existingOutline.chapters && existingOutline.chapters.length > 0);
+
       const metadata = {
         jobId,
         durationMs,
@@ -257,6 +263,7 @@ OUTPUT:`;
         sourceCount: context.includedChunks ? context.includedChunks.length : 0,
         word_count: finalWordCount,
         word_count_violation: wordCountViolation,
+        has_outline: hasOutline,
       };
 
       if (fellBack) {
