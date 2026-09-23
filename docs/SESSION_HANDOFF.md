@@ -513,6 +513,26 @@ import. All nine targeted for fix in tonight's session.
    differently on two import attempts, or leftover from testing.
    Cleanup: identify the duplicate ID and mark one status='failed'.
 
+10. **Phase 5.x: Tag chips relocation (UI/UX phase).**
+    - *Current:* Book Details hero row shows all classification tags inline
+      alongside content-type and reading-level.
+    - *Desired:* Hero shows content-type + reading-level only. Tags move to
+      a collapsed expander or into a dedicated filter/search surface.
+    - *Rationale:* Hero row gets visually crowded on books with 5–8 tags.
+      Filter chips belong in the Library filter system, not the hero.
+      Defer to the UI/UX polish phase (likely Phase 5.5).
+
+11. **Informational finding: synopsis prompt degraded for sources without preface/TOC.**
+    Observed during Apple 10-K import (2026-09-23): synopsis compression
+    prompt received `INPUTS: (None provided)`, `TOC: (None provided)`. Only
+    chapter-1-opening and last-chapter-opening were supplied. Result: output
+    landed 139 words (below 180 floor), retried once, produced acceptable
+    prose. Not a bug — SEC filings genuinely lack preface and TOC. But the
+    synopsis path depends on structured inputs (preface + TOC + samples)
+    that some source types (SEC filings, pasted text, some web dumps) don't
+    provide. The retry logic saves it, but the path is fragile. Log as
+    informational; no fix scheduled.
+
 ## OCR deferred to Python sidecar (decision, 2026-09-23)
 
 **Context.** During 4.21 verification, an image-only PDF (a chat
