@@ -159,6 +159,8 @@ OUTPUT:`;
             const health = await provider.checkHealth();
             if (!health || !health.available) break;
 
+            jobRepository.update(jobId, { progress: 55 });
+
             const timeoutMs = options.timeout || 20000;
             const timeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error('AI classification timeout')), timeoutMs)
@@ -178,6 +180,8 @@ OUTPUT:`;
               }),
               timeoutPromise,
             ]);
+
+            jobRepository.update(jobId, { progress: 70 });
 
             if (response && response.summary) {
               const cleaned = response.summary
@@ -204,6 +208,7 @@ OUTPUT:`;
       if (!classificationResult) {
         fellBack = true;
         classificationResult = this.heuristicFallback(book, chapters);
+        jobRepository.update(jobId, { progress: 70 });
       }
 
       jobRepository.update(jobId, { progress: 85 });

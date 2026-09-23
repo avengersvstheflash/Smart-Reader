@@ -196,65 +196,116 @@ class BookService {
       throw new Error('No readable text or file buffer provided for import.');
     }
 
-    // 1. Process through Ingestion Service Pipeline
-    const ingestionResult = await ingestionService.ingest({
-      title: provisionalTitle,
-      author: author || '',
-      description: description || '',
-      rawText: text || '',
-      fileBuffer,
-      originalFilename,
-      contentType,
-    });
-
-    if (ingestionResult.webAcquired && ingestionResult.book) {
-      return {
-        format: 'web',
-        book: ingestionResult.book,
-        chapterCount:
-          (ingestionResult.chapters && ingestionResult.chapters.length) || 1,
-        totalWordCount: ingestionResult.totalWordCount || 0,
-        tablesCount: ingestionResult.tablesCount || 0,
-        pageCount: ingestionResult.pageCount || 1,
-        message: `Successfully acquired web content into library.`,
-      };
+    // 0. Web Acquisition Pipeline
+    if (text && /^(https?:\/\/[^\s]+)$/.test(text.trim())) {
+      const ingestionResult = await ingestionService.ingest({
+        title: provisionalTitle,
+        author: author || '',
+        description: description || '',
+        rawText: text,
+        fileBuffer,
+        originalFilename,
+        contentType,
+      });
+      if (ingestionResult.webAcquired && ingestionResult.book) {
+        return {
+          format: 'web',
+          book: ingestionResult.book,
+          chapterCount:
+            (ingestionResult.chapters && ingestionResult.chapters.length) || 1,
+          totalWordCount: ingestionResult.totalWordCount || 0,
+          tablesCount: ingestionResult.tablesCount || 0,
+          pageCount: ingestionResult.pageCount || 1,
+          message: `Successfully acquired web content into library.`,
+        };
+      }
     }
 
-    const finalTitle = title || ingestionResult.title || provisionalTitle;
-    const finalAuthor = author || ingestionResult.author || 'Unknown Author';
+    // 1. Create a provisional book entry first so polling finds the book immediately
+    const provisionalFormat = originalFilename
+      ? path.extname(originalFilename).replace('.', '').toLowerCase()
+      : 'text';
 
-    // 2. Create Book with rich metadata
     const book = this.createBook({
-      title: finalTitle.trim(),
-      author: finalAuthor.trim(),
+      title: provisionalTitle.trim(),
+      author: (author || '').trim() || 'Unknown Author',
       description:
         description ||
-        `Imported from ${originalFilename || ingestionResult.format}.`,
+        `Importing ${originalFilename || provisionalFormat}...`,
       content_type: contentType,
-      source_format: ingestionResult.format,
+      source_format: provisionalFormat,
       original_filename: originalFilename || '',
-      page_count: ingestionResult.pageCount || 1,
-      section_count: ingestionResult.sectionCount || 0,
-      integrity_status: ingestionResult.integrityStatus || 'valid',
-      integrity_warning: ingestionResult.integrityWarning || '',
-      metadata_json: {
-        tablesCount: ingestionResult.tablesCount || 0,
-        sectionCount: ingestionResult.sectionCount || 0,
-        sourceFormat: ingestionResult.format,
-        importedAt: new Date().toISOString(),
-      },
+      status: 'processing',
     });
 
-    // 3. Create Ingestion Job
+    // 2. Create Ingestion Job at start of lifecycle (0%)
     const job = jobRepository.create({
       book_id: book.id,
       type: 'INGEST',
       status: 'PROCESSING',
-      progress: 50,
+      progress: 0,
     });
+    jobRepository.update(job.id, { progress: 5 }); // 5%: format and inputs verified
 
     try {
-      jobRepository.update(job.id, { progress: 80 });
+      // 3. Process through Ingestion Service Pipeline (20% before parse, 60% after parse)
+      jobRepository.update(job.id, { progress: 20 });
+      const ingestionResult = await ingestionService.ingest({
+        title: provisionalTitle,
+        author: author || '',
+        description: description || '',
+        rawText: text || '',
+        fileBuffer,
+        originalFilename,
+        contentType,
+      });
+      jobRepository.update(job.id, { progress: 60 });
+
+      if (ingestionResult.webAcquired && ingestionResult.book) {
+        jobRepository.complete(job.id);
+        return {
+          format: 'web',
+          book: ingestionResult.book,
+          chapterCount:
+            (ingestionResult.chapters && ingestionResult.chapters.length) || 1,
+          totalWordCount: ingestionResult.totalWordCount || 0,
+          tablesCount: ingestionResult.tablesCount || 0,
+          pageCount: ingestionResult.pageCount || 1,
+          message: `Successfully acquired web content into library.`,
+        };
+      }
+
+      const finalTitle = title || ingestionResult.title || provisionalTitle;
+      const finalAuthor = author || ingestionResult.author || 'Unknown Author';
+
+      // 75%: after chapter detection and section analysis
+      jobRepository.update(job.id, { progress: 75 });
+
+      // Update book with rich parsed metadata
+      bookRepository.update(book.id, {
+        title: finalTitle.trim(),
+        author: finalAuthor.trim(),
+        description:
+          description ||
+          `Imported from ${originalFilename || ingestionResult.format}.`,
+        content_type: contentType,
+        source_format: ingestionResult.format,
+        original_filename: originalFilename || '',
+        page_count: ingestionResult.pageCount || 1,
+        section_count: ingestionResult.sectionCount || 0,
+        integrity_status: ingestionResult.integrityStatus || 'valid',
+        integrity_warning: ingestionResult.integrityWarning || '',
+        status: 'active',
+        metadata_json: {
+          tablesCount: ingestionResult.tablesCount || 0,
+          sectionCount: ingestionResult.sectionCount || 0,
+          sourceFormat: ingestionResult.format,
+          importedAt: new Date().toISOString(),
+        },
+      });
+
+      // 85%: after canonical normalization
+      jobRepository.update(job.id, { progress: 85 });
 
       // 4. Transform into Chapter Entities
       const chapterEntities = ingestionResult.chapters.map((ch, idx) => ({
@@ -277,7 +328,10 @@ class BookService {
       // 5. Batch Insert Chapters
       chapterRepository.createBatch(chapterEntities);
 
-      // 6. Complete Job
+      // 95%: after DB write
+      jobRepository.update(job.id, { progress: 95 });
+
+      // 6. Complete Job (100%)
       jobRepository.complete(job.id);
 
       // 7. Auto-index imported book into Semantic Memory only if content is valid.
