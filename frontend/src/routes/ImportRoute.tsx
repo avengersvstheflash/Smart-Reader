@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, RotateCw } from 'lucide-react';
+import { AlertCircle, RotateCw, CheckCircle2, PlusCircle, ArrowRight } from 'lucide-react';
 import { ImportDropzone } from '../components/import/ImportDropzone';
 import { ImportProgress } from '../components/import/ImportProgress';
 import { ImportSuccessPanel } from '../components/import/ImportSuccessPanel';
+import { ImportCinematic } from '../components/import/ImportCinematic';
 import { WebImportTab } from '../components/import/WebImportTab';
 import { PasteImportTab } from '../components/import/PasteImportTab';
 import { useJobs } from '../hooks/useJobs';
@@ -23,6 +24,7 @@ const TABS: { key: TabKey; label: string }[] = [
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function ImportRoute() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -37,6 +39,7 @@ export function ImportRoute() {
   const [importedBook, setImportedBook] = useState<Book | null>(null);
   const [lastFile, setLastFile] = useState<File | null>(null);
   const [selectedFilename, setSelectedFilename] = useState<string>('');
+  const [cinematicMinimized, setCinematicMinimized] = useState(false);
 
   const { activeJob, pipelineComplete, jobs } = useJobs(importedBook ? importedBook.id : null);
 
@@ -53,6 +56,7 @@ export function ImportRoute() {
     setError(null);
     setUploading(false);
     setProgressPct(0);
+    setCinematicMinimized(false);
   };
 
   // Keyboard: ArrowLeft / ArrowRight on tablist
@@ -82,6 +86,7 @@ export function ImportRoute() {
     setSelectedFilename(file.name);
     setUploading(true);
     setProgressPct(0);
+    setCinematicMinimized(false);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -151,6 +156,7 @@ export function ImportRoute() {
     setUploading(false);
     setLastFile(null);
     setSelectedFilename('');
+    setCinematicMinimized(false);
   };
 
   const handleRetry = () => {
@@ -165,6 +171,7 @@ export function ImportRoute() {
 
   const handleImportSuccess = (book: Book) => {
     setImportedBook(book);
+    setCinematicMinimized(false);
     queryClient.invalidateQueries({ queryKey: ['books'] });
   };
 
@@ -179,6 +186,7 @@ export function ImportRoute() {
       setError(null);
       setUploading(false);
       setProgressPct(0);
+      setCinematicMinimized(false);
     }
   }, [activeTab]);
 
@@ -234,14 +242,79 @@ export function ImportRoute() {
 
           {/* ── Result panel (all tabs share this) ── */}
           {!uploading && importedBook && (
-            <ImportSuccessPanel
-              book={importedBook}
-              jobs={jobs}
-              activeJob={activeJob}
-              pipelineComplete={pipelineComplete}
-              onAddAnother={handleReset}
-              onRetry={activeTab === 'file' ? handleRetry : undefined}
-            />
+            <div className="w-full max-w-2xl mx-auto space-y-4">
+              {!cinematicMinimized ? (
+                <div className="space-y-4">
+                  <ImportCinematic
+                    jobs={jobs}
+                    activeJob={activeJob}
+                    onDismiss={() => setCinematicMinimized(true)}
+                  />
+
+                  {/* Actions / Book Info for cinematic view */}
+                  <div className="w-full rounded-xl border border-line bg-panel p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-ok/15 text-ok flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-display font-medium text-ui-sm text-ink truncate" title={importedBook.title}>
+                          {importedBook.title}
+                        </h3>
+                        <p className="text-caption text-ink-muted truncate">
+                          {importedBook.author ? `by ${importedBook.author} · ` : ''}
+                          {importedBook.chapterCount} {importedBook.chapterCount === 1 ? 'chapter' : 'chapters'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleReset}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-card hover:bg-subtle text-ink font-medium text-ui-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none"
+                      >
+                        <PlusCircle className="w-4 h-4 text-ink-muted" aria-hidden="true" />
+                        <span>Add another</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/book/${importedBook.id}`)}
+                        className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md font-medium text-ui-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none ${
+                          pipelineComplete
+                            ? 'bg-brand text-white hover:opacity-90 shadow-sm'
+                            : 'border border-line bg-subtle/50 text-ink-muted hover:bg-subtle hover:text-ink'
+                        }`}
+                      >
+                        <span>Open book</span>
+                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex justify-end max-w-xl mx-auto">
+                    <button
+                      type="button"
+                      onClick={() => setCinematicMinimized(false)}
+                      className="text-xs text-accent-ink hover:underline inline-flex items-center gap-1 font-medium select-none py-1"
+                    >
+                      Show cinematic
+                    </button>
+                  </div>
+                  <ImportSuccessPanel
+                    book={importedBook}
+                    jobs={jobs}
+                    activeJob={activeJob}
+                    pipelineComplete={pipelineComplete}
+                    onAddAnother={handleReset}
+                    onRetry={activeTab === 'file' ? handleRetry : undefined}
+                  />
+                </div>
+              )}
+            </div>
           )}
 
           {/* ── File tab ── */}
