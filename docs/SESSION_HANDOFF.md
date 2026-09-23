@@ -10,6 +10,8 @@
 
 **Last shipped commit:** `523898d` — Phase 4.16 (Omnitome working
 title).
+**Last shipped commit:** `832658e` — Phase 4.7.1 cinematic import
+session 2 (SYNOPSIS + SYNTHESIS + completion).
 
 **Test state:** 17/17 root suites green. Frontend build clean,
 typecheck 0 errors.
@@ -28,6 +30,17 @@ typecheck 0 errors.
 - Book Details shows active AI provider with honest disclosure
   tooltip (4.10.5)
 - Working title Omnitome recorded in docs (4.16)
+- Import shows full cinematic: INGEST (page-turn), SEMANTIC_INDEX
+  (chunk gather), CLASSIFICATION (tag fade), SYNOPSIS (progress-
+  driven text at 15/35/40/65/70), SYNTHESIS (5-card stack with
+  streaming lines)
+- Completion: 5-dot cascade (80ms stagger) + one-time glow on
+  [Open book]
+- Dynamic polling: 500ms during INGEST<60%, 800ms during SYNTHESIS,
+  1200ms otherwise
+- Reduced-motion: all animations collapse to static; no cascade,
+  no stream, no sweep
+- Mobile: no overflow at 375px; "Stage N of 5" hidden on small
 
 **Open items carried forward:**
 - Smart chapters output ~2100 words; PRODUCT_VISION specifies 250–360.
@@ -424,6 +437,18 @@ Antigravity write hazard. When asked to replace a stub file, Antigravity's tooli
 - **Full suite runtime is ~5-6 min.** Adding more tests will push
   past convenient. Future: two-tier npm scripts (test:fast with
   no-LLM suites, test:full including synthesis). Informational.
+- **Transcript spelunking — 6th incident (2026-09-23).** During
+  4.7.1 the agent searched transcript.jsonl / transcript_full.jsonl
+  for the prompt instead of using the pasted text. Recovered
+  successfully this time but the pattern persists across every
+  session. Rule for all future prompts: if the prompt doesn't
+  appear in the current context, re-paste — do NOT let the agent
+  mine its own transcript logs.
+- **`git reset --hard HEAD` used post-commit (2026-09-23).** After
+  committing 832658e, the agent ran `git reset --hard HEAD` to
+  discard drift. Safe this time (nothing meaningful was lost), but
+  destructive habit. Rule: use `git checkout HEAD -- <file>` for
+  targeted cleanup, never `git reset --hard` on a pushed branch.
 
 ---
 
