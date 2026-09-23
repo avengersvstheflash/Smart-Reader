@@ -484,10 +484,7 @@ import. All nine targeted for fix in tonight's session.
    block renderer.
 
 5. **EditorialPlanner produces oversize units despite 4.8.3.**
-   Log: `[EditorialPlanner] 2 source units exceed 2800 words:
-   3153, 3477`. The 4.8.3 even-distribution slicing was supposed to
-   produce units in [1500, 2500]. Either section-boundary edge case
-   or ordering bug in the new slicer.
+   Bug 5 — Editorial planner oversize units. Reproduction on 2026-09-23 could not confirm the original 3,153 / 3,477 trigger through the live pipeline. Both the canonical PDF and the Apple 10-K produce in-band units (min 1,853, max 2,230). The failure is only reachable by feeding chapter-level sections directly to sliceIntoSourceUnits, which no current caller does. Phase 4.24 added a defensive subdivision guard in sliceIntoSourceUnits: any section >2500 words is split at paragraph boundaries before the even-distribution pass. The 2800-word warning was upgraded to error level. No further action expected; if the warning fires again, the source book's input shape should be captured for investigation.
 
 ### Frontend bugs (polish)
 
@@ -532,6 +529,13 @@ import. All nine targeted for fix in tonight's session.
     that some source types (SEC filings, pasted text, some web dumps) don't
     provide. The retry logic saves it, but the path is fragile. Log as
     informational; no fix scheduled.
+
+### Phase 4.21.1 verification findings (deferred)
+
+- **Test DB is shared with dev DB (resetAndSeedDatabase wipes user's Library).** `backend/tests/build3b_test.js:19` and `backend/tests/build3b_finalization_test.js:13` call `resetAndSeedDatabase()`, which drops and re-seeds non-fixture rows on the shared `storage/data.db`. Every test run wipes the user's working Library on the dev machine. Fix scope: isolate the test DB to a separate file (e.g. `storage/test-data.db`) or gate the seed behind an env flag. Not scheduled.
+- **Job status strings: SUCCESS vs COMPLETED — verify against PipelineStepper.tsx.** Phase 4.11.1 close-out showed COMPLETED. Phase 4.21.1 close-out showed SUCCESS. If `PipelineStepper` matches on COMPLETED, this is a regression. Verify against `frontend/src/components/import/PipelineStepper.tsx` before touching. Not scheduled.
+- **Synthesis reps uniform 250 chars in 4.21.1 canonical import.** Phase 4.21.1 canonical import showed 8 SYNTHESIS reps each with length: 250. Uniform length suggests a cap, truncation, or fallback template. Inspect one rep's `metadata_json` for `fell_back`. If `fell_back: false`, verify whether 250-char output is within spec (Smart Chapter target is 250–360 WORDS, not chars — 250 chars ≈ 40 words, well under spec). If `fell_back: true`, the synthesis fallback may be silently firing on the canonical fixture, contradicting the clean synopsis path. Not scheduled.
+- **has_outline: false on synopsis metadata during 4.21.1 canonical import.** Synopsis metadata reported `has_outline: false`, but pipeline order is CLASSIFICATION → SYNOPSIS → SYNTHESIS and outline runs before synopsis. Either the flag is miscomputed or the metadata write path is wrong. Not scheduled.
 
 ## OCR deferred to Python sidecar (decision, 2026-09-23)
 
