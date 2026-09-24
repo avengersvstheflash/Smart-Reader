@@ -5,21 +5,21 @@
 > Ingests PDFs, EPUBs, web articles, and raw text, then produces a navigable **Smart Reading** layer where every compressed sentence traces deterministically to its source passage.
 
 <p align="left">
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white" alt="Node.js 22" /></a>
-  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black" alt="React 18.3" /></a>
-  <a href="https://vitejs.dev/"><img src="https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white" alt="Vite 5.4" /></a>
-  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.3" /></a>
-  <a href="https://tailwindcss.com/"><img src="https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind CSS 3.4" /></a>
-  <a href="https://expressjs.com/"><img src="https://img.shields.io/badge/Express-4.19-000000?logo=express&logoColor=white" alt="Express 4.19" /></a>
-  <a href="https://github.com/WiseLibs/better-sqlite3"><img src="https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white" alt="SQLite" /></a>
-  <a href="https://huggingface.co/BAAI/bge-m3"><img src="https://img.shields.io/badge/Embeddings-BGE--M3_1024d-blue" alt="BGE-M3 Embeddings" /></a>
+  <a href="[https://nodejs.org/](https://nodejs.org/)"><img src="[https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)" alt="Node.js 22" /></a>
+  <a href="[https://react.dev/](https://react.dev/)"><img src="[https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)" alt="React 18.3" /></a>
+  <a href="[https://vitejs.dev/](https://vitejs.dev/)"><img src="[https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white)" alt="Vite 5.4" /></a>
+  <a href="[https://www.typescriptlang.org/](https://www.typescriptlang.org/)"><img src="[https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white](https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white)" alt="TypeScript 5.3" /></a>
+  <a href="[https://tailwindcss.com/](https://tailwindcss.com/)"><img src="[https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white)" alt="Tailwind CSS 3.4" /></a>
+  <a href="[https://expressjs.com/](https://expressjs.com/)"><img src="[https://img.shields.io/badge/Express-4.19-000000?logo=express&logoColor=white](https://img.shields.io/badge/Express-4.19-000000?logo=express&logoColor=white)" alt="Express 4.19" /></a>
+  <a href="[https://github.com/WiseLibs/better-sqlite3](https://github.com/WiseLibs/better-sqlite3)"><img src="[https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white](https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white)" alt="SQLite" /></a>
+  <a href="[https://huggingface.co/BAAI/bge-m3](https://huggingface.co/BAAI/bge-m3)"><img src="[https://img.shields.io/badge/Embeddings-BGE--M3_1024d-blue](https://img.shields.io/badge/Embeddings-BGE--M3_1024d-blue)" alt="BGE-M3 Embeddings" /></a>
 </p>
 
 <p align="left">
-  <a href="#test"><img src="https://img.shields.io/badge/Tests-17%2F17_Passing-3fb950" alt="Tests 17/17 Passing" /></a>
-  <a href="#design-philosophy"><img src="https://img.shields.io/badge/Local--First-enabled-2ea043" alt="Local-First Enabled" /></a>
-  <a href="#roadmap"><img src="https://img.shields.io/badge/Status-Phase_4_Complete-blue" alt="Status Phase 4 Complete" /></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License" /></a>
+  <a href="#test"><img src="[https://img.shields.io/badge/Tests-19%2F19_Passing-3fb950](https://img.shields.io/badge/Tests-19%2F19_Passing-3fb950)" alt="Tests 19/19 Passing" /></a>
+  <a href="#design-philosophy"><img src="[https://img.shields.io/badge/Local--First-enabled-2ea043](https://img.shields.io/badge/Local--First-enabled-2ea043)" alt="Local-First Enabled" /></a>
+  <a href="#roadmap"><img src="[https://img.shields.io/badge/Status-Phase_5_in_progress-blue](https://img.shields.io/badge/Status-Phase_5_in_progress-blue)" alt="Status Phase 5 In Progress" /></a>
+  <a href="./LICENSE"><img src="[https://img.shields.io/badge/License-MIT-yellow.svg](https://img.shields.io/badge/License-MIT-yellow.svg)" alt="MIT License" /></a>
 </p>
 
 ---
@@ -31,7 +31,7 @@ Smart Reader is a **reading and comprehension platform**, not a lossy summarizat
 | Representation | Behavior |
 |---|---|
 | **Original Reading** | **Immutable source.** The text exactly as uploaded. Nothing in the system modifies it. |
-| **Smart Reading** | **Derived lens.** A compressed representation — 240–500 words per Smart Chapter (dynamic) per ~1,500–2,500-word source unit — with every sentence traceable to the specific source chunks it draws from. |
+| **Smart Reading** | **Derived lens.** A compressed representation whose length is chosen adaptively per source unit — every distinct concept, argument, and factual claim preserved, with every sentence traceable to its source chunks. |
 
 This is the **two-representation invariant**:
 
@@ -46,16 +46,18 @@ Every feature — the reader, the provenance chain, the fallback markers, the sy
 
 ## Why compression, not summarization
 
-A summarizer asks *"what is the gist?"* and produces output proportional to input. A compressor asks *"what would this say if every sentence carried 5–8× its information?"* and preserves every distinct concept, argument, and factual claim.
+A summarizer asks *"what is the gist?"* and produces output proportional to input. A compressor asks *"what would this say if every sentence carried several times its information?"* and preserves every distinct concept, argument, and factual claim.
 
-Smart Reader implements **loss-bounded semantic compression**. The compression ratio is the fundamental quality metric:
+Smart Reader implements **loss-bounded semantic compression**. The system assesses each source unit and chooses its target; the ratio is an observed outcome, not an input.
 
-| Metric | Target |
+| Metric | Behavior |
 |---|---|
 | Source processing unit | 1,500–2,500 words |
-| Smart Chapter output | 240–500 words per Smart Chapter (dynamic) |
-| Compression ratio | 5:1 to 8:1 compression ratio, chosen per source by the system |
-| Observed ratio band (canonical fixture) | 4.82 – 7.28 |
+| Smart Chapter output | Adaptive — compressed to the density the source requires |
+| Compression ratio | Determined per source unit by content complexity |
+| Observed band (canonical fixture) | ~4:1 to ~8:1 |
+
+Dense technical content preserves every claim at tighter ratios. Accessible narrative compresses further. The output length is the result of what the source needs, not a fixed target imposed on it.
 
 > Full distinction: [`docs/PRODUCT_VISION.md`](./docs/PRODUCT_VISION.md) §"Compression, not summarization".
 
@@ -72,7 +74,7 @@ Smart Reader implements **loss-bounded semantic compression**. The compression r
 | **PDF parsing** | `pdfjs-dist` with layout heuristics |
 | **Web extraction** | `cheerio` with chrome stripping |
 | **AI (compression)** | OpenRouter → DeepSeek V4 Flash (configurable; Ollama supported for fully local mode) |
-| **Testing** | 17 regression suites, real fixtures, ~5–7 min runtime |
+| **Testing** | 19 regression suites, real fixtures, ~8–10 min runtime |
 
 ---
 
@@ -83,15 +85,17 @@ Smart Reader implements **loss-bounded semantic compression**. The compression r
 - **Structural analysis** — chapter detection, front/back matter classification, multi-signal heading recognition, TOC-anchored page recovery, header/footer suppression
 - **Semantic indexing** — 350–500 word chunks with hybrid cross-source retrieval (vector similarity + keyword scoring + diversity re-rank)
 - **Auto-classification** — LLM-based `contentType`, tags, reading level, target audience; heuristic fallback if the provider is unavailable
+- **Bibliographic extraction** — publisher, year, ISBN, edition, authors, copyright holder, language; deterministic regex fallback; honest nulls for non-book sources (SEC filings, reports)
 - **Editorial planning** — 1,500–2,500 word source-unit slicing with even distribution and defensive subdivision for oversize sections
-- **Compression** — grounded Smart Chapter synthesis with reasoning disabled and hard word bounds
+- **Compression** — grounded Smart Chapter synthesis with self-assessment. Two-phase: Phase A estimates the words needed to preserve every claim; Phase B compresses to that target. Reasoning disabled, dynamic clamps on output.
 - **Synopsis** — generated from preface + TOC + strategic samples, sequenced before chapter compression
-- **Job lifecycle** — 5 tracked stages (`INGEST` → `SEMANTIC_INDEX` → `CLASSIFICATION` → `SYNOPSIS` → `SYNTHESIS`) with boot-time zombie sweep and `INTERRUPTED` rendering
-- **Fallback honesty** — every deterministic-fallback representation carries `fell_back: true`, `fallback_reason`, and word-count-violation metadata
+- **Provenance resolution** — paragraph-level source attribution with sentence-level segmentation. C-primary arbitration (embedding similarity), A-corroboration (compressor's emitted citations), B-fallback (LLM arbitration on ambiguous cases). Ungrounded paragraphs marked honestly.
+- **Job lifecycle** — 6 tracked stages (`INGEST` → `SEMANTIC_INDEX` → `CLASSIFICATION` → `SYNOPSIS` → `SYNTHESIS` → `PROVENANCE_VERIFY`) with boot-time zombie sweep and `INTERRUPTED` rendering
+- **Fallback honesty** — every deterministic-fallback representation carries `fell_back: true`, `fallback_reason`, `truncated`, `compression_violation`, and `insufficient_marker` metadata
 
 ### Frontend
 - **Library** — responsive book grid with search, content-type filters, dynamic tag filter chips, Smart badge
-- **Book Details** — hero, classification chips, synopsis panel, chapter list, semantic intelligence panel, AI-provider disclosure
+- **Book Details** — hero, classification chips, synopsis panel, bibliographic panel, chapter list, semantic intelligence panel, AI-provider disclosure
 - **Reader** — Smart-first default when a representation exists, with a subtle Source affordance for the original
 - **Canonical block renderer** — recursive rendering of headings, paragraphs, quotes, lists, code, tables, callouts, separators
 - **Import** — File / Web / Paste tabs with real XHR progress and a job-driven pipeline stepper
@@ -124,20 +128,21 @@ flowchart LR
         direction TB
         Chunker["Semantic Chunking\n(350–500w)"]
         Embedder["BGE-M3 Vector Index\n(1024d INT8 Local)"]
-        Classifier["Auto-Classifier\n(Tags, Level, Audience)"]
+        Classifier["Auto-Classifier + Bibliographer\n(Tags, Level, Audience, Publisher)"]
         Synopsis["Synopsis Generator\n(Preface + TOC + Samples)"]
         Planner["Editorial Slicer\n(1,500–2,500w Units)"]
-        Compressor["Semantic Compressor\n(DeepSeek V4 Flash)"]
+        Compressor["Adaptive Compressor\n(Self-Assessment + DeepSeek V4 Flash)"]
+        ProvResolver["Provenance Resolver\n(C-primary + A-corroborate + B-fallback)"]
 
         Canon --> Chunker --> Embedder
         Canon --> Classifier
         Canon --> Synopsis
-        Canon --> Planner --> Compressor
+        Canon --> Planner --> Compressor --> ProvResolver
     end
 
     subgraph PRESENTATION [" 4. Dual-Track Reader "]
         Canon ===>|"Immutable Paper"| OrigReading["Original Reading\n(Source Material)"]
-        Compressor ===>|"Tinted Lens"| SmartReading["Smart Reading\n(240–500w Chapters)"]
+        ProvResolver ===>|"Tinted Lens"| SmartReading["Smart Reading\n(Adaptive Compression)"]
         SmartReading -.->|"Clickable Provenance"| OrigReading
     end
 ```
@@ -145,10 +150,10 @@ flowchart LR
 ### End-to-End Pipeline
 
 ```text
-User Material → Extraction → Parsing → Canonical Source → Structural Analysis 
-              → Semantic Chunking → Semantic Index → Auto-Classification 
-              → Editorial Organizer → Source-Unit Slicing → Editorial Chapter Plan 
-              → Compression → Grounded Reader-Facing Content
+User Material → Extraction → Parsing → Canonical Source → Structural Analysis
+              → Semantic Chunking → Semantic Index → Auto-Classification + Bibliographic
+              → Editorial Organizer → Source-Unit Slicing → Adaptive Compression
+              → Provenance Resolution → Grounded Reader-Facing Content
 ```
 
 ### Key Documentation
@@ -200,7 +205,7 @@ Open `http://localhost:5173/` and import a document.
 ### Test
 
 ```bash
-npm test # 17 regression suites, ~5–7 minutes
+npm test # 19 regression suites, ~8–10 minutes
 ```
 
 > **Test Isolation:** Test runs execute against `storage/test-data.db` — your working development library at `storage/data.db` is never touched.
@@ -211,20 +216,23 @@ npm test # 17 regression suites, ~5–7 minutes
 
 Active development phases (full roadmap in [`docs/ROADMAP_2026-09.md`](./docs/ROADMAP_2026-09.md)):
 
-### Phase 4 — Complete (2026-09-23)
-Compression enforced. Import pipeline hardened. Classification shipped. Cinematic import live. Test infrastructure isolated. All 17 suites green.
+### Phase 4 — Complete (2026-09-23, extended through 2026-09-24)
 
-**Selected shipped work:** Web + Paste import tabs (4.6) · Cinematic import (4.7) · Compressor prompt + source-unit sizing (4.8.1) · Even-distribution slicing (4.8.3) · Synopsis fallback honesty (4.9) · Auto-classification (4.10) · Zombie job resilience (4.11) · Synopsis prompt rewrite (4.13) · Compression eval harness (4.14) · Parser stress + front-matter verification (4.15) · Pre-hydration contract test (4.19) · Fixture licensing (4.20) · Import trust path (4.21) · Editorial planner guard (4.24) · Test DB isolation (4.25).
+Compression enforced. Import pipeline hardened. Classification shipped. Cinematic import live. Test infrastructure isolated. Adaptive compression with self-assessment. All 19 suites green.
+
+**Selected shipped work:** Web + Paste import tabs (4.6) · Cinematic import (4.7) · Compressor prompt + source-unit sizing (4.8.1) · Even-distribution slicing (4.8.3) · Synopsis fallback honesty (4.9) · Auto-classification (4.10) · Zombie job resilience (4.11) · Synopsis prompt rewrite (4.13) · Compression eval harness (4.14) · Parser stress + front-matter verification (4.15) · Pre-hydration contract test (4.19) · Fixture licensing (4.20) · Import trust path (4.21) · Editorial planner guard (4.24) · Test DB isolation (4.25) · Truncation and paragraph structure fix (4.26) · Compressor word count enforcement (4.26.1) · Adaptive compression with self-assessment (4.26.2).
 
 ### Phase 5 — In Progress
 
 | Phase | Status | Description |
 |:---:|:---:|---|
-| **5.1** | 🚧 | Paragraph-level provenance resolution (backend contract) |
+| **5.1a** | ✅ | Bibliographic metadata extraction |
+| **5.1b** | ✅ | Paragraph-level provenance resolution contract |
+| **5.1b.1** | 🚧 | C-primary arbitration (replacing A_vs_C agreement matrix) |
 | **5.2** | ⏳ | Reader click-through UI — the moat made interactive |
 | **5.3** | ⏳ | Research mode collection view |
 | **5.5** | ⏳ | Library polish + UI/UX backlog |
-| **5.6** | ⏳ | Validation and refine loops (pre-LLM source guard, post-LLM output guard) |
+| **5.6** | ⏳ | Validation and refine loops (adaptive source guard, adaptive output guard) |
 | **5.7** | ⏳ | Python sidecar architecture (OCR, Discussion, Story) |
 
 ### Later
@@ -257,7 +265,7 @@ Developed in strict phases. Each phase closes clean — tests green, tree clean,
 | Limitation | Status |
 |---|---|
 | **OCR for image-only PDFs** | Deferred to Python sidecar (Phase 5.7). Empty-content PDFs fail honestly today. |
-| **Synthesis fallback verification** | Cannot be verified without Phase 5.6 validation loop. |
+| **Compression ratio tuning** | Adaptive clamps shipped; empirical tuning deferred to Phase 5.6 validation loops. |
 | **Tag chip placement** | Hero shows tags inline; relocation queued for Phase 5.5. |
 | **Research mode collection view** | Import half shipped in 4.6; collection view queued for Phase 5.3. |
 | **Preface-less source handling** | Synopsis retries and produces acceptable prose, but path is fragile. |
@@ -273,10 +281,10 @@ Solo development, active. Issues and discussion via the GitHub issue tracker.
 - `feat(scope): <description>` — new capability
 - `fix(scope): <description>` — bug fix
 - `docs: <description>` — documentation only
-- `chore: <description>` — build, deps, tooling
+- `chore(scope): <description>` — build, deps, tooling
 - `phase<N>.<M>: <description>` — roadmap phase work
 
-*Test suite must stay green (`npm test` → 17/17 passing) through every commit.*
+*Test suite must stay green (`npm test` → 19/19 passing) through every commit.*
 
 ---
 
@@ -290,4 +298,4 @@ Built with:
 - [`OpenRouter`](https://openrouter.ai/) — cloud LLM gateway
 - [`DeepSeek`](https://deepseek.com/) — V4 Flash for chapter compression
 
-Testing was performed against purchased technical reference materials. No third-party content is redistributed with this repository.
+Testing was performed against purchased and licensed technical reference materials. No third-party content is redistributed with this repository.

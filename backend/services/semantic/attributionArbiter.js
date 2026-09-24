@@ -1,24 +1,13 @@
 const aiService = require('../ai/aiService');
 
-/**
- * Computes cosine similarity between two numeric vectors
- */
-function vectorCosineSimilarity(vecA, vecB) {
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < vecA.length; i++) {
-    dot += vecA[i] * vecB[i];
-    normA += vecA[i] * vecA[i];
-    normB += vecB[i] * vecB[i];
-  }
-  if (normA <= 0 || normB <= 0) return 0;
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-}
+const C_HIGH_THRESHOLD = 0.65;
+const C_MEDIUM_THRESHOLD = 0.45;
+const C_LOW_THRESHOLD = 0.30;
+const C_MARGIN_THRESHOLD = 0.10;
 
 class AttributionArbiter {
   /**
-   * Resolve paragraph-level attribution using the 8-case decision matrix.
+   * Resolve paragraph-level attribution using C-primary arbitration.
    *
    * @param {object} params
    * @param {string} params.paragraph
@@ -35,40 +24,64 @@ class AttributionArbiter {
 
     const cTop1 = typeof C_signal.top1 === 'number' ? C_signal.top1 : 0;
     const cTop2 = typeof C_signal.top2 === 'number' ? C_signal.top2 : 0;
-    const cMargin = typeof C_signal.margin === 'number' ? C_signal.margin : cTop1 - cTop2;
+    const cMargin = typeof C_signal.margin === 'number' ? C_signal.margin : Number((cTop1 - cTop2).toFixed(4));
     const cTop1Id = C_signal.top1ChunkId || (candidateChunkIds.length > 0 ? candidateChunkIds[0] : null);
 
-    // Case 8: C.top1 < 0.45 (Ungrounded floor)
-    if (cTop1 < 0.45) {
-      return {
-        method: 'ungrounded',
-        confidence: 'none',
-        grounded: false,
-        chunk_ids: [],
-        weights: {},
-        fell_back: false,
-        fallback_reason: null,
-      };
-    }
-
-    // Determine A status: A_missing vs A_valid vs !A_valid
+    // Determine A status: A_valid, A_top1
     const aWeights = (A_claim && A_claim.weights) || {};
     const aKeys = Object.keys(aWeights);
     const aMissing = aKeys.length === 0;
     const aValid = !aMissing && aKeys.every((cid) => sourceChunkIdSet.has(cid));
 
-    // Compute A_vs_C vector cosine similarity across candidate chunk IDs
-    let aVsC = 0;
-    if (!aMissing && candidateChunkIds.length > 0) {
-      const vecA = candidateChunkIds.map((cid) => aWeights[cid] || 0);
-      const vecC = candidateChunkIds.map((cid) => (C_signal.weights && C_signal.weights[cid]) || 0);
-      aVsC = vectorCosineSimilarity(vecA, vecC);
+    let aTop1 = null;
+    let maxAWeight = -1;
+    for (const [cid, w] of Object.entries(aWeights)) {
+      if (typeof w === 'number' && w > maxAWeight) {
+        maxAWeight = w;
+        aTop1 = cid;
+      }
+    }
+
+    const cTop1ChunkId = C_signal.top1ChunkId || (typeof C_signal.top1 === 'string' ? C_signal.top1 : cTop1Id);
+    const aMatchesC = aValid && aTop1 !== null && (aTop1 === cTop1ChunkId || aTop1 === cTop1Id);
+
+    // Rank C's candidate chunks and select top-3 chunks
+    const sortedByC = [...candidateChunkIds].sort((a, b) => {
+      if (a === cTop1Id) return -1;
+      if (b === cTop1Id) return 1;
+      const scoreA = (C_signal.weights && C_signal.weights[a]) || 0;
+      const scoreB = (C_signal.weights && C_signal.weights[b]) || 0;
+      return scoreB - scoreA;
+    });
+
+    const positiveChunks = sortedByC.filter((cid) => (C_signal.weights && C_signal.weights[cid] > 0));
+    const cTop3ChunkIds = (positiveChunks.length > 0 ? positiveChunks : sortedByC).slice(0, 3);
+    if (cTop3ChunkIds.length === 0 && cTop1Id) {
+      cTop3ChunkIds.push(cTop1Id);
+    }
+
+    // Compute normalized weights for C's top-3 chunks
+    const cTop3Weights = {};
+    let sumC = 0;
+    for (const cid of cTop3ChunkIds) {
+      sumC += (C_signal.weights && C_signal.weights[cid]) || 0;
+    }
+    if (sumC > 0) {
+      for (const cid of cTop3ChunkIds) {
+        const w = (C_signal.weights && C_signal.weights[cid]) || 0;
+        cTop3Weights[cid] = Number((w / sumC).toFixed(4));
+      }
+    } else if (cTop3ChunkIds.length > 0) {
+      const eq = Number((1 / cTop3ChunkIds.length).toFixed(4));
+      for (const cid of cTop3ChunkIds) {
+        cTop3Weights[cid] = eq;
+      }
     }
 
     // C's default answer for fallbacks / C-only decisions
     const cAnswer = {
-      chunk_ids: cTop1Id ? [cTop1Id] : [],
-      weights: cTop1Id ? { [cTop1Id]: 1.0 } : {},
+      chunk_ids: cTop3ChunkIds,
+      weights: cTop3Weights,
     };
 
     // Helper to fire Signal B
@@ -140,79 +153,48 @@ class AttributionArbiter {
     };
 
     const logAndReturn = (result) => {
-      console.log(`[AttributionArbiter] A_vs_C: ${Number(aVsC.toFixed(4))}, resolved method: ${result.method}`);
+      console.log(`[AttributionArbiter] C.top1: ${cTop1.toFixed(4)}, C.margin: ${cMargin.toFixed(4)}, resolved method: ${result.method}`);
       return result;
     };
 
-    // Case 1: A_valid && A_vs_C >= 0.85
-    if (aValid && aVsC >= 0.85) {
+    // C-primary arbitration decision tree
+    if (cTop1 >= C_HIGH_THRESHOLD && cMargin >= C_MARGIN_THRESHOLD) {
       return logAndReturn({
-        method: 'a_verified_by_c',
+        method: 'c_primary',
         confidence: 'high',
         grounded: true,
-        chunk_ids: aKeys,
-        weights: aWeights,
+        chunk_ids: cTop3ChunkIds,
+        weights: cTop3Weights,
         fell_back: false,
         fallback_reason: null,
       });
-    }
-
-    // Case 2: A_valid && 0.60 <= A_vs_C < 0.85
-    if (aValid && aVsC >= 0.60) {
-      return logAndReturn(await fireSignalB('b_arbitrated', 'medium'));
-    }
-
-    // Case 3: A_valid && A_vs_C < 0.60
-    if (aValid && aVsC < 0.60) {
-      return logAndReturn(await fireSignalB('b_replaced_a', 'medium'));
-    }
-
-    // Case 4: !A_valid && C_margin >= 0.15
-    if (!aValid && !aMissing && cMargin >= 0.15) {
+    } else if (cTop1 >= C_MEDIUM_THRESHOLD) {
+      if (aMatchesC) {
+        return logAndReturn({
+          method: 'c_verified_by_a',
+          confidence: 'medium',
+          grounded: true,
+          chunk_ids: cTop3ChunkIds,
+          weights: cTop3Weights,
+          fell_back: false,
+          fallback_reason: null,
+        });
+      } else {
+        return logAndReturn(await fireSignalB('b_arbitrated', 'medium'));
+      }
+    } else if (cTop1 >= C_LOW_THRESHOLD && cTop1 < C_MEDIUM_THRESHOLD) {
+      return logAndReturn(await fireSignalB('b_weak_c', 'low'));
+    } else {
       return logAndReturn({
-        method: 'c_only',
-        confidence: 'medium',
-        grounded: true,
-        chunk_ids: cAnswer.chunk_ids,
-        weights: cAnswer.weights,
+        method: 'ungrounded',
+        confidence: 'none',
+        grounded: false,
+        chunk_ids: [],
+        weights: {},
         fell_back: false,
         fallback_reason: null,
       });
     }
-
-    // Case 5: !A_valid && C_margin < 0.15
-    if (!aValid && !aMissing && cMargin < 0.15) {
-      return logAndReturn(await fireSignalB('b_after_invalid_a', 'low'));
-    }
-
-    // Case 6: A_missing && C_margin >= 0.15
-    if (aMissing && cMargin >= 0.15) {
-      return logAndReturn({
-        method: 'c_only',
-        confidence: 'medium',
-        grounded: true,
-        chunk_ids: cAnswer.chunk_ids,
-        weights: cAnswer.weights,
-        fell_back: false,
-        fallback_reason: null,
-      });
-    }
-
-    // Case 7: A_missing && C_margin < 0.15
-    if (aMissing && cMargin < 0.15) {
-      return logAndReturn(await fireSignalB('b_after_missing_a', 'low'));
-    }
-
-    // Default safety fallback (should never be reached given matrix coverage)
-    return logAndReturn({
-      method: 'c_only',
-      confidence: 'low',
-      grounded: true,
-      chunk_ids: cAnswer.chunk_ids,
-      weights: cAnswer.weights,
-      fell_back: true,
-      fallback_reason: 'default_matrix_fallback',
-    });
   }
 
   /**
@@ -245,8 +227,8 @@ ${passagesText}
 
 OUTPUT JSON ONLY:
 {
-  "chunk_ids": ["chunk_id_1"],
-  "weights": { "chunk_id_1": 1.0 }
+  \"chunk_ids\": [\"chunk_id_1\"],
+  \"weights\": { \"chunk_id_1\": 1.0 }
 }`;
 
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -285,4 +267,3 @@ OUTPUT JSON ONLY:
 }
 
 module.exports = new AttributionArbiter();
-

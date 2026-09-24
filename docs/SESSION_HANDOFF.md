@@ -142,6 +142,7 @@
 
 ### Closed (2026-09-24)
 
+- **Phase 5.1b.1 — C-primary arbitration.** Replaced the A_vs_C agreement matrix with C-primary logic. Signal C leads; Signal A corroborates when C is uncertain; Signal B fires only on ambiguous cases. The old cosine-of-weight-vectors metric was discarded as non-informative (measured A_vs_C mean 0.510 on canonical). Thresholds: C_HIGH=0.65, C_MEDIUM=0.45, C_LOW=0.30, C_MARGIN=0.10.
 - **Phase 5.1a — Bibliographic metadata extraction.** Extracted publisher, publication year, ISBN, author, subtitle during `CLASSIFICATION` job. Stored in `books.metadata_json`. Minimal surface rendered in Book Details.
 - **Phase 5.1b — Provenance resolution contract.** Sentence-level segmentation, 8-case decision matrix with Signal B LLM arbitration fallback, BGE-M3 local embedding similarity (Signal C), `paragraph_attributions` storage, non-blocking `PROVENANCE_VERIFY` pipeline step, `GET /api/representations/:id/provenance` endpoint. All 19 suites green. Backfill policy: legacy representations return `{ paragraphs: [] }`, no batch re-generation.
 

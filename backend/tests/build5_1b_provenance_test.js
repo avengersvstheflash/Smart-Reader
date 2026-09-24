@@ -2,18 +2,14 @@
  * Build 5.1b Provenance Resolution Contract Test Suite
  *
  * Verifies:
- * 1. 8-Case Decision Matrix in AttributionArbiter:
- *    - Case 1: A_valid && A_vs_C >= 0.85 -> "a_verified_by_c" (high)
- *    - Case 2: A_valid && 0.60 <= A_vs_C < 0.85 -> "b_arbitrated" (medium)
- *    - Case 3: A_valid && A_vs_C < 0.60 -> "b_replaced_a" (medium)
- *    - Case 4: !A_valid && C_margin >= 0.15 -> "c_only" (medium)
- *    - Case 5: !A_valid && C_margin < 0.15 -> "b_after_invalid_a" (low)
- *    - Case 6: A_missing && C_margin >= 0.15 -> "c_only" (medium)
- *    - Case 7: A_missing && C_margin < 0.15 -> "b_after_missing_a" (low)
- *    - Case 8: C.top1 < 0.45 -> "ungrounded" (none, grounded: false)
- * 2. Sentence-level Segmentation & Run Grouping
- * 3. AttributionRepository Database Persistence & Cascade Cleanup
- * 4. ProvenanceResolver End-to-End Verification & Formatting Contract
+ * 1. C-Primary Arbitration in AttributionArbiter:
+ *    - Test 1: C.top1 >= 0.65, margin >= 0.10 -> \"c_primary\" (high)
+ *    - Test 2: C.top1 in [0.45, 0.65), A matches C -> \"c_verified_by_a\" (medium)
+ *    - Test 3: C.top1 in [0.45, 0.65), A doesn't match C -> \"b_arbitrated\" (medium)
+ *    - Test 4: C.top1 in [0.30, 0.45) -> \"b_weak_c\" (low)
+ *    - Test 5: C.top1 < 0.30 -> \"ungrounded\" (none, grounded: false)
+ * 2. AttributionRepository Database Persistence & Cascade Cleanup
+ * 3. ProvenanceResolver End-to-End Verification & Formatting Contract
  */
 
 const assert = require('assert');
@@ -37,35 +33,9 @@ async function runTests() {
   ];
 
   // --------------------------------------------------------------------------
-  // Test 1: Case 8 - Ungrounded Floor (C.top1 < 0.45)
+  // Test 1: C.top1 >= 0.65, margin >= 0.10 -> \"c_primary\"
   // --------------------------------------------------------------------------
-  console.log('Test 1: Case 8 - Ungrounded Floor (C.top1 < 0.45)');
-  {
-    const res = await attributionArbiter.resolveParagraphAttribution({
-      paragraph: 'Unrelated topic completely absent from the source material.',
-      A_claim: { weights: { 'chk-alpha-1': 1.0 } },
-      C_signal: {
-        top1: 0.38,
-        top2: 0.22,
-        margin: 0.16,
-        top1ChunkId: 'chk-alpha-1',
-        weights: { 'chk-alpha-1': 0.6, 'chk-alpha-2': 0.4 },
-      },
-      source_chunks: sourceChunks,
-      options: { fast: true },
-    });
-
-    assert.strictEqual(res.method, 'ungrounded', 'Method must be ungrounded');
-    assert.strictEqual(res.confidence, 'none', 'Confidence must be none');
-    assert.strictEqual(res.grounded, false, 'Grounded must be false');
-    assert.strictEqual(res.chunk_ids.length, 0, 'Chunk IDs must be empty');
-    console.log('  ✓ Case 8: C.top1 < 0.45 correctly marked ungrounded without firing B.');
-  }
-
-  // --------------------------------------------------------------------------
-  // Test 2: Case 1 - A_valid && A_vs_C >= 0.85 ("a_verified_by_c")
-  // --------------------------------------------------------------------------
-  console.log('Test 2: Case 1 - A_valid && A_vs_C >= 0.85 ("a_verified_by_c")');
+  console.log('Test 1: C.top1 >= 0.65, margin >= 0.10 -> \"c_primary\"');
   {
     const res = await attributionArbiter.resolveParagraphAttribution({
       paragraph: 'Machine learning data preparation establishes accuracy.',
@@ -75,35 +45,60 @@ async function runTests() {
         top2: 0.45,
         margin: 0.43,
         top1ChunkId: 'chk-alpha-1',
-        weights: { 'chk-alpha-1': 0.95, 'chk-alpha-2': 0.05 },
+        weights: { 'chk-alpha-1': 0.80, 'chk-alpha-2': 0.15, 'chk-alpha-3': 0.05 },
       },
       source_chunks: sourceChunks,
       options: { fast: true },
     });
 
-    assert.strictEqual(res.method, 'a_verified_by_c');
+    assert.strictEqual(res.method, 'c_primary');
     assert.strictEqual(res.confidence, 'high');
     assert.strictEqual(res.grounded, true);
-    assert.deepStrictEqual(res.chunk_ids, ['chk-alpha-1']);
-    console.log('  ✓ Case 1: A accepted and verified by C with high confidence.');
+    assert.strictEqual(res.chunk_ids[0], 'chk-alpha-1');
+    assert(res.chunk_ids.length <= 3, 'Accepts up to top-3 chunks');
+    console.log('  ✓ Test 1: High C with decisive margin resolves to c_primary accepting C top-3.');
   }
 
   // --------------------------------------------------------------------------
-  // Test 3: Case 2 - A_valid && 0.60 <= A_vs_C < 0.85 ("b_arbitrated")
+  // Test 2: C.top1 in [0.45, 0.65), A matches C -> \"c_verified_by_a\"
   // --------------------------------------------------------------------------
-  console.log('Test 3: Case 2 - A_valid && 0.60 <= A_vs_C < 0.85 ("b_arbitrated")');
+  console.log('Test 2: C.top1 in [0.45, 0.65), A matches C -> \"c_verified_by_a\"');
   {
-    // A claims chk-alpha-1 (0.9) and chk-alpha-2 (0.1)
-    // C weights chk-alpha-1 (0.4) and chk-alpha-2 (0.6) -> cosine sim approx 0.64 in [0.60, 0.85)
     const res = await attributionArbiter.resolveParagraphAttribution({
-      paragraph: 'Both pipeline data and architecture determine throughput.',
-      A_claim: { weights: { 'chk-alpha-1': 0.9, 'chk-alpha-2': 0.1 } },
+      paragraph: 'Pipeline data preprocessing minimizes distribution drift.',
+      A_claim: { weights: { 'chk-alpha-1': 1.0 } },
       C_signal: {
-        top1: 0.78,
-        top2: 0.65,
-        margin: 0.13,
+        top1: 0.58,
+        top2: 0.52,
+        margin: 0.06,
         top1ChunkId: 'chk-alpha-1',
-        weights: { 'chk-alpha-1': 0.4, 'chk-alpha-2': 0.6 },
+        weights: { 'chk-alpha-1': 0.55, 'chk-alpha-2': 0.45 },
+      },
+      source_chunks: sourceChunks,
+      options: { fast: true },
+    });
+
+    assert.strictEqual(res.method, 'c_verified_by_a');
+    assert.strictEqual(res.confidence, 'medium');
+    assert.strictEqual(res.grounded, true);
+    assert.strictEqual(res.chunk_ids[0], 'chk-alpha-1');
+    console.log('  ✓ Test 2: Medium C corroborated by Signal A resolves to c_verified_by_a.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 3: C.top1 in [0.45, 0.65), A doesn't match C -> \"b_arbitrated\"
+  // --------------------------------------------------------------------------
+  console.log('Test 3: C.top1 in [0.45, 0.65), A doesn\'t match C -> \"b_arbitrated\"');
+  {
+    const res = await attributionArbiter.resolveParagraphAttribution({
+      paragraph: 'Ambiguous passage where A and C point to different chunks.',
+      A_claim: { weights: { 'chk-alpha-2': 1.0 } },
+      C_signal: {
+        top1: 0.58,
+        top2: 0.50,
+        margin: 0.08,
+        top1ChunkId: 'chk-alpha-1',
+        weights: { 'chk-alpha-1': 0.60, 'chk-alpha-2': 0.40 },
       },
       source_chunks: sourceChunks,
       options: { fast: true },
@@ -112,142 +107,64 @@ async function runTests() {
     assert.strictEqual(res.method, 'b_arbitrated');
     assert.strictEqual(res.confidence, 'medium');
     assert.strictEqual(res.grounded, true);
-    console.log('  ✓ Case 2: Signal B triggered for arbitrated resolution (fallback handled).');
+    console.log('  ✓ Test 3: Medium C with conflicting Signal A triggers Signal B arbitration.');
   }
 
   // --------------------------------------------------------------------------
-  // Test 4: Case 3 - A_valid && A_vs_C < 0.60 ("b_replaced_a")
+  // Test 4: C.top1 in [0.30, 0.45) -> \"b_weak_c\"
   // --------------------------------------------------------------------------
-  console.log('Test 4: Case 3 - A_valid && A_vs_C < 0.60 ("b_replaced_a")');
+  console.log('Test 4: C.top1 in [0.30, 0.45) -> \"b_weak_c\"');
   {
-    // A claims chk-alpha-1 (1.0), C completely disagrees with chk-alpha-3 (1.0) -> A_vs_C = 0.0
     const res = await attributionArbiter.resolveParagraphAttribution({
-      paragraph: 'Evaluation metrics monitor generalization error.',
+      paragraph: 'Weakly matched paragraph requiring LLM grounding check.',
       A_claim: { weights: { 'chk-alpha-1': 1.0 } },
       C_signal: {
-        top1: 0.82,
-        top2: 0.35,
-        margin: 0.47,
-        top1ChunkId: 'chk-alpha-3',
-        weights: { 'chk-alpha-3': 1.0 },
-      },
-      source_chunks: sourceChunks,
-      options: { fast: true },
-    });
-
-    assert.strictEqual(res.method, 'b_replaced_a');
-    assert.strictEqual(res.confidence, 'medium');
-    assert.strictEqual(res.grounded, true);
-    console.log('  ✓ Case 3: A discarded when A_vs_C < 0.60.');
-  }
-
-  // --------------------------------------------------------------------------
-  // Test 5: Case 4 - !A_valid && C_margin >= 0.15 ("c_only")
-  // --------------------------------------------------------------------------
-  console.log('Test 5: Case 4 - !A_valid && C_margin >= 0.15 ("c_only")');
-  {
-    // A emitted an invalid chunk ID not in sourceChunks
-    const res = await attributionArbiter.resolveParagraphAttribution({
-      paragraph: 'Clear match for first chunk.',
-      A_claim: { weights: { 'chk-hallucinated-99': 1.0 } },
-      C_signal: {
-        top1: 0.85,
-        top2: 0.55,
-        margin: 0.30,
+        top1: 0.38,
+        top2: 0.28,
+        margin: 0.10,
         top1ChunkId: 'chk-alpha-1',
-        weights: { 'chk-alpha-1': 0.8, 'chk-alpha-2': 0.2 },
+        weights: { 'chk-alpha-1': 0.70, 'chk-alpha-2': 0.30 },
       },
       source_chunks: sourceChunks,
       options: { fast: true },
     });
 
-    assert.strictEqual(res.method, 'c_only');
-    assert.strictEqual(res.confidence, 'medium');
-    assert.strictEqual(res.grounded, true);
-    assert.deepStrictEqual(res.chunk_ids, ['chk-alpha-1']);
-    console.log('  ✓ Case 4: Invalid A with decisive C margin accepted C directly.');
-  }
-
-  // --------------------------------------------------------------------------
-  // Test 6: Case 5 - !A_valid && C_margin < 0.15 ("b_after_invalid_a")
-  // --------------------------------------------------------------------------
-  console.log('Test 6: Case 5 - !A_valid && C_margin < 0.15 ("b_after_invalid_a")');
-  {
-    const res = await attributionArbiter.resolveParagraphAttribution({
-      paragraph: 'Ambiguous passage with invalid A claim.',
-      A_claim: { weights: { 'chk-hallucinated-99': 1.0 } },
-      C_signal: {
-        top1: 0.72,
-        top2: 0.68,
-        margin: 0.04,
-        top1ChunkId: 'chk-alpha-1',
-        weights: { 'chk-alpha-1': 0.52, 'chk-alpha-2': 0.48 },
-      },
-      source_chunks: sourceChunks,
-      options: { fast: true },
-    });
-
-    assert.strictEqual(res.method, 'b_after_invalid_a');
+    assert.strictEqual(res.method, 'b_weak_c');
     assert.strictEqual(res.confidence, 'low');
     assert.strictEqual(res.grounded, true);
-    console.log('  ✓ Case 5: Invalid A with narrow C margin triggered B with low confidence.');
+    console.log('  ✓ Test 4: Low C similarity triggers b_weak_c with low confidence.');
   }
 
   // --------------------------------------------------------------------------
-  // Test 7: Case 6 - A_missing && C_margin >= 0.15 ("c_only")
+  // Test 5: C.top1 < 0.30 -> \"ungrounded\"
   // --------------------------------------------------------------------------
-  console.log('Test 7: Case 6 - A_missing && C_margin >= 0.15 ("c_only")');
+  console.log('Test 5: C.top1 < 0.30 -> \"ungrounded\"');
   {
     const res = await attributionArbiter.resolveParagraphAttribution({
-      paragraph: 'Strong embedding match with no A citations.',
-      A_claim: null,
+      paragraph: 'Completely ungrounded paragraph with irrelevant contents.',
+      A_claim: { weights: { 'chk-alpha-1': 1.0 } },
       C_signal: {
-        top1: 0.81,
-        top2: 0.50,
-        margin: 0.31,
-        top1ChunkId: 'chk-alpha-2',
-        weights: { 'chk-alpha-2': 0.85, 'chk-alpha-1': 0.15 },
-      },
-      source_chunks: sourceChunks,
-      options: { fast: true },
-    });
-
-    assert.strictEqual(res.method, 'c_only');
-    assert.strictEqual(res.confidence, 'medium');
-    assert.strictEqual(res.grounded, true);
-    assert.deepStrictEqual(res.chunk_ids, ['chk-alpha-2']);
-    console.log('  ✓ Case 6: Missing A with decisive C margin accepted C.');
-  }
-
-  // --------------------------------------------------------------------------
-  // Test 8: Case 7 - A_missing && C_margin < 0.15 ("b_after_missing_a")
-  // --------------------------------------------------------------------------
-  console.log('Test 8: Case 7 - A_missing && C_margin < 0.15 ("b_after_missing_a")');
-  {
-    const res = await attributionArbiter.resolveParagraphAttribution({
-      paragraph: 'Ambiguous passage with no A markers.',
-      A_claim: { weights: {} },
-      C_signal: {
-        top1: 0.69,
-        top2: 0.65,
-        margin: 0.04,
+        top1: 0.22,
+        top2: 0.15,
+        margin: 0.07,
         top1ChunkId: 'chk-alpha-1',
-        weights: { 'chk-alpha-1': 0.51, 'chk-alpha-2': 0.49 },
+        weights: { 'chk-alpha-1': 0.60, 'chk-alpha-2': 0.40 },
       },
       source_chunks: sourceChunks,
       options: { fast: true },
     });
 
-    assert.strictEqual(res.method, 'b_after_missing_a');
-    assert.strictEqual(res.confidence, 'low');
-    assert.strictEqual(res.grounded, true);
-    console.log('  ✓ Case 7: Missing A with narrow C margin fired B with low confidence.');
+    assert.strictEqual(res.method, 'ungrounded');
+    assert.strictEqual(res.confidence, 'none');
+    assert.strictEqual(res.grounded, false);
+    assert.strictEqual(res.chunk_ids.length, 0);
+    console.log('  ✓ Test 5: C.top1 < 0.30 marked ungrounded without firing B.');
   }
 
   // --------------------------------------------------------------------------
-  // Test 9: Database Persistence & AttributionRepository
+  // Test 6: Database Persistence & AttributionRepository
   // --------------------------------------------------------------------------
-  console.log('Test 9: Database Persistence & AttributionRepository');
+  console.log('Test 6: Database Persistence & AttributionRepository');
   {
     const testRepId = `rep-test-persistence-${Date.now()}`;
     const db = getDatabase();
@@ -264,7 +181,7 @@ async function runTests() {
         segments: [{ sentence_start: 0, sentence_end: 1, chunk_id: 'chk-alpha-1', confidence: 0.92 }],
         source_chunk_ids: ['chk-alpha-1'],
         weights: { 'chk-alpha-1': 1.0 },
-        method: 'a_verified_by_c',
+        method: 'c_primary',
         confidence: 'high',
         grounded: true,
         verified_at: new Date().toISOString(),
@@ -278,7 +195,7 @@ async function runTests() {
         segments: [{ sentence_start: 0, sentence_end: 0, chunk_id: 'chk-alpha-2', confidence: 0.77 }],
         source_chunk_ids: ['chk-alpha-2'],
         weights: { 'chk-alpha-2': 1.0 },
-        method: 'c_only',
+        method: 'c_verified_by_a',
         confidence: 'medium',
         grounded: true,
         verified_at: new Date().toISOString(),
@@ -292,9 +209,9 @@ async function runTests() {
 
     const fetched = attributionRepository.getByRepresentationId(testRepId);
     assert.strictEqual(fetched.length, 2);
-    assert.strictEqual(fetched[0].method, 'a_verified_by_c');
+    assert.strictEqual(fetched[0].method, 'c_primary');
     assert.strictEqual(fetched[0].grounded, true);
-    assert.strictEqual(fetched[1].method, 'c_only');
+    assert.strictEqual(fetched[1].method, 'c_verified_by_a');
 
     const delCount = attributionRepository.deleteByRepresentationId(testRepId);
     assert.strictEqual(delCount, 2, 'Delete must remove the 2 rows');
@@ -318,7 +235,7 @@ async function runTests() {
         segments: [],
         source_chunk_ids: [],
         weights: {},
-        method: 'c_only',
+        method: 'c_primary',
         confidence: 'high',
         grounded: true,
       },
@@ -335,9 +252,9 @@ async function runTests() {
   }
 
   // --------------------------------------------------------------------------
-  // Test 10: End-to-End ProvenanceResolver Contract
+  // Test 7: End-to-End ProvenanceResolver Contract
   // --------------------------------------------------------------------------
-  console.log('Test 10: End-to-End ProvenanceResolver Contract');
+  console.log('Test 7: End-to-End ProvenanceResolver Contract');
   {
     // Create temporary book and chunks for full end-to-end verification
     const bookId = `book-test-prov-${Date.now()}`;
