@@ -59,21 +59,34 @@ async function runTests() {
   // Test 3: Auto-synthesis on import
   // --------------------------------------------------------------------------
   console.log('Test 3: Auto-synthesis on import');
-  // Generate a substantial synthetic book with 5 chapters and > 2500 words
-  const longParagraph = `Machine learning systems and distributed architectures require rigorous data preparation, systematic evaluation metrics, and fault-tolerant state machine coordination. As algorithms scale across high-dimensional parameter spaces, numerical methods including gradient descent, stochastic gradient descent, and ordinary least squares minimization establish empirical foundations for predictive accuracy. Furthermore, cross-validation, regularization penalties, and robust outlier winsorization safeguard model generalization against catastrophic overfitting and data drift anomalies across multi-tenant production clusters.\n\n`;
+  // Generate a substantial synthetic book with 5 chapters and > 2500 words of diverse content
+  const p1 = `Machine learning systems and distributed architectures require rigorous data preparation, systematic evaluation metrics, and fault-tolerant state machine coordination. As algorithms scale across high-dimensional parameter spaces, numerical methods including gradient descent, stochastic gradient descent, and ordinary least squares minimization establish empirical foundations for predictive accuracy. Furthermore, cross-validation, regularization penalties, and robust outlier winsorization safeguard model generalization against catastrophic overfitting and data drift anomalies across multi-tenant production clusters.\n\n`;
+
+  const p2 = `Mathematical foundations for large-scale model optimization depend on numerical stability across high-dimensional non-convex parameter spaces. First-order gradient methods calculate objective surface slopes through reverse-mode automatic differentiation, guiding iterative parameter adjustments toward empirical loss minima. Stochastic approximations replace prohibitively expensive full-dataset gradient computations with minibatch estimates, introducing beneficial stochastic noise that helps optimization trajectories escape suboptimal local saddles. Adaptive learning rate algorithms dynamically scale step sizes based on historical gradient moments.\n\n`;
+
+  const p3 = `Data engineering pipelines establish the critical evidentiary substrate upon which machine learning models construct inferential representations. Raw incoming data streams exhibit pervasive real-world corruptions including missing attribute values, malformed temporal stamps, multimodal sensor noise, and extreme numerical outliers. Automated cleansing stages apply statistical winsorization, mean-imputation, and robust z-score filtering to standardize feature distributions without discarding valuable boundary phenomena. Categorical attributes undergo one-hot projection or dense target encoding.\n\n`;
+
+  const p4 = `Distributed model training strategies partition either data batches or model parameters across interconnected graphic processing units. Data parallelism replicates the entire model across all workers, partitioning the input minibatch so each device processes a disjoint slice and synchronizes gradients via ring-allreduce primitives. In contrast, when single-model parameter memory exceeds individual accelerator limits, tensor parallelism divides individual matrix multiplication operations across cooperative tensor cores. Pipeline parallelism slices model layers into sequential execution stages.\n\n`;
+
+  const p5 = `Continuous production evaluation requires comprehensive observability spanning predictive quality, inference latency percentiles, and input data stability. Standard offline metrics like accuracy, cross-entropy loss, and receiver operating characteristic curves fail to capture real-time operational degradation in non-stationary environments. Production monitoring telemetry tracks statistical drift using Kolmogorov-Smirnov tests and population stability indices to flag shifts between baseline training corpora and live inference inputs.\n\n`;
+
+  const p6 = `Online inference architectures and serving infrastructure balance response latency, resource utilization, and throughput under fluctuating traffic demands. Modern serving engines execute dynamic request batching, grouping incoming inference requests on the fly into optimal tensor batches without violating tight client deadlines. Model quantization converts 32-bit floating point weights into int8 or int4 representations, drastically reducing memory footprints and accelerating throughput with negligible degradation in task accuracy.\n\n`;
+
+  const block = p1 + p2 + p3 + p4 + p5 + p6;
+  const chText = block.repeat(5);
 
   const sampleMarkdown = [
     '# Practical Distributed Machine Learning\n\n',
     '## Chapter 1: Introduction to Scalable Intelligence\n\n',
-    longParagraph.repeat(30),
+    chText,
     '## Chapter 2: Mathematics for Large-Scale Optimization\n\n',
-    longParagraph.repeat(30),
+    chText,
     '## Chapter 3: Data Preparation and Cleansing Pipelines\n\n',
-    longParagraph.repeat(30),
+    chText,
     '## Chapter 4: Distributed Training and Model Parallelism\n\n',
-    longParagraph.repeat(30),
+    chText,
     '## Chapter 5: Evaluation Metrics and Production Monitoring\n\n',
-    longParagraph.repeat(30),
+    chText,
   ].join('');
 
   const importResult = await bookService.importBook({

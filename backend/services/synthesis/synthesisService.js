@@ -52,13 +52,6 @@ class SynthesisService {
     }
 
     // Step b: Build compression context
-    const targetWordCount = typeof chapter.targetWordCount === 'number' && chapter.targetWordCount > 0
-      ? chapter.targetWordCount
-      : 300;
-    const M = targetWordCount;
-    const hardCeiling = M + 30;
-    const hardFloor = Math.max(0, M - 30);
-
     const context = contextBuilder.buildSynthesisContext(chapter, chunks);
     const K = chunks.length;
 
@@ -68,12 +61,74 @@ class SynthesisService {
       totalSourceWords += text.trim().split(/\s+/).filter(Boolean).length;
     }
     const N = totalSourceWords;
-    const ratio = (N > 0 && M > 0) ? (N / M).toFixed(1) : '7.0';
+    const sourceMaterial = context.sourceMaterialText || context.contextText || '';
+
+    // Step c1: Phase A - Assessment call (estimate needed words and density)
+    let assessedTargetWords = typeof chapter.targetWordCount === 'number' && chapter.targetWordCount > 0
+      ? chapter.targetWordCount
+      : 300;
+    let assessedDensity = 'medium';
+    let assessedReasoning = '';
+
+    if (!options.fast && aiService.isAvailable && aiService.isAvailable()) {
+      const assessmentPrompt = `Read the following source. Estimate how many words are needed to preserve every distinct concept, argument, example, and factual claim in a compressed form. Do not pad. Do not omit. Return JSON on one line: {"needed_words": <integer>, "density": "low|medium|high|extreme", "reasoning": "<one sentence>"}
+
+SOURCE MATERIAL:
+${sourceMaterial}`;
+
+      try {
+        const assessResponse = await aiService.generateText(assessmentPrompt, {
+          temperature: 0.2,
+          maxTokens: 250,
+          reasoning: { enabled: false },
+        });
+
+        if (assessResponse && assessResponse.text) {
+          let text = assessResponse.text.trim();
+          const jsonMatch = text.match(/\{[\s\S]*?\}/);
+          if (jsonMatch) text = jsonMatch[0];
+          try {
+            const parsed = JSON.parse(text);
+            if (typeof parsed.needed_words === 'number' && Number.isFinite(parsed.needed_words)) {
+              assessedTargetWords = Math.round(parsed.needed_words);
+            }
+            if (typeof parsed.density === 'string' && parsed.density.trim()) {
+              assessedDensity = parsed.density.trim().toLowerCase();
+            }
+            if (typeof parsed.reasoning === 'string') {
+              assessedReasoning = parsed.reasoning.trim();
+            }
+          } catch (jsonErr) {
+            console.warn('[SynthesisService] Phase A JSON parse failed:', jsonErr.message);
+          }
+        }
+      } catch (assessErr) {
+        console.warn('[SynthesisService] Phase A assessment call failed:', assessErr.message);
+      }
+    }
+
+    // Sanity clamps on assessed_target_words:
+    // - Floor: 150 words minimum
+    // - Ceiling: Math.round(source_words * 0.25) — never below 4:1 compression
+    // - If assessed < 150, use 150, log a warning
+    // - If assessed > source_words * 0.25, use source_words * 0.25, log a warning
+    const maxAllowedWords = Math.max(150, Math.round(N * 0.25));
+    if (assessedTargetWords < 150) {
+      console.warn(`[SynthesisService] Assessed target words (${assessedTargetWords}) below floor of 150. Clamping to 150.`);
+      assessedTargetWords = 150;
+    } else if (assessedTargetWords > maxAllowedWords) {
+      console.warn(`[SynthesisService] Assessed target words (${assessedTargetWords}) exceeds ceiling of ${maxAllowedWords} (source_words * 0.25). Clamping to ${maxAllowedWords}.`);
+      assessedTargetWords = maxAllowedWords;
+    }
+
+    const hardCeiling = Math.round(assessedTargetWords * 1.2);
+    const hardFloor = Math.round(assessedTargetWords * 0.8);
+    const ratio = (N > 0 && assessedTargetWords > 0) ? (N / assessedTargetWords).toFixed(1) : '7.0';
 
     const compressionPrompt = `You are compressing a source text, not summarizing or synthesizing it.
 
 INPUT: ${N} source words across ${K} chunks.
-OUTPUT: exactly ${M} words. Absolute maximum: ${hardCeiling} words. Do NOT exceed ${hardCeiling} words under any circumstance. If you reach ${hardCeiling} words, stop immediately — do not write a conclusion or wrap-up sentence.
+Compress this source to exactly ${assessedTargetWords} words. Hard ceiling: ${hardCeiling}. Hard floor: ${hardFloor}.
 Compression ratio for this task: ~${ratio}:1.
 
 Rules:
@@ -88,7 +143,7 @@ Use the source's own structure denser, not a rewritten structure.
 
 Every sentence must cite its source chunk at the end: [Source N].
 
-If M is too small for the source's information density, emit [INSUFFICIENT_M: needs ~X words] as the final line instead of exceeding the ceiling.
+If ${assessedTargetWords} words is too small for the source's information density, emit [INSUFFICIENT_M: needs ~X words] as the final line instead of exceeding the ceiling.
 
 Do NOT exceed ${hardCeiling} words. This is a hard ceiling, not a target.
 
@@ -97,11 +152,11 @@ Structure the output as 3–5 paragraphs separated by blank lines. Each paragrap
 Final enforcement: count your own words. If you would exceed ${hardCeiling}, cut from the middle, not the end. The last sentence must be complete.
 
 SOURCE MATERIAL:
-${context.sourceMaterialText || context.contextText}
+${sourceMaterial}
 
 OUTPUT:`;
 
-    // Step c: Call AI provider or deterministic grounded compressor
+    // Step c2: Call AI provider or deterministic grounded compressor
     let rawCompression = '';
     let providerName = 'deterministic_synthesizer';
     let modelName = 'smart_reader_v4';
@@ -115,46 +170,56 @@ OUTPUT:`;
       try {
         let response = await aiService.generateText(compressionPrompt, {
           temperature: 0.3,
-          maxTokens: Math.ceil(M * 2.5),
+          maxTokens: Math.ceil(assessedTargetWords * 2.5),
           reasoning: { enabled: false },
         });
 
-        // 1b. Check finish_reason for token truncation
-        if (response && response.finish_reason === 'length') {
-          console.warn('[Synthesis] Output truncated at token ceiling, retrying with higher maxTokens');
-          const retryTruncation = await aiService.generateText(compressionPrompt, {
-            temperature: 0.2,
-            maxTokens: Math.ceil(M * 3),
-            reasoning: { enabled: false },
-          });
-          if (retryTruncation && retryTruncation.text) {
-            response = retryTruncation;
-          }
-        }
-
         finishReason = response?.finish_reason || 'stop';
         truncated = finishReason === 'length';
-        
-        // Post-generation validation
+        if (truncated) {
+          console.warn('[SynthesisService] Output truncated at token ceiling (finish_reason: length). Accepting truncated output.');
+        }
+
+        // Post-generation validation & single tightening retry if outside [assessed * 0.8, assessed * 1.2]
         if (response && response.text && response.text.trim().length > 0) {
-          let wordCount = response.text.trim().split(/\s+/).length;
-          if (wordCount < 180 || wordCount > 450) {
-            console.warn(`[SynthesisService] Word count ${wordCount} out of bounds, retrying with compression prompt...`);
-            const retryResponse = await aiService.generateText(compressionPrompt, {
+          let wordCount = response.text.trim().split(/\s+/).filter(Boolean).length;
+          if (wordCount < hardFloor || wordCount > hardCeiling) {
+            console.warn(`[SynthesisService] Word count ${wordCount} outside [${hardFloor}, ${hardCeiling}] (assessed: ${assessedTargetWords}). Retrying with tightening prompt...`);
+            const retryPrompt = `Your output was ${wordCount} words. Required: ${assessedTargetWords}. Rewrite to hit the target exactly, preserving every distinct concept.
+
+Rules:
+Preserve every distinct concept, argument, example, and factual claim from the source.
+Structure the output as 3–5 paragraphs separated by blank lines.
+Every sentence must cite its source chunk at the end: [Source N].
+Do not exceed ${hardCeiling} words.
+
+SOURCE MATERIAL:
+${sourceMaterial}
+
+OUTPUT:`;
+
+            const retryResponse = await aiService.generateText(retryPrompt, {
               temperature: 0.2,
-              maxTokens: Math.ceil(M * 2.5),
+              maxTokens: Math.ceil(assessedTargetWords * 2.5),
               reasoning: { enabled: false },
             });
-            if (retryResponse && retryResponse.text) {
+
+            if (retryResponse && retryResponse.text && retryResponse.text.trim().length > 0) {
               response = retryResponse;
               finishReason = response.finish_reason || 'stop';
               truncated = finishReason === 'length';
-              wordCount = response.text.trim().split(/\s+/).length;
-              if (wordCount < 180 || wordCount > 450) {
+              wordCount = response.text.trim().split(/\s+/).filter(Boolean).length;
+              if (wordCount < hardFloor || wordCount > hardCeiling) {
                 compression_violation = true;
-                console.warn(`[SynthesisService] Retry also out of bounds (${wordCount}). Flagging compression_violation.`);
+                console.warn(`[SynthesisService] Retry word count ${wordCount} still outside [${hardFloor}, ${hardCeiling}]. Flagging compression_violation.`);
+              } else {
+                compression_violation = false;
               }
+            } else {
+              compression_violation = true;
             }
+          } else {
+            compression_violation = false;
           }
         }
 
@@ -245,8 +310,16 @@ OUTPUT:`;
     }
 
     // Step d2: Strip [Source N] markers from displayed content
+    // Step d2: Extract [INSUFFICIENT_M] marker and strip markers from displayed content
+    let insufficientMarker = null;
+    const insufficientMatch = rawCompression.match(/\[INSUFFICIENT_M[^\]]*\]/i);
+    if (insufficientMatch) {
+      insufficientMarker = insufficientMatch[0].trim();
+    }
+
     let cleanContent = rawCompression.replace(/\s*\[Source\s+[\d\s,–-]+\]/gi, '').trim();
     cleanContent = cleanContent.replace(/\[Source\s*$/i, '').trim();
+    cleanContent = cleanContent.replace(/\s*\[INSUFFICIENT_M[^\]]*\]/gi, '').trim();
 
     // Step d3: Normalize output into canonical blocks
     const canonicalBlocks = aiNormalizer.normalize(cleanContent);
@@ -303,17 +376,21 @@ OUTPUT:`;
       model: modelName,
       generatedAt: new Date().toISOString(),
       actual_word_count: actualWordCount,
-      target_word_count: M,
+      target_word_count: assessedTargetWords,
+      assessed_target_words: assessedTargetWords,
+      assessed_density: assessedDensity,
       source_word_count: N,
       claimed_attributions: claimedAttributions,
       truncated,
       finish_reason: finishReason,
+      ...(insufficientMarker ? { insufficient_marker: insufficientMarker } : {}),
       ...(fellBack ? {
         fell_back: true,
         fallback_reason: fallbackReason || 'provider_unavailable',
         ...(isDuplicate ? { duplicate: true } : {}),
       } : {}),
       ...(compression_violation ? { compression_violation: true } : {}),
+      compression_violation: compression_violation === true,
     };
 
     const savedRepresentation = chapterRepository.saveRepresentation({

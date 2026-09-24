@@ -31,7 +31,7 @@ Smart Reader is a **reading and comprehension platform**, not a lossy summarizat
 | Representation | Behavior |
 |---|---|
 | **Original Reading** | **Immutable source.** The text exactly as uploaded. Nothing in the system modifies it. |
-| **Smart Reading** | **Derived lens.** A compressed representation — 250–360 words per ~1,500–2,500-word source unit — with every sentence traceable to the specific source chunks it draws from. |
+| **Smart Reading** | **Derived lens.** A compressed representation — 240–500 words per Smart Chapter (dynamic) per ~1,500–2,500-word source unit — with every sentence traceable to the specific source chunks it draws from. |
 
 This is the **two-representation invariant**:
 
@@ -53,8 +53,8 @@ Smart Reader implements **loss-bounded semantic compression**. The compression r
 | Metric | Target |
 |---|---|
 | Source processing unit | 1,500–2,500 words |
-| Smart Chapter output | 250–360 words (hard bounds 180–450) |
-| Target compression ratio | ~7:1 |
+| Smart Chapter output | 240–500 words per Smart Chapter (dynamic) |
+| Compression ratio | 5:1 to 8:1 compression ratio, chosen per source by the system |
 | Observed ratio band (canonical fixture) | 4.82 – 7.28 |
 
 > Full distinction: [`docs/PRODUCT_VISION.md`](./docs/PRODUCT_VISION.md) §"Compression, not summarization".
@@ -137,7 +137,7 @@ flowchart LR
 
     subgraph PRESENTATION [" 4. Dual-Track Reader "]
         Canon ===>|"Immutable Paper"| OrigReading["Original Reading\n(Source Material)"]
-        Compressor ===>|"Tinted Lens"| SmartReading["Smart Reading\n(250–360w Chapters)"]
+        Compressor ===>|"Tinted Lens"| SmartReading["Smart Reading\n(240–500w Chapters)"]
         SmartReading -.->|"Clickable Provenance"| OrigReading
     end
 ```
