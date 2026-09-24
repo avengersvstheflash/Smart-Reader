@@ -252,6 +252,23 @@ OUTPUT:`;
         book.id
       );
 
+      // 5. Run bibliographic extraction in the same CLASSIFICATION job lifecycle
+      try {
+        jobRepository.update(jobId, { progress: 85 });
+        const bookBibliographer = require('./bookBibliographer');
+        await bookBibliographer.extractBibliographic(book.id, {
+          jobId,
+          fast: options.fast,
+          skipJobCreation: true,
+        });
+      } catch (biblioErr) {
+        console.warn(
+          `[BookClassifier] Bibliographic extraction failed for ${book.id}:`,
+          biblioErr.message
+        );
+      }
+
+      jobRepository.update(jobId, { progress: 100 });
       jobRepository.complete(jobId);
 
       return classificationData;
@@ -260,6 +277,14 @@ OUTPUT:`;
       jobRepository.fail(jobId, err.message);
       throw err;
     }
+  }
+
+  /**
+   * Extract bibliographic metadata for a book (delegates to BookBibliographer)
+   */
+  async classifyBibliographic(bookId, options = {}) {
+    const bookBibliographer = require('./bookBibliographer');
+    return bookBibliographer.extractBibliographic(bookId, options);
   }
 
   /**

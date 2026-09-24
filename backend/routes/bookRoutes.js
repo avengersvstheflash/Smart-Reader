@@ -167,6 +167,23 @@ router.post('/:id/classify', async (req, res, next) => {
   }
 });
 
+const bookBibliographer = require('../services/ai/bookBibliographer');
+
+// POST /api/books/:id/bibliographic - extract or refresh bibliographic metadata
+router.post('/:id/bibliographic', async (req, res, next) => {
+  try {
+    const bibliographic = await bookBibliographer.extractBibliographic(req.params.id, req.body || {});
+    const book = bookService.getBook(req.params.id);
+    res.json({
+      success: true,
+      bibliographic,
+      book,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Failed to extract bibliographic metadata.' });
+  }
+});
+
 // POST /api/books/:id/synopsis - generate grounded editorial synopsis
 router.post('/:id/synopsis', async (req, res, next) => {
   try {

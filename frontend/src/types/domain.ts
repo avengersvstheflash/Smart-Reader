@@ -55,6 +55,24 @@ export interface BookClassification {
   classifiedAt?: string;
 }
 
+export interface BookBibliographic {
+  publisher?: string | null;
+  publication_year?: number | null;
+  publicationYear?: number | null;
+  isbn?: string | null;
+  edition?: string | null;
+  authors?: string[];
+  editors?: string[];
+  copyright_holder?: string | null;
+  copyrightHolder?: string | null;
+  language?: string | null;
+  subtitle?: string | null;
+  series?: string | null;
+  fell_back?: boolean;
+  fallback_reason?: string;
+  extractedAt?: string;
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -71,6 +89,7 @@ export interface Book {
   sourceUrl?: string;
   hasSmartContent?: boolean;
   classification?: BookClassification;
+  bibliographic?: BookBibliographic;
   aiProvider?: string;
 }
 
@@ -101,24 +120,45 @@ export interface RawBook {
   hasSmartContent?: boolean;
   ai_provider?: string;
   aiProvider?: string;
-  metadata_json?: string | { classification?: BookClassification; [key: string]: unknown };
-  metadata?: { classification?: BookClassification; [key: string]: unknown };
+  metadata_json?: string | { classification?: BookClassification; bibliographic?: BookBibliographic; [key: string]: unknown };
+  metadata?: { classification?: BookClassification; bibliographic?: BookBibliographic; [key: string]: unknown };
   classification?: BookClassification;
+  bibliographic?: BookBibliographic;
 }
 
 export function normalizeBook(raw: RawBook): Book {
   let classification: BookClassification | undefined;
+  let bibliographic: BookBibliographic | undefined;
+
   if (raw.classification) {
     classification = raw.classification;
-  } else if (raw.metadata_json) {
+  }
+  if (raw.bibliographic) {
+    bibliographic = raw.bibliographic;
+  }
+
+  if (raw.metadata_json) {
     try {
       const parsed = typeof raw.metadata_json === 'string' ? JSON.parse(raw.metadata_json) : raw.metadata_json;
-      if (parsed && parsed.classification) {
-        classification = parsed.classification;
+      if (parsed) {
+        if (!classification && parsed.classification) {
+          classification = parsed.classification;
+        }
+        if (!bibliographic && parsed.bibliographic) {
+          bibliographic = parsed.bibliographic;
+        }
       }
     } catch {}
-  } else if (raw.metadata && raw.metadata.classification) {
-    classification = raw.metadata.classification;
+  }
+
+  if (raw.metadata) {
+    const meta = raw.metadata as Record<string, unknown>;
+    if (!classification && meta.classification) {
+      classification = meta.classification as BookClassification;
+    }
+    if (!bibliographic && meta.bibliographic) {
+      bibliographic = meta.bibliographic as BookBibliographic;
+    }
   }
 
   return {
@@ -137,6 +177,7 @@ export function normalizeBook(raw: RawBook): Book {
     sourceUrl: raw.sourceUrl || raw.source_url,
     hasSmartContent: Boolean(raw.hasSmartContent ?? raw.has_smart_content ?? false),
     classification,
+    bibliographic,
     aiProvider: raw.aiProvider || raw.ai_provider,
   };
 }

@@ -401,6 +401,73 @@ export default function BookDetailsRoute() {
         </div>
       </section>
 
+      {/* ── BIBLIOGRAPHIC PANEL ── */}
+      {(() => {
+        const biblio = book.bibliographic;
+        if (!biblio) return null;
+
+        const pubYear = biblio.publication_year ?? biblio.publicationYear;
+        const hasFields = Boolean(
+          biblio.publisher ||
+          pubYear ||
+          biblio.isbn ||
+          biblio.edition ||
+          biblio.language
+        );
+
+        if (!hasFields) return null;
+
+        return (
+          <section aria-labelledby="bibliographic-heading">
+            <div className="rounded-md border border-line bg-card p-5 transition-colors space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span id="bibliographic-heading" className="text-micro font-bold tracking-wider uppercase text-faint select-none">
+                  SOURCE · BIBLIOGRAPHY
+                </span>
+                {biblio.fell_back && (
+                  <span className="text-micro font-medium text-ink-muted/70 select-none">
+                    Heuristic fallback
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-0.5" aria-label="Bibliographic details">
+                {biblio.publisher && (
+                  <span className="inline-flex items-center gap-1.5 text-caption font-medium px-2.5 py-1 rounded bg-subtle text-ink">
+                    <span className="text-micro font-semibold uppercase text-ink-muted/80 tracking-wider">Publisher</span>
+                    <span>{biblio.publisher}</span>
+                  </span>
+                )}
+                {pubYear && (
+                  <span className="inline-flex items-center gap-1.5 text-caption font-medium px-2.5 py-1 rounded bg-subtle text-ink">
+                    <span className="text-micro font-semibold uppercase text-ink-muted/80 tracking-wider">Year</span>
+                    <span>{pubYear}</span>
+                  </span>
+                )}
+                {biblio.isbn && (
+                  <span className="inline-flex items-center gap-1.5 text-caption font-medium px-2.5 py-1 rounded bg-subtle text-ink">
+                    <span className="text-micro font-semibold uppercase text-ink-muted/80 tracking-wider">ISBN</span>
+                    <span className="font-mono text-ui-sm">{biblio.isbn}</span>
+                  </span>
+                )}
+                {biblio.edition && (
+                  <span className="inline-flex items-center gap-1.5 text-caption font-medium px-2.5 py-1 rounded bg-subtle text-ink">
+                    <span className="text-micro font-semibold uppercase text-ink-muted/80 tracking-wider">Edition</span>
+                    <span>{biblio.edition}</span>
+                  </span>
+                )}
+                {biblio.language && (
+                  <span className="inline-flex items-center gap-1.5 text-caption font-medium px-2.5 py-1 rounded bg-subtle text-ink">
+                    <span className="text-micro font-semibold uppercase text-ink-muted/80 tracking-wider">Language</span>
+                    <span className="uppercase font-semibold">{biblio.language}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </section>
+        );
+      })()}
+
       {/* ── TWO-COLUMN BODY (65/35 split at lg+; stacked on mobile) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* LEFT COLUMN: CHAPTERS (65% / col-span-8) */}
