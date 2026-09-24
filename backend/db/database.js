@@ -143,6 +143,25 @@ function initSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_editorial_outlines_collection ON editorial_outlines(collectionId);
 
     CREATE INDEX IF NOT EXISTS idx_book_representations ON book_representations(book_id, type);
+
+    CREATE TABLE IF NOT EXISTS paragraph_attributions (
+      id                TEXT PRIMARY KEY,
+      representation_id TEXT NOT NULL,
+      paragraph_index   INTEGER NOT NULL,
+      segments_json     TEXT NOT NULL,
+      source_chunk_ids  TEXT NOT NULL,
+      weights_json      TEXT NOT NULL,
+      method            TEXT NOT NULL,
+      confidence        TEXT NOT NULL,
+      grounded          BOOLEAN NOT NULL,
+      verified_at       TEXT NOT NULL,
+      fell_back         BOOLEAN NOT NULL DEFAULT 0,
+      fallback_reason   TEXT,
+      FOREIGN KEY (representation_id) REFERENCES chapter_representations(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_para_attr_rep ON paragraph_attributions(representation_id);
+    CREATE INDEX IF NOT EXISTS idx_para_attr_rep_idx ON paragraph_attributions(representation_id, paragraph_index);
   `);
 
   // Migrate chapter_representations if foreign key constraint blocks cross_source outline chapters
@@ -286,6 +305,7 @@ function resetAndSeedDatabase(db) {
   
   db.transaction(() => {
     db.exec(`
+      DELETE FROM paragraph_attributions;
       DELETE FROM semantic_chunks;
       DELETE FROM book_representations;
       DELETE FROM book_supporting_materials;

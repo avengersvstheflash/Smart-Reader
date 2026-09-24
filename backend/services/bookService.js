@@ -440,6 +440,17 @@ class BookService {
                     `[Import] Auto-synthesized ${result.synthesizedCount}/3 chapters for ${book.id}`
                   );
                 }
+
+                // Non-blocking PROVENANCE_VERIFY pass across synthesized chapters
+                const provenanceResolver = require('./semantic/provenanceResolver');
+                provenanceResolver.triggerVerificationForBook(book.id)
+                  .then((pvRes) => {
+                    console.log(`[Import] Provenance verified for ${book.id}: ${pvRes.verifiedCount} chapter(s)`);
+                  })
+                  .catch((pvErr) => {
+                    console.warn(`[Import] Provenance verification warning for ${book.id}:`, pvErr.message);
+                  });
+
                 return result;
               })
               .catch((err) => {
