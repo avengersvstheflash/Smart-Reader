@@ -4,23 +4,19 @@
 
 > Ingests PDFs, EPUBs, web articles, and raw text, then produces a navigable **Smart Reading** layer where every compressed sentence traces deterministically to its source passage.
 
-<p align="left">
-  <a href="[https://nodejs.org/](https://nodejs.org/)"><img src="[https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)" alt="Node.js 22" /></a>
-  <a href="[https://react.dev/](https://react.dev/)"><img src="[https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)" alt="React 18.3" /></a>
-  <a href="[https://vitejs.dev/](https://vitejs.dev/)"><img src="[https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white)" alt="Vite 5.4" /></a>
-  <a href="[https://www.typescriptlang.org/](https://www.typescriptlang.org/)"><img src="[https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white](https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white)" alt="TypeScript 5.3" /></a>
-  <a href="[https://tailwindcss.com/](https://tailwindcss.com/)"><img src="[https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white)" alt="Tailwind CSS 3.4" /></a>
-  <a href="[https://expressjs.com/](https://expressjs.com/)"><img src="[https://img.shields.io/badge/Express-4.19-000000?logo=express&logoColor=white](https://img.shields.io/badge/Express-4.19-000000?logo=express&logoColor=white)" alt="Express 4.19" /></a>
-  <a href="[https://github.com/WiseLibs/better-sqlite3](https://github.com/WiseLibs/better-sqlite3)"><img src="[https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white](https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white)" alt="SQLite" /></a>
-  <a href="[https://huggingface.co/BAAI/bge-m3](https://huggingface.co/BAAI/bge-m3)"><img src="[https://img.shields.io/badge/Embeddings-BGE--M3_1024d-blue](https://img.shields.io/badge/Embeddings-BGE--M3_1024d-blue)" alt="BGE-M3 Embeddings" /></a>
-</p>
+[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React 18.3](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Vite 5.4](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![TypeScript 5.3](https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS 3.4](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Express 4.19](https://img.shields.io/badge/Express-4.19-000000?logo=express&logoColor=white)](https://expressjs.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3)
+[![BGE-M3 Embeddings](https://img.shields.io/badge/Embeddings-BGE--M3_1024d-blue)](https://huggingface.co/BAAI/bge-m3)
 
-<p align="left">
-  <a href="#test"><img src="[https://img.shields.io/badge/Tests-19%2F19_Passing-3fb950](https://img.shields.io/badge/Tests-19%2F19_Passing-3fb950)" alt="Tests 19/19 Passing" /></a>
-  <a href="#design-philosophy"><img src="[https://img.shields.io/badge/Local--First-enabled-2ea043](https://img.shields.io/badge/Local--First-enabled-2ea043)" alt="Local-First Enabled" /></a>
-  <a href="#roadmap"><img src="[https://img.shields.io/badge/Status-Phase_5_in_progress-blue](https://img.shields.io/badge/Status-Phase_5_in_progress-blue)" alt="Status Phase 5 In Progress" /></a>
-  <a href="./LICENSE"><img src="[https://img.shields.io/badge/License-MIT-yellow.svg](https://img.shields.io/badge/License-MIT-yellow.svg)" alt="MIT License" /></a>
-</p>
+[![Tests 19/19 Passing](https://img.shields.io/badge/Tests-19%2F19_Passing-3fb950)](#test)
+[![Local-First Enabled](https://img.shields.io/badge/Local--First-enabled-2ea043)](#design-philosophy)
+[![Status Phase 5 In Progress](https://img.shields.io/badge/Status-Phase_5_in_progress-blue)](#roadmap)
+[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ---
 
