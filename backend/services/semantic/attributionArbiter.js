@@ -139,9 +139,14 @@ class AttributionArbiter {
       }
     };
 
+    const logAndReturn = (result) => {
+      console.log(`[AttributionArbiter] A_vs_C: ${Number(aVsC.toFixed(4))}, resolved method: ${result.method}`);
+      return result;
+    };
+
     // Case 1: A_valid && A_vs_C >= 0.85
     if (aValid && aVsC >= 0.85) {
-      return {
+      return logAndReturn({
         method: 'a_verified_by_c',
         confidence: 'high',
         grounded: true,
@@ -149,22 +154,22 @@ class AttributionArbiter {
         weights: aWeights,
         fell_back: false,
         fallback_reason: null,
-      };
+      });
     }
 
     // Case 2: A_valid && 0.60 <= A_vs_C < 0.85
     if (aValid && aVsC >= 0.60) {
-      return fireSignalB('b_arbitrated', 'medium');
+      return logAndReturn(await fireSignalB('b_arbitrated', 'medium'));
     }
 
     // Case 3: A_valid && A_vs_C < 0.60
     if (aValid && aVsC < 0.60) {
-      return fireSignalB('b_replaced_a', 'medium');
+      return logAndReturn(await fireSignalB('b_replaced_a', 'medium'));
     }
 
     // Case 4: !A_valid && C_margin >= 0.15
     if (!aValid && !aMissing && cMargin >= 0.15) {
-      return {
+      return logAndReturn({
         method: 'c_only',
         confidence: 'medium',
         grounded: true,
@@ -172,17 +177,17 @@ class AttributionArbiter {
         weights: cAnswer.weights,
         fell_back: false,
         fallback_reason: null,
-      };
+      });
     }
 
     // Case 5: !A_valid && C_margin < 0.15
     if (!aValid && !aMissing && cMargin < 0.15) {
-      return fireSignalB('b_after_invalid_a', 'low');
+      return logAndReturn(await fireSignalB('b_after_invalid_a', 'low'));
     }
 
     // Case 6: A_missing && C_margin >= 0.15
     if (aMissing && cMargin >= 0.15) {
-      return {
+      return logAndReturn({
         method: 'c_only',
         confidence: 'medium',
         grounded: true,
@@ -190,16 +195,16 @@ class AttributionArbiter {
         weights: cAnswer.weights,
         fell_back: false,
         fallback_reason: null,
-      };
+      });
     }
 
     // Case 7: A_missing && C_margin < 0.15
     if (aMissing && cMargin < 0.15) {
-      return fireSignalB('b_after_missing_a', 'low');
+      return logAndReturn(await fireSignalB('b_after_missing_a', 'low'));
     }
 
     // Default safety fallback (should never be reached given matrix coverage)
-    return {
+    return logAndReturn({
       method: 'c_only',
       confidence: 'low',
       grounded: true,
@@ -207,7 +212,7 @@ class AttributionArbiter {
       weights: cAnswer.weights,
       fell_back: true,
       fallback_reason: 'default_matrix_fallback',
-    };
+    });
   }
 
   /**

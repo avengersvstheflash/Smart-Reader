@@ -73,7 +73,7 @@ class SynthesisService {
     const compressionPrompt = `You are compressing a source text, not summarizing or synthesizing it.
 
 INPUT: ${N} source words across ${K} chunks.
-OUTPUT: exactly ${M} words. Hard ceiling: ${hardCeiling}. Hard floor: ${hardFloor}.
+OUTPUT: exactly ${M} words. Absolute maximum: ${hardCeiling} words. Do NOT exceed ${hardCeiling} words under any circumstance. If you reach ${hardCeiling} words, stop immediately — do not write a conclusion or wrap-up sentence.
 Compression ratio for this task: ~${ratio}:1.
 
 Rules:
@@ -94,6 +94,8 @@ Do NOT exceed ${hardCeiling} words. This is a hard ceiling, not a target.
 
 Structure the output as 3–5 paragraphs separated by blank lines. Each paragraph covers one coherent movement of the source. Do not emit the output as a single block.
 
+Final enforcement: count your own words. If you would exceed ${hardCeiling}, cut from the middle, not the end. The last sentence must be complete.
+
 SOURCE MATERIAL:
 ${context.sourceMaterialText || context.contextText}
 
@@ -113,7 +115,7 @@ OUTPUT:`;
       try {
         let response = await aiService.generateText(compressionPrompt, {
           temperature: 0.3,
-          maxTokens: 1000,
+          maxTokens: Math.ceil(M * 2.5),
           reasoning: { enabled: false },
         });
 
@@ -122,7 +124,7 @@ OUTPUT:`;
           console.warn('[Synthesis] Output truncated at token ceiling, retrying with higher maxTokens');
           const retryTruncation = await aiService.generateText(compressionPrompt, {
             temperature: 0.2,
-            maxTokens: 1500,
+            maxTokens: Math.ceil(M * 3),
             reasoning: { enabled: false },
           });
           if (retryTruncation && retryTruncation.text) {
@@ -140,7 +142,7 @@ OUTPUT:`;
             console.warn(`[SynthesisService] Word count ${wordCount} out of bounds, retrying with compression prompt...`);
             const retryResponse = await aiService.generateText(compressionPrompt, {
               temperature: 0.2,
-              maxTokens: 1000,
+              maxTokens: Math.ceil(M * 2.5),
               reasoning: { enabled: false },
             });
             if (retryResponse && retryResponse.text) {
@@ -301,6 +303,7 @@ OUTPUT:`;
       model: modelName,
       generatedAt: new Date().toISOString(),
       actual_word_count: actualWordCount,
+      target_word_count: M,
       source_word_count: N,
       claimed_attributions: claimedAttributions,
       truncated,
