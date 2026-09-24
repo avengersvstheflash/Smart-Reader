@@ -300,7 +300,38 @@ async function runTests() {
     assert.strictEqual(delCount, 2, 'Delete must remove the 2 rows');
     assert.strictEqual(attributionRepository.getByRepresentationId(testRepId).length, 0);
 
-    console.log('  ✓ AttributionRepository batch insert, retrieval, and delete confirmed.');
+    // Verify foreign key ON DELETE CASCADE from chapter_representations
+    const cascadeRepId = 'rep-test-cascade-fk';
+    chapterRepository.saveRepresentation({
+      id: cascadeRepId,
+      chapterId: 'ch-test-cascade',
+      bookId: 'book-sample-lightnovel-1',
+      type: 'EDITORIAL_SYNTHESIS',
+      content: 'Sample content for FK cascade verification.',
+      metadata: {},
+      provenance: [],
+    });
+    attributionRepository.createBatch([
+      {
+        representation_id: cascadeRepId,
+        paragraph_index: 0,
+        segments: [],
+        source_chunk_ids: [],
+        weights: {},
+        method: 'c_only',
+        confidence: 'high',
+        grounded: true,
+      },
+    ]);
+    assert.strictEqual(attributionRepository.getByRepresentationId(cascadeRepId).length, 1);
+    chapterRepository.deleteRepresentation(cascadeRepId);
+    assert.strictEqual(
+      attributionRepository.getByRepresentationId(cascadeRepId).length,
+      0,
+      'Deleting chapter_representation must cascade delete paragraph_attributions'
+    );
+
+    console.log('  ✓ AttributionRepository batch insert, retrieval, delete, and FK ON DELETE CASCADE confirmed.');
   }
 
   // --------------------------------------------------------------------------

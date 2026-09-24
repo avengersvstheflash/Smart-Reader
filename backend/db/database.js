@@ -189,6 +189,39 @@ function initSchema(db) {
     db.pragma('foreign_keys = ON');
   }
 
+  // Migrate paragraph_attributions if foreign key constraint references book_representations
+  const paraAttrSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='paragraph_attributions'").get();
+  if (paraAttrSql && paraAttrSql.sql && paraAttrSql.sql.includes('REFERENCES book_representations')) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS paragraph_attributions_v2 (
+        id                TEXT PRIMARY KEY,
+        representation_id TEXT NOT NULL,
+        paragraph_index   INTEGER NOT NULL,
+        segments_json     TEXT NOT NULL,
+        source_chunk_ids  TEXT NOT NULL,
+        weights_json      TEXT NOT NULL,
+        method            TEXT NOT NULL,
+        confidence        TEXT NOT NULL,
+        grounded          BOOLEAN NOT NULL,
+        verified_at       TEXT NOT NULL,
+        fell_back         BOOLEAN NOT NULL DEFAULT 0,
+        fallback_reason   TEXT,
+        FOREIGN KEY (representation_id) REFERENCES chapter_representations(id) ON DELETE CASCADE
+      );
+      INSERT OR REPLACE INTO paragraph_attributions_v2 (
+        id, representation_id, paragraph_index, segments_json, source_chunk_ids, weights_json, method, confidence, grounded, verified_at, fell_back, fallback_reason
+      )
+      SELECT id, representation_id, paragraph_index, segments_json, source_chunk_ids, weights_json, method, confidence, grounded, verified_at, fell_back, fallback_reason 
+      FROM paragraph_attributions;
+      DROP TABLE paragraph_attributions;
+      ALTER TABLE paragraph_attributions_v2 RENAME TO paragraph_attributions;
+      CREATE INDEX IF NOT EXISTS idx_para_attr_rep ON paragraph_attributions(representation_id);
+      CREATE INDEX IF NOT EXISTS idx_para_attr_rep_idx ON paragraph_attributions(representation_id, paragraph_index);
+    `);
+    db.pragma('foreign_keys = ON');
+  }
+
   // Ensure provenance and synthesisType exist on chapter_representations
   const chapRepCols = db.prepare(`PRAGMA table_info(chapter_representations)`).all();
   if (!chapRepCols.some(c => c.name === 'provenance')) {
