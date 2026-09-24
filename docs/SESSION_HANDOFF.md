@@ -94,7 +94,38 @@
 - **5.3** — Research mode collection view (depends on 5.1)
 - **5.5** — Library polish + UI/UX backlog (see §8)
 - **5.6** — Validation and refine loops (see §7)
-- **5.7** — Python sidecar architecture decision (see §9)
+- **5.7** — Python sidecar architecture decision (see below, also §9)
+
+### Phase 5.7 — Python sidecar (detailed shape)
+
+Split into three sub-phases. The sidecar proves the Node↔Python boundary; OCR ships working; extended formats and routing come after the boundary is proven.
+
+**5.7.1 — Sidecar scaffold + OCR (2 sessions, ships working)**
+- Python process with FastAPI (or bare HTTP) listening on `localhost:8765`
+- Health endpoint: `GET /health` returns which services are enabled
+- OCR endpoint: `POST /ocr` — PaddleOCR or equivalent, fully working
+- Node-side integration: `backend/services/ingestion/ocrService.js` calls the sidecar
+- Fallback: if sidecar is down, OCR-needed PDFs fail with the existing honest error — no regression
+- **Ships: image-only PDFs start working end-to-end.**
+
+**5.7.2 — Discussion + Story keep-holders (1 session, architecture only)**
+- `POST /discussion` → HTTP 501 with `{ error: "not_implemented", message: "Scheduled for Build 6" }`
+- `POST /story` → same pattern
+- Health endpoint reports both as `disabled`
+- Frontend can wire to these endpoints today; they return honest "not yet available"
+- When Build 6/7 lands, we fill in the bodies — no contract change
+
+**5.7.3 — Capability router + extended formats (1–2 sessions)**
+- Ingestion router: extension-based first pass (`docx` → Python, `md` → Node)
+- Content sniffing for PDFs: text coverage < 5% → Python OCR; complex tables → Python PyMuPDF
+- Try-Node-then-fallback-to-Python on quality failure
+- **Every routing decision logged with reason.**
+- Ships: DOCX, RTF, and other Python-handled formats
+- Scope discipline: do NOT build complexity heuristics, ML-based classification, or per-page routing until real user cases demand them. Start simple, extend only when a fixture fails.
+
+**Total Phase 5.7: 4–5 sessions.**
+
+**Rationale for the split.** 5.7.1 proves the cross-language boundary works and ships OCR — a real capability gap. 5.7.2 is pure scaffolding. 5.7.3 extends the router with real data from 5.7.1's Node-vs-Python quality differences on real fixtures.
 
 ---
 
