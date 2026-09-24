@@ -2,9 +2,9 @@
 /**
  * scripts/run-all-tests.js
  *
- * Runs all 17 regression suites in order.
+ * Runs all 19 regression suites in order.
  * Stops immediately on the first failure and exits with code 1.
- * Exits code 0 with "ALL 17 SUITES PASS" if all pass.
+ * Exits code 0 with "ALL 19 SUITES PASS" if all pass.
  *
  * Dependency-free — uses only node:child_process and node:path.
  */
@@ -39,6 +39,8 @@ const SUITES = [
   'build4_19_contract_test.js',
   'build4_15_parser_stress_test.js',
   'build4_15b_front_matter_filter_test.js',
+  'build5_1a_bibliographic_test.js',
+  'build5_1b_provenance_test.js',
 ];
 
 let passed = 0;
