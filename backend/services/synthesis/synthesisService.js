@@ -92,6 +92,8 @@ If M is too small for the source's information density, emit [INSUFFICIENT_M: ne
 
 Do NOT exceed ${hardCeiling} words. This is a hard ceiling, not a target.
 
+Structure the output as 3–5 paragraphs separated by blank lines. Each paragraph covers one coherent movement of the source. Do not emit the output as a single block.
+
 SOURCE MATERIAL:
 ${context.sourceMaterialText || context.contextText}
 
@@ -104,26 +106,47 @@ OUTPUT:`;
     let fellBack = false;
     let fallbackReason = null;
     let compression_violation = false;
+    let finishReason = 'stop';
+    let truncated = false;
 
     if (!options.fast && aiService.isAvailable && aiService.isAvailable()) {
       try {
         let response = await aiService.generateText(compressionPrompt, {
           temperature: 0.3,
-          maxTokens: 550,
+          maxTokens: 1000,
           reasoning: { enabled: false },
         });
+
+        // 1b. Check finish_reason for token truncation
+        if (response && response.finish_reason === 'length') {
+          console.warn('[Synthesis] Output truncated at token ceiling, retrying with higher maxTokens');
+          const retryTruncation = await aiService.generateText(compressionPrompt, {
+            temperature: 0.2,
+            maxTokens: 1500,
+            reasoning: { enabled: false },
+          });
+          if (retryTruncation && retryTruncation.text) {
+            response = retryTruncation;
+          }
+        }
+
+        finishReason = response?.finish_reason || 'stop';
+        truncated = finishReason === 'length';
         
         // Post-generation validation
         if (response && response.text && response.text.trim().length > 0) {
           let wordCount = response.text.trim().split(/\s+/).length;
           if (wordCount < 180 || wordCount > 450) {
             console.warn(`[SynthesisService] Word count ${wordCount} out of bounds, retrying with compression prompt...`);
-            response = await aiService.generateText(compressionPrompt, {
+            const retryResponse = await aiService.generateText(compressionPrompt, {
               temperature: 0.2,
-              maxTokens: 550,
+              maxTokens: 1000,
               reasoning: { enabled: false },
             });
-            if (response && response.text) {
+            if (retryResponse && retryResponse.text) {
+              response = retryResponse;
+              finishReason = response.finish_reason || 'stop';
+              truncated = finishReason === 'length';
               wordCount = response.text.trim().split(/\s+/).length;
               if (wordCount < 180 || wordCount > 450) {
                 compression_violation = true;
@@ -220,7 +243,8 @@ OUTPUT:`;
     }
 
     // Step d2: Strip [Source N] markers from displayed content
-    const cleanContent = rawCompression.replace(/\s*\[Source\s+\d+\]/gi, '').trim();
+    let cleanContent = rawCompression.replace(/\s*\[Source\s+[\d\s,–-]+\]/gi, '').trim();
+    cleanContent = cleanContent.replace(/\[Source\s*$/i, '').trim();
 
     // Step d3: Normalize output into canonical blocks
     const canonicalBlocks = aiNormalizer.normalize(cleanContent);
@@ -279,6 +303,8 @@ OUTPUT:`;
       actual_word_count: actualWordCount,
       source_word_count: N,
       claimed_attributions: claimedAttributions,
+      truncated,
+      finish_reason: finishReason,
       ...(fellBack ? {
         fell_back: true,
         fallback_reason: fallbackReason || 'provider_unavailable',

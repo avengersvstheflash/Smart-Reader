@@ -263,6 +263,7 @@ class AIService {
       text: result.summary,
       provider: result.provider || providerName,
       model: result.model,
+      finish_reason: result.finish_reason || 'stop',
     };
   }
 }

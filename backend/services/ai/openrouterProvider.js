@@ -158,6 +158,7 @@ Instructions:
         summary: summaryText,
         provider: this.getName(),
         model: data.model || modelToUse,
+        finish_reason: choice?.finish_reason || 'stop',
         usage: data.usage,
         durationMs,
       };
