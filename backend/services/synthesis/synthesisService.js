@@ -177,8 +177,53 @@ OUTPUT:`;
       rawCompression = this.generateDeterministicSynthesis(chapter, context.includedChunks);
     }
 
-    // Step d: Normalize output into canonical blocks
-    const canonicalBlocks = aiNormalizer.normalize(rawCompression);
+    // Step d1: Signal A - Extract [Source N] claimed attributions before stripping markers
+    const sourceMap = {};
+    for (let i = 0; i < chunks.length; i++) {
+      sourceMap[i + 1] = chunks[i].id;
+    }
+
+    const rawParagraphs = rawCompression.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+    const claimedAttributions = [];
+
+    for (let pIdx = 0; pIdx < rawParagraphs.length; pIdx++) {
+      const para = rawParagraphs[pIdx];
+      const sentences = this.splitSentences(para);
+      const totalSentences = Math.max(1, sentences.length);
+      const chunkCounts = {};
+
+      for (const sent of sentences) {
+        const citedChunksThisSent = new Set();
+        const regex = /\[Source\s+(\d+)\]/gi;
+        let match;
+        while ((match = regex.exec(sent)) !== null) {
+          const srcNum = parseInt(match[1], 10);
+          const chunkId = sourceMap[srcNum];
+          if (chunkId) {
+            citedChunksThisSent.add(chunkId);
+          }
+        }
+        for (const cid of citedChunksThisSent) {
+          chunkCounts[cid] = (chunkCounts[cid] || 0) + 1;
+        }
+      }
+
+      const weights = {};
+      for (const [cid, count] of Object.entries(chunkCounts)) {
+        weights[cid] = Number((count / totalSentences).toFixed(4));
+      }
+
+      claimedAttributions.push({
+        paragraph_index: pIdx,
+        weights,
+      });
+    }
+
+    // Step d2: Strip [Source N] markers from displayed content
+    const cleanContent = rawCompression.replace(/\s*\[Source\s+\d+\]/gi, '').trim();
+
+    // Step d3: Normalize output into canonical blocks
+    const canonicalBlocks = aiNormalizer.normalize(cleanContent);
 
     // Step e: Persist as a chapter_representation with appropriate synthesisType and provenance=chunkIds
     const chunkIds = chunks.map((c) => c.id);
@@ -206,7 +251,7 @@ OUTPUT:`;
 
         const isFallbackChapter = repMeta.fell_back === true || repMeta.provider === 'deterministic_synthesizer';
         if (isFallbackChapter && rep.content) {
-          const normCurrent = rawCompression.trim();
+          const normCurrent = cleanContent.trim();
           const normExisting = rep.content.trim();
           const bodyCurrent = normCurrent.replace(/^###\s+[^\n]*\n+/, '').trim();
           const bodyExisting = normExisting.replace(/^###\s+[^\n]*\n+/, '').trim();
@@ -219,7 +264,7 @@ OUTPUT:`;
       }
     }
 
-    const actualWordCount = rawCompression.trim().split(/\s+/).filter(Boolean).length;
+    const actualWordCount = cleanContent.trim().split(/\s+/).filter(Boolean).length;
     const metadata = {
       outlineId,
       chapterId,
@@ -233,6 +278,7 @@ OUTPUT:`;
       generatedAt: new Date().toISOString(),
       actual_word_count: actualWordCount,
       source_word_count: N,
+      claimed_attributions: claimedAttributions,
       ...(fellBack ? {
         fell_back: true,
         fallback_reason: fallbackReason || 'provider_unavailable',
@@ -246,7 +292,7 @@ OUTPUT:`;
       chapterId,
       bookId: outline.collectionId || outlineId,
       type: options.type || 'EDITORIAL_SYNTHESIS',
-      content: rawCompression,
+      content: cleanContent,
       metadata,
       provenance: chunkIds,
       synthesisType,
@@ -261,6 +307,19 @@ OUTPUT:`;
       provider: providerName,
       model: modelName,
     };
+  }
+
+  /**
+   * Split a paragraph into sentences preserving terminal punctuation and citation markers
+   */
+  splitSentences(paragraph) {
+    const text = (paragraph || '').trim();
+    if (!text) return [];
+    const regex = /.*?(?:[.!?]+(?:\s*\[Source\s+\d+\]+)*|\s*\[Source\s+\d+\]+[.!?]*)(?=\s+|$)/gi;
+    const matches = text.match(regex);
+    if (!matches || matches.length === 0) return [text];
+    const sents = matches.map((s) => s.trim()).filter(Boolean);
+    return sents.length > 0 ? sents : [text];
   }
 
   /**
