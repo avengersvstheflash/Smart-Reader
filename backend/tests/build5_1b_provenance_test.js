@@ -377,6 +377,15 @@ async function runTests() {
     assert.strictEqual(empty.verified_at, null);
     assert.deepStrictEqual(empty.paragraphs, []);
 
+    // Cleanup synthetic test records
+    attributionRepository.deleteByRepresentationId(repId);
+    chapterRepository.deleteRepresentation(repId);
+    try {
+      const db = getDatabase();
+      db.prepare('DELETE FROM semantic_chunks WHERE book_id = ?').run(bookId);
+      db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
+    } catch {}
+
     console.log('  ✓ End-to-end ProvenanceResolver verification and API contract passed cleanly.');
   }
 

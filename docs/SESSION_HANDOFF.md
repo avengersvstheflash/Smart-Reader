@@ -1,4 +1,4 @@
-﻿# Smart Reader — Session Handoff
+# Smart Reader — Session Handoff
 
 > **Purpose.** Any assistant (Claude, GPT, Gemini, or a fresh DeepSeek) reads this and is fully oriented. Companion to `docs/ROADMAP_2026-09.md` (long-term), `docs/FRONTEND_BLUEPRINT.md` (narrative), `docs/FRONTEND_BLUEPRINT_SPEC.md` (contract). This file answers: *where are we, how do we work, what's next.*
 >
@@ -8,13 +8,13 @@
 
 ## 1. Where we are
 
-**Phase 4 CLOSED 2026-09-23.** All 17 test suites green (verified by manual terminal run). Trust path intact. Import pipeline verified end-to-end.
+**Phase 5.1 CLOSED 2026-09-24.** All 19 test suites green (verified by manual terminal run). Trust path intact. Provenance resolution contract verified end-to-end.
 
-**Last shipped commit:** `3aeb7d6` — docs: close Phase 4, log A3 deferred, fabricated-verification hazard, Phase 5.6 design intent.
+**Last shipped commit:** `ce5d475` — phase5.1b: GET provenance endpoint + tests + runner registration.
 
-**Test state:** 17/17 root suites green. Frontend build clean, typecheck 0 errors. Runtime ~5–7 min.
+**Test state:** 19/19 root suites green. Frontend build clean, typecheck 0 errors. Runtime ~6–8 min.
 
-**Next phase:** Phase 5.1 — Paragraph-level provenance resolution.
+**Next phase:** Phase 5.2 — Reader click-through UI (interactive provenance).
 
 ### What ships today
 
@@ -23,23 +23,27 @@
 - BGE-M3 1024d local embeddings (INT8, multilingual, 170+ languages, CLS pooling)
 - Semantic chunking (350–500 word chunks) + indexing across chapter/book/library scopes
 - Auto-classification on import: `contentType`, tags, reading level, target audience (4.10)
+- Bibliographic metadata extraction during `CLASSIFICATION` (publisher, publication year, ISBN, author, subtitle) stored in `books.metadata_json` (5.1a)
 - Editorial outline generation with 1,500–2,500 word source-unit slicing (4.8.3, 4.24 guard)
 - Compression-not-summarization synthesis, 250–360 word Smart Chapters, ratio band [4.82, 7.28] (4.8.1)
 - Synopsis from preface + TOC + strategic samples with word-count validation and retry (4.13)
-- Job lifecycle: 5 stages (INGEST, SEMANTIC_INDEX, CLASSIFICATION, SYNOPSIS, SYNTHESIS), boot-time zombie sweep, INTERRUPTED rendering (4.11)
+- Job lifecycle: 6 stages (INGEST, SEMANTIC_INDEX, CLASSIFICATION, SYNOPSIS, SYNTHESIS, PROVENANCE_VERIFY), boot-time zombie sweep, INTERRUPTED rendering (4.11, 5.1b)
+- Provenance resolution contract (5.1b): sentence-level segmentation, Signal A (`[Source N]` claims captured prior to strip), Signal C (BGE-M3 local paragraph/sentence cosine similarity), 8-case decision matrix with Signal B LLM arbitration fallback, ungrounded floor (<0.45), persisted in `paragraph_attributions`
+- Provenance endpoints: `GET /api/representations/:id/provenance` and `POST /api/representations/:id/verify-provenance`
+- Backfill policy: legacy representations without attribution return `{ paragraphs: [] }` with `verified_at: null` — zero batch re-generation
 - Fallback honesty: `fell_back`, `fallback_reason`, `compression_violation`, `word_count_violation` metadata
 - Test DB isolation — test runs no longer wipe the dev Library (4.25/A1)
 
 **Frontend**
 - Library with dynamic tag filter chips + Smart badge
-- Book Details: hero, classification chips, synopsis panel, chapter list, semantic intelligence panel, AI provider disclosure (4.10.5)
+- Book Details: hero, classification chips, bibliographic metadata, synopsis panel, chapter list, semantic intelligence panel, AI provider disclosure (4.10.5, 5.1a)
 - Reader: Original/Smart toggle, three-layer mode resolution, keyboard shortcuts, auto-hide nav
 - Import: File / Web / Paste tabs via `?tab=` URL param, full cinematic (page-turn → chunk-gather → tag-fade → synopsis text → chapter-card stack → completion cascade), reduced-motion collapse, mobile at 375px (4.7/4.7.1)
 - Real upload progress via XHR, job-driven pipeline stepper polling at 500/800/1200ms (dynamic)
 
-### Phase 4 shipped, complete list
+### Phase 4 & 5.1 shipped, complete list
 
-4.5 → 4.6 → 4.7 → 4.7.1 → 4.7.5 → 4.8 → 4.8.1 → 4.8.2 → 4.8.3 → 4.9 → 4.10 → 4.10.5 → 4.11 → 4.11.1 → 4.11.5 → 4.11.6 → 4.12 (partially staged) → 4.13 → 4.13.1 → 4.14 → 4.15a → 4.15b → 4.16 → 4.19 → 4.20 → 4.21 → 4.21.1 → 4.24 → 4.25
+4.5 → 4.6 → 4.7 → 4.7.1 → 4.7.5 → 4.8 → 4.8.1 → 4.8.2 → 4.8.3 → 4.9 → 4.10 → 4.10.5 → 4.11 → 4.11.1 → 4.11.5 → 4.11.6 → 4.12 (partially staged) → 4.13 → 4.13.1 → 4.14 → 4.15a → 4.15b → 4.16 → 4.19 → 4.20 → 4.21 → 4.21.1 → 4.24 → 4.25 → 5.1a → 5.1b
 
 ---
 
@@ -78,15 +82,15 @@
 
 ## 4. Next task
 
-### Phase 5.1 — Paragraph-level provenance resolution
+### Phase 5.2 — Reader click-through UI (interactive provenance)
 
-**Goal:** Define the backend contract that maps a Smart Chapter sentence or paragraph back to its source chunk(s). No UI yet. The click-through pattern (Phase 5.2) depends on this contract being solid.
+**Goal:** Build the interactive Reader UI that consumes the Phase 5.1 provenance contract (`GET /api/representations/:id/provenance`) to connect Smart Reading sentences to their immutable source passages.
 
-**Context:** PRODUCT_VISION.md reframed the product thesis on 2026-09-23: *"Smart is the product. Original is the proof."* The Original | Smart toggle is not a peer switch — the reader defaults to Smart and offers a subtle "Source" affordance. Clicking a Smart sentence opens the source panel at that passage. This round-trip is what makes the compression trustworthy and is the moat of the product.
+**Context:** PRODUCT_VISION.md reframed the product thesis: *"Smart is the product. Original is the proof."* The Original | Smart toggle is not a peer switch — the reader defaults to Smart and offers an interactive affordance. Clicking or hovering a Smart sentence/segment highlights its source passage or opens the source drawer positioned at the exact source chunk.
 
 **Sequencing:**
-- **5.1** — Backend provenance resolution contract (this task)
-- **5.2** — Reader click-through UI
+- **5.1** — Backend provenance resolution contract (CLOSED 2026-09-24)
+- **5.2** — Reader click-through UI (this task)
 - **5.3** — Research mode collection view (depends on 5.1)
 - **5.5** — Library polish + UI/UX backlog (see §8)
 - **5.6** — Validation and refine loops (see §7)
@@ -135,6 +139,11 @@
   HEAD, then from all history via `git-filter-repo` (tip commit rewritten
   `8d1f213` → `acf35ae`). All prior commit hashes changed.
   **Rule:** license-check any fixture before `git add`. See `docs/RIGHTS.md`.
+
+### Closed (2026-09-24)
+
+- **Phase 5.1a — Bibliographic metadata extraction.** Extracted publisher, publication year, ISBN, author, subtitle during `CLASSIFICATION` job. Stored in `books.metadata_json`. Minimal surface rendered in Book Details.
+- **Phase 5.1b — Provenance resolution contract.** Sentence-level segmentation, 8-case decision matrix with Signal B LLM arbitration fallback, BGE-M3 local embedding similarity (Signal C), `paragraph_attributions` storage, non-blocking `PROVENANCE_VERIFY` pipeline step, `GET /api/representations/:id/provenance` endpoint. All 19 suites green. Backfill policy: legacy representations return `{ paragraphs: [] }`, no batch re-generation.
 
 ### Closed (2026-09-23)
 
