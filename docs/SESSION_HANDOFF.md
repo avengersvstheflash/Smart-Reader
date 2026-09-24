@@ -120,6 +120,7 @@
 
 ### Informational — by design, not bugs
 
+- **Phase 5.6 input — A vs C agreement rate varies by document type.** On the two-column ResNet fixture, Signal A agreed with C's top chunk in only 1 of 7 paragraphs (14%), producing 6 b_arbitrated calls. On the canonical textbook, agreement was 6 of 11 (55%). Root cause unknown — could be A emitting poorly-aligned citations on two-column content, or C's chunk boundaries not matching the paper's section structure. Investigate in Phase 5.6 with a correctness benchmark.
 - **AI planning path — oversize units.** `plan()` (used only when `options.fast` is false — not during import) can assign 3,000–4,200 word source units to a single chapter. The 4.24 defensive guard applies only to `sliceIntoSourceUnits` (deterministic path). Tests `build4_1` and `build4_2a` exercise this and log oversize units as expected. Not a bug.
 - **Parser chapter detection on SEC filings and two-column papers is shallow by design.** 4.15a: ResNet arXiv detected as 2 sections vs ~8 real; Apple 10-K as 3 vs ~20 real. The editorial planner re-segments body content into 1,500–2,500 word units regardless of source chapter boundaries — Smart Reader creates its own editorial structure, doesn't inherit source chapter counts.
 - **`math-heavy.pdf` yields 1 editorial candidate from 61 chunks.** NIST FIPS 197 is 8 front_matter + 52 appendix + 1 chapter. Filter correctly rejects 60/61 as non-body. Honest behavior for a document shape that isn't book-like.
@@ -140,8 +141,9 @@
   `8d1f213` → `acf35ae`). All prior commit hashes changed.
   **Rule:** license-check any fixture before `git add`. See `docs/RIGHTS.md`.
 
-### Closed (2026-09-24)
+### Closed (2026-09-24/25)
 
+- **Phase 5.1b.2 — Empirical calibration of C-primary arbitration (2026-09-25).** Diagnostic across three fixtures (canonical textbook, Apple 10-K, ResNet two-column paper) revealed that C.margin is a document-class discriminator, not noise. Discrete-topic documents (SEC filings, tabular content) produce high margins (mean 0.155, max 0.292) because each paragraph maps to one distinct chunk — c_primary fires 80% of the time. Continuous-narrative documents (textbooks, papers) produce near-zero margins (mean 0.030) because chunks overlap by construction — c_primary fires 0% of the time; those paragraphs resolve via c_verified_by_a (when the LLM's citation agrees with C's top chunk) or b_arbitrated (when they disagree). Current thresholds retained. All 33 paragraphs produced C.top1 >= 0.75 and zero ungrounded rows.
 - **Phase 5.1b.1 — C-primary arbitration.** Replaced the A_vs_C agreement matrix with C-primary logic. Signal C leads; Signal A corroborates when C is uncertain; Signal B fires only on ambiguous cases. The old cosine-of-weight-vectors metric was discarded as non-informative (measured A_vs_C mean 0.510 on canonical). Thresholds: C_HIGH=0.65, C_MEDIUM=0.45, C_LOW=0.30, C_MARGIN=0.10.
 - **Phase 5.1a — Bibliographic metadata extraction.** Extracted publisher, publication year, ISBN, author, subtitle during `CLASSIFICATION` job. Stored in `books.metadata_json`. Minimal surface rendered in Book Details.
 - **Phase 5.1b — Provenance resolution contract.** Sentence-level segmentation, 8-case decision matrix with Signal B LLM arbitration fallback, BGE-M3 local embedding similarity (Signal C), `paragraph_attributions` storage, non-blocking `PROVENANCE_VERIFY` pipeline step, `GET /api/representations/:id/provenance` endpoint. All 19 suites green. Backfill policy: legacy representations return `{ paragraphs: [] }`, no batch re-generation.
