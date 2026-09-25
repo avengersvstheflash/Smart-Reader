@@ -84,6 +84,9 @@ export default function ReaderRoute() {
   const rawRep = searchParams.get('rep');
   const repInUrl: 'original' | 'smart' | null =
     rawRep === 'original' || rawRep === 'smart' ? rawRep : null;
+  const highlightChunkId = searchParams.get('highlight');
+  const fromChapter = searchParams.get('fromChapter');
+  const fromRep = searchParams.get('fromRep');
 
   const storedMode = useReaderStore((state) =>
     bookId ? state.getMode(bookId) : 'original'
@@ -121,6 +124,24 @@ export default function ReaderRoute() {
     }
   }, [bookId, repInUrl, storedMode, mode, setSearchParams, setStoredMode]);
 
+  // Restore scroll position when entering Smart mode if previously saved
+  useEffect(() => {
+    if (mode === 'smart' && chapterId) {
+      const scrollKey = `smart_scroll_${chapterId}`;
+      const savedScroll = sessionStorage.getItem(scrollKey);
+      if (savedScroll) {
+        const y = Number(savedScroll);
+        if (y > 0) {
+          const timer = setTimeout(() => {
+            window.scrollTo({ top: y, behavior: 'auto' });
+            sessionStorage.removeItem(scrollKey);
+          }, 80);
+          return () => clearTimeout(timer);
+        }
+      }
+    }
+  }, [mode, chapterId]);
+
   const handleModeChange = (newMode: 'original' | 'smart') => {
     if (bookId) {
       setStoredMode(bookId, newMode);
@@ -130,6 +151,35 @@ export default function ReaderRoute() {
       next.set('rep', newMode);
       return next;
     });
+  };
+
+  const handleNavigateToSource = (chunkId: string, targetChapterId?: string | null) => {
+    // Preserve current scroll position in Smart mode
+    const scrollKey = `smart_scroll_${chapterId}`;
+    sessionStorage.setItem(scrollKey, String(window.scrollY));
+
+    const destChapter = targetChapterId || chapterId;
+    navigate(
+      `/read/${bookId}/${destChapter}?rep=original&highlight=${encodeURIComponent(
+        chunkId
+      )}&fromChapter=${encodeURIComponent(chapterId)}&fromRep=${encodeURIComponent(
+        activeRepresentation?.id || ''
+      )}`
+    );
+  };
+
+  const handleReturnToSmart = () => {
+    const targetChapter = fromChapter || chapterId;
+    const scrollKey = `smart_scroll_${targetChapter}`;
+    const savedScroll = sessionStorage.getItem(scrollKey);
+
+    navigate(`/read/${bookId}/${targetChapter}?rep=smart`);
+
+    if (savedScroll) {
+      setTimeout(() => {
+        window.scrollTo({ top: Number(savedScroll), behavior: 'auto' });
+      }, 50);
+    }
   };
 
   const {
@@ -348,6 +398,9 @@ export default function ReaderRoute() {
             mode={mode}
             fontSize={fontSize}
             align={align}
+            highlightChunkId={highlightChunkId}
+            onNavigateToSource={handleNavigateToSource}
+            provenanceRepId={fromRep || activeRepresentation?.id || null}
             smartState={{
               hasOutline,
               remaining: reallyRemaining,
@@ -365,6 +418,22 @@ export default function ReaderRoute() {
           />
         )}
       </div>
+
+      {/* Return Arrow for Original Mode with Highlight */}
+      {mode === 'original' && Boolean(highlightChunkId) && (
+        <button
+          type="button"
+          onClick={handleReturnToSmart}
+          aria-label="Return to Smart reading"
+          title="Return to Smart reading"
+          className="fixed left-3 sm:left-6 top-1/2 -translate-y-1/2 z-30 inline-flex items-center justify-center w-11 h-11 rounded-full border border-line bg-surface/95 shadow-xl text-ink hover:text-accent-ink hover:border-accent hover:scale-105 active:scale-95 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent backdrop-blur-sm group"
+        >
+          <ArrowLeft
+            className="w-5 h-5 transition-transform group-hover:-translate-x-0.5"
+            aria-hidden="true"
+          />
+        </button>
+      )}
 
       {/* Chapter Navigation Bar */}
       {chapters.length > 0 && (

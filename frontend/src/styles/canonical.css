@@ -159,4 +159,25 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
   margin-top: 0;
 }
 
+/* Phase 5.2 Provenance chunk highlighting */
+.chunk-highlighted {
+  background-color: rgb(var(--accent-wash) / var(--accent-wash-alpha, 0.45));
+  border-left: 3px solid rgb(var(--accent));
+  padding-left: 0.75rem;
+  border-radius: 0 4px 4px 0;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.chunk-neighboring {
+  opacity: 0.65;
+  transition: opacity 0.3s ease;
+}
+
+/* Phase 5.2 TTS active soft highlight */
+.reader-paragraph[data-tts-active="true"] {
+  background-color: rgb(var(--accent-wash) / 0.25);
+  border-radius: 4px;
+}
+
+
 
