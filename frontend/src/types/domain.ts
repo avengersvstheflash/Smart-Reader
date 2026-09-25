@@ -401,6 +401,58 @@ export interface ParagraphAttribution {
   grounded: boolean;
 }
 
+export interface SegmentRun {
+  runIndex: number;
+  sentenceStart: number;
+  sentenceEnd: number;
+  chunkId: string;
+  confidence: number;
+}
+
+/**
+ * Split paragraph text into sentences preserving sentence boundary punctuation.
+ * Matches backend provenanceResolver.splitIntoSentences contract.
+ */
+export function splitIntoSentences(text?: string | null): string[] {
+  const t = (text || '').trim();
+  if (!t) return [];
+  const regex = /.*?(?:[.!?]+(?:\s*\[Source\s+\d+\]+)*|\s*\[Source\s+\d+\]+[.!?]*)(?=\s+|$)/gi;
+  const matches = t.match(regex);
+  if (!matches || matches.length === 0) return [t];
+  const sents = matches
+    .map((s) => s.trim().replace(/\s*\[Source\s+\d+\]/gi, '').trim())
+    .filter(Boolean);
+  return sents.length > 0 ? sents : [t];
+}
+
+/**
+ * Group consecutive segments sharing the same chunk_id into a single run.
+ * Example: [s1->chkA, s2->chkA, s3->chkB, s4->chkA] -> 3 runs.
+ */
+export function groupSegmentsIntoRuns(segments?: ProvenanceSegment[]): SegmentRun[] {
+  if (!Array.isArray(segments) || segments.length === 0) return [];
+  const runs: SegmentRun[] = [];
+
+  for (const seg of segments) {
+    if (!seg.chunk_id) continue;
+    const lastRun = runs[runs.length - 1];
+    if (lastRun && lastRun.chunkId === seg.chunk_id) {
+      lastRun.sentenceEnd = Math.max(lastRun.sentenceEnd, seg.sentence_end);
+      lastRun.confidence = Math.max(lastRun.confidence, seg.confidence);
+    } else {
+      runs.push({
+        runIndex: runs.length,
+        sentenceStart: seg.sentence_start,
+        sentenceEnd: seg.sentence_end,
+        chunkId: seg.chunk_id,
+        confidence: seg.confidence,
+      });
+    }
+  }
+
+  return runs;
+}
+
 export interface ProvenanceChunk {
   id: string;
   chapter_id?: string | null;

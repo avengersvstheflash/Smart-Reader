@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Chapter,
   ChapterRepresentation,
   CanonicalBlock as CanonicalBlockType,
   parseRepresentationMetadata,
+  groupSegmentsIntoRuns,
 } from '../../types/domain';
 import { CanonicalBlock } from './CanonicalBlock';
 import { SmartEmptyState } from './SmartEmptyState';
@@ -64,9 +65,14 @@ export function ReaderView({
   const smartWordCount = repText.trim() ? repText.trim().split(/\s+/).length : 0;
   const smartMinutes = Math.max(1, Math.round(smartWordCount / 200));
 
-  // Active preview card state for Smart paragraphs
-  const [activePreviewIndex, setActivePreviewIndex] = useState<number | null>(null);
-  const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Active preview card state for segment runs
+  const [activePreview, setActivePreview] = useState<{
+    paraIndex: number;
+    runIndex: number;
+    chunkId: string;
+  } | null>(null);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [hoveredRunByPara, setHoveredRunByPara] = useState<Record<number, number | null>>({});
 
   // Fetch provenance with chunks expanded
   const targetRepId = mode === 'smart' ? representation?.id : (provenanceRepId || representation?.id);
@@ -243,84 +249,97 @@ export function ReaderView({
                 ? provenance.paragraphs.find((p) => p.paragraph_index === currentParaIndex)
                 : null;
 
-            const isUngrounded =
-              provenanceRow?.grounded === false || provenanceRow?.method === 'ungrounded';
-            const topChunkId = provenanceRow?.source_chunk_ids?.[0];
-            const topChunk = topChunkId ? chunks[topChunkId] : null;
-
-            const isPreviewOpen = activePreviewIndex === currentParaIndex;
-
-            const handleTouchStart = () => {
-              if (isParagraph && provenanceRow) {
-                touchTimerRef.current = setTimeout(() => {
-                  setActivePreviewIndex(isPreviewOpen ? null : currentParaIndex);
-                }, 450);
-              }
-            };
-
-            const handleTouchEnd = () => {
-              if (touchTimerRef.current) {
-                clearTimeout(touchTimerRef.current);
-                touchTimerRef.current = null;
-              }
-            };
-
             return (
               <div
                 key={i}
                 id={`sblk-${representation.id}-${i}`}
                 className={`canonical-block relative group transition-colors rounded ${
-                  isParagraph ? 'hover:bg-subtle/30 px-1 -mx-1' : ''
-                } ${isPreviewOpen ? 'z-30' : ''}`}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
+                  isParagraph ? 'px-1 -mx-1' : ''
+                }`}
               >
-                <CanonicalBlock block={block} isTtsActive={false} />
-
-                {/* Source attribution chip on hover/focus/active */}
-                {isParagraph && provenanceRow && (
-                  <div className="absolute right-1 -top-2.5 z-20">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActivePreviewIndex(isPreviewOpen ? null : currentParaIndex);
-                      }}
-                      className={`text-micro px-2 py-0.5 rounded-full border transition-all duration-150 select-none shadow-sm flex items-center gap-1 cursor-pointer ${
-                        isPreviewOpen
-                          ? 'bg-accent text-white border-accent opacity-100 ring-2 ring-accent/30'
-                          : isUngrounded
-                          ? 'bg-surface text-ink-muted border-line hover:text-ink hover:border-line-strong group-hover:opacity-100 opacity-0 pointer-events-none group-hover:pointer-events-auto'
-                          : 'bg-surface/95 text-ink-muted hover:text-accent-ink hover:border-accent border-line group-hover:opacity-100 opacity-0 pointer-events-none group-hover:pointer-events-auto'
-                      }`}
-                      aria-label={isUngrounded ? 'No traced source' : 'View source chunk provenance'}
-                      aria-expanded={isPreviewOpen}
-                    >
-                      <span className="font-mono uppercase text-[9px] tracking-wider font-semibold">
-                        {isUngrounded ? 'No source' : 'Source'}
-                      </span>
-                    </button>
-                  </div>
-                )}
-
-                {/* Inline preview card anchored to the paragraph */}
-                {isParagraph && isPreviewOpen && provenanceRow && (
-                  <ProvenancePreview
-                    paragraph_index={currentParaIndex}
-                    provenanceRow={provenanceRow}
-                    chunk={topChunk}
-                    onNavigate={(chunkId, targetChapterId) => {
-                      setActivePreviewIndex(null);
-                      if (onNavigateToSource) {
-                        onNavigateToSource(chunkId, targetChapterId || chapter.id);
-                      }
-                    }}
-                    onClose={() => setActivePreviewIndex(null)}
-                  />
-                )}
+                <CanonicalBlock
+                  block={block}
+                  isTtsActive={false}
+                  provenanceRow={provenanceRow}
+                  activeRunIndex={
+                    activePreview?.paraIndex === currentParaIndex
+                      ? activePreview.runIndex
+                      : null
+                  }
+                  hoveredRunIndex={hoveredRunByPara[currentParaIndex] ?? null}
+                  onHoverRun={(runIdx) =>
+                    setHoveredRunByPara((prev) => ({ ...prev, [currentParaIndex]: runIdx }))
+                  }
+                  onClickRun={(runIdx, chipEl) => {
+                    if (
+                      activePreview?.paraIndex === currentParaIndex &&
+                      activePreview?.runIndex === runIdx
+                    ) {
+                      setActivePreview(null);
+                      setAnchorEl(null);
+                    } else {
+                      const runs = groupSegmentsIntoRuns(provenanceRow?.segments);
+                      const targetRun = runs.find((r) => r.runIndex === runIdx);
+                      const targetChunkId =
+                        targetRun?.chunkId || provenanceRow?.source_chunk_ids?.[0] || '';
+                      setActivePreview({
+                        paraIndex: currentParaIndex,
+                        runIndex: runIdx,
+                        chunkId: targetChunkId,
+                      });
+                      setAnchorEl(chipEl);
+                    }
+                  }}
+                  onClickSingleChip={(chipEl) => {
+                    if (
+                      activePreview?.paraIndex === currentParaIndex &&
+                      activePreview?.runIndex === -1
+                    ) {
+                      setActivePreview(null);
+                      setAnchorEl(null);
+                    } else {
+                      const targetChunkId = provenanceRow?.source_chunk_ids?.[0] || '';
+                      setActivePreview({
+                        paraIndex: currentParaIndex,
+                        runIndex: -1,
+                        chunkId: targetChunkId,
+                      });
+                      setAnchorEl(chipEl);
+                    }
+                  }}
+                  isSingleChipActive={
+                    activePreview?.paraIndex === currentParaIndex &&
+                    activePreview?.runIndex === -1
+                  }
+                />
               </div>
             );
           })}
+
+          {/* Floating preview card anchored to the active chip */}
+          {activePreview && anchorEl && (
+            <ProvenancePreview
+              paragraph_index={activePreview.paraIndex}
+              provenanceRow={
+                provenance?.paragraphs?.find(
+                  (p) => p.paragraph_index === activePreview.paraIndex
+                ) || null
+              }
+              chunk={chunks[activePreview.chunkId] || null}
+              anchorRef={anchorEl}
+              onNavigate={(chunkId, targetChapterId) => {
+                setActivePreview(null);
+                setAnchorEl(null);
+                if (onNavigateToSource) {
+                  onNavigateToSource(chunkId, targetChapterId || chapter.id);
+                }
+              }}
+              onClose={() => {
+                setActivePreview(null);
+                setAnchorEl(null);
+              }}
+            />
+          )}
         </div>
       ) : smartState ? (
         <SmartEmptyState

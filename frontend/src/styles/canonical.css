@@ -179,5 +179,28 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
   border-radius: 4px;
 }
 
+/* Phase 5.2.1 Paragraph-level hover (3a: subtle background wash on whole paragraph) */
+.reader-paragraph {
+  transition: background-color 150ms ease;
+  border-radius: 4px;
+}
+
+.reader-paragraph:hover {
+  background-color: rgb(var(--accent-wash) / 0.04);
+}
+
+/* Phase 5.2.1 Sentence-level hover highlighting (3b: stronger highlight + accent border on the run's sentences) */
+.sentence-span {
+  transition: background-color 150ms ease, box-shadow 150ms ease;
+  border-radius: 2px;
+}
+
+.sentence-span.segment-highlighted {
+  background-color: rgb(var(--accent-wash) / 0.16);
+  box-shadow: -2px 0 0 0 rgb(var(--accent));
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
 
 

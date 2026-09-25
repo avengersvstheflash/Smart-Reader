@@ -1,5 +1,10 @@
 import React from 'react';
-import { CanonicalBlock as CanonicalBlockType } from '../../types/domain';
+import {
+  CanonicalBlock as CanonicalBlockType,
+  ParagraphAttribution,
+  groupSegmentsIntoRuns,
+  splitIntoSentences,
+} from '../../types/domain';
 
 // TODO(nested-emphasis): non-recursive parser. Handles **bold**,
 // *italic*, `code`, ~~strike~~ individually but not nested combinations
@@ -58,13 +63,29 @@ function getAlignClass(align?: string): string | undefined {
   return undefined;
 }
 
+export interface CanonicalBlockProps {
+  block: CanonicalBlockType;
+  isTtsActive?: boolean;
+  provenanceRow?: ParagraphAttribution | null;
+  activeRunIndex?: number | null;
+  hoveredRunIndex?: number | null;
+  onHoverRun?: (runIndex: number | null) => void;
+  onClickRun?: (runIndex: number, chipEl: HTMLElement) => void;
+  onClickSingleChip?: (chipEl: HTMLElement) => void;
+  isSingleChipActive?: boolean;
+}
+
 export function CanonicalBlock({
   block,
   isTtsActive = false,
-}: {
-  block: CanonicalBlockType;
-  isTtsActive?: boolean;
-}): React.ReactElement | null {
+  provenanceRow,
+  activeRunIndex,
+  hoveredRunIndex,
+  onHoverRun,
+  onClickRun,
+  onClickSingleChip,
+  isSingleChipActive,
+}: CanonicalBlockProps): React.ReactElement | null {
   switch (block.type) {
     case 'paragraph': {
       // Strip inline [Source N] citation markers — backend provenance
@@ -74,6 +95,128 @@ export function CanonicalBlock({
         .replace(/\s*\[Source \d+\]/g, '')
         .replace(/\s*\(Sources? \d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\)/g, '')
         .trim();
+
+      if (provenanceRow) {
+        const isUngrounded =
+          provenanceRow.grounded === false || provenanceRow.method === 'ungrounded';
+        const sentences = splitIntoSentences(cleaned);
+        const runs = isUngrounded ? [] : groupSegmentsIntoRuns(provenanceRow.segments);
+
+        if (runs.length > 0) {
+          return (
+            <p
+              className="reader-paragraph"
+              data-tts-active={isTtsActive ? 'true' : 'false'}
+              data-source-page={block.sourcePage !== undefined ? block.sourcePage : undefined}
+            >
+              {sentences.map((sent, sIdx) => {
+                const matchingRun = runs.find((r) => r.sentenceEnd === sIdx);
+                const hoveredRun =
+                  hoveredRunIndex !== null && hoveredRunIndex !== undefined
+                    ? runs[hoveredRunIndex]
+                    : null;
+                const activeRun =
+                  activeRunIndex !== null && activeRunIndex !== undefined
+                    ? runs[activeRunIndex]
+                    : null;
+                const isHighlighted = Boolean(
+                  (hoveredRun && sIdx >= hoveredRun.sentenceStart && sIdx <= hoveredRun.sentenceEnd) ||
+                  (activeRun && sIdx >= activeRun.sentenceStart && sIdx <= activeRun.sentenceEnd)
+                );
+
+                return (
+                  <span
+                    key={sIdx}
+                    data-sentence-index={sIdx}
+                    className={`sentence-span ${isHighlighted ? 'segment-highlighted' : ''}`}
+                  >
+                    {renderInlineText(sent)}
+                    {matchingRun && (
+                      <span className="inline-chip-wrapper inline-flex items-center align-baseline">
+                        <button
+                          type="button"
+                          data-segment-run-index={matchingRun.runIndex}
+                          onMouseEnter={() => onHoverRun?.(matchingRun.runIndex)}
+                          onMouseLeave={() => onHoverRun?.(null)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onClickRun?.(matchingRun.runIndex, e.currentTarget);
+                          }}
+                          className={`inline-chip text-micro px-1.5 py-0.2 ml-1.5 rounded-full border transition-all duration-150 select-none align-baseline cursor-pointer text-[9px] font-mono uppercase tracking-wider font-semibold ${
+                            activeRunIndex === matchingRun.runIndex
+                              ? 'bg-accent text-white border-accent opacity-100 ring-2 ring-accent/30'
+                              : hoveredRunIndex === matchingRun.runIndex
+                              ? 'bg-surface text-accent-ink border-accent opacity-100 shadow-sm'
+                              : 'bg-surface/95 text-ink-muted hover:text-accent-ink hover:border-accent border-line group-hover:opacity-100 opacity-0'
+                          }`}
+                          aria-label={`View source provenance for segment ${matchingRun.runIndex + 1}`}
+                          aria-expanded={activeRunIndex === matchingRun.runIndex}
+                        >
+                          Source
+                        </button>
+                      </span>
+                    )}
+                    {sIdx < sentences.length - 1 ? ' ' : ''}
+                  </span>
+                );
+              })}
+            </p>
+          );
+        }
+
+        // If ungrounded: honest silence on chips, but preserve sentence-index structure
+        if (isUngrounded) {
+          return (
+            <p
+              className="reader-paragraph"
+              data-tts-active={isTtsActive ? 'true' : 'false'}
+              data-source-page={block.sourcePage !== undefined ? block.sourcePage : undefined}
+            >
+              {sentences.map((sent, sIdx) => (
+                <span key={sIdx} data-sentence-index={sIdx} className="sentence-span">
+                  {renderInlineText(sent)}
+                  {sIdx < sentences.length - 1 ? ' ' : ''}
+                </span>
+              ))}
+            </p>
+          );
+        }
+
+        // Fallback: grounded paragraph with no segments -> single paragraph-level chip at the end
+        return (
+          <p
+            className="reader-paragraph"
+            data-tts-active={isTtsActive ? 'true' : 'false'}
+            data-source-page={block.sourcePage !== undefined ? block.sourcePage : undefined}
+          >
+            {sentences.map((sent, sIdx) => (
+              <span key={sIdx} data-sentence-index={sIdx} className="sentence-span">
+                {renderInlineText(sent)}
+                {sIdx < sentences.length - 1 ? ' ' : ''}
+              </span>
+            ))}
+            <span className="inline-chip-wrapper inline-flex items-center align-baseline">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClickSingleChip?.(e.currentTarget);
+                }}
+                className={`inline-chip text-micro px-1.5 py-0.2 ml-1.5 rounded-full border transition-all duration-150 select-none align-baseline cursor-pointer text-[9px] font-mono uppercase tracking-wider font-semibold ${
+                  isSingleChipActive
+                    ? 'bg-accent text-white border-accent opacity-100 ring-2 ring-accent/30'
+                    : 'bg-surface/95 text-ink-muted hover:text-accent-ink hover:border-accent border-line group-hover:opacity-100 opacity-0'
+                }`}
+                aria-label="View source provenance"
+                aria-expanded={isSingleChipActive}
+              >
+                Source
+              </button>
+            </span>
+          </p>
+        );
+      }
+
       return (
         <p
           className="reader-paragraph"

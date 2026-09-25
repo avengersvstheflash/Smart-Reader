@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import { ExternalLink, X, BookOpen } from 'lucide-react';
 import { ParagraphAttribution, ProvenanceChunk } from '../../types/domain';
 
@@ -7,6 +7,7 @@ export interface ProvenancePreviewProps {
   paragraphIndex?: number;
   provenanceRow?: ParagraphAttribution | null;
   chunk?: ProvenanceChunk | null;
+  anchorRef?: React.RefObject<HTMLElement> | HTMLElement | null;
   onNavigate: (chunkId: string, chapterId?: string | null) => void;
   onClose: () => void;
 }
@@ -16,12 +17,15 @@ export function ProvenancePreview({
   paragraphIndex,
   provenanceRow,
   chunk,
+  anchorRef,
   onNavigate,
   onClose,
 }: ProvenancePreviewProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const pIdx = paragraph_index ?? paragraphIndex ?? 0;
   void pIdx;
+
+  const [positionStyle, setPositionStyle] = useState<React.CSSProperties>({});
 
   // Close on Click Outside & Escape
   useEffect(() => {
@@ -31,6 +35,10 @@ export function ProvenancePreview({
       }
     };
     const handleClickOutside = (e: MouseEvent) => {
+      const chipEl = anchorRef instanceof HTMLElement ? anchorRef : anchorRef?.current;
+      if (chipEl && chipEl.contains(e.target as Node)) {
+        return;
+      }
       if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
         onClose();
       }
@@ -42,7 +50,58 @@ export function ProvenancePreview({
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [onClose]);
+  }, [onClose, anchorRef]);
+
+  // Compute position directly below the anchor chip
+  useLayoutEffect(() => {
+    const chipEl = anchorRef instanceof HTMLElement ? anchorRef : anchorRef?.current;
+    if (!chipEl) return;
+
+    const updatePosition = () => {
+      const rect = chipEl.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const cardWidth = Math.min(384, viewportWidth - 32);
+
+      const isRightHalf = rect.left + rect.width / 2 > viewportWidth / 2;
+      const top = rect.bottom + 8;
+
+      const style: React.CSSProperties = {
+        position: 'fixed',
+        top: `${top}px`,
+        width: `${cardWidth}px`,
+        maxWidth: 'calc(100vw - 2rem)',
+        zIndex: 50,
+      };
+
+      if (isRightHalf) {
+        // Align right edge of card to right edge of chip
+        const rightDist = viewportWidth - rect.right;
+        const clampedRight = Math.max(16, Math.min(rightDist, viewportWidth - cardWidth - 16));
+        style.right = `${clampedRight}px`;
+      } else {
+        // Align left edge of card to left edge of chip
+        const clampedLeft = Math.max(16, Math.min(rect.left, viewportWidth - cardWidth - 16));
+        style.left = `${clampedLeft}px`;
+      }
+
+      // If card overflows viewport bottom, flip above chip if vertical space permits
+      if (top + 280 > viewportHeight && rect.top > 300) {
+        delete style.top;
+        style.bottom = `${viewportHeight - rect.top + 8}px`;
+      }
+
+      setPositionStyle(style);
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [anchorRef]);
 
   const isUngrounded =
     provenanceRow?.grounded === false || provenanceRow?.method === 'ungrounded';
@@ -66,7 +125,12 @@ export function ProvenancePreview({
       ref={cardRef}
       role="dialog"
       aria-label="Source attribution preview"
-      className="absolute right-0 top-full mt-2 z-30 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-lg shadow-xl p-4 text-left animate-in fade-in zoom-in-95 duration-150"
+      style={anchorRef ? positionStyle : undefined}
+      className={
+        anchorRef
+          ? 'fixed z-50 bg-surface border border-line rounded-lg shadow-2xl p-4 text-left animate-in fade-in zoom-in-95 duration-150'
+          : 'absolute right-0 top-full mt-2 z-30 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-lg shadow-xl p-4 text-left animate-in fade-in zoom-in-95 duration-150'
+      }
     >
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-line/60">
         <div className="flex items-center gap-1.5 text-micro uppercase tracking-wider font-semibold text-muted">
