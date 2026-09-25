@@ -58,7 +58,13 @@ function getAlignClass(align?: string): string | undefined {
   return undefined;
 }
 
-export function CanonicalBlock({ block }: { block: CanonicalBlockType }): React.ReactElement | null {
+export function CanonicalBlock({
+  block,
+  isTtsActive = false,
+}: {
+  block: CanonicalBlockType;
+  isTtsActive?: boolean;
+}): React.ReactElement | null {
   switch (block.type) {
     case 'paragraph': {
       // Strip inline [Source N] citation markers — backend provenance
@@ -68,7 +74,15 @@ export function CanonicalBlock({ block }: { block: CanonicalBlockType }): React.
         .replace(/\s*\[Source \d+\]/g, '')
         .replace(/\s*\(Sources? \d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\)/g, '')
         .trim();
-      return <p>{renderInlineText(cleaned)}</p>;
+      return (
+        <p
+          className="reader-paragraph"
+          data-tts-active={isTtsActive ? 'true' : 'false'}
+          data-source-page={block.sourcePage !== undefined ? block.sourcePage : undefined}
+        >
+          {renderInlineText(cleaned)}
+        </p>
+      );
     }
 
     case 'heading': {
