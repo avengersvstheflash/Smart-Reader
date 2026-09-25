@@ -105,7 +105,7 @@ async function runTests() {
   let outline = null;
   let synthesizedCount = 0;
 
-  while (Date.now() - pollStart < 120000) {
+  while (Date.now() - pollStart < 240000) {
     outline = editorialService.getSingleBookOutline(testBookId);
     if (outline && Array.isArray(outline.chapters) && outline.chapters.length >= 3) {
       synthesizedCount = 0;

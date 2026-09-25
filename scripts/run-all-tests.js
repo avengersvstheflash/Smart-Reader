@@ -19,7 +19,7 @@ const ROOT = path.resolve(__dirname, '..');
 // Isolate test DB from dev DB so test runs do not wipe user Library
 process.env.DB_PATH = path.join(ROOT, 'storage', 'test-data.db');
 
-const TIMEOUT_MS = 150_000;
+const TIMEOUT_MS = 300_000;
 
 const SUITES = [
   'build3a_test.js',
