@@ -157,6 +157,7 @@ Split into three sub-phases. The sidecar proves the Node↔Python boundary; OCR 
 - **`math-heavy.pdf` yields 1 editorial candidate from 61 chunks.** NIST FIPS 197 is 8 front_matter + 52 appendix + 1 chapter. Filter correctly rejects 60/61 as non-body. Honest behavior for a document shape that isn't book-like.
 - **Synopsis degradation on preface-less sources.** SEC filings, pasted text, and some web dumps lack preface + TOC. Synopsis prompt receives `(None provided)`. Retry logic saves it today. Fragile. No fix scheduled.
 - **Full suite runtime ~5–7 min.** Future: two-tier npm scripts (`test:fast` no-LLM, `test:full` including synthesis). Informational.
+- **Cinematic pacing is fixed, not adaptive.** The import animation runs on a scripted timeline. If SEMANTIC_INDEX takes 90 seconds (BGE-M3 backpressure) the cinematic finishes early and sits on the last frame. Users may interpret this as "stuck." Fix queued as part of the Phase 5.x UI polish — read real job progress and estimate remaining time per stage.
 
 ### Hazards (rules learned from incidents)
 
@@ -206,6 +207,7 @@ Two loops, to build after Phase 5.1 defines the paragraph-level provenance contr
 1. **Tag chips relocation.** Book Details hero currently renders all classification tags inline alongside content-type and reading-level. Move to a collapsed expander or into the dedicated filter/search surface. Hero row gets visually crowded on books with 5–8 tags.
 2. **Book Details visual weight.** Structurally correct but feels "numb" — no cover tint behind title, no subtle depth on cards.
 3. **`/research` route collection view.** Phase 4.6 shipped the Web + Paste *import tabs*. The collection-view half — where a research dossier across multiple books is displayed — never shipped. Depends on Phase 5.1 for cross-source citation traceability.
+- **Adaptive cinematic pacing.** The import cinematic currently runs at fixed pacing regardless of real pipeline timing. Refinement: each stage should read real `processing_jobs.progress` and display live ETA based on observed stage durations (INGEST ~2s, SEMANTIC_INDEX ~3min per 500 chunks, CLASSIFICATION ~2s, SYNOPSIS ~10s, SYNTHESIS ~30s/chapter). When a stage stalls — LLM latency, embedding backpressure — the UI should say so honestly ("Waiting on model response...") rather than freezing on the last checkpoint. Deferred to a later Phase 5.x pass. Rationale: a stalled-looking UI undermines the trust discipline the rest of the product maintains.
 
 ---
 
