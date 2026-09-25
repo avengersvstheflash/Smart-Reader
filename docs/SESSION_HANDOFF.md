@@ -8,13 +8,13 @@
 
 ## 1. Where we are
 
-**Phase 5.1 CLOSED 2026-09-24.** All 19 test suites green (verified by manual terminal run). Trust path intact. Provenance resolution contract verified end-to-end.
+**Phase 5.2 CLOSED 2026-09-25.** All 19 test suites green (verified by manual terminal run). Trust path intact. Interactive provenance layer verified in browser.
 
-**Last shipped commit:** `ce5d475` — phase5.1b: GET provenance endpoint + tests + runner registration.
+**Last shipped commit:** `6eae23c` — phase5.2.3: fix chip distribution, scope hover to Smart mode, correct segment highlight.
 
 **Test state:** 19/19 root suites green. Frontend build clean, typecheck 0 errors. Runtime ~6–8 min.
 
-**Next phase:** Phase 5.2 — Reader click-through UI (interactive provenance).
+**Next phase:** Phase 5.3 — Research tab foundation.
 
 ### What ships today
 
@@ -82,19 +82,30 @@
 
 ## 4. Next task
 
-### Phase 5.2 — Reader click-through UI (interactive provenance)
+### Phase 5.3 — Research tab foundation
 
-**Goal:** Build the interactive Reader UI that consumes the Phase 5.1 provenance contract (`GET /api/representations/:id/provenance`) to connect Smart Reading sentences to their immutable source passages.
+**Goal:** Multi-source view. Takes a dossier (book built from multiple web sources), displays original sources side-by-side, and renders cross-source citations — where a Smart paragraph draws from chunks in source A and source B, both are shown with distinct attribution.
 
-**Context:** PRODUCT_VISION.md reframed the product thesis: *"Smart is the product. Original is the proof."* The Original | Smart toggle is not a peer switch — the reader defaults to Smart and offers an interactive affordance. Clicking or hovering a Smart sentence/segment highlights its source passage or opens the source drawer positioned at the exact source chunk.
+**Depends on:** Phase 5.2 (shipped — block mapping primitive, preview card, return arrow all generalize to multi-source).
 
-**Sequencing:**
-- **5.1** — Backend provenance resolution contract (CLOSED 2026-09-24)
-- **5.2** — Reader click-through UI (this task)
-- **5.3** — Research mode collection view (depends on 5.1)
-- **5.5** — Library polish + UI/UX backlog (see §8)
-- **5.6** — Validation and refine loops (see §7)
-- **5.7** — Python sidecar architecture decision (see below, also §9)
+**Depends on:** Phase 5.1 (shipped — paragraph_attributions carries chunk_id per segment).
+
+**Not in scope for 5.3:**
+- Tauri file-system browser (Phase 6)
+- Discussion-mode source viewer (Build 6)
+- Broadened web search coverage (5.3 input, may be 5.3.1)
+
+**Inputs already logged:**
+- Web dossiers render `[Source N: Site]` in chapter headings, not per-paragraph chips. Source-level (not chunk-level) attribution. Fix alongside Research tab.
+- Web search currently hits Wikipedia + OpenLibrary. Broadening means more source adapters, rate limiting, robots.txt compliance, per-source provenance.
+- Phase 5.2.3 diagnostic found `ReaderRoute` was selecting wrong representation via `created_at DESC` ordering. Fixed in 5.2.3 with outline-sequence prioritization. Same class of bug could affect multi-source resolution in 5.3 — verify chapter↔source mapping is deterministic from day one.
+
+**Recommended tooling:** Use `/plan` with Artifact Review Policy set to "Request Review." Confirmed working in 5.2.3 — the Implementation Plan artifact captured the diagnostic, the agent halted for review, and browser verification ran via `/browser` (headless Chromium + CDP) rather than being marked PENDING USER.
+
+**First actions of the session:**
+1. `/plan phase5.3 — Research tab foundation`
+2. Review the Implementation Plan artifact
+3. Only proceed to execution after approval
 
 ### Phase 5.7 — Python sidecar (detailed shape)
 
@@ -131,6 +142,23 @@ Split into three sub-phases. The sidecar proves the Node↔Python boundary; OCR 
 
 ## 5. Roadmap
 
+### Phase 5 — In Progress
+
+| Phase | Status | Description |
+|:---:|:---:|---|
+| **5.1a** | ✅ | Bibliographic metadata extraction |
+| **5.1b** | ✅ | Paragraph-level provenance resolution contract |
+| **5.1b.1** | ✅ | C-primary arbitration (replaced A_vs_C matrix) |
+| **5.1b.2** | ✅ | Empirical calibration (C.margin = document-class discriminator) |
+| **5.2** | ✅ | Reader click-through UI — the moat made interactive |
+| **5.2.1** | ✅ | Segment-level chips, chip-anchored preview, hover highlighting |
+| **5.2.2** | ✅ | Fix hover wash visibility, chip inline positioning, segment border |
+| **5.2.3** | ✅ | Fix chip distribution (ReaderRoute selection bug), scope hover to Smart, gradient highlight |
+| **5.3** | 🚧 | Research tab foundation |
+| **5.5** | ⏳ | Library polish + UI/UX backlog |
+| **5.6** | ⏳ | Validation and refine loops |
+| **5.7** | ⏳ | Python sidecar (5.7.1 OCR, 5.7.2 stubs, 5.7.3 router) |
+
 **Phase 5** — Inline source tracker (the moat made interactive). 5.1 → 5.7 above.
 **Phase 6** — Tauri package (3–5 sessions after Phase 5).
 **Build 5** — Audio mode (Kokoro-82M default, cloud Qwen premium).
@@ -150,6 +178,17 @@ Split into three sub-phases. The sidecar proves the Node↔Python boundary; OCR 
 - **Test fixtures undersized for slicer.** `build4_2bc` test book now produces 1 outline chapter (was 6); `build4_2a` smoke test also produces 1. Assertions updated to pass, but fixtures should enlarge to 5,000–12,000 words for multi-chapter coverage. Not urgent.
 
 ### Informational — by design, not bugs
+
+- **Phase 5.6 input — ReaderRoute representation selection was non-deterministic (fixed 2026-09-25, 5.2.3).** `ReaderRoute.tsx` used `representations.find(r => r.type === 'EDITORIAL_SYNTHESIS')` against a list returned `ORDER BY created_at DESC`. For books with multiple synthesized chapters, this picked the newest instead of the one matching the current chapter. Two rounds of UI fixes (5.2.1, 5.2.2) missed the chip-distribution bug because the underlying data was wrong, not the renderer. Fixed by prioritizing: (1) `fromRep` query param, (2) outline chapter sequence, (3) ascending creation order. **Validation loops (5.6) should assert that representation↔chapter mapping is 1:1 for single-book reads.**
+
+- **Phase 5.2 complete (2026-09-25).** Interactive provenance layer shipped:
+  - Inline chips per segment run (one chip when all sentences map to same chunk, N chips when they differ)
+  - Hover wash on Smart paragraphs only (Original mode is silent — immutable source)
+  - Segment highlight uses background gradient (not `border-left + box-decoration-break: clone`, which cloned per line-wrap)
+  - Preview card anchored below chip, shows excerpt + section path + page
+  - "View full source" navigates to Original mode with chunk highlight + neighboring muted context
+  - Return arrow restores exact scroll position via sessionStorage
+  - `data-tts-active` DOM stub ready for Build 5 (Kokoro TTS reuses `.sentence-span.segment-highlighted` styling via a second trigger class)
 
 - **Phase 5.6 input — A vs C agreement rate varies by document type.** On the two-column ResNet fixture, Signal A agreed with C's top chunk in only 1 of 7 paragraphs (14%), producing 6 b_arbitrated calls. On the canonical textbook, agreement was 6 of 11 (55%). Root cause unknown — could be A emitting poorly-aligned citations on two-column content, or C's chunk boundaries not matching the paper's section structure. Investigate in Phase 5.6 with a correctness benchmark.
 - **AI planning path — oversize units.** `plan()` (used only when `options.fast` is false — not during import) can assign 3,000–4,200 word source units to a single chapter. The 4.24 defensive guard applies only to `sliceIntoSourceUnits` (deterministic path). Tests `build4_1` and `build4_2a` exercise this and log oversize units as expected. Not a bug.

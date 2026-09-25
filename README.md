@@ -93,6 +93,7 @@ Dense technical content preserves every claim at tighter ratios. Accessible narr
 - **Library** — responsive book grid with search, content-type filters, dynamic tag filter chips, Smart badge
 - **Book Details** — hero, classification chips, synopsis panel, bibliographic panel, chapter list, semantic intelligence panel, AI-provider disclosure
 - **Reader** — Smart-first default when a representation exists, with a subtle Source affordance for the original
+- **Interactive provenance** — clickable source chips per segment run with inline preview cards, chunk navigation to Original mode, and scroll-position preservation on return
 - **Canonical block renderer** — recursive rendering of headings, paragraphs, quotes, lists, code, tables, callouts, separators
 - **Import** — File / Web / Paste tabs with real XHR progress and a job-driven pipeline stepper
 - **Cinematic import** — pipeline stages drive page-turn, chunk-gather, tag-fade, chapter-card animations; dynamic polling; reduced-motion collapse; mobile-safe at 375 px
@@ -224,11 +225,12 @@ Compression enforced. Import pipeline hardened. Classification shipped. Cinemati
 |:---:|:---:|---|
 | **5.1a** | ✅ | Bibliographic metadata extraction |
 | **5.1b** | ✅ | Paragraph-level provenance resolution contract |
-| **5.1b.1** | 🚧 | C-primary arbitration (replacing A_vs_C agreement matrix) |
-| **5.2** | ⏳ | Reader click-through UI — the moat made interactive |
-| **5.3** | ⏳ | Research mode collection view |
+| **5.1b.1** | ✅ | C-primary arbitration |
+| **5.1b.2** | ✅ | Empirical threshold calibration |
+| **5.2** | ✅ | Reader click-through UI — interactive provenance |
+| **5.3** | 🚧 | Research tab foundation |
 | **5.5** | ⏳ | Library polish + UI/UX backlog |
-| **5.6** | ⏳ | Validation and refine loops (adaptive source guard, adaptive output guard) |
+| **5.6** | ⏳ | Validation and refine loops |
 | **5.7** | ⏳ | Python sidecar architecture (OCR, Discussion, Story) |
 
 ### Later
