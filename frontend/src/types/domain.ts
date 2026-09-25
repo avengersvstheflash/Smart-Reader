@@ -416,7 +416,7 @@ export interface SegmentRun {
 export function splitIntoSentences(text?: string | null): string[] {
   const t = (text || '').trim();
   if (!t) return [];
-  const regex = /.*?(?:[.!?]+(?:\s*\[Source\s+\d+\]+)*|\s*\[Source\s+\d+\]+[.!?]*)(?=\s+|$)/gi;
+  const regex = /[^.!?]+[.!?]+["']?\s*|[^.!?]+$/g;
   const matches = t.match(regex);
   if (!matches || matches.length === 0) return [t];
   const sents = matches
@@ -435,8 +435,11 @@ export function groupSegmentsIntoRuns(segments?: ProvenanceSegment[]): SegmentRu
 
   for (const seg of segments) {
     if (!seg.chunk_id) continue;
+    const chunkId = String(seg.chunk_id).trim();
+    if (!chunkId) continue;
+
     const lastRun = runs[runs.length - 1];
-    if (lastRun && lastRun.chunkId === seg.chunk_id) {
+    if (lastRun && lastRun.chunkId === chunkId) {
       lastRun.sentenceEnd = Math.max(lastRun.sentenceEnd, seg.sentence_end);
       lastRun.confidence = Math.max(lastRun.confidence, seg.confidence);
     } else {
@@ -444,7 +447,7 @@ export function groupSegmentsIntoRuns(segments?: ProvenanceSegment[]): SegmentRu
         runIndex: runs.length,
         sentenceStart: seg.sentence_start,
         sentenceEnd: seg.sentence_end,
-        chunkId: seg.chunk_id,
+        chunkId,
         confidence: seg.confidence,
       });
     }

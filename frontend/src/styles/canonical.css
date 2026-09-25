@@ -179,27 +179,75 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
   border-radius: 4px;
 }
 
-/* Phase 5.2.1 Paragraph-level hover (3a: subtle background wash on whole paragraph) */
+/* Phase 5.2.2 Paragraph-level hover (soft background wash on whole paragraph) */
 .reader-paragraph {
   transition: background-color 150ms ease;
   border-radius: 4px;
 }
 
 .reader-paragraph:hover {
-  background-color: rgb(var(--accent-wash) / 0.04);
+  background-color: rgb(var(--accent) / 0.06);
 }
 
-/* Phase 5.2.1 Sentence-level hover highlighting (3b: stronger highlight + accent border on the run's sentences) */
+/* Phase 5.2.2 Sentence-level hover highlighting (stronger highlight + real accent border-left) */
 .sentence-span {
-  transition: background-color 150ms ease, box-shadow 150ms ease;
+  transition: background-color 150ms ease, border-color 150ms ease;
   border-radius: 2px;
 }
 
 .sentence-span.segment-highlighted {
-  background-color: rgb(var(--accent-wash) / 0.16);
-  box-shadow: -2px 0 0 0 rgb(var(--accent));
-  padding-left: 2px;
-  padding-right: 2px;
+  background-color: rgb(var(--accent) / 0.12);
+  border-left: 3px solid rgb(var(--accent));
+  padding-left: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Phase 5.2.2 Segment Source Chip */
+.segment-source-chip {
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: baseline;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  border: 1px solid rgb(var(--line));
+  background-color: rgb(var(--surface) / 0.95);
+  color: rgb(var(--ink-muted));
+  cursor: pointer;
+  user-select: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease, background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.reader-paragraph:hover .segment-source-chip,
+.canonical-block:hover .segment-source-chip,
+.group:hover .segment-source-chip,
+.segment-source-chip.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.segment-source-chip:hover,
+.segment-source-chip.hovered {
+  color: rgb(var(--accent-ink));
+  border-color: rgb(var(--accent));
+  background-color: rgb(var(--surface));
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.segment-source-chip.active {
+  background-color: rgb(var(--accent));
+  color: #ffffff;
+  border-color: rgb(var(--accent));
+  box-shadow: 0 0 0 2px rgb(var(--accent) / 0.3);
 }
 
 

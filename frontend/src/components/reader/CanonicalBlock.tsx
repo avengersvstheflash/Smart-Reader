@@ -110,14 +110,16 @@ export function CanonicalBlock({
               data-source-page={block.sourcePage !== undefined ? block.sourcePage : undefined}
             >
               {sentences.map((sent, sIdx) => {
-                const matchingRun = runs.find((r) => r.sentenceEnd === sIdx);
+                const matchingRuns = runs.filter(
+                  (r) => Math.min(r.sentenceEnd, sentences.length - 1) === sIdx
+                );
                 const hoveredRun =
                   hoveredRunIndex !== null && hoveredRunIndex !== undefined
-                    ? runs[hoveredRunIndex]
+                    ? runs.find((r) => r.runIndex === hoveredRunIndex)
                     : null;
                 const activeRun =
                   activeRunIndex !== null && activeRunIndex !== undefined
-                    ? runs[activeRunIndex]
+                    ? runs.find((r) => r.runIndex === activeRunIndex)
                     : null;
                 const isHighlighted = Boolean(
                   (hoveredRun && sIdx >= hoveredRun.sentenceStart && sIdx <= hoveredRun.sentenceEnd) ||
@@ -125,39 +127,39 @@ export function CanonicalBlock({
                 );
 
                 return (
-                  <span
-                    key={sIdx}
-                    data-sentence-index={sIdx}
-                    className={`sentence-span ${isHighlighted ? 'segment-highlighted' : ''}`}
-                  >
-                    {renderInlineText(sent)}
-                    {matchingRun && (
-                      <span className="inline-chip-wrapper inline-flex items-center align-baseline">
-                        <button
-                          type="button"
-                          data-segment-run-index={matchingRun.runIndex}
-                          onMouseEnter={() => onHoverRun?.(matchingRun.runIndex)}
-                          onMouseLeave={() => onHoverRun?.(null)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onClickRun?.(matchingRun.runIndex, e.currentTarget);
-                          }}
-                          className={`inline-chip text-micro px-1.5 py-0.2 ml-1.5 rounded-full border transition-all duration-150 select-none align-baseline cursor-pointer text-[9px] font-mono uppercase tracking-wider font-semibold ${
-                            activeRunIndex === matchingRun.runIndex
-                              ? 'bg-accent text-white border-accent opacity-100 ring-2 ring-accent/30'
-                              : hoveredRunIndex === matchingRun.runIndex
-                              ? 'bg-surface text-accent-ink border-accent opacity-100 shadow-sm'
-                              : 'bg-surface/95 text-ink-muted hover:text-accent-ink hover:border-accent border-line group-hover:opacity-100 opacity-0'
-                          }`}
-                          aria-label={`View source provenance for segment ${matchingRun.runIndex + 1}`}
-                          aria-expanded={activeRunIndex === matchingRun.runIndex}
-                        >
-                          Source
-                        </button>
-                      </span>
-                    )}
+                  <React.Fragment key={sIdx}>
+                    <span
+                      data-sentence-index={sIdx}
+                      className={`sentence-span ${isHighlighted ? 'segment-highlighted' : ''}`}
+                    >
+                      {renderInlineText(sent)}
+                    </span>
+                    {matchingRuns.map((run) => (
+                      <button
+                        key={run.runIndex}
+                        type="button"
+                        data-segment-run-index={run.runIndex}
+                        onMouseEnter={() => onHoverRun?.(run.runIndex)}
+                        onMouseLeave={() => onHoverRun?.(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onClickRun?.(run.runIndex, e.currentTarget);
+                        }}
+                        className={`segment-source-chip ${
+                          activeRunIndex === run.runIndex
+                            ? 'active'
+                            : hoveredRunIndex === run.runIndex
+                            ? 'hovered'
+                            : ''
+                        }`}
+                        aria-label={`View source provenance for segment ${run.runIndex + 1}`}
+                        aria-expanded={activeRunIndex === run.runIndex}
+                      >
+                        Source
+                      </button>
+                    ))}
                     {sIdx < sentences.length - 1 ? ' ' : ''}
-                  </span>
+                  </React.Fragment>
                 );
               })}
             </p>
@@ -173,10 +175,12 @@ export function CanonicalBlock({
               data-source-page={block.sourcePage !== undefined ? block.sourcePage : undefined}
             >
               {sentences.map((sent, sIdx) => (
-                <span key={sIdx} data-sentence-index={sIdx} className="sentence-span">
-                  {renderInlineText(sent)}
+                <React.Fragment key={sIdx}>
+                  <span data-sentence-index={sIdx} className="sentence-span">
+                    {renderInlineText(sent)}
+                  </span>
                   {sIdx < sentences.length - 1 ? ' ' : ''}
-                </span>
+                </React.Fragment>
               ))}
             </p>
           );
@@ -190,29 +194,25 @@ export function CanonicalBlock({
             data-source-page={block.sourcePage !== undefined ? block.sourcePage : undefined}
           >
             {sentences.map((sent, sIdx) => (
-              <span key={sIdx} data-sentence-index={sIdx} className="sentence-span">
-                {renderInlineText(sent)}
+              <React.Fragment key={sIdx}>
+                <span data-sentence-index={sIdx} className="sentence-span">
+                  {renderInlineText(sent)}
+                </span>
                 {sIdx < sentences.length - 1 ? ' ' : ''}
-              </span>
+              </React.Fragment>
             ))}
-            <span className="inline-chip-wrapper inline-flex items-center align-baseline">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClickSingleChip?.(e.currentTarget);
-                }}
-                className={`inline-chip text-micro px-1.5 py-0.2 ml-1.5 rounded-full border transition-all duration-150 select-none align-baseline cursor-pointer text-[9px] font-mono uppercase tracking-wider font-semibold ${
-                  isSingleChipActive
-                    ? 'bg-accent text-white border-accent opacity-100 ring-2 ring-accent/30'
-                    : 'bg-surface/95 text-ink-muted hover:text-accent-ink hover:border-accent border-line group-hover:opacity-100 opacity-0'
-                }`}
-                aria-label="View source provenance"
-                aria-expanded={isSingleChipActive}
-              >
-                Source
-              </button>
-            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClickSingleChip?.(e.currentTarget);
+              }}
+              className={`segment-source-chip ${isSingleChipActive ? 'active' : ''}`}
+              aria-label="View source provenance"
+              aria-expanded={isSingleChipActive}
+            >
+              Source
+            </button>
           </p>
         );
       }
