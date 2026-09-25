@@ -179,31 +179,43 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
   border-radius: 4px;
 }
 
-/* Phase 5.2.2 Paragraph-level hover (soft background wash on whole paragraph) */
-.reader-paragraph {
+/* Phase 5.2.3 Paragraph-level hover scoped strictly to Smart mode */
+.reader-smart .reader-paragraph {
   transition: background-color 150ms ease;
   border-radius: 4px;
 }
 
-.reader-paragraph:hover {
+.reader-smart .reader-paragraph:hover {
   background-color: rgb(var(--accent) / 0.06);
 }
 
-/* Phase 5.2.2 Sentence-level hover highlighting (stronger highlight + real accent border-left) */
+.reader-original .reader-paragraph:hover {
+  background-color: transparent;
+}
+
+/* Phase 5.2.3 Sentence-level highlight (gradient accent bar + wash, no per-line border duplication) */
 .sentence-span {
-  transition: background-color 150ms ease, border-color 150ms ease;
+  transition: background-color 150ms ease, background 150ms ease;
   border-radius: 2px;
 }
 
-.sentence-span.segment-highlighted {
-  background-color: rgb(var(--accent) / 0.12);
-  border-left: 3px solid rgb(var(--accent));
+.sentence-span.segment-highlighted,
+.sentence-span.tts-active {
+  background: linear-gradient(
+    to right,
+    rgb(var(--accent) / 0.22) 0,
+    rgb(var(--accent) / 0.22) 3px,
+    rgb(var(--accent) / 0.10) 3px,
+    rgb(var(--accent) / 0.10) 100%
+  );
   padding-left: 4px;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
+  border-left: none;
+  box-shadow: none;
+  box-decoration-break: slice;
+  -webkit-box-decoration-break: slice;
 }
 
-/* Phase 5.2.2 Segment Source Chip */
+/* Phase 5.2.3 Segment Source Chip */
 .segment-source-chip {
   display: inline-block;
   margin-left: 6px;
@@ -226,11 +238,11 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
   transition: opacity 150ms ease, background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
-.reader-paragraph:hover .segment-source-chip,
-.canonical-block:hover .segment-source-chip,
-.group:hover .segment-source-chip,
-.segment-source-chip.active {
-  opacity: 1;
+.reader-smart .reader-paragraph:hover .segment-source-chip,
+.reader-smart .canonical-block:hover .segment-source-chip,
+.reader-smart .group:hover .segment-source-chip,
+.reader-smart .reader-paragraph[data-has-active-chip="true"] .segment-source-chip {
+  opacity: 0.85;
   pointer-events: auto;
 }
 
@@ -248,6 +260,8 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
   color: #ffffff;
   border-color: rgb(var(--accent));
   box-shadow: 0 0 0 2px rgb(var(--accent) / 0.3);
+  opacity: 1 !important;
+  pointer-events: auto;
 }
 
 

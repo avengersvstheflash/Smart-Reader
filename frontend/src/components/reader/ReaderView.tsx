@@ -136,7 +136,7 @@ export function ReaderView({
       style={{ '--reading-size': `${fontSize}px`, textAlign: align } as React.CSSProperties}
     >
       {mode === 'original' ? (
-        <>
+        <div className="reader-original">
           <div className="source-label text-micro tracking-wide uppercase text-faint font-medium select-none">
             SOURCE · IMMUTABLE
           </div>
@@ -218,9 +218,9 @@ export function ReaderView({
                 ))}
             </div>
           )}
-        </>
+        </div>
       ) : representation && smartBlocks.length > 0 ? (
-        <div className="border-l-2 border-accent pl-4 sm:pl-6">
+        <div className="reader-smart border-l-2 border-accent pl-4 sm:pl-6">
           <div className="text-micro tracking-wide uppercase text-accent-ink font-medium select-none">
             DERIVED · TRACEABLE
           </div>

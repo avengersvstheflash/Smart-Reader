@@ -73,13 +73,12 @@ export default function ReaderRoute() {
     refetch: refetchChapter,
   } = useChapter(chapterId);
 
-  const activeRepresentation = useMemo(() => {
-    if (!representations || representations.length === 0) return null;
-    // Prefer EDITORIAL_SYNTHESIS, fall back to SUMMARY
-    const editorial = representations.find((r) => r.type === 'EDITORIAL_SYNTHESIS');
-    const summary = representations.find((r) => r.type === 'SUMMARY');
-    return editorial ?? summary ?? representations[0];
-  }, [representations]);
+  const {
+    outline,
+    chapterCount: outlineChapterCount,
+    synthesizedCount,
+    refetch: refetchEditorial,
+  } = useEditorial(bookId);
 
   const rawRep = searchParams.get('rep');
   const repInUrl: 'original' | 'smart' | null =
@@ -87,6 +86,41 @@ export default function ReaderRoute() {
   const highlightChunkId = searchParams.get('highlight');
   const fromChapter = searchParams.get('fromChapter');
   const fromRep = searchParams.get('fromRep');
+
+  const activeRepresentation = useMemo(() => {
+    if (!representations || representations.length === 0) return null;
+
+    // 1. If explicit fromRep requested, match it
+    if (fromRep) {
+      const match = representations.find((r) => r.id === fromRep);
+      if (match) return match;
+    }
+
+    // 2. If editorial representations exist and we have an outline,
+    // order representations by the outline's chapter sequence
+    if (outline?.chapters && outline.chapters.length > 0) {
+      const orderMap = new Map<string, number>();
+      outline.chapters.forEach((ch, idx) => {
+        orderMap.set(ch.chapterId, idx);
+      });
+      const sorted = [...representations].sort((a, b) => {
+        const orderA = orderMap.get(a.chapter_id || '') ?? 9999;
+        const orderB = orderMap.get(b.chapter_id || '') ?? 9999;
+        return orderA - orderB;
+      });
+      const editorial = sorted.find((r) => r.type === 'EDITORIAL_SYNTHESIS');
+      const summary = sorted.find((r) => r.type === 'SUMMARY');
+      return editorial ?? summary ?? sorted[0];
+    }
+
+    // 3. Fallback: order by created_at ascending (first generated editorial chapter first)
+    const sorted = [...representations].sort((a, b) => {
+      return (a.created_at || '').localeCompare(b.created_at || '');
+    });
+    const editorial = sorted.find((r) => r.type === 'EDITORIAL_SYNTHESIS');
+    const summary = sorted.find((r) => r.type === 'SUMMARY');
+    return editorial ?? summary ?? sorted[0];
+  }, [representations, fromRep, outline]);
 
   const storedMode = useReaderStore((state) =>
     bookId ? state.getMode(bookId) : 'original'
@@ -173,7 +207,8 @@ export default function ReaderRoute() {
     const scrollKey = `smart_scroll_${targetChapter}`;
     const savedScroll = sessionStorage.getItem(scrollKey);
 
-    navigate(`/read/${bookId}/${targetChapter}?rep=smart`);
+    const fromRepParam = fromRep ? `&fromRep=${encodeURIComponent(fromRep)}` : '';
+    navigate(`/read/${bookId}/${targetChapter}?rep=smart${fromRepParam}`);
 
     if (savedScroll) {
       setTimeout(() => {
@@ -181,13 +216,6 @@ export default function ReaderRoute() {
       }, 50);
     }
   };
-
-  const {
-    outline,
-    chapterCount: outlineChapterCount,
-    synthesizedCount,
-    refetch: refetchEditorial,
-  } = useEditorial(bookId);
 
   const hasOutline = Boolean(outline);
 
