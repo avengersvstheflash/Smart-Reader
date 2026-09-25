@@ -194,12 +194,14 @@ export type CanonicalBlockType =
 
 export interface ParagraphBlock {
   id?: string;
+  sourcePage?: number;
   type: 'paragraph';
   text: string;
 }
 
 export interface HeadingBlock {
   id?: string;
+  sourcePage?: number;
   type: 'heading';
   level: number;
   text: string;
@@ -207,12 +209,14 @@ export interface HeadingBlock {
 
 export interface QuoteBlock {
   id?: string;
+  sourcePage?: number;
   type: 'quote';
   text: string;
 }
 
 export interface ListBlock {
   id?: string;
+  sourcePage?: number;
   type: 'list';
   ordered?: boolean;
   items: (string | CanonicalBlock)[];
@@ -220,6 +224,7 @@ export interface ListBlock {
 
 export interface CodeBlock {
   id?: string;
+  sourcePage?: number;
   type: 'code';
   language?: string;
   text: string;
@@ -227,11 +232,13 @@ export interface CodeBlock {
 
 export interface SeparatorBlock {
   id?: string;
+  sourcePage?: number;
   type: 'separator';
 }
 
 export interface CalloutBlock {
   id?: string;
+  sourcePage?: number;
   type: 'callout';
   variant?: string;
   title?: string;
@@ -240,6 +247,7 @@ export interface CalloutBlock {
 
 export interface TableBlock {
   id?: string;
+  sourcePage?: number;
   type: 'table';
   caption?: string;
   headers?: string[];
@@ -374,6 +382,40 @@ export interface ProvenanceRef {
   sectionHeading?: string;
   blockStart: number;
   blockEnd: number;
+}
+
+export interface ProvenanceSegment {
+  sentence_start: number;
+  sentence_end: number;
+  chunk_id: string;
+  confidence: number;
+}
+
+export interface ParagraphAttribution {
+  paragraph_index: number;
+  segments: ProvenanceSegment[];
+  source_chunk_ids: string[];
+  weights: Record<string, number>;
+  method: string;
+  confidence: string;
+  grounded: boolean;
+}
+
+export interface ProvenanceChunk {
+  id: string;
+  chapter_id?: string | null;
+  sequence?: number | null;
+  section_heading: string | null;
+  source_page: number | null;
+  excerpt: string;
+  block_ids: string[];
+}
+
+export interface ProvenanceData {
+  representation_id: string;
+  verified_at: string | null;
+  paragraphs: ParagraphAttribution[];
+  chunks?: Record<string, ProvenanceChunk>;
 }
 
 export interface SmartChapter {
