@@ -8,15 +8,15 @@
 
 ## 1. Where we are
 
-**Phase 5.2 CLOSED 2026-09-25.** All 19 test suites green (verified by manual terminal run). Trust path intact. Interactive provenance layer verified in browser.
+**Phase 5.3 CLOSED 2026-09-26/27.** All 20 test suites green (verified by manual terminal run). Trust path intact. Library/Research architectural split shipped end-to-end.
 
-**Last shipped commit:** `6eae23c` — phase5.2.3: fix chip distribution, scope hover to Smart mode, correct segment highlight.
+**Last shipped commit:** `c89b4da` — fix(phase5.3f): theme-aware research viewer + opaque provenance popup.
 
-**Test state:** 19/19 root suites green. Frontend build clean, typecheck 0 errors. Runtime ~6–8 min.
+**Test state:** 20/20 root suites green. Frontend build clean, typecheck 0 errors. Runtime ~6–8 min.
 
-**Next phase:** Phase 5.3 — Research tab foundation & Library/Research architectural split.
+**Next phase:** Phase 5.5 — Library polish (UI/UX pass).
 
-### What ships today
+### What ships today (Phase 5.3)
 
 **Backend**
 - PDF/EPUB/web/paste ingestion with structural recovery (chapter/section hierarchy, front/back matter classification)
@@ -33,17 +33,26 @@
 - Backfill policy: legacy representations without attribution return `{ paragraphs: [] }` with `verified_at: null` — zero batch re-generation
 - Fallback honesty: `fell_back`, `fallback_reason`, `compression_violation`, `word_count_violation` metadata
 - Test DB isolation — test runs no longer wipe the dev Library (4.25/A1)
+- **Library / Research API split (5.3a/d):** `/api/books` returns synthesized readings only (using `chapter_representations.book_id = b.id`), while `/api/books/sources` returns all ingested sources (including multi-source dossiers and unsynthesized raw materials).
+- **Chunk resolution API (5.3b):** `GET /api/chunks/:id` returns chunk sequence and chapter metadata for cross-representation DOM block mapping.
+- **Deterministic test isolation (5.3d.1):** `build5_3_library_split_test.js` verified with self-contained seed fixtures and explicit cleanup.
 
 **Frontend**
-- Library with dynamic tag filter chips + Smart badge
+- Library with dynamic tag filter chips + Smart badge (Smart-only readings)
 - Book Details: hero, classification chips, bibliographic metadata, synopsis panel, chapter list, semantic intelligence panel, AI provider disclosure (4.10.5, 5.1a)
-- Reader: Original/Smart toggle, three-layer mode resolution, keyboard shortcuts, auto-hide nav
-- Import: File / Web / Paste tabs via `?tab=` URL param, full cinematic (page-turn → chunk-gather → tag-fade → synopsis text → chapter-card stack → completion cascade), reduced-motion collapse, mobile at 375px (4.7/4.7.1)
+- Reader: Smart reading view with inline provenance chips, hover wash, gradient sentence highlights, and return navigation
+- Research tab (`/research`): collection view of original sources with format/type filters (PDF, EPUB, Web, Paste, Dossiers) and "Imported, not yet synthesized" badges
+- Paper Research Viewer (`/research/:bookId`): serene serif paper aesthetic, sequence-accurate chunk highlight wash + auto-scroll from `?highlight=chk-X`, theme-aware tokens (`bg-surface text-ink article.prose.prose-reader`)
+- Cross-tab provenance navigation: clicking `[Source]` chips jumps directly from Smart reading to the corresponding chunk in Research view; sticky bar return arrow restores reader scroll position via `sessionStorage`
+- React Query cache hardening: isolated queryKeys (`['library-book-ids']` vs `useBooks`) and defensive type checks prevent cross-route cache corruption
+- ErrorBoundary isolation: crash containment wrapper in root layout
+- Opaque provenance preview card: 100% opacity background (`bg-card [--surface-alpha:1]`) prevents text bleed-through across all themes
+- Import: File / Web / Paste tabs via `?tab=` URL param, full cinematic, reduced-motion collapse, mobile at 375px (4.7/4.7.1)
 - Real upload progress via XHR, job-driven pipeline stepper polling at 500/800/1200ms (dynamic)
 
-### Phase 4 & 5.1 shipped, complete list
+### Phase 4 & 5 shipped, complete list
 
-4.5 → 4.6 → 4.7 → 4.7.1 → 4.7.5 → 4.8 → 4.8.1 → 4.8.2 → 4.8.3 → 4.9 → 4.10 → 4.10.5 → 4.11 → 4.11.1 → 4.11.5 → 4.11.6 → 4.12 (partially staged) → 4.13 → 4.13.1 → 4.14 → 4.15a → 4.15b → 4.16 → 4.19 → 4.20 → 4.21 → 4.21.1 → 4.24 → 4.25 → 5.1a → 5.1b
+4.5 → 4.6 → 4.7 → 4.7.1 → 4.7.5 → 4.8 → 4.8.1 → 4.8.2 → 4.8.3 → 4.9 → 4.10 → 4.10.5 → 4.11 → 4.11.1 → 4.11.5 → 4.11.6 → 4.12 (partially staged) → 4.13 → 4.13.1 → 4.14 → 4.15a → 4.15b → 4.16 → 4.19 → 4.20 → 4.21 → 4.21.1 → 4.24 → 4.25 → 5.1a → 5.1b → 5.1b.1 → 5.1b.2 → 5.2 → 5.2.1 → 5.2.2 → 5.2.3 → 5.3a → 5.3b → 5.3b.1 → 5.3d → 5.3d.1 → 5.3e → 5.3f
 
 ---
 
@@ -82,55 +91,23 @@
 
 ## 4. Next task
 
-### Phase 5.3 — Research tab foundation & Library/Research architectural split (3–4 sessions)
+### Phase 5.5 — Library polish & UI/UX backlog (1 session)
 
-**Goal:** Establish the Research tab as the dedicated home for original source materials, enforce a clean architectural split between Library (Smart-only compressed readings) and Research (immutable source proof), and implement multi-source visualization and cross-tab provenance navigation.
+**Goal:** Execute a bounded UI/UX polish pass on the Library and Book Details surfaces to elevate visual depth, reduce clutter, and improve ergonomics.
 
-**The Architectural Split (settled with user, 2026-09-26):**
-Three top-level tabs:
-- **IMPORT** → Where content enters (File / Web / Paste). Unchanged.
-- **LIBRARY** → Smart Readings only. Compressed chapters. The product.
-- **RESEARCH** → Original sources. Raw material. Provenance and traceability. Where "View full source" navigates to.
-
-**Decisions Locked (9):**
-1. **Library hides uncompressed books.** They appear in Research only, badged "Imported, not yet synthesized."
-2. **"View full source" from a Smart paragraph navigates to Research**, scrolled to the correct source, chunk highlighted. Not a same-view overlay.
-3. **Original | Smart toggle removed from Library reading.** Original lives in Research only.
-4. **In Library, "book" = synthesized reading collection.** Exists only post-synthesis. Research-side record is the "source item."
-5. **Web dossiers live in BOTH tabs:** compressed dossier chapters in Library, underlying sources in Research.
-6. **Library is Smart-only.** "View original" link on Book Details routes to Research. No in-place toggle.
-7. **Cross-tab navigation uses the same scroll-preservation pattern** as Phase 5.2's return arrow, generalized to tab state.
-8. **Research landing page = list of all source items**, grouped by book/dossier, filterable by format, source type, date.
-9. **Research visual identity = paper.** Neutral, calm, no accent chrome. Library stays tinted. Laws 1 and 2 made spatial.
-
-**What 5.3 Ships (revised):**
-- **A. Research tab as a real route** — collection view of original sources, grouped, searchable, filterable. "Imported, not yet synthesized" state.
-- **B. Library/Research split** — Library Smart-only, cross-tab navigation, scroll preservation.
-- **C. Multi-source visualization in Research** — per-source color coding, per-paragraph source chips, click chip → Research at chunk.
-- **D. Reader cleanup** — remove Original | Smart toggle from Library.
-- **E. Broadened web search** — defer to 5.3.1 if scope runs long.
+**Scope:**
+1. **Tag chips relocation in Book Details:** Move inline classification tags from the hero row into an expandable container or dedicated metadata shelf. Hero row gets visually overcrowded when a book has 5–8 tags.
+2. **Book Details visual weight & depth:** Add subtle cover tint behind title and elevation/depth styling to card containers.
+3. **Filter-chip persistence:** Persist active format/tag filter selections across tab switches and browser navigation sessions (via `localStorage` or `sessionStorage`).
+4. **Reading-progress indicator:** Subtle indicator showing completion / reading position across chapters.
 
 **Depends on:**
-- **Phase 5.2** (shipped — block mapping primitive generalizes to cross-tab navigation, preview card, return arrow).
-- **Phase 5.1** (shipped — paragraph_attributions carries chunk_id per segment).
+- Phase 5.3 (shipped — Library is now Smart-only, Research is source repository).
 
-**Not in scope for 5.3:**
-- Tauri file-system browser (Phase 6)
-- Discussion-mode source viewer (Build 6)
-- Broadened web search coverage (5.3 input, may be 5.3.1)
-- Any new LLM or embedding provider
-
-**Inputs already logged:**
-- Web dossiers render `[Source N: Site]` in chapter headings, not per-paragraph chips. Source-level (not chunk-level) attribution. Fix alongside Research tab.
-- Web search currently hits Wikipedia + OpenLibrary. Broadening means more source adapters, rate limiting, robots.txt compliance, per-source provenance.
-- Phase 5.2.3 diagnostic found `ReaderRoute` was selecting wrong representation via `created_at DESC` ordering. Fixed in 5.2.3 with outline-sequence prioritization. Same class of bug could affect multi-source resolution in 5.3 — verify chapter↔source mapping is deterministic from day one.
-
-**Recommended tooling:** Use `/plan` with Artifact Review Policy set to "Request Review." Confirmed working in 5.2.3 — the Implementation Plan artifact captured the diagnostic, the agent halted for review, and browser verification ran via `/browser` (headless Chromium + CDP) rather than being marked PENDING USER.
-
-**First actions of the session:**
-1. `/plan phase5.3 — Research tab foundation and Library/Research split`
-2. Review the Implementation Plan artifact
-3. Only proceed to execution after approval
+**Not in scope for 5.5:**
+- Python sidecar (Phase 5.7).
+- Validation & refine loops (Phase 5.6).
+- Tauri packaging (Phase 6).
 
 ### Phase 5.7 — Python sidecar (detailed shape)
 
@@ -179,8 +156,8 @@ Split into three sub-phases. The sidecar proves the Node↔Python boundary; OCR 
 | **5.2.1** | ✅ | Segment-level chips, chip-anchored preview, hover highlighting |
 | **5.2.2** | ✅ | Fix hover wash visibility, chip inline positioning, segment border |
 | **5.2.3** | ✅ | Fix chip distribution (ReaderRoute selection bug), scope hover to Smart, gradient highlight |
-| **5.3** | 🚧 | Research tab foundation & Library/Research architectural split |
-| **5.5** | ⏳ | Library polish + UI/UX backlog |
+| **5.3** | ✅ | Research tab foundation & Library/Research architectural split (shipped 5.3a–f) |
+| **5.5** | 🚧 | Library polish + UI/UX backlog |
 | **5.6** | ⏳ | Validation and refine loops |
 | **5.7** | ⏳ | Python sidecar (5.7.1 OCR, 5.7.2 stubs, 5.7.3 router) |
 
@@ -225,6 +202,11 @@ Split into three sub-phases. The sidecar proves the Node↔Python boundary; OCR 
 
 ### Hazards (rules learned from incidents)
 
+- **Verify-before-stage — 4 incidents (2026-09-26/27).** Recurring pattern: write file → `git add` → commit → inspect HEAD → discover missing or empty file → rewrite → amend. Root cause: shell heredoc failures or unverified writes. **Rule: after every write, run `Get-Item <file> | Select-Object Length` (>0 required). Before committing, verify staged line count with `git show :<file> | Measure-Object -Line`.**
+- **Sandbox write isolation / persistence hazard (2026-09-26/27).** Files created or modified inside sandboxed tools may write to an isolated sandbox overlay layer and fail to persist to the host git repository. **Rule: verify host filesystem existence and non-zero byte length with `Get-Item <file> | Select-Object Length`.**
+- **React Query queryKey collisions across routes (2026-09-26/27).** Reusing identical queryKey arrays (e.g. `['books']`) across distinct routes that expect different response shapes (`Book[]` vs `Set<string>`) causes cache hydration conflicts and runtime crashes (`books.filter is not a function`). **Rule: every query hook must use a domain-scoped, uniquely identifiable queryKey (`['libraryBooks']`, `['library-book-ids']`), accompanied by defensive runtime type validation (`Array.isArray`, `instanceof Set`).**
+- **Backend restart required after backend code changes (2026-09-26/27).** Dev backend server running on port 3000 stays in memory with old code. Fresh ephemeral CLI processes see new code while the browser hits the stale server. **Rule: always restart the running dev server on port 3000 whenever backend queries, routes, or models change.**
+
 - **Transcript spelunking — 7 incidents.** Agent searches its own `.system_generated/logs/transcript*.jsonl` for prompts rather than using pasted text. Caused wrong-phase execution once, mojibake and duplicate declarations in earlier sessions. **Rule: re-paste, don't mine.**
 - **Buffer drift — 3 incidents.** Stale editor buffer flushes post-commit, corrupting working tree (duplicate loops, unclosed braces, re-injected old JSX). HEAD stays clean; only working tree corrupted. **Rule: after every commit, `git status --short`. If unexpected `M` lines appear, `git diff` then `git checkout HEAD -- <file>`.**
 - **`git reset --hard HEAD` — 1 incident.** Used to discard drift post-commit. Safe once, destructive habit. **Rule: use `git checkout HEAD -- <file>`, never `git reset --hard` on a pushed branch.**
@@ -238,6 +220,18 @@ Split into three sub-phases. The sidecar proves the Node↔Python boundary; OCR 
   **Rule:** license-check any fixture before `git add`. See `docs/RIGHTS.md`.
 - **Bash heredoc in PowerShell writes empty files (Phase 5.3 S1 incident).** `cat << 'EOF'` is not valid PowerShell syntax; the shell silently produces an empty file. **Rule: after any shell file-creation command, verify with `Get-Item <file> | Select-Object Length`. Never trust 'Created <file>' messages.**
 - **Amend can leave the tree in an ambiguous state (Phase 5.3 S1 incident).** **Rule: after every `git commit --amend`, re-run `git show HEAD --stat` and confirm every intended file is present and non-empty.**
+
+### Closed (2026-09-26/27)
+
+- **Phase 5.3 (5.3a through 5.3f) — Library/Research architectural split shipped (2026-09-26/27).**
+  - **5.3 Scope & Backend split (`7053cde`, `9282165`):** Split `/api/books` into Library (synthesized readings only) and `/api/books/sources` (all ingested sources). Preserved multi-source dossiers across both.
+  - **5.3a Frontend Split (`0bd0d80`):** Added Research nav tab, `/research` collection view with format filter chips, search bar, and "Imported, not yet synthesized" badges.
+  - **5.3b & 5.3b.1 Research Viewer & Cross-Tab Chunk Resolution (`0e5a8c7`, `47e6e2d`):** Created `GET /api/chunks/:id` endpoint. Linked Smart paragraph source chips to `/research/:bookId?highlight=chk-X` with sequence-to-DOM block mapping, highlight wash, and auto-scroll. Implemented scroll-restoration return arrow.
+  - **5.3d & 5.3d.1 Library Filter Fix & Test Isolation (`0be1cb0`, `0c2211b`):** Fixed `bookRepository.getAll()` filter predicate to check `EXISTS (SELECT 1 FROM chapter_representations cr WHERE cr.book_id = b.id)` (synthetic chapter IDs in editorial synthesis bypassed `JOIN chapters`). Restored deterministic test self-containment in `build5_3_library_split_test.js`.
+  - **5.3e React Query Hardening & Error Boundary (`eb8ccb6`):** Separated query keys to eliminate cache collision. Added defensive array/Set guards and root layout `ErrorBoundary`.
+  - **5.3f Reader Legibility & Theme Awareness (`c89b4da`):** Swapped hardcoded light/dark styling in Research Viewer for theme-aware tokens (`bg-surface text-ink article.prose.prose-reader`). Enforced 100% opacity on provenance preview card to eliminate text bleed-through.
+- **Process Lesson — Manual walkthrough necessity:** Automated tests on synthetic fixtures passed while real synthesized books (*Practical Machine Learning*) exposed the filter bug. Contract tests must always be supplemented with a human browser walkthrough on real ingested artifacts.
+- **Process Lesson — Independent verification gate:** Running fresh ephemeral Node test processes side-by-side with curl commands against the active dev server rapidly diagnosed stale process state vs code regressions.
 
 ### Closed (2026-09-24/25)
 
