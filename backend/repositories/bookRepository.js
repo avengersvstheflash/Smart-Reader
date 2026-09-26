@@ -11,9 +11,7 @@ class BookRepository {
       FROM books b
       WHERE b.status != 'failed'
         AND EXISTS (
-          SELECT 1 FROM chapter_representations cr
-          JOIN chapters c ON cr.chapter_id = c.id
-          WHERE c.book_id = b.id
+          SELECT 1 FROM chapter_representations cr WHERE cr.book_id = b.id
         )
       ORDER BY b.updated_at DESC
     `).all();
