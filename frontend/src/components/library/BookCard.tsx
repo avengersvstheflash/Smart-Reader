@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertTriangle, BookOpen, Check, Layers } from 'lucide-react';
+import { AlertTriangle, BookOpen, Check } from 'lucide-react';
 import { Book } from '../../types/domain';
 
 export interface BookCardProps {
@@ -131,15 +131,6 @@ export const BookCard: React.FC<BookCardProps> = ({
         <div className="relative z-10 flex items-center justify-between pl-2">
           <BookOpen className="w-4 h-4 opacity-80" aria-hidden="true" />
           <div className="flex items-center gap-1.5">
-            {book.hasSmartContent && (
-              <span
-                title="Smart synthesis ready"
-                className="inline-flex items-center gap-1 text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-accent/80 text-white backdrop-blur-sm shadow-xs"
-              >
-                <Layers className="w-2.5 h-2.5" aria-hidden="true" />
-                <span>Smart</span>
-              </span>
-            )}
             <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-black/30 backdrop-blur-sm">
               {book.contentType}
             </span>

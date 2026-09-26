@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   BookOpen,
-  Layers,
   Circle,
   CheckCircle2,
   FileText,
@@ -16,7 +15,6 @@ import {
 } from 'lucide-react';
 import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
-import { useEditorial } from '../hooks/useEditorial';
 import { useModal } from '../store/useModalStore';
 import { getCoverTheme, formatReadingTime } from '../components/library/BookCard';
 import { EmptyState } from '../components/shared/EmptyState';
@@ -110,8 +108,6 @@ export default function BookDetailsRoute() {
     isLoading: isSemanticLoading,
     refetch: refetchSemantic,
   } = useSemanticStatus(bookId);
-
-  const { outline, synthesizedCount } = useEditorial(bookId);
 
   const providerLabel = formatAiProvider(book?.aiProvider);
 
@@ -330,32 +326,25 @@ export default function BookDetailsRoute() {
 
           {/* Action Buttons Row */}
           <div className="flex flex-wrap items-center gap-3 pt-4">
-            {(() => {
-              const hasSmartContent = Boolean(outline) && synthesizedCount > 0;
-              const targetMode = hasSmartContent ? 'smart' : 'original';
-              return (
-                <button
-                  type="button"
-                  disabled={!hasChapters}
-                  title={!hasChapters ? 'No chapters' : hasSmartContent ? 'Read smart synthesis' : 'Read original text'}
-                  onClick={() => navigate(`/read/${book.id}/${firstChapterId}?rep=${targetMode}`)}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  <span>▶</span>
-                  <span>Read</span>
-                </button>
-              );
-            })()}
-
             <button
               type="button"
               disabled={!hasChapters}
               title={!hasChapters ? 'No chapters' : 'Read smart synthesis'}
-              onClick={() => navigate(`/read/${book.id}/${firstChapterId}?rep=smart`)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md border border-line bg-surface text-ink hover:bg-subtle disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              onClick={() => navigate(`/read/${book.id}/${firstChapterId}`)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              <Layers className="w-4 h-4 text-accent" aria-hidden="true" />
-              <span>Smart read</span>
+              <span>▶</span>
+              <span>Read</span>
+            </button>
+
+            <button
+              type="button"
+              title="View original source in Research"
+              onClick={() => navigate(`/research/${book.id}`)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md border border-line bg-surface text-ink hover:bg-subtle transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <FileText className="w-4 h-4 text-muted" aria-hidden="true" />
+              <span>View original</span>
             </button>
           </div>
         </div>
@@ -509,7 +498,7 @@ export default function BookDetailsRoute() {
                     <li key={ch.id}>
                       <Link
                         ref={(el) => (chapterRowRefs.current[idx] = el)}
-                        to={`/read/${book.id}/${ch.id}?rep=original`}
+                        to={`/read/${book.id}/${ch.id}`}
                         tabIndex={isFocused ? 0 : -1}
                         onKeyDown={(e) => handleChapterKeyDown(e, idx)}
                         onFocus={() => setFocusedChapterIndex(idx)}

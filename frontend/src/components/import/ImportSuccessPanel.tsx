@@ -133,7 +133,7 @@ export function ImportSuccessPanel({
 
           <button
             type="button"
-            onClick={() => navigate(`/book/${book.id}`)}
+            onClick={() => navigate(`/research/${book.id}`)}
             className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-ui-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none ${
               pipelineComplete && !interruptedJob
                 ? 'bg-brand text-white hover:opacity-90 shadow-sm animate-button-glow'
@@ -142,7 +142,7 @@ export function ImportSuccessPanel({
                 : 'border border-line bg-subtle/50 text-ink-muted hover:bg-subtle hover:text-ink'
             }`}
           >
-            <span>Open book</span>
+            <span>View source</span>
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>

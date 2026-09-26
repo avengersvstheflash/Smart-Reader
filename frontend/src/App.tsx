@@ -6,6 +6,8 @@ import { LibraryRoute } from './routes/LibraryRoute';
 import BookDetailsRoute from './routes/BookDetailsRoute';
 import ReaderRoute from './routes/ReaderRoute';
 import { ImportRoute } from './routes/ImportRoute';
+import { ResearchRoute } from './routes/ResearchRoute';
+import ResearchViewerRoute from './routes/ResearchViewerRoute';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +26,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LibraryRoute />} />
             <Route path="/library" element={<Navigate to="/" replace />} />
+            <Route path="/research" element={<ResearchRoute />} />
+            <Route path="/research/:bookId" element={<ResearchViewerRoute />} />
             <Route path="/book/:bookId" element={<BookDetailsRoute />} />
             <Route path="/import" element={<ImportRoute />} />
             <Route path="/read/:bookId/:chapterId" element={<ReaderRoute />} />

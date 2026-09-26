@@ -1,8 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  BookOpenText,
-  Layers,
   AlertCircle,
   RotateCw,
   BookOpen,
@@ -53,7 +51,7 @@ export default function ReaderRoute() {
     bookId: string;
     chapterId: string;
   }>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const {
@@ -80,11 +78,6 @@ export default function ReaderRoute() {
     refetch: refetchEditorial,
   } = useEditorial(bookId);
 
-  const rawRep = searchParams.get('rep');
-  const repInUrl: 'original' | 'smart' | null =
-    rawRep === 'original' || rawRep === 'smart' ? rawRep : null;
-  const highlightChunkId = searchParams.get('highlight');
-  const fromChapter = searchParams.get('fromChapter');
   const fromRep = searchParams.get('fromRep');
 
   const activeRepresentation = useMemo(() => {
@@ -122,45 +115,15 @@ export default function ReaderRoute() {
     return editorial ?? summary ?? sorted[0];
   }, [representations, fromRep, outline]);
 
-  const storedMode = useReaderStore((state) =>
-    bookId ? state.getMode(bookId) : 'original'
-  );
-  const setStoredMode = useReaderStore((state) => state.setMode);
   const fontSize = useReaderStore((state) => state.fontSize);
   const align = useReaderStore((state) => state.align);
-
-  // Auto-detect: if the current chapter has a representation and the
-  // user hasn't explicitly chosen a mode for this book, default to Smart.
-  const storedModeExplicit = storedMode && useReaderStore.getState().repModeByBook[bookId];
-  const inferredMode: 'original' | 'smart' =
-    activeRepresentation ? 'smart' : 'original';
-  const mode: 'original' | 'smart' = repInUrl ?? (storedModeExplicit ? storedMode : inferredMode);
 
   const { direction, isAtTop } = useScrollDirection();
   const navVisible = direction === 'up' || isAtTop;
 
-  useEffect(() => {
-    if (!bookId) return;
-
-    if (repInUrl) {
-      if (storedMode !== repInUrl) {
-        setStoredMode(bookId, repInUrl);
-      }
-    } else {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.set('rep', mode);
-          return next;
-        },
-        { replace: true }
-      );
-    }
-  }, [bookId, repInUrl, storedMode, mode, setSearchParams, setStoredMode]);
-
   // Restore scroll position when entering Smart mode if previously saved
   useEffect(() => {
-    if (mode === 'smart' && chapterId) {
+    if (chapterId) {
       const scrollKey = `smart_scroll_${chapterId}`;
       const savedScroll = sessionStorage.getItem(scrollKey);
       if (savedScroll) {
@@ -174,47 +137,16 @@ export default function ReaderRoute() {
         }
       }
     }
-  }, [mode, chapterId]);
+  }, [chapterId]);
 
-  const handleModeChange = (newMode: 'original' | 'smart') => {
-    if (bookId) {
-      setStoredMode(bookId, newMode);
-    }
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('rep', newMode);
-      return next;
-    });
-  };
-
-  const handleNavigateToSource = (chunkId: string, targetChapterId?: string | null) => {
+  const handleNavigateToSource = (chunkId: string) => {
     // Preserve current scroll position in Smart mode
     const scrollKey = `smart_scroll_${chapterId}`;
     sessionStorage.setItem(scrollKey, String(window.scrollY));
 
-    const destChapter = targetChapterId || chapterId;
-    navigate(
-      `/read/${bookId}/${destChapter}?rep=original&highlight=${encodeURIComponent(
-        chunkId
-      )}&fromChapter=${encodeURIComponent(chapterId)}&fromRep=${encodeURIComponent(
-        activeRepresentation?.id || ''
-      )}`
-    );
-  };
-
-  const handleReturnToSmart = () => {
-    const targetChapter = fromChapter || chapterId;
-    const scrollKey = `smart_scroll_${targetChapter}`;
-    const savedScroll = sessionStorage.getItem(scrollKey);
-
-    const fromRepParam = fromRep ? `&fromRep=${encodeURIComponent(fromRep)}` : '';
-    navigate(`/read/${bookId}/${targetChapter}?rep=smart${fromRepParam}`);
-
-    if (savedScroll) {
-      setTimeout(() => {
-        window.scrollTo({ top: Number(savedScroll), behavior: 'auto' });
-      }, 50);
-    }
+    navigate(`/research/${bookId}?highlight=${chunkId}`, {
+      state: { returnTo: `/read/${bookId}/${chapterId}` },
+    });
   };
 
   const hasOutline = Boolean(outline);
@@ -284,7 +216,7 @@ export default function ReaderRoute() {
   const error = chapterError || chaptersError;
 
   const handleNavigate = (newChapterId: string) => {
-    navigate(`/read/${bookId}/${newChapterId}?rep=${mode}`);
+    navigate(`/read/${bookId}/${newChapterId}`);
   };
 
   useEffect(() => {
@@ -300,10 +232,7 @@ export default function ReaderRoute() {
         return;
       }
 
-      if (e.key === 'm' || e.key === 'M') {
-        e.preventDefault();
-        handleModeChange(mode === 'original' ? 'smart' : 'original');
-      } else if (e.key === 'ArrowLeft') {
+      if (e.key === 'ArrowLeft') {
         const idx = chapters.findIndex((c) => c.id === chapterId);
         if (idx > 0) {
           e.preventDefault();
@@ -322,7 +251,7 @@ export default function ReaderRoute() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [mode, chapters, chapterId, bookId]);
+  }, [chapters, chapterId, bookId]);
 
   if (isError) {
     return (
@@ -368,7 +297,7 @@ export default function ReaderRoute() {
 
       {/* Main Reading Canvas */}
       <div className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-6 pb-24">
-        {/* Top bar with Back Link and Mode Toggle */}
+        {/* Top bar with Back Link */}
         <div className="flex items-center justify-between py-2 mb-6 border-b border-line/60">
           <button
             type="button"
@@ -378,42 +307,6 @@ export default function ReaderRoute() {
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Book details</span>
           </button>
-
-          {/* Mode Toggle Control */}
-          <div
-            role="radiogroup"
-            aria-label="Reading representation"
-            className="inline-flex items-center rounded-full border border-line bg-subtle p-0.5 select-none"
-          >
-            <button
-              type="button"
-              role="radio"
-              aria-checked={mode === 'original'}
-              onClick={() => handleModeChange('original')}
-              className={`inline-flex items-center px-3 py-1 text-ui-sm font-medium rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                mode === 'original'
-                  ? 'bg-surface shadow-sm text-ink'
-                  : 'text-muted hover:text-ink'
-              }`}
-            >
-              <BookOpenText className="w-4 h-4 mr-1.5" aria-hidden="true" />
-              <span>Original</span>
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={mode === 'smart'}
-              onClick={() => handleModeChange('smart')}
-              className={`inline-flex items-center px-3 py-1 text-ui-sm font-medium rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                mode === 'smart'
-                  ? 'bg-surface shadow-sm text-ink'
-                  : 'text-muted hover:text-ink'
-              }`}
-            >
-              <Layers className="w-4 h-4 mr-1.5" aria-hidden="true" />
-              <span>Smart</span>
-            </button>
-          </div>
         </div>
 
         {/* Content Area: Skeleton while loading, or ReaderView */}
@@ -423,10 +316,9 @@ export default function ReaderRoute() {
           <ReaderView
             chapter={chapter}
             representation={activeRepresentation}
-            mode={mode}
+            mode="smart"
             fontSize={fontSize}
             align={align}
-            highlightChunkId={highlightChunkId}
             onNavigateToSource={handleNavigateToSource}
             provenanceRepId={fromRep || activeRepresentation?.id || null}
             smartState={{
@@ -446,22 +338,6 @@ export default function ReaderRoute() {
           />
         )}
       </div>
-
-      {/* Return Arrow for Original Mode with Highlight */}
-      {mode === 'original' && Boolean(highlightChunkId) && (
-        <button
-          type="button"
-          onClick={handleReturnToSmart}
-          aria-label="Return to Smart reading"
-          title="Return to Smart reading"
-          className="fixed left-3 sm:left-6 top-1/2 -translate-y-1/2 z-30 inline-flex items-center justify-center w-11 h-11 rounded-full border border-line bg-surface/95 shadow-xl text-ink hover:text-accent-ink hover:border-accent hover:scale-105 active:scale-95 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent backdrop-blur-sm group"
-        >
-          <ArrowLeft
-            className="w-5 h-5 transition-transform group-hover:-translate-x-0.5"
-            aria-hidden="true"
-          />
-        </button>
-      )}
 
       {/* Chapter Navigation Bar */}
       {chapters.length > 0 && (
