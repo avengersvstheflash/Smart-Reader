@@ -48,7 +48,7 @@ export function ResearchRoute() {
     isLoading: isLibraryLoading,
     refetch: refetchLibrary,
   } = useQuery<Set<string>, Error>({
-    queryKey: ['books'],
+    queryKey: ['library-book-ids'],
     queryFn: async () => {
       const res = await apiClient<BooksApiResponse>('/api/books');
       return new Set((res.books || []).map((b) => b.id));
@@ -271,7 +271,7 @@ export function ResearchRoute() {
                   <SourceCard
                     key={item.id}
                     book={item}
-                    isSynthesized={libraryIds.has(item.id)}
+                    isSynthesized={libraryIds instanceof Set ? libraryIds.has(item.id) : false}
                     onClick={() => navigate(`/research/${item.id}`)}
                   />
                 ))}
@@ -293,7 +293,7 @@ export function ResearchRoute() {
                   <SourceCard
                     key={item.id}
                     book={item}
-                    isSynthesized={libraryIds.has(item.id)}
+                    isSynthesized={libraryIds instanceof Set ? libraryIds.has(item.id) : false}
                     onClick={() => navigate(`/research/${item.id}`)}
                   />
                 ))}

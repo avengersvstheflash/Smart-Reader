@@ -11,6 +11,11 @@ import { useLibraryStore } from '../store/useLibraryStore';
 export const LibraryRoute: React.FC = () => {
   const navigate = useNavigate();
   const { books, isLoading, isError, error, refetch } = useBooks();
+
+  if (!Array.isArray(books)) {
+    console.warn('[LibraryRoute] Expected books to be an array, got:', typeof books, books);
+  }
+  const bookList = Array.isArray(books) ? books : [];
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const {
@@ -27,10 +32,10 @@ export const LibraryRoute: React.FC = () => {
 
   // Filter options with dynamic counts
   const filterOptions: FilterOption[] = useMemo(() => {
-    const total = books.length;
-    const novels = books.filter((b) => b.contentType === 'novel').length;
-    const web = books.filter((b) => b.sourceFormat === 'web' || b.sourceSite).length;
-    const docs = books.filter((b) => b.contentType === 'document' || b.contentType === 'textbook').length;
+    const total = bookList.length;
+    const novels = bookList.filter((b) => b.contentType === 'novel').length;
+    const web = bookList.filter((b) => b.sourceFormat === 'web' || b.sourceSite).length;
+    const docs = bookList.filter((b) => b.contentType === 'document' || b.contentType === 'textbook').length;
 
     return [
       { value: 'all', label: 'All Books', count: total },
@@ -38,12 +43,12 @@ export const LibraryRoute: React.FC = () => {
       { value: 'web', label: 'Web & Articles', count: web },
       { value: 'document', label: 'Documents', count: docs },
     ];
-  }, [books]);
+  }, [bookList]);
 
   // Top 8 tags across the collection sorted by frequency
   const topTags = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const b of books) {
+    for (const b of bookList) {
       if (b.classification && Array.isArray(b.classification.tags)) {
         for (const tag of b.classification.tags) {
           if (tag) {
@@ -57,11 +62,11 @@ export const LibraryRoute: React.FC = () => {
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
       .slice(0, 8);
-  }, [books]);
+  }, [bookList]);
 
   // Filtered books based on search, content type, and tags (AND combination)
   const filteredBooks = useMemo(() => {
-    let list = books;
+    let list = bookList;
 
     // Filter by type
     if (filterType !== 'all') {
@@ -94,7 +99,7 @@ export const LibraryRoute: React.FC = () => {
     }
 
     return list;
-  }, [books, filterType, selectedTags, searchQuery]);
+  }, [bookList, filterType, selectedTags, searchQuery]);
 
   const handleClearFilters = () => {
     setSearchQuery('');
@@ -118,7 +123,7 @@ export const LibraryRoute: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {books.length > 0 && (
+          {bookList.length > 0 && (
             <button
               type="button"
               onClick={() => setSelectionMode(!selectionMode)}
@@ -265,7 +270,7 @@ export const LibraryRoute: React.FC = () => {
         selectedIds={selectedBookIds}
         onSelect={toggleBookSelection}
         emptyState={
-          books.length === 0 ? (
+          bookList.length === 0 ? (
             <EmptyState
               icon={BookOpen}
               title="Your library is empty"
