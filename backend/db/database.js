@@ -473,7 +473,8 @@ Establishes the tension between clockwork order and temporal flux within the Flo
     now
   );
 
-  // Book 2: Principles of Intelligent Synthesis (Textbook / Research Paper)
+
+    // Book 2: Principles of Intelligent Synthesis (Textbook / Research Paper)
   const book2Id = 'book-sample-textbook-2';
   db.prepare(`
     INSERT INTO books (id, title, author, description, cover_path, content_type, status, created_at, updated_at)
@@ -541,6 +542,7 @@ When documents are ingested across disparate formats—Markdown, plain text, or 
   // Auto-index sample books into Semantic Memory
   try {
     const semanticLifecycle = require('../services/semantic/semanticLifecycle');
+  db.prepare(`INSERT INTO chapter_representations (id, chapter_id, book_id, type, content, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`).run('rep-sample-textbook-2', 'ch-textbook-1', book2Id, 'SUMMARY', 'Sample synthesis.', '{}', new Date().toISOString());
     semanticLifecycle.indexBook(book1Id, { skipJob: true }).catch((e) => console.warn('Sample book 1 index error:', e.message));
     semanticLifecycle.indexBook(book2Id, { skipJob: true }).catch((e) => console.warn('Sample book 2 index error:', e.message));
   } catch (err) {
@@ -564,3 +566,4 @@ module.exports = {
   closeDatabase,
   resetAndSeedDatabase,
 };
+

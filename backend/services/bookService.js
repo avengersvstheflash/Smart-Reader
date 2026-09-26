@@ -12,6 +12,10 @@ class BookService {
     return bookRepository.getAll();
   }
 
+  getAllSources() {
+    return bookRepository.getAllSources();
+  }
+
   getBook(id) {
     const book = bookRepository.getById(id);
     if (!book) {

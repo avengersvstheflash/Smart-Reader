@@ -10,6 +10,25 @@ class BookRepository {
         (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
       FROM books b
       WHERE b.status != 'failed'
+        AND EXISTS (
+          SELECT 1 FROM chapter_representations cr
+          JOIN chapters c ON cr.chapter_id = c.id
+          WHERE c.book_id = b.id
+        )
+      ORDER BY b.updated_at DESC
+    `).all();
+    return books;
+  }
+
+  getAllSources() {
+    const db = getDatabase();
+    const books = db.prepare(`
+      SELECT b.*, 
+        (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id) as chapter_count,
+        (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id AND c.status = 'read') as read_chapter_count,
+        (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
+      FROM books b
+      WHERE b.status != 'failed'
       ORDER BY b.updated_at DESC
     `).all();
     return books;

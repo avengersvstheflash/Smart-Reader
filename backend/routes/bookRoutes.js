@@ -11,6 +11,16 @@ const upload = multer({
 
 const { getDatabase } = require('../db/database');
 
+// GET /api/books/sources - list all source items
+router.get('/sources', (req, res, next) => {
+  try {
+    const books = bookService.getAllSources();
+    return res.json({ books });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/books - list all books
 router.get('/', (req, res, next) => {
   try {
