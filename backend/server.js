@@ -12,6 +12,7 @@ const webRoutes = require('./routes/webRoutes');
 const semanticRoutes = require('./routes/semanticRoutes');
 const synthesisRoutes = require('./routes/synthesisRoutes');
 const representationRoutes = require('./routes/representationRoutes');
+const chunkRoutes = require('./routes/chunkRoutes');
 const aiService = require('./services/ai/aiService');
 const bookService = require('./services/bookService');
 const embeddingService = require('./services/semantic/embeddingService');
@@ -53,6 +54,7 @@ app.use('/api/web', webRoutes);
 app.use('/api/semantic', semanticRoutes);
 app.use('/api/synthesis', synthesisRoutes);
 app.use('/api/representations', representationRoutes);
+app.use('/api/chunks', chunkRoutes);
 
 // Development Reset & Sample Seed Endpoint
 app.post('/api/dev/reset', (req, res, next) => {

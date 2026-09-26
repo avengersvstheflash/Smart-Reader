@@ -5,48 +5,45 @@ import { useBook } from '../hooks/useBook';
 import { useChapters, useChapter } from '../hooks/useChapters';
 import { CanonicalBlock } from '../components/reader/CanonicalBlock';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { apiClient } from '../api/client';
 import type { Chapter, CanonicalBlock as CanonicalBlockType } from '../types/domain';
 
 // ---------------------------------------------------------------------------
-// ResearchViewerRoute — Phase 5.3b
+// ResearchViewerRoute ? Phase 5.3b.1
 // Paper-style source viewer. Shows raw canonical blocks (no Smart content).
-// Receives optional ?highlight=chk-X to scroll a block into view.
+// Receives optional ?highlight=chk-X, resolves chunk to chapter + sequence.
 // Return arrow reads location.state?.returnTo, falls back to /research.
 // ---------------------------------------------------------------------------
 
 interface ChapterPanelProps {
   chapterId: string;
-  highlightBlockId: string | null;
+  highlightSequence: number | null;
   reducedMotion: boolean;
 }
 
-function ChapterPanel({ chapterId, highlightBlockId, reducedMotion }: ChapterPanelProps) {
+function ChapterPanel({ chapterId, highlightSequence, reducedMotion }: ChapterPanelProps) {
   const { chapter, isLoading, isError } = useChapter(chapterId);
   const didScrollRef = useRef(false);
 
-  // Highlight scroll effect — fires once per chapter load.
+  // Highlight scroll effect ? fires once per chapter load.
   useEffect(() => {
-    if (!highlightBlockId || isLoading || isError || !chapter) return;
+    if (highlightSequence === null || highlightSequence === undefined || isLoading || isError || !chapter) return;
     if (didScrollRef.current) return;
 
     // Give the DOM a tick to render, then find the block element.
     const raf = requestAnimationFrame(() => {
-      // Try data-block-id first, then data-chunk-id, then id attribute.
-      const el =
-        document.querySelector(`[data-block-id="${highlightBlockId}"]`) ||
-        document.querySelector(`[data-chunk-id="${highlightBlockId}"]`) ||
-        document.getElementById(highlightBlockId);
+      const el = document.getElementById(`block-${highlightSequence}`);
 
       if (el) {
         el.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
         el.classList.add('research-block-highlighted');
         didScrollRef.current = true;
       }
-      // If not found: no scroll, no throw — silent per spec.
+      // If not found: no scroll, no throw ? silent per spec.
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [highlightBlockId, isLoading, isError, chapter, reducedMotion]);
+  }, [highlightSequence, isLoading, isError, chapter, reducedMotion]);
 
   if (isLoading) {
     return (
@@ -75,12 +72,11 @@ function ChapterPanel({ chapterId, highlightBlockId, reducedMotion }: ChapterPan
   return (
     <div className="prose prose-neutral dark:prose-invert max-w-none research-prose">
       {blocks.map((block, idx) => {
-        const blockId = block.id || `block-${idx}`;
+        const blockId = `block-${idx}`;
         return (
           <div
             key={blockId}
             id={blockId}
-            data-block-id={blockId}
             className="research-block"
           >
             <CanonicalBlock block={block} />
@@ -129,20 +125,61 @@ export default function ResearchViewerRoute() {
   // Return destination: router state first, then /research fallback.
   const returnTo = (location.state as { returnTo?: string } | null)?.returnTo ?? '/research';
 
-  // Highlight param: ?highlight=chk-X (or any block/chunk id).
+  // Highlight param: ?highlight=chk-X (a chunk id).
   const highlightParam = searchParams.get('highlight');
 
   const { book, isLoading: bookLoading, isError: bookError } = useBook(bookId || '');
   const { chapters, isLoading: chaptersLoading } = useChapters(bookId || '');
 
-  // Active chapter state — default to first chapter once list loads.
+  // Active chapter state ? default to first chapter once list loads if no highlight
   const [activeChapterId, setActiveChapterId] = React.useState<string | null>(null);
+  const [highlightSequence, setHighlightSequence] = React.useState<number | null>(null);
 
   useEffect(() => {
-    if (chapters.length > 0 && !activeChapterId) {
+    if (chapters.length > 0 && !activeChapterId && !highlightParam) {
       setActiveChapterId(chapters[0].id);
     }
-  }, [chapters, activeChapterId]);
+  }, [chapters, activeChapterId, highlightParam]);
+
+  // If ?highlight is present, fetch /api/chunks/:highlight via apiClient
+  useEffect(() => {
+    if (!highlightParam) {
+      setHighlightSequence(null);
+      return;
+    }
+
+    let isMounted = true;
+    apiClient<{
+      id: string;
+      bookId: string;
+      chapterId: string | null;
+      sequence: number | null;
+      textContent: string;
+    }>(`/api/chunks/${highlightParam}`)
+      .then((chunk) => {
+        if (!isMounted) return;
+        if (chunk.chapterId) {
+          setActiveChapterId(chunk.chapterId);
+        } else if (chapters.length > 0 && !activeChapterId) {
+          setActiveChapterId(chapters[0].id);
+        }
+        if (chunk.sequence !== null && chunk.sequence !== undefined) {
+          setHighlightSequence(chunk.sequence);
+        }
+      })
+      .catch(() => {
+        // If 404 or fails: no highlight, no scroll. Do not throw. Do not scroll to top.
+        if (!isMounted) return;
+        setHighlightSequence(null);
+        if (chapters.length > 0 && !activeChapterId) {
+          setActiveChapterId(chapters[0].id);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [highlightParam, chapters, activeChapterId]);
 
   const handleReturn = useCallback(() => {
     navigate(returnTo);
@@ -154,7 +191,7 @@ export default function ResearchViewerRoute() {
   if (bookLoading) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-10 animate-pulse text-ink-muted text-sm">
-        Loading source material…
+        Loading source material?
       </div>
     );
   }
@@ -197,161 +234,135 @@ export default function ResearchViewerRoute() {
   // Render
   // -------------------------------------------------------------------------
   return (
-    <>
-      {/* Inline styles for paper identity + highlight wash */}
-      <style>{`
-        .research-prose {
-          font-family: Georgia, 'Times New Roman', Times, serif;
-          font-size: 1.0625rem;
-          line-height: 1.75;
-          color: inherit;
-        }
-        .research-prose p,
-        .research-prose .reader-paragraph {
-          margin-bottom: 1.1em;
-        }
-        .research-block-highlighted {
-          background-color: rgb(254 240 138 / 0.35);
-          border-radius: 4px;
-          transition: background-color 0.6s ease-out;
-        }
-        @media (prefers-color-scheme: dark) {
-          .research-block-highlighted {
-            background-color: rgb(202 138 4 / 0.18);
-          }
-        }
-      `}</style>
-
-      <div className="min-h-screen bg-white dark:bg-neutral-950">
-        {/* ----------------------------------------------------------------
-            Sticky return bar
-        ---------------------------------------------------------------- */}
-        <div className="sticky top-0 z-10 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-sm border-b border-line">
-          <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleReturn}
-              className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink transition-colors py-1 px-1 rounded"
-              aria-label="Return to previous view"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>{returnTo.startsWith('/read') ? 'Return to Smart View' : 'Research'}</span>
-            </button>
-          </div>
+    <div className="min-h-screen bg-white dark:bg-neutral-950">
+      {/* ----------------------------------------------------------------
+          Sticky return bar
+      ---------------------------------------------------------------- */}
+      <div className="sticky top-0 z-10 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-sm border-b border-line">
+        <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleReturn}
+            className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink transition-colors py-1 px-1 rounded"
+            aria-label="Return to previous view"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{returnTo.startsWith('/read') ? 'Return to Smart View' : 'Research'}</span>
+          </button>
         </div>
+      </div>
 
-        {/* ----------------------------------------------------------------
-            Main layout: metadata + chapter nav | content
-        ---------------------------------------------------------------- */}
-        <div className="max-w-5xl mx-auto px-4 py-8">
-          <div className="flex gap-8">
-            {/* ---- Left sidebar: metadata + chapter list ---- */}
-            <aside className="w-56 shrink-0 hidden md:block">
-              {/* Metadata panel */}
-              <div className="sticky top-16 space-y-4">
-                <div className="space-y-1">
-                  <h1 className="text-base font-semibold text-ink leading-snug line-clamp-4">
-                    {book.title}
-                  </h1>
-                  {book.author && (
-                    <p className="text-sm text-ink-muted">{book.author}</p>
-                  )}
-                  {book.sourceSite && (
-                    <span className="inline-block font-mono text-[11px] px-2 py-0.5 rounded bg-subtle border border-line text-ink-muted">
-                      {book.sourceSite}
-                    </span>
-                  )}
-                  <p className="text-xs text-ink-light pt-1">
-                    {chapterCount} {chapterCount === 1 ? 'chapter' : 'chapters'}
-                    {totalWords > 0 && ` \u00b7 ${totalWords.toLocaleString()} words`}
-                  </p>
-                </div>
-
-                {/* Chapter navigation */}
-                {chaptersLoading ? (
-                  <div className="space-y-1 animate-pulse">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className="h-8 bg-subtle rounded" />
-                    ))}
-                  </div>
-                ) : (
-                  <nav aria-label="Chapter list" className="space-y-0.5">
-                    {chapters.map((ch) => (
-                      <ChapterNavItem
-                        key={ch.id}
-                        chapter={ch}
-                        isActive={ch.id === activeChapterId}
-                        onClick={() => setActiveChapterId(ch.id)}
-                      />
-                    ))}
-                  </nav>
+      {/* ----------------------------------------------------------------
+          Main layout: metadata + chapter nav | content
+      ---------------------------------------------------------------- */}
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="flex gap-8">
+          {/* ---- Left sidebar: metadata + chapter list ---- */}
+          <aside className="w-56 shrink-0 hidden md:block">
+            {/* Metadata panel */}
+            <div className="sticky top-16 space-y-4">
+              <div className="space-y-1">
+                <h1 className="text-base font-semibold text-ink leading-snug line-clamp-4">
+                  {book.title}
+                </h1>
+                {book.author && (
+                  <p className="text-sm text-ink-muted">{book.author}</p>
                 )}
-              </div>
-            </aside>
-
-            {/* ---- Main content area (paper) ---- */}
-            <main className="flex-1 min-w-0">
-              {/* Mobile metadata strip */}
-              <div className="md:hidden mb-6 pb-4 border-b border-line space-y-1">
-                <h1 className="text-lg font-semibold text-ink leading-snug">{book.title}</h1>
-                {book.author && <p className="text-sm text-ink-muted">{book.author}</p>}
-                <p className="text-xs text-ink-light">
+                {book.sourceSite && (
+                  <span className="inline-block font-mono text-[11px] px-2 py-0.5 rounded bg-subtle border border-line text-ink-muted">
+                    {book.sourceSite}
+                  </span>
+                )}
+                <p className="text-xs text-ink-light pt-1">
                   {chapterCount} {chapterCount === 1 ? 'chapter' : 'chapters'}
                   {totalWords > 0 && ` \u00b7 ${totalWords.toLocaleString()} words`}
                 </p>
-                {/* Mobile chapter select */}
-                {!chaptersLoading && chapters.length > 0 && (
-                  <select
-                    value={activeChapterId ?? ''}
-                    onChange={(e) => setActiveChapterId(e.target.value)}
-                    className="mt-2 w-full text-sm bg-subtle border border-line rounded px-2 py-1 text-ink"
-                    aria-label="Select chapter"
-                  >
-                    {chapters.map((ch) => (
-                      <option key={ch.id} value={ch.id}>
-                        {ch.title || `Chapter ${ch.number ?? ''}`}
-                      </option>
-                    ))}
-                  </select>
-                )}
               </div>
 
-              {/* Paper content */}
-              <div className="max-w-prose">
-                {/* Active chapter title */}
-                {activeChapterId && chapters.length > 0 && (() => {
-                  const active = chapters.find((c) => c.id === activeChapterId);
-                  return active?.title ? (
-                    <h2 className="text-xl font-semibold text-ink mb-6 pb-3 border-b border-line/60">
-                      {active.title}
-                    </h2>
-                  ) : null;
-                })()}
+              {/* Chapter navigation */}
+              {chaptersLoading ? (
+                <div className="space-y-1 animate-pulse">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-8 bg-subtle rounded" />
+                  ))}
+                </div>
+              ) : (
+                <nav aria-label="Chapter list" className="space-y-0.5">
+                  {chapters.map((ch) => (
+                    <ChapterNavItem
+                      key={ch.id}
+                      chapter={ch}
+                      isActive={ch.id === activeChapterId}
+                      onClick={() => setActiveChapterId(ch.id)}
+                    />
+                  ))}
+                </nav>
+              )}
+            </div>
+          </aside>
 
-                {/* Chapter blocks */}
-                {activeChapterId ? (
-                  <ChapterPanel
-                    key={activeChapterId}
-                    chapterId={activeChapterId}
-                    highlightBlockId={highlightParam}
-                    reducedMotion={reducedMotion}
-                  />
-                ) : chaptersLoading ? (
-                  <div className="space-y-3 animate-pulse">
-                    {[...Array(6)].map((_, i) => (
-                      <div key={i} className="h-4 bg-subtle rounded" style={{ width: `${70 + (i % 4) * 8}%` }} />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-ink-muted italic">
-                    No extractable text in this source.
-                  </p>
-                )}
-              </div>
-            </main>
-          </div>
+          {/* ---- Main content area (paper) ---- */}
+          <main className="flex-1 min-w-0">
+            {/* Mobile metadata strip */}
+            <div className="md:hidden mb-6 pb-4 border-b border-line space-y-1">
+              <h1 className="text-lg font-semibold text-ink leading-snug">{book.title}</h1>
+              {book.author && <p className="text-sm text-ink-muted">{book.author}</p>}
+              <p className="text-xs text-ink-light">
+                {chapterCount} {chapterCount === 1 ? 'chapter' : 'chapters'}
+                {totalWords > 0 && ` \u00b7 ${totalWords.toLocaleString()} words`}
+              </p>
+              {/* Mobile chapter select */}
+              {!chaptersLoading && chapters.length > 0 && (
+                <select
+                  value={activeChapterId ?? ''}
+                  onChange={(e) => setActiveChapterId(e.target.value)}
+                  className="mt-2 w-full text-sm bg-subtle border border-line rounded px-2 py-1 text-ink"
+                  aria-label="Select chapter"
+                >
+                  {chapters.map((ch) => (
+                    <option key={ch.id} value={ch.id}>
+                      {ch.title || `Chapter ${ch.number ?? ''}`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Paper content */}
+            <div className="max-w-prose">
+              {/* Active chapter title */}
+              {activeChapterId && chapters.length > 0 && (() => {
+                const active = chapters.find((c) => c.id === activeChapterId);
+                return active?.title ? (
+                  <h2 className="text-xl font-semibold text-ink mb-6 pb-3 border-b border-line/60">
+                    {active.title}
+                  </h2>
+                ) : null;
+              })()}
+
+              {/* Chapter blocks */}
+              {activeChapterId ? (
+                <ChapterPanel
+                  key={activeChapterId}
+                  chapterId={activeChapterId}
+                  highlightSequence={highlightSequence}
+                  reducedMotion={reducedMotion}
+                />
+              ) : chaptersLoading ? (
+                <div className="space-y-3 animate-pulse">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-4 bg-subtle rounded" style={{ width: `${70 + (i % 4) * 8}%` }} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-ink-muted italic">
+                  No extractable text in this source.
+                </p>
+              )}
+            </div>
+          </main>
         </div>
       </div>
-    </>
+    </div>
   );
 }
