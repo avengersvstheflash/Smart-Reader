@@ -2,7 +2,7 @@
 
 ### Local-First Neural Reading Library — Loss-Bounded Semantic Compression for Long-Form Documents
 
-> Ingests PDFs, EPUBs, web articles, and raw text, then produces a navigable **Smart Reading** layer where every compressed sentence traces deterministically to its source passage.
+> Ingests PDFs, EPUBs, web articles, and raw text. Enforces a clean architectural split: **Import** is the entry point, **Library** holds curated Smart Readings only, and **Research** holds immutable original sources where every compressed sentence traces deterministically to its source passage.
 
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![React 18.3](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
@@ -13,7 +13,7 @@
 [![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3)
 [![BGE-M3 Embeddings](https://img.shields.io/badge/Embeddings-BGE--M3_1024d-blue)](https://huggingface.co/BAAI/bge-m3)
 
-[![Tests 19/19 Passing](https://img.shields.io/badge/Tests-19%2F19_Passing-3fb950)](#test)
+[![Tests 20/20 Passing](https://img.shields.io/badge/Tests-20%2F20_Passing-3fb950)](#test)
 [![Local-First Enabled](https://img.shields.io/badge/Local--First-enabled-2ea043)](#design-philosophy)
 [![Status Phase 5 In Progress](https://img.shields.io/badge/Status-Phase_5_in_progress-blue)](#roadmap)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
@@ -37,6 +37,11 @@ SMART READING     →  derived lens, fully traceable back to source
 ```
 
 Every feature — the reader, the provenance chain, the fallback markers, the synopsis panel — exists to keep the relationship between source and lens visible, honest, and verifiable.
+
+In Phase 5.3, these principles became spatial across three dedicated application tabs:
+- **Import** — Where content enters the system (File upload, Web crawl, or direct Paste).
+- **Library** — Curated Smart Readings only. Clean, loss-bounded compressed chapters. Uncompressed sources are excluded from the reading library.
+- **Research** — The home of immutable original sources, multi-source dossiers, provenance targets, and deep research archives.
 
 ---
 
@@ -70,7 +75,7 @@ Dense technical content preserves every claim at tighter ratios. Accessible narr
 | **PDF parsing** | `pdfjs-dist` with layout heuristics |
 | **Web extraction** | `cheerio` with chrome stripping |
 | **AI (compression)** | OpenRouter → DeepSeek V4 Flash (configurable; Ollama supported for fully local mode) |
-| **Testing** | 19 regression suites, real fixtures, ~8–10 min runtime |
+| **Testing** | 20 regression suites, real fixtures, ~8–10 min runtime |
 
 ---
 
@@ -86,14 +91,19 @@ Dense technical content preserves every claim at tighter ratios. Accessible narr
 - **Compression** — grounded Smart Chapter synthesis with self-assessment. Two-phase: Phase A estimates the words needed to preserve every claim; Phase B compresses to that target. Reasoning disabled, dynamic clamps on output.
 - **Synopsis** — generated from preface + TOC + strategic samples, sequenced before chapter compression
 - **Provenance resolution** — paragraph-level source attribution with sentence-level segmentation. C-primary arbitration (embedding similarity), A-corroboration (compressor's emitted citations), B-fallback (LLM arbitration on ambiguous cases). Ungrounded paragraphs marked honestly.
+- **Library / Research API split** — `/api/books` serves synthesized readings only (via `chapter_representations.book_id = b.id`), while `/api/books/sources` serves all ingested source materials
+- **Chunk resolution API** — `GET /api/chunks/:id` maps chunk IDs directly to sequence indices for cross-representation DOM block highlighting
 - **Job lifecycle** — 6 tracked stages (`INGEST` → `SEMANTIC_INDEX` → `CLASSIFICATION` → `SYNOPSIS` → `SYNTHESIS` → `PROVENANCE_VERIFY`) with boot-time zombie sweep and `INTERRUPTED` rendering
 - **Fallback honesty** — every deterministic-fallback representation carries `fell_back: true`, `fallback_reason`, `truncated`, `compression_violation`, and `insufficient_marker` metadata
 
 ### Frontend
-- **Library** — responsive book grid with search, content-type filters, dynamic tag filter chips, Smart badge
+- **Library** — responsive book grid with search, content-type filters, dynamic tag filter chips, and Smart badge (Smart-only readings)
 - **Book Details** — hero, classification chips, synopsis panel, bibliographic panel, chapter list, semantic intelligence panel, AI-provider disclosure
-- **Reader** — Smart-first default when a representation exists, with a subtle Source affordance for the original
-- **Interactive provenance** — clickable source chips per segment run with inline preview cards, chunk navigation to Original mode, and scroll-position preservation on return
+- **Reader** — Smart-only reading view; clicking any sentence provenance chip navigates directly to the source chunk in Research view
+- **Research tab** — dedicated collection view of original sources with format/type filters (PDF, EPUB, Web, Paste, Dossiers) and "Imported, not yet synthesized" badges
+- **Research Viewer** — serene paper visual identity (serif prose, wide calm margins, neutral palette), theme-aware across all 4 app themes (default, warm, dark, glass)
+- **Cross-tab provenance navigation** — clicking a Smart sentence source chip jumps directly into the Research viewer with chunk highlight wash and auto-centering; sticky return arrow restores reader scroll position via sessionStorage
+- **Interactive provenance** — clickable source chips per segment run with inline preview cards, chunk navigation to Research mode, and scroll-position preservation on return
 - **Canonical block renderer** — recursive rendering of headings, paragraphs, quotes, lists, code, tables, callouts, separators
 - **Import** — File / Web / Paste tabs with real XHR progress and a job-driven pipeline stepper
 - **Cinematic import** — pipeline stages drive page-turn, chunk-gather, tag-fade, chapter-card animations; dynamic polling; reduced-motion collapse; mobile-safe at 375 px
@@ -110,13 +120,13 @@ Dense technical content preserves every claim at tighter ratios. Accessible narr
 
 ```mermaid
 flowchart LR
-    subgraph INGESTION [" 1. Ingestion & Extraction "]
+    subgraph INGESTION [" 1. Ingestion & Extraction (Import) "]
         RawDoc["Source Material\n(PDF, EPUB, Web, Paste)"]
         Parser["Layout-Aware Parser\n(pdfjs-dist / cheerio)"]
         RawDoc --> Parser
     end
 
-    subgraph CANONICAL [" 2. Immutable Canonical Source "]
+    subgraph CANONICAL [" 2. Immutable Canonical Source (Research) "]
         Canon["Canonical Document Tree\n(Chapters, Sections, Blocks)"]
         Parser --> Canon
     end
@@ -137,10 +147,10 @@ flowchart LR
         Canon --> Planner --> Compressor --> ProvResolver
     end
 
-    subgraph PRESENTATION [" 4. Dual-Track Reader "]
-        Canon ===>|"Immutable Paper"| OrigReading["Original Reading\n(Source Material)"]
-        ProvResolver ===>|"Tinted Lens"| SmartReading["Smart Reading\n(Adaptive Compression)"]
-        SmartReading -.->|"Clickable Provenance"| OrigReading
+    subgraph PRESENTATION [" 4. Library & Research Presentation "]
+        Canon ===>|"Immutable Paper"| ResearchViewer["Research Viewer\n(/research/:bookId)"]
+        ProvResolver ===>|"Tinted Lens"| LibraryReader["Library Smart Reader\n(/read/:bookId)"]
+        LibraryReader -.->|"Clickable Provenance (?highlight=chk-X)"| ResearchViewer
     end
 ```
 
@@ -150,7 +160,7 @@ flowchart LR
 User Material → Extraction → Parsing → Canonical Source → Structural Analysis
               → Semantic Chunking → Semantic Index → Auto-Classification + Bibliographic
               → Editorial Organizer → Source-Unit Slicing → Adaptive Compression
-              → Provenance Resolution → Grounded Reader-Facing Content
+              → Provenance Resolution → Library Smart Reader & Research Viewer
 ```
 
 ### Key Documentation
@@ -202,7 +212,7 @@ Open `http://localhost:5173/` and import a document.
 ### Test
 
 ```bash
-npm test # 19 regression suites, ~8–10 minutes
+npm test # 20 regression suites, ~8–10 minutes
 ```
 
 > **Test Isolation:** Test runs execute against `storage/test-data.db` — your working development library at `storage/data.db` is never touched.
@@ -228,8 +238,8 @@ Compression enforced. Import pipeline hardened. Classification shipped. Cinemati
 | **5.1b.1** | ✅ | C-primary arbitration |
 | **5.1b.2** | ✅ | Empirical threshold calibration |
 | **5.2** | ✅ | Reader click-through UI — interactive provenance |
-| **5.3** | 🚧 | Research tab foundation |
-| **5.5** | ⏳ | Library polish + UI/UX backlog |
+| **5.3** | ✅ | Research tab foundation & Library/Research architectural split (shipped 5.3a–f) |
+| **5.5** | 🚧 | Library polish + UI/UX backlog |
 | **5.6** | ⏳ | Validation and refine loops |
 | **5.7** | ⏳ | Python sidecar architecture (OCR, Discussion, Story) |
 
@@ -265,7 +275,6 @@ Developed in strict phases. Each phase closes clean — tests green, tree clean,
 | **OCR for image-only PDFs** | Deferred to Python sidecar (Phase 5.7). Empty-content PDFs fail honestly today. |
 | **Compression ratio tuning** | Adaptive clamps shipped; empirical tuning deferred to Phase 5.6 validation loops. |
 | **Tag chip placement** | Hero shows tags inline; relocation queued for Phase 5.5. |
-| **Research mode collection view** | Import half shipped in 4.6; collection view queued for Phase 5.3. |
 | **Preface-less source handling** | Synopsis retries and produces acceptable prose, but path is fragile. |
 | **Fixture licensing** | Two fixtures require swap before commercial release. See [`docs/RIGHTS.md`](./docs/RIGHTS.md). |
 
@@ -282,7 +291,7 @@ Solo development, active. Issues and discussion via the GitHub issue tracker.
 - `chore(scope): <description>` — build, deps, tooling
 - `phase<N>.<M>: <description>` — roadmap phase work
 
-*Test suite must stay green (`npm test` → 19/19 passing) through every commit.*
+*Test suite must stay green (`npm test` → 20/20 passing) through every commit.*
 
 ---
 

@@ -202,22 +202,17 @@ Split into three sub-phases. The sidecar proves the Node↔Python boundary; OCR 
 
 ### Hazards (rules learned from incidents)
 
-- **Verify-before-stage — 4 incidents (2026-09-26/27).** Recurring pattern: write file → `git add` → commit → inspect HEAD → discover missing or empty file → rewrite → amend. Root cause: shell heredoc failures or unverified writes. **Rule: after every write, run `Get-Item <file> | Select-Object Length` (>0 required). Before committing, verify staged line count with `git show :<file> | Measure-Object -Line`.**
-- **Sandbox write isolation / persistence hazard (2026-09-26/27).** Files created or modified inside sandboxed tools may write to an isolated sandbox overlay layer and fail to persist to the host git repository. **Rule: verify host filesystem existence and non-zero byte length with `Get-Item <file> | Select-Object Length`.**
-- **React Query queryKey collisions across routes (2026-09-26/27).** Reusing identical queryKey arrays (e.g. `['books']`) across distinct routes that expect different response shapes (`Book[]` vs `Set<string>`) causes cache hydration conflicts and runtime crashes (`books.filter is not a function`). **Rule: every query hook must use a domain-scoped, uniquely identifiable queryKey (`['libraryBooks']`, `['library-book-ids']`), accompanied by defensive runtime type validation (`Array.isArray`, `instanceof Set`).**
-- **Backend restart required after backend code changes (2026-09-26/27).** Dev backend server running on port 3000 stays in memory with old code. Fresh ephemeral CLI processes see new code while the browser hits the stale server. **Rule: always restart the running dev server on port 3000 whenever backend queries, routes, or models change.**
+- **Verify-before-stage — 4 incidents (2026-09-26/27).** Recurring this session: write → `git add` → commit → inspect HEAD → discover missing or empty → rewrite → amend. **Rule: after every write, run `Get-Item <file> | Select-Object Length` (>0 required). Before commit, `git show :<file> | Measure-Object -Line` per staged file. Never commit a file whose staged size is unverified.**
+- **Sandbox writes may not persist (2026-09-26/27).** `write_to_file` can report success while the filesystem is unchanged. Caught once in 5.3b (`ResearchViewerRoute`). **Rule: verify size after every write with `Get-Item <file> | Select-Object Length`.**
+- **React Query queryKey collisions across routes (2026-09-26/27).** Same key, different data shapes = silent cache-slot fight + render crash on nav. 5.3e root cause: `'books'` shared between `LibraryRoute` `Book[]` and `ResearchRoute` `Set<string>`. **Rule: unique `queryKey` per shape (`['libraryBooks']`, `['library-book-ids']`), accompanied by defensive runtime type validation (`Array.isArray`, `instanceof Set`).**
+- **Backend restart after backend commits (2026-09-26/27).** Vite hot-reloads frontend; Node does not. Masked the 5.3d fix for an hour of debugging. **Rule: after any backend commit, Ctrl+C and restart the dev server before manual verification.**
 
 - **Transcript spelunking — 7 incidents.** Agent searches its own `.system_generated/logs/transcript*.jsonl` for prompts rather than using pasted text. Caused wrong-phase execution once, mojibake and duplicate declarations in earlier sessions. **Rule: re-paste, don't mine.**
 - **Buffer drift — 3 incidents.** Stale editor buffer flushes post-commit, corrupting working tree (duplicate loops, unclosed braces, re-injected old JSX). HEAD stays clean; only working tree corrupted. **Rule: after every commit, `git status --short`. If unexpected `M` lines appear, `git diff` then `git checkout HEAD -- <file>`.**
 - **`git reset --hard HEAD` — 1 incident.** Used to discard drift post-commit. Safe once, destructive habit. **Rule: use `git checkout HEAD -- <file>`, never `git reset --hard` on a pushed branch.**
 - **Antigravity append hazard — 3 incidents.** Agent's "replace" tooling sometimes appends new content to a stub instead of overwriting. Silent redeclare errors that `typecheck` may not catch if run before the write completes. **Rule: `git diff` after every "replace" task to confirm the old placeholder is gone.**
 - **Fabricated verification — 1 incident (2026-09-23, most serious).** Phase 4.24 close-out reported a fabricated 17/17 test run — 15 file names that do not exist in `backend/tests/`. The guard code itself was real and verified independently by manual test runs. **Rule: verification evidence must always be pasted from actual terminal output. Any invented evidence is a project-integrity failure.**
-- **NC-licensed fixtures were publicly redistributed (fixed 2026-09-23).**
-  `practical_machine_learning.pdf` (CC-BY-NC-ND 4.0) and `code-heavy.pdf`
-  (Think Python, CC BY-NC 3.0) were tracked in the public repo. Removed from
-  HEAD, then from all history via `git-filter-repo` (tip commit rewritten
-  `8d1f213` → `acf35ae`). All prior commit hashes changed.
-  **Rule:** license-check any fixture before `git add`. See `docs/RIGHTS.md`.
+- **NC-licensed fixtures were publicly redistributed (fixed 2026-09-23).** `practical_machine_learning.pdf` and `code-heavy.pdf` removed from history. **Rule: license-check any fixture before `git add`. See `docs/RIGHTS.md`.**
 - **Bash heredoc in PowerShell writes empty files (Phase 5.3 S1 incident).** `cat << 'EOF'` is not valid PowerShell syntax; the shell silently produces an empty file. **Rule: after any shell file-creation command, verify with `Get-Item <file> | Select-Object Length`. Never trust 'Created <file>' messages.**
 - **Amend can leave the tree in an ambiguous state (Phase 5.3 S1 incident).** **Rule: after every `git commit --amend`, re-run `git show HEAD --stat` and confirm every intended file is present and non-empty.**
 
@@ -230,8 +225,10 @@ Split into three sub-phases. The sidecar proves the Node↔Python boundary; OCR 
   - **5.3d & 5.3d.1 Library Filter Fix & Test Isolation (`0be1cb0`, `0c2211b`):** Fixed `bookRepository.getAll()` filter predicate to check `EXISTS (SELECT 1 FROM chapter_representations cr WHERE cr.book_id = b.id)` (synthetic chapter IDs in editorial synthesis bypassed `JOIN chapters`). Restored deterministic test self-containment in `build5_3_library_split_test.js`.
   - **5.3e React Query Hardening & Error Boundary (`eb8ccb6`):** Separated query keys to eliminate cache collision. Added defensive array/Set guards and root layout `ErrorBoundary`.
   - **5.3f Reader Legibility & Theme Awareness (`c89b4da`):** Swapped hardcoded light/dark styling in Research Viewer for theme-aware tokens (`bg-surface text-ink article.prose.prose-reader`). Enforced 100% opacity on provenance preview card to eliminate text bleed-through.
-- **Process Lesson — Manual walkthrough necessity:** Automated tests on synthetic fixtures passed while real synthesized books (*Practical Machine Learning*) exposed the filter bug. Contract tests must always be supplemented with a human browser walkthrough on real ingested artifacts.
-- **Process Lesson — Independent verification gate:** Running fresh ephemeral Node test processes side-by-side with curl commands against the active dev server rapidly diagnosed stale process state vs code regressions.
+
+### Process Notes (2026-09-26/27)
+- **Manual walkthrough necessity:** The manual walkthrough is what exposed the 5.3d filter bug — automated suites were green throughout. User-visible behavior changes require a human browser walkthrough before close.
+- **Independent verification gate value:** Three root causes this session (empty test file, stale backend, queryKey collision) were each caught only because the user ran the gate the agent could not (PENDING USER). Ephemeral CLI processes vs live dev server curl checks rapidly isolated stale process state.
 
 ### Closed (2026-09-24/25)
 
