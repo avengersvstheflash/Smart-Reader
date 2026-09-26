@@ -70,7 +70,7 @@ function ChapterPanel({ chapterId, highlightSequence, reducedMotion }: ChapterPa
   }
 
   return (
-    <div className="prose prose-neutral dark:prose-invert max-w-none research-prose">
+    <article className="prose prose-reader max-w-none research-prose text-ink">
       {blocks.map((block, idx) => {
         const blockId = `block-${idx}`;
         return (
@@ -83,7 +83,7 @@ function ChapterPanel({ chapterId, highlightSequence, reducedMotion }: ChapterPa
           </div>
         );
       })}
-    </div>
+    </article>
   );
 }
 
@@ -234,11 +234,11 @@ export default function ResearchViewerRoute() {
   // Render
   // -------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-950">
+    <div className="min-h-screen bg-surface text-ink">
       {/* ----------------------------------------------------------------
           Sticky return bar
       ---------------------------------------------------------------- */}
-      <div className="sticky top-0 z-10 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-sm border-b border-line">
+      <div className="sticky top-0 z-10 bg-surface backdrop-blur-sm border-b border-line">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2">
           <button
             type="button"

@@ -128,8 +128,8 @@ export function ProvenancePreview({
       style={anchorRef ? positionStyle : undefined}
       className={
         anchorRef
-          ? 'fixed z-50 bg-surface border border-line rounded-lg shadow-2xl p-4 text-left animate-in fade-in zoom-in-95 duration-150'
-          : 'absolute right-0 top-full mt-2 z-30 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-lg shadow-xl p-4 text-left animate-in fade-in zoom-in-95 duration-150'
+          ? 'fixed z-50 bg-card [--surface-alpha:1] backdrop-blur-sm border border-line rounded-lg shadow-lg p-4 text-left animate-in fade-in zoom-in-95 duration-150'
+          : 'absolute right-0 top-full mt-2 z-30 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-card [--surface-alpha:1] backdrop-blur-sm border border-line rounded-lg shadow-lg p-4 text-left animate-in fade-in zoom-in-95 duration-150'
       }
     >
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-line/60">
