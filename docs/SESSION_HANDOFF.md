@@ -236,6 +236,8 @@ Split into three sub-phases. The sidecar proves the Node↔Python boundary; OCR 
   HEAD, then from all history via `git-filter-repo` (tip commit rewritten
   `8d1f213` → `acf35ae`). All prior commit hashes changed.
   **Rule:** license-check any fixture before `git add`. See `docs/RIGHTS.md`.
+- **Bash heredoc in PowerShell writes empty files (Phase 5.3 S1 incident).** `cat << 'EOF'` is not valid PowerShell syntax; the shell silently produces an empty file. **Rule: after any shell file-creation command, verify with `Get-Item <file> | Select-Object Length`. Never trust 'Created <file>' messages.**
+- **Amend can leave the tree in an ambiguous state (Phase 5.3 S1 incident).** **Rule: after every `git commit --amend`, re-run `git show HEAD --stat` and confirm every intended file is present and non-empty.**
 
 ### Closed (2026-09-24/25)
 
