@@ -14,7 +14,7 @@
 
 **Test state:** 19/19 root suites green. Frontend build clean, typecheck 0 errors. Runtime ~6–8 min.
 
-**Next phase:** Phase 5.3 — Research tab foundation.
+**Next phase:** Phase 5.3 — Research tab foundation & Library/Research architectural split.
 
 ### What ships today
 
@@ -82,18 +82,43 @@
 
 ## 4. Next task
 
-### Phase 5.3 — Research tab foundation
+### Phase 5.3 — Research tab foundation & Library/Research architectural split (3–4 sessions)
 
-**Goal:** Multi-source view. Takes a dossier (book built from multiple web sources), displays original sources side-by-side, and renders cross-source citations — where a Smart paragraph draws from chunks in source A and source B, both are shown with distinct attribution.
+**Goal:** Establish the Research tab as the dedicated home for original source materials, enforce a clean architectural split between Library (Smart-only compressed readings) and Research (immutable source proof), and implement multi-source visualization and cross-tab provenance navigation.
 
-**Depends on:** Phase 5.2 (shipped — block mapping primitive, preview card, return arrow all generalize to multi-source).
+**The Architectural Split (settled with user, 2026-09-26):**
+Three top-level tabs:
+- **IMPORT** → Where content enters (File / Web / Paste). Unchanged.
+- **LIBRARY** → Smart Readings only. Compressed chapters. The product.
+- **RESEARCH** → Original sources. Raw material. Provenance and traceability. Where "View full source" navigates to.
 
-**Depends on:** Phase 5.1 (shipped — paragraph_attributions carries chunk_id per segment).
+**Decisions Locked (9):**
+1. **Library hides uncompressed books.** They appear in Research only, badged "Imported, not yet synthesized."
+2. **"View full source" from a Smart paragraph navigates to Research**, scrolled to the correct source, chunk highlighted. Not a same-view overlay.
+3. **Original | Smart toggle removed from Library reading.** Original lives in Research only.
+4. **In Library, "book" = synthesized reading collection.** Exists only post-synthesis. Research-side record is the "source item."
+5. **Web dossiers live in BOTH tabs:** compressed dossier chapters in Library, underlying sources in Research.
+6. **Library is Smart-only.** "View original" link on Book Details routes to Research. No in-place toggle.
+7. **Cross-tab navigation uses the same scroll-preservation pattern** as Phase 5.2's return arrow, generalized to tab state.
+8. **Research landing page = list of all source items**, grouped by book/dossier, filterable by format, source type, date.
+9. **Research visual identity = paper.** Neutral, calm, no accent chrome. Library stays tinted. Laws 1 and 2 made spatial.
+
+**What 5.3 Ships (revised):**
+- **A. Research tab as a real route** — collection view of original sources, grouped, searchable, filterable. "Imported, not yet synthesized" state.
+- **B. Library/Research split** — Library Smart-only, cross-tab navigation, scroll preservation.
+- **C. Multi-source visualization in Research** — per-source color coding, per-paragraph source chips, click chip → Research at chunk.
+- **D. Reader cleanup** — remove Original | Smart toggle from Library.
+- **E. Broadened web search** — defer to 5.3.1 if scope runs long.
+
+**Depends on:**
+- **Phase 5.2** (shipped — block mapping primitive generalizes to cross-tab navigation, preview card, return arrow).
+- **Phase 5.1** (shipped — paragraph_attributions carries chunk_id per segment).
 
 **Not in scope for 5.3:**
 - Tauri file-system browser (Phase 6)
 - Discussion-mode source viewer (Build 6)
 - Broadened web search coverage (5.3 input, may be 5.3.1)
+- Any new LLM or embedding provider
 
 **Inputs already logged:**
 - Web dossiers render `[Source N: Site]` in chapter headings, not per-paragraph chips. Source-level (not chunk-level) attribution. Fix alongside Research tab.
@@ -103,7 +128,7 @@
 **Recommended tooling:** Use `/plan` with Artifact Review Policy set to "Request Review." Confirmed working in 5.2.3 — the Implementation Plan artifact captured the diagnostic, the agent halted for review, and browser verification ran via `/browser` (headless Chromium + CDP) rather than being marked PENDING USER.
 
 **First actions of the session:**
-1. `/plan phase5.3 — Research tab foundation`
+1. `/plan phase5.3 — Research tab foundation and Library/Research split`
 2. Review the Implementation Plan artifact
 3. Only proceed to execution after approval
 
@@ -154,7 +179,7 @@ Split into three sub-phases. The sidecar proves the Node↔Python boundary; OCR 
 | **5.2.1** | ✅ | Segment-level chips, chip-anchored preview, hover highlighting |
 | **5.2.2** | ✅ | Fix hover wash visibility, chip inline positioning, segment border |
 | **5.2.3** | ✅ | Fix chip distribution (ReaderRoute selection bug), scope hover to Smart, gradient highlight |
-| **5.3** | 🚧 | Research tab foundation |
+| **5.3** | 🚧 | Research tab foundation & Library/Research architectural split |
 | **5.5** | ⏳ | Library polish + UI/UX backlog |
 | **5.6** | ⏳ | Validation and refine loops |
 | **5.7** | ⏳ | Python sidecar (5.7.1 OCR, 5.7.2 stubs, 5.7.3 router) |
