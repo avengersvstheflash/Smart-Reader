@@ -499,12 +499,12 @@ export default function BookDetailsRoute() {
 
                 const rowContent = (
                   <>
-                    <div className="flex items-center gap-3 min-w-0 pr-4">
+                    <div className="flex items-center gap-3 min-w-0 flex-1 pr-4">
                       <span className="font-mono text-caption text-faint w-7 text-right shrink-0">
                         {sc.sequence}.
                       </span>
                       <span
-                        className={`text-ui-sm truncate font-medium ${
+                        className={`text-ui-sm truncate font-medium flex-1 min-w-0 ${
                           isGenerated
                             ? 'text-ink group-hover:text-accent-ink transition-colors'
                             : 'text-ink-muted'
@@ -512,9 +512,11 @@ export default function BookDetailsRoute() {
                       >
                         {sc.title ?? `Chapter ${sc.sequence}`}
                       </span>
-                      {readIndicator}
                     </div>
-                    {badge && <div className="shrink-0">{badge}</div>}
+                    <div className="flex items-center gap-3 shrink-0">
+                      {readIndicator}
+                      {badge}
+                    </div>
                   </>
                 );
 

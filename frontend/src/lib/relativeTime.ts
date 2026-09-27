@@ -1,6 +1,9 @@
 export function formatRelativeTime(iso: string | null | undefined): string {
   if (!iso) return '';
-  const date = new Date(iso);
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(iso)
+    ? iso.replace(' ', 'T') + 'Z'
+    : iso;
+  const date = new Date(normalized);
   const time = date.getTime();
   if (isNaN(time)) return '';
 

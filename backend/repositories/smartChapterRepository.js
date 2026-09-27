@@ -235,8 +235,17 @@ class SmartChapterRepository {
       metadata = {};
     }
 
+    const openedAt = toIso(row.opened_at);
+    const readAt = toIso(row.read_at);
+    const createdAt = toIso(row.created_at);
+    const updatedAt = toIso(row.updated_at);
+
     return {
       ...row,
+      opened_at: openedAt,
+      read_at: readAt,
+      created_at: createdAt,
+      updated_at: updatedAt,
       planned_source_section_ids,
       metadata,
       metadata_json: metadata,
@@ -244,13 +253,27 @@ class SmartChapterRepository {
       plannedWordCount: row.planned_word_count,
       synthesisType: row.synthesis_type,
       bookId: row.book_id,
-      openedAt: row.opened_at || null,
-      readAt: row.read_at || null,
+      openedAt,
+      readAt,
       readSource: row.read_source || null,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt,
+      updatedAt,
     };
   }
 }
 
-module.exports = new SmartChapterRepository();
+function toIso(sqliteTs) {
+  if (!sqliteTs) return null;
+  // already ISO with Z?
+  if (/Z$/.test(sqliteTs)) return sqliteTs;
+  // YYYY-MM-DD HH:MM:SS → YYYY-MM-DDTHH:MM:SSZ
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(sqliteTs)) {
+    return sqliteTs.replace(' ', 'T') + 'Z';
+  }
+  return sqliteTs; // unknown format — pass through
+}
+
+const instance = new SmartChapterRepository();
+instance.toIso = toIso;
+
+module.exports = instance;

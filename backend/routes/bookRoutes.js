@@ -10,6 +10,7 @@ const upload = multer({
 });
 
 const { getDatabase } = require('../db/database');
+const smartChapterRepository = require('../repositories/smartChapterRepository');
 
 // GET /api/books/sources - list all source items
 router.get('/sources', (req, res, next) => {
@@ -118,7 +119,7 @@ router.get('/:id/resume-target', (req, res, next) => {
       smartChapterId: row.id,
       sequence: row.sequence,
       title: row.title,
-      timestamp: row.last_touched,
+      timestamp: smartChapterRepository.toIso(row.last_touched),
     });
   } catch (err) {
     next(err);
