@@ -70,7 +70,7 @@ class AttributionRepository {
     });
 
     insertMany(attributions);
-    return this.getByRepresentationId(attributions[0].smart_chapter_id);
+    return this.getBySmartChapterId(attributions[0].smart_chapter_id || attributions[0].representation_id);
   }
 
   /**
@@ -83,33 +83,41 @@ class AttributionRepository {
   }
 
   /**
-   * Get all attributions for a given representation ordered by paragraph index
+   * Get all attributions for a given smart chapter ordered by paragraph index
    */
-  getByRepresentationId(representationId) {
+  getBySmartChapterId(smartChapterId) {
     const db = getDatabase();
     const rows = db.prepare(`
       SELECT * FROM paragraph_attributions
       WHERE smart_chapter_id = ?
       ORDER BY paragraph_index ASC
-    `).all(representationId);
+    `).all(smartChapterId);
 
     return rows.map((r) => this.formatRow(r));
   }
 
   /**
-   * Delete all attributions for a representation
+   * Legacy alias for getBySmartChapterId
    */
-  deleteByRepresentationId(representationId) {
+  getByRepresentationId(id) {
+    return this.getBySmartChapterId(id);
+  }
+
+  /**
+   * Delete all attributions for a smart chapter
+   */
+  deleteBySmartChapterId(smartChapterId) {
     const db = getDatabase();
-    const result = db.prepare('DELETE FROM paragraph_attributions WHERE smart_chapter_id = ?').run(representationId);
+    const result = db.prepare('DELETE FROM paragraph_attributions WHERE smart_chapter_id = ?').run(smartChapterId);
     return result.changes;
   }
 
   /**
-   * Format SQLite row into structured object with parsed JSON fields
+   * Legacy alias for deleteBySmartChapterId
    */
-  getByRepresentationId(id) { return this.getBySmartChapterId(id); }
-  deleteByRepresentationId(id) { return this.deleteBySmartChapterId(id); }
+  deleteByRepresentationId(id) {
+    return this.deleteBySmartChapterId(id);
+  }
 
   formatRow(row) {
     if (!row) return null;
@@ -137,7 +145,6 @@ class AttributionRepository {
     return {
       id: row.id,
       smart_chapter_id: row.smart_chapter_id,
-      representation_id: row.smart_chapter_id,
       paragraph_index: row.paragraph_index,
       segments,
       source_chunk_ids: sourceChunkIds,

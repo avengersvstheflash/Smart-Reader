@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Build 4.4 Progressive Smart Chapter Synthesis Test Suite
  *
  * Verifies:
  * 1. synthesizeNextChapters validation (1, 3, 5, 10 accepted; others rejected)
  * 2. Error handling when book has no outline
- * 3. Auto-synthesis on book import (≥3 chapters, ≥2000 words -> first 3 chapters auto-synthesized)
+ * 3. Auto-synthesis on book import (â‰¥3 chapters, â‰¥2000 words -> first 3 chapters auto-synthesized)
  * 4. Progress reporting reflects idle / generating / complete transitions
  * 5. Progressive batch generation (synthesize-next generates next chapters sequentially)
  * 6. Idempotency (no re-synthesizing already synthesized chapters, no duplicates)
@@ -17,10 +17,11 @@ const bookService = require('../services/bookService');
 const editorialService = require('../services/synthesis/editorialService');
 const synthesisService = require('../services/synthesis/synthesisService');
 const chapterRepository = require('../repositories/chapterRepository');
+const smartChapterRepository = require('../repositories/smartChapterRepository');
 
 async function runTests() {
   console.log('================================================================');
-  console.log('🚀 RUNNING BUILD 4.4 PROGRESSIVE SMART CHAPTER SYNTHESIS TESTS');
+  console.log('ðŸš€ RUNNING BUILD 4.4 PROGRESSIVE SMART CHAPTER SYNTHESIS TESTS');
   console.log('================================================================\n');
 
   // --------------------------------------------------------------------------
@@ -37,7 +38,7 @@ async function runTests() {
     }
     assert.strictEqual(threw, true, `Expected count ${badCount} to be rejected`);
   }
-  console.log('  ✓ Verified: Invalid counts (0, 2, 7, 11, "three", null, -1) correctly rejected.');
+  console.log('  âœ“ Verified: Invalid counts (0, 2, 7, 11, "three", null, -1) correctly rejected.');
 
   // --------------------------------------------------------------------------
   // Test 2: Error handling when book has no outline
@@ -52,7 +53,7 @@ async function runTests() {
       assert(err.message.includes('No outline for book'), `Expected No outline error, got: ${err.message}`);
     }
     assert.strictEqual(threw, true, 'Expected error when outline does not exist.');
-    console.log('  ✓ Verified: Throws clear error when no outline exists for book.');
+    console.log('  âœ“ Verified: Throws clear error when no outline exists for book.');
   }
 
   // --------------------------------------------------------------------------
@@ -128,8 +129,8 @@ async function runTests() {
   assert.ok(outline, 'Editorial outline must be automatically created in background.');
   assert.ok(outline.chapters.length >= 3, 'Outline must contain at least 3 planned chapters.');
   assert.strictEqual(synthesizedCount, 3, `Expected exactly 3 auto-synthesized chapters, found ${synthesizedCount}.`);
-  console.log(`  ✓ Verified: Outline auto-created and first 3 chapters auto-synthesized in background (${synthesizedCount}/${outline.chapters.length}).`);
-  console.log(`  ✓ Verified: Outline auto-created and first 3 chapters auto-synthesized in background (${synthesizedCount}/${outline.chapters.length}) in ${(totalElapsed / 1000).toFixed(1)}s.`);
+  console.log(`  âœ“ Verified: Outline auto-created and first 3 chapters auto-synthesized in background (${synthesizedCount}/${outline.chapters.length}).`);
+  console.log(`  âœ“ Verified: Outline auto-created and first 3 chapters auto-synthesized in background (${synthesizedCount}/${outline.chapters.length}) in ${(totalElapsed / 1000).toFixed(1)}s.`);
 
   // --------------------------------------------------------------------------
   // Test 4: Progress endpoint reflects idle -> generating -> idle
@@ -146,7 +147,7 @@ async function runTests() {
     }
   }
   assert.strictEqual(currentSynthesized, 3, 'Exactly 3 chapters should be synthesized after initial import.');
-  console.log(`  ✓ Verified: Progress idle state confirmed with total=${totalChapters}, synthesized=${currentSynthesized}, remaining=${totalChapters - currentSynthesized}.`);
+  console.log(`  âœ“ Verified: Progress idle state confirmed with total=${totalChapters}, synthesized=${currentSynthesized}, remaining=${totalChapters - currentSynthesized}.`);
 
   // --------------------------------------------------------------------------
   // Test 5: synthesize-next with count=1 generates the next chapter
@@ -160,14 +161,14 @@ async function runTests() {
   // Confirm chapter 4 is now synthesized
   const ch4Rep = synthesisService.getSynthesis(outline.outlineId, outline.chapters[3].chapterId);
   assert.ok(ch4Rep, 'Chapter 4 representation must exist after synthesize-next.');
-  console.log(`  ✓ Verified: Synthesized next chapter "${outline.chapters[3].title}" (Total synthesized: 4/${totalChapters}).`);
+  console.log(`  âœ“ Verified: Synthesized next chapter "${outline.chapters[3].title}" (Total synthesized: 4/${totalChapters}).`);
 
   // --------------------------------------------------------------------------
   // Test 6: Idempotency (no re-synthesizing already synthesized chapters)
   // --------------------------------------------------------------------------
   console.log('Test 6: Idempotency and duplicate prevention');
-  const targetBookId = outline.collectionId || outline.outlineId;
-  const repsBefore = chapterRepository.getRepresentationsByBook(targetBookId);
+  const targetBookId = testBookId;
+  const repsBefore = smartChapterRepository.getByBookId(targetBookId);
 
   // Calling synthesizeNextChapters with count=1 should move on to chapter 5, not chapter 4
   const batch2 = await editorialService.synthesizeNextChapters(testBookId, 1, { fast: true });
@@ -175,10 +176,11 @@ async function runTests() {
   assert.strictEqual(batch2.chapters[0].chapterId, outline.chapters[4].chapterId, 'Must advance to chapter 5');
 
   // Verify no duplicate representation IDs for chapter 4
-  const repsAfter = chapterRepository.getRepresentationsByBook(targetBookId);
-  const ch4Reps = repsAfter.filter((r) => r.chapter_id === outline.chapters[3].chapterId);
-  assert.strictEqual(ch4Reps.length, 1, 'Chapter 4 must have exactly 1 representation (no duplicates).');
-  console.log('  ✓ Verified: Idempotent progression without duplicate representation generation.');
+  const repsAfter = smartChapterRepository.getByBookId(targetBookId);
+  const ch4Id = outline.chapters[3].chapterId;
+  const ch4Reps = repsAfter.filter((r) => r.id === ch4Id);
+  assert.strictEqual(ch4Reps.length, 1, 'Chapter 4 must have exactly 1 smart chapter (no duplicates).');
+  console.log('  âœ“ Verified: Idempotent progression without duplicate representation generation.');
 
   // --------------------------------------------------------------------------
   // Test 7: Count exceeding remaining
@@ -189,7 +191,7 @@ async function runTests() {
   assert.strictEqual(batchExceeding.requestedCount, 10);
   assert.strictEqual(batchExceeding.synthesizedCount, 0, 'Should synthesize 0 when all are complete.');
   assert.strictEqual(batchExceeding.remainingCount, 0, 'Remaining count should be 0.');
-  console.log('  ✓ Verified: Requesting count beyond remaining chapters terminates gracefully without error.');
+  console.log('  âœ“ Verified: Requesting count beyond remaining chapters terminates gracefully without error.');
 
   // --------------------------------------------------------------------------
   // Test 8: Real LLM path test (fast: false) or safe fallback validation
@@ -203,17 +205,17 @@ async function runTests() {
     });
     assert.ok(realSynthResult, 'Synthesis result must be returned.');
     assert.ok(realSynthResult.representation, 'Representation must be saved.');
-    console.log(`  ✓ Verified: fast: false executed successfully with provider="${realSynthResult.provider}", model="${realSynthResult.model}".`);
+    console.log(`  âœ“ Verified: fast: false executed successfully with provider="${realSynthResult.provider}", model="${realSynthResult.model}".`);
   } catch (aiErr) {
     console.warn(`  [Notice] AI provider execution warning: ${aiErr.message} (safe fallback preserved).`);
   }
 
   console.log('\n================================================================');
-  console.log('🎉 ALL BUILD 4.4 PROGRESSIVE SYNTHESIS TESTS PASSED!');
+  console.log('ðŸŽ‰ ALL BUILD 4.4 PROGRESSIVE SYNTHESIS TESTS PASSED!');
   console.log('================================================================\n');
 }
 
 runTests().catch((err) => {
-  console.error('\n❌ BUILD 4.4 TEST FAILED:', err);
+  console.error('\nâŒ BUILD 4.4 TEST FAILED:', err);
   process.exit(1);
 });

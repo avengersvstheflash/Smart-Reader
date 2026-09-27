@@ -166,17 +166,18 @@ async function runTests() {
   // --------------------------------------------------------------------------
   console.log('Test 6: Database Persistence & AttributionRepository');
   {
-    const testRepId = `rep-test-persistence-${Date.now()}`;
+    const smartChapterRepository = require('../repositories/smartChapterRepository');
+    const testSmartId = `smart-test-persistence-${Date.now()}`;
     const db = getDatabase();
     db.prepare(`
-      INSERT INTO chapter_representations (id, chapter_id, book_id, type, content, metadata_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(testRepId, 'ch-dummy-p', 'book-dummy-p', 'EDITORIAL_SYNTHESIS', 'Sample content.', '{}', new Date().toISOString());
+      INSERT INTO smart_chapters (id, book_id, sequence, title, status, content, metadata_json, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(testSmartId, 'book-fixture-a', 99, 'Test Persistence Chapter', 'generated', 'Sample content.', '{}', new Date().toISOString(), new Date().toISOString());
 
     const testAttrs = [
       {
-        id: `attr-${testRepId}-0`,
-        representation_id: testRepId,
+        id: `attr-${testSmartId}-0`,
+        representation_id: testSmartId,
         paragraph_index: 0,
         segments: [{ sentence_start: 0, sentence_end: 1, chunk_id: 'chk-alpha-1', confidence: 0.92 }],
         source_chunk_ids: ['chk-alpha-1'],
@@ -189,8 +190,8 @@ async function runTests() {
         fallback_reason: null,
       },
       {
-        id: `attr-${testRepId}-1`,
-        representation_id: testRepId,
+        id: `attr-${testSmartId}-1`,
+        representation_id: testSmartId,
         paragraph_index: 1,
         segments: [{ sentence_start: 0, sentence_end: 0, chunk_id: 'chk-alpha-2', confidence: 0.77 }],
         source_chunk_ids: ['chk-alpha-2'],
@@ -207,30 +208,30 @@ async function runTests() {
     const saved = attributionRepository.createBatch(testAttrs);
     assert.strictEqual(saved.length, 2, 'Batch insert must persist 2 rows');
 
-    const fetched = attributionRepository.getByRepresentationId(testRepId);
+    const fetched = attributionRepository.getByRepresentationId(testSmartId);
     assert.strictEqual(fetched.length, 2);
     assert.strictEqual(fetched[0].method, 'c_primary');
     assert.strictEqual(fetched[0].grounded, true);
     assert.strictEqual(fetched[1].method, 'c_verified_by_a');
 
-    const delCount = attributionRepository.deleteByRepresentationId(testRepId);
+    const delCount = attributionRepository.deleteByRepresentationId(testSmartId);
     assert.strictEqual(delCount, 2, 'Delete must remove the 2 rows');
-    assert.strictEqual(attributionRepository.getByRepresentationId(testRepId).length, 0);
+    assert.strictEqual(attributionRepository.getByRepresentationId(testSmartId).length, 0);
 
-    // Verify foreign key ON DELETE CASCADE from chapter_representations
-    const cascadeRepId = 'rep-test-cascade-fk';
-    chapterRepository.saveRepresentation({
-      id: cascadeRepId,
-      chapterId: 'ch-test-cascade',
-      bookId: 'book-sample-lightnovel-1',
-      type: 'EDITORIAL_SYNTHESIS',
+    // Verify foreign key ON DELETE CASCADE from smart_chapters
+    const cascadeSmartId = 'smart-test-cascade-fk';
+    smartChapterRepository.create({
+      id: cascadeSmartId,
+      bookId: 'book-fixture-a',
+      sequence: 100,
+      title: 'Cascade FK Verification Chapter',
+      status: 'generated',
       content: 'Sample content for FK cascade verification.',
       metadata: {},
-      provenance: [],
     });
     attributionRepository.createBatch([
       {
-        representation_id: cascadeRepId,
+        representation_id: cascadeSmartId,
         paragraph_index: 0,
         segments: [],
         source_chunk_ids: [],
@@ -240,12 +241,12 @@ async function runTests() {
         grounded: true,
       },
     ]);
-    assert.strictEqual(attributionRepository.getByRepresentationId(cascadeRepId).length, 1);
-    chapterRepository.deleteRepresentation(cascadeRepId);
+    assert.strictEqual(attributionRepository.getByRepresentationId(cascadeSmartId).length, 1);
+    smartChapterRepository.delete(cascadeSmartId);
     assert.strictEqual(
-      attributionRepository.getByRepresentationId(cascadeRepId).length,
+      attributionRepository.getByRepresentationId(cascadeSmartId).length,
       0,
-      'Deleting chapter_representation must cascade delete paragraph_attributions'
+      'Deleting smart_chapter must cascade delete paragraph_attributions'
     );
 
     console.log('  ✓ AttributionRepository batch insert, retrieval, delete, and FK ON DELETE CASCADE confirmed.');
@@ -256,6 +257,7 @@ async function runTests() {
   // --------------------------------------------------------------------------
   console.log('Test 7: End-to-End ProvenanceResolver Contract');
   {
+    const smartChapterRepository = require('../repositories/smartChapterRepository');
     // Create temporary book and chunks for full end-to-end verification
     const bookId = `book-test-prov-${Date.now()}`;
     bookRepository.create({
@@ -282,18 +284,20 @@ async function runTests() {
       text_content: 'Clustering and dimensionality reduction extract patterns from unlabelled datasets.',
     });
 
-    const repId = `rep-cross-${bookId}-ch-1`;
+    const smartId = `smart-${bookId}-ch-1`;
     const smartContent = `Supervised learning leverages ground truth labels to build predictive functions. Labelled instances guide gradient optimization.\n\nClustering algorithms group unlabelled data points by latent geometric features.`;
 
-    chapterRepository.saveRepresentation({
-      id: repId,
-      chapterId: 'ch-1',
+    smartChapterRepository.create({
+      id: smartId,
       bookId,
-      type: 'EDITORIAL_SYNTHESIS',
+      sequence: 1,
+      title: 'Learning Paradigms',
+      status: 'generated',
       content: smartContent,
+      planned_source_section_ids: [chunk1.id, chunk2.id],
       metadata: {
         outlineId: `outline-${bookId}`,
-        chapterId: 'ch-1',
+        chapterId: smartId,
         title: 'Learning Paradigms',
         provenance: [chunk1.id, chunk2.id],
         claimed_attributions: [
@@ -301,18 +305,17 @@ async function runTests() {
           { paragraph_index: 1, weights: { [chunk2.id]: 1.0 } },
         ],
       },
-      provenance: [chunk1.id, chunk2.id],
     });
 
-    const result = await provenanceResolver.verifyRepresentation(repId, { fast: true, force: true });
-    assert.strictEqual(result.representation_id, repId);
+    const result = await provenanceResolver.verifyRepresentation(smartId, { fast: true, force: true });
+    assert.strictEqual(result.representation_id, smartId);
     assert.strictEqual(result.paragraphs.length, 2, 'Must resolve exactly 2 paragraphs');
     assert(result.paragraphs[0].segments.length >= 1, 'Paragraph 0 must have at least 1 segment');
     assert(result.paragraphs[1].segments.length >= 1, 'Paragraph 1 must have at least 1 segment');
 
     // Test formatted contract output
-    const formatted = provenanceResolver.getProvenance(repId);
-    assert.strictEqual(formatted.representation_id, repId);
+    const formatted = provenanceResolver.getProvenance(smartId);
+    assert.strictEqual(formatted.representation_id, smartId);
     assert.strictEqual(formatted.paragraphs.length, 2);
     assert.strictEqual(formatted.paragraphs[0].paragraph_index, 0);
     assert.strictEqual(formatted.paragraphs[1].paragraph_index, 1);
@@ -326,8 +329,8 @@ async function runTests() {
     assert.deepStrictEqual(empty.paragraphs, []);
 
     // Cleanup synthetic test records
-    attributionRepository.deleteByRepresentationId(repId);
-    chapterRepository.deleteRepresentation(repId);
+    attributionRepository.deleteByRepresentationId(smartId);
+    smartChapterRepository.delete(smartId);
     try {
       const db = getDatabase();
       db.prepare('DELETE FROM semantic_chunks WHERE book_id = ?').run(bookId);

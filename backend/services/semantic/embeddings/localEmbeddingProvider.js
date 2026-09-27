@@ -52,7 +52,7 @@ class LocalEmbeddingProvider extends EmbeddingProvider {
     return this.dimension;
   }
 
-  async embedText(text) {
+  embedTextSync(text) {
     const vector = new Float64Array(this.dimension);
     if (!text || typeof text !== 'string') return Array.from(vector);
 
@@ -123,6 +123,10 @@ class LocalEmbeddingProvider extends EmbeddingProvider {
     }
 
     return Array.from(vector);
+  }
+
+    async embedText(text) {
+    return this.embedTextSync(text);
   }
 
   hashString(str) {

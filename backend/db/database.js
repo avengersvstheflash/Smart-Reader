@@ -1,6 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const Database = require('better-sqlite3');
+const LocalEmbeddingProvider = require('../services/semantic/embeddings/localEmbeddingProvider');
+const embeddingProvider = new LocalEmbeddingProvider();
 const config = require('../config');
 
 // Ensure storage subdirectories exist
@@ -386,189 +389,822 @@ function seedDefaultBookIfEmpty(db) {
 function seedSampleBooks(db) {
   const now = new Date().toISOString();
 
-  // Book 1: The Clockwork Astral Academy (Fantasy / Light Novel)
-  const book1Id = 'book-sample-lightnovel-1';
-  db.prepare(`
-    INSERT INTO books (id, title, author, description, cover_path, content_type, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    book1Id,
-    'The Clockwork Astral Academy',
-    'Kaelen Voss',
-    'In a floating archipelago powered by celestial ether, an aspiring chronomancer discovers an ancient pocket clock that records future anomalies before they happen.',
-    'covers/default-clockwork.png',
-    'novel',
-    'active',
-    now,
-    now
-  );
+  const insertBook = db.prepare(`
+    INSERT INTO books (
+      id, title, author, description, cover_path, content_type, status,
+      original_filename, source_site, source_url, section_count, integrity_status,
+      semantic_status, semantic_chunk_count, semantic_indexed_at,
+      created_at, updated_at
+    ) VALUES (
+      @id, @title, @author, @description, @cover_path, @content_type, @status,
+      @original_filename, @source_site, @source_url, @section_count, @integrity_status,
+      @semantic_status, @semantic_chunk_count, @semantic_indexed_at,
+      @created_at, @updated_at
+    )
+  `);
 
-  const ch1Content = `The bells of St. Sophia's Campanile chimed seven times across the upper sky-terraces, their brass resonance muffled by the dense silver fog that rose from the lower ether springs.
+  const insertChapter = db.prepare(`
+    INSERT INTO chapters (
+      id, book_id, number, title, content, canonical_content, word_count, status, created_at, updated_at
+    ) VALUES (
+      @id, @book_id, @number, @title, @content, @canonical_content, @word_count, @status, @created_at, @updated_at
+    )
+  `);
 
-Caspian adjusted the copper gear-pins of his brass gauntlet. The tension spring was vibrating at three beats per second—too fast for normal atmospheric pressure. Something out in the Meridian Verge was distorting the local temporal drift.
+  const insertChunk = db.prepare(`
+    INSERT INTO semantic_chunks (
+      id, book_id, chapter_id, sequence, section_heading, content_type, text_content,
+      canonical_json, source_reference, token_count, content_hash, embedding_json,
+      embedding_model, structural_role, created_at, updated_at
+    ) VALUES (
+      @id, @book_id, @chapter_id, @sequence, @section_heading, @content_type, @text_content,
+      @canonical_json, @source_reference, @token_count, @content_hash, @embedding_json,
+      'bge-m3', 'body', @created_at, @updated_at
+    )
+  `);
 
-"You're late again, Caspian," whispered Lyra, appearing from behind the towering steam-manifold. Her goggles reflected the amber luminescence of the academy courtyard. "Professor Vane has already sealed the lecture vault. If you're caught wandering the machinery tiers during harmonic stabilization, they'll confiscate your certification parchment."
+  const insertOutline = db.prepare(`
+    INSERT INTO editorial_outlines (
+      outlineId, collectionId, title, chapters, type, createdAt
+    ) VALUES (
+      @outlineId, @collectionId, @title, @chapters, @type, @createdAt
+    )
+  `);
 
-"The harmonic balance is off, Lyra," Caspian answered, holding up his wrist. The second hand on his chronometer clicked backward by two seconds, shuddered, and then resumed its forward rotation. "Did you feel that tremor in the floor plates?"
+  const insertSmartChapter = db.prepare(`
+    INSERT INTO smart_chapters (
+      id, book_id, sequence, title, status, planned_source_section_ids, planned_word_count,
+      content, synthesis_type, metadata_json, created_at, updated_at
+    ) VALUES (
+      @id, @book_id, @sequence, @title, @status, @planned_source_section_ids, @planned_word_count,
+      @content, @synthesis_type, @metadata_json, @created_at, @updated_at
+    )
+  `);
 
-Lyra frowned, checking her own ether-barometer. The mercury inside was bubbling faintly. "That's impossible. The central gyroscope was calibrated this dawn."
+  const insertAttribution = db.prepare(`
+    INSERT INTO paragraph_attributions (
+      id, smart_chapter_id, paragraph_index, segments_json, source_chunk_ids,
+      weights_json, method, confidence, grounded, verified_at, fell_back, fallback_reason
+    ) VALUES (
+      @id, @smart_chapter_id, @paragraph_index, @segments_json, @source_chunk_ids,
+      @weights_json, @method, @confidence, @grounded, @verified_at, @fell_back, @fallback_reason
+    )
+  `);
 
-"Unless someone didn't calibrate it," Caspian said, looking toward the Observatory spires. "Or unless someone intentionally loosened the anchor pin to let the future leak in."`;
+  const insertSummaryRep = db.prepare(`
+    INSERT INTO chapter_representations (
+      id, chapter_id, book_id, type, content, metadata_json, created_at
+    ) VALUES (
+      @id, @chapter_id, @book_id, @type, @content, @metadata_json, @created_at
+    )
+  `);
 
-  const ch1Canonical = JSON.stringify([
-    { type: 'paragraph', text: "The bells of St. Sophia's Campanile chimed seven times across the upper sky-terraces, their brass resonance muffled by the dense silver fog that rose from the lower ether springs." },
-    { type: 'paragraph', text: "Caspian adjusted the copper gear-pins of his brass gauntlet. The tension spring was vibrating at three beats per second—too fast for normal atmospheric pressure. Something out in the Meridian Verge was distorting the local temporal drift." },
-    { type: 'paragraph', text: "\"You're late again, Caspian,\" whispered Lyra, appearing from behind the towering steam-manifold. Her goggles reflected the amber luminescence of the academy courtyard. \"Professor Vane has already sealed the lecture vault. If you're caught wandering the machinery tiers during harmonic stabilization, they'll confiscate your certification parchment.\"" },
-    { type: 'paragraph', text: "\"The harmonic balance is off, Lyra,\" Caspian answered, holding up his wrist. The second hand on his chronometer clicked backward by two seconds, shuddered, and then resumed its forward rotation. \"Did you feel that tremor in the floor plates?\"" },
-    { type: 'paragraph', text: "Lyra frowned, checking her own ether-barometer. The mercury inside was bubbling faintly. \"That's impossible. The central gyroscope was calibrated this dawn.\"" },
-    { type: 'paragraph', text: "\"Unless someone didn't calibrate it,\" Caspian said, looking toward the Observatory spires. \"Or unless someone intentionally loosened the anchor pin to let the future leak in.\"" }
-  ]);
-
-  db.prepare(`
-    INSERT INTO chapters (id, book_id, number, title, content, canonical_content, word_count, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    'ch-clockwork-1',
-    book1Id,
-    1,
-    'Chapter 1: The Leaking Clockwork',
-    ch1Content,
-    ch1Canonical,
-    ch1Content.split(/\s+/).length,
-    'read',
-    now,
-    now
-  );
-
-  const ch2Content = `The descent to the sub-atrium smelled of ozone and hot lubricating oil. Giant copper valves hummed with high-frequency resonance as steam hissed from safety relief valves along the bulkhead.
-
-"We shouldn't be here," Lyra muttered, her boots ringing against the iron grating. "The restricted level is monitored by the automaton wardens."
-
-"The wardens are currently stationed at the north exhaust duct," Caspian whispered, pointing toward a disabled sentinel slumped against the archway. A strange crystalline frost coated its drive gears—frost that burned with a faint ultraviolet glow.
-
-"Temporal crystallization," Lyra gasped, kneeling beside the automaton. "The temporal core ruptured. Whoever did this was looking for the Astral Cartography ledger."
-
-Before Caspian could answer, the iron door at the far end of the corridor groaned open. Heavy footsteps echoed through the steam haze, accompanied by the distinct rhythmic ticking of a heart forged from black iron.`;
-
-  const ch2Canonical = JSON.stringify([
-    { type: 'paragraph', text: "The descent to the sub-atrium smelled of ozone and hot lubricating oil. Giant copper valves hummed with high-frequency resonance as steam hissed from safety relief valves along the bulkhead." },
-    { type: 'paragraph', text: "\"We shouldn't be here,\" Lyra muttered, her boots ringing against the iron grating. \"The restricted level is monitored by the automaton wardens.\"" },
-    { type: 'paragraph', text: "\"The wardens are currently stationed at the north exhaust duct,\" Caspian whispered, pointing toward a disabled sentinel slumped against the archway. A strange crystalline frost coated its drive gears—frost that burned with a faint ultraviolet glow." },
-    { type: 'paragraph', text: "\"Temporal crystallization,\" Lyra gasped, kneeling beside the automaton. \"The temporal core ruptured. Whoever did this was looking for the Astral Cartography ledger.\"" },
-    { type: 'paragraph', text: "Before Caspian could answer, the iron door at the far end of the corridor groaned open. Heavy footsteps echoed through the steam haze, accompanied by the distinct rhythmic ticking of a heart forged from black iron." }
-  ]);
-
-  db.prepare(`
-    INSERT INTO chapters (id, book_id, number, title, content, canonical_content, word_count, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    'ch-clockwork-2',
-    book1Id,
-    2,
-    'Chapter 2: The Automaton Crypt',
-    ch2Content,
-    ch2Canonical,
-    ch2Content.split(/\s+/).length,
-    'reading',
-    now,
-    now
-  );
-
-  // Chapter 1 sample summary representation (decoupled, does not alter original text)
-  db.prepare(`
-    INSERT INTO chapter_representations (id, chapter_id, book_id, type, content, metadata_json, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    'rep-sample-clockwork-1',
-    'ch-clockwork-1',
-    book1Id,
-    'SUMMARY',
-    `• Key Narrative Milestones:
-1. Caspian observes temporal instability as his brass chronometer ticks backward during harmonic stabilization.
-2. Lyra urges caution and notes that Professor Vane has sealed the lecture vaults.
-3. The atmospheric ether-barometer detects unexplained bubbling, suggesting deliberate tampering with the central gyroscope anchor.
-
-• Literary Significance:
-Establishes the tension between clockwork order and temporal flux within the Floating Archipelago.`,
-    JSON.stringify({ model: 'llama3', provider: 'ollama', executionTimeMs: 1250 }),
-    now
-  );
-
-
-    // Book 2: Principles of Intelligent Synthesis (Textbook / Research Paper)
-  const book2Id = 'book-sample-textbook-2';
-  db.prepare(`
-    INSERT INTO books (id, title, author, description, cover_path, content_type, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    book2Id,
-    'Principles of Intelligent Synthesis',
-    'Dr. Elena Vance',
-    'A foundational guide to knowledge structuring, decoupled representations, and modern cognitive ergonomics in digital libraries.',
-    '',
-    'textbook',
-    'active',
-    now,
-    now
-  );
-
-  const book2Ch1Raw = `# Architectural Foundations
-
-The primary challenge of modern information systems is not the acquisition of raw data, but the fidelity with which knowledge is retained and transformed.
-
-> "A library is neither a warehouse of dead text nor a machine of automated noise; it is an active mirror of human inquiry."
-
-Key architectural tenets:
-- Immutability of source material
-- Decoupling of original text from machine representations
-- Multi-modal transformations on demand
-
----
-
-## Canonical Normalization
-
-When documents are ingested across disparate formats—Markdown, plain text, or future scans—the reading surface should remain consistent. A unified block hierarchy prevents presentation defects from obscuring meaning.`;
-
-  const book2Ch1Canonical = JSON.stringify([
-    { type: 'heading', level: 1, text: 'Architectural Foundations' },
-    { type: 'paragraph', text: 'The primary challenge of modern information systems is not the acquisition of raw data, but the fidelity with which knowledge is retained and transformed.' },
-    { type: 'quote', text: 'A library is neither a warehouse of dead text nor a machine of automated noise; it is an active mirror of human inquiry.' },
-    { type: 'paragraph', text: 'Key architectural tenets:' },
-    { type: 'list', ordered: false, items: [
-      'Immutability of source material',
-      'Decoupling of original text from machine representations',
-      'Multi-modal transformations on demand'
-    ]},
-    { type: 'separator' },
-    { type: 'heading', level: 2, text: 'Canonical Normalization' },
-    { type: 'paragraph', text: 'When documents are ingested across disparate formats—Markdown, plain text, or future scans—the reading surface should remain consistent. A unified block hierarchy prevents presentation defects from obscuring meaning.' }
-  ]);
-
-  db.prepare(`
-    INSERT INTO chapters (id, book_id, number, title, content, canonical_content, word_count, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    'ch-textbook-1',
-    book2Id,
-    1,
-    'Architectural Foundations',
-    book2Ch1Raw,
-    book2Ch1Canonical,
-    book2Ch1Raw.split(/\s+/).length,
-    'unread',
-    now,
-    now
-  );
-
-  // Auto-index sample books into Semantic Memory
-  try {
-    const semanticLifecycle = require('../services/semantic/semanticLifecycle');
-  db.prepare(`INSERT INTO chapter_representations (id, chapter_id, book_id, type, content, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`).run('rep-sample-textbook-2', 'ch-textbook-1', book2Id, 'SUMMARY', 'Sample synthesis.', '{}', new Date().toISOString());
-    semanticLifecycle.indexBook(book1Id, { skipJob: true }).catch((e) => console.warn('Sample book 1 index error:', e.message));
-    semanticLifecycle.indexBook(book2Id, { skipJob: true }).catch((e) => console.warn('Sample book 2 index error:', e.message));
-  } catch (err) {
-    console.warn('Could not trigger semantic indexing for sample books:', err.message);
+  let fixtureVectors = {}; try { fixtureVectors = require('./fixture_vectors.json'); } catch(e){} function addChunk(bookId, chapterId, chunkId, seq, heading, text) {
+    const hash = crypto.createHash('sha256').update(text).digest('hex');
+    const tokenCount = Math.ceil(text.split(/\s+/).length * 1.3);
+    const embedding = (fixtureVectors[chunkId]) || embeddingProvider.embedTextSync(text);
+    insertChunk.run({
+      id: chunkId,
+      book_id: bookId,
+      chapter_id: chapterId,
+      sequence: seq,
+      section_heading: heading,
+      content_type: 'paragraph',
+      text_content: text,
+      canonical_json: JSON.stringify([{ type: 'paragraph', text }]),
+      source_reference: `${heading} (Section ${seq + 1})`,
+      token_count: tokenCount,
+      content_hash: hash,
+      embedding_json: JSON.stringify(embedding),
+      created_at: now,
+      updated_at: now,
+    });
   }
+
+  // =========================================================================
+  // FIXTURE A — Minimal Book (book-fixture-a)
+  // 2 source chapters, 3 smart_chapters (2 generated, 1 pending), c_primary only
+  // =========================================================================
+  const bookAId = 'book-fixture-a';
+  insertBook.run({
+    id: bookAId,
+    title: 'Foundations of Neural Dynamics',
+    author: 'Dr. Aris Thorne',
+    description: 'Mathematical foundations of continuous attractor networks, energy landscapes, and dynamical convergence.',
+    cover_path: 'covers/default-neural.png',
+    content_type: 'textbook',
+    status: 'active',
+    original_filename: 'neural_dynamics.txt',
+    source_site: 'University Press',
+    source_url: 'https://example.edu/neural-dynamics',
+    section_count: 2,
+    integrity_status: 'valid',
+    semantic_status: 'indexed',
+    semantic_chunk_count: 4,
+    semantic_indexed_at: now,
+    created_at: now,
+    updated_at: now,
+  });
+
+  const faCh1Text = `Linear attractor networks represent continuous variables along low-dimensional manifolds in neural firing space. The network topology dictates the stability of steady states under external perturbation, allowing neural circuits to preserve analog state values against ambient thermal and synaptic noise. As recurrent excitation balances feedforward inhibition, the system converges toward stable equilibrium points across the energy landscape. Energy minima correspond to memory states, while saddle points demarcate decision thresholds during perceptual discrimination tasks.`;
+  const faCh1Blocks = [
+    { type: 'heading', level: 1, text: 'Linear Attractors and Vector Spaces' },
+    { type: 'paragraph', text: 'Linear attractor networks represent continuous variables along low-dimensional manifolds in neural firing space. The network topology dictates the stability of steady states under external perturbation, allowing neural circuits to preserve analog state values against ambient thermal and synaptic noise.' },
+    { type: 'paragraph', text: 'As recurrent excitation balances feedforward inhibition, the system converges toward stable equilibrium points across the energy landscape. Energy minima correspond to memory states, while saddle points demarcate decision thresholds during perceptual discrimination tasks.' }
+  ];
+  insertChapter.run({
+    id: 'ch-fa-1',
+    book_id: bookAId,
+    number: 1,
+    title: 'Linear Attractors and Vector Spaces',
+    content: faCh1Text,
+    canonical_content: JSON.stringify(faCh1Blocks),
+    word_count: faCh1Text.split(/\s+/).length,
+    status: 'read',
+    created_at: now,
+    updated_at: now,
+  });
+  addChunk(bookAId, 'ch-fa-1', 'chunk-fa-1-1', 0, 'Manifold Representation', faCh1Blocks[1].text);
+  addChunk(bookAId, 'ch-fa-1', 'chunk-fa-1-2', 1, 'Energy Landscapes and Minima', faCh1Blocks[2].text);
+
+  const faCh2Text = `Gradient vector fields govern the trajectories of recurrent neural states toward localized minimum-energy attractors. Symmetric synaptic connectivity ensures quadratic energy dissipation, preventing chaotic oscillations in asynchronous updating schemes. Under non-symmetric coupling, quasi-periodic limit cycles emerge, modeling central pattern generators and biological rhythmic behavior. The transition between fixed-point attractors and limit cycles represents a supercritical Hopf bifurcation driven by neuromodulatory tone.`;
+  const faCh2Blocks = [
+    { type: 'heading', level: 1, text: 'Gradient Fields and Convergence' },
+    { type: 'paragraph', text: 'Gradient vector fields govern the trajectories of recurrent neural states toward localized minimum-energy attractors. Symmetric synaptic connectivity ensures quadratic energy dissipation, preventing chaotic oscillations in asynchronous updating schemes.' },
+    { type: 'paragraph', text: 'Under non-symmetric coupling, quasi-periodic limit cycles emerge, modeling central pattern generators and biological rhythmic behavior. The transition between fixed-point attractors and limit cycles represents a supercritical Hopf bifurcation driven by neuromodulatory tone.' }
+  ];
+  insertChapter.run({
+    id: 'ch-fa-2',
+    book_id: bookAId,
+    number: 2,
+    title: 'Gradient Fields and Convergence',
+    content: faCh2Text,
+    canonical_content: JSON.stringify(faCh2Blocks),
+    word_count: faCh2Text.split(/\s+/).length,
+    status: 'read',
+    created_at: now,
+    updated_at: now,
+  });
+  addChunk(bookAId, 'ch-fa-2', 'chunk-fa-2-1', 0, 'Quadratic Energy Dissipation', faCh2Blocks[1].text);
+  addChunk(bookAId, 'ch-fa-2', 'chunk-fa-2-2', 1, 'Limit Cycles & Bifurcations', faCh2Blocks[2].text);
+
+  insertOutline.run({
+    outlineId: `book-editorial-${bookAId}`,
+    collectionId: bookAId,
+    title: 'Smart Reading: Foundations of Neural Dynamics',
+    type: 'single_book',
+    chapters: JSON.stringify([
+      { id: `smart-${bookAId}-ch-1`, chapterId: `smart-${bookAId}-ch-1`, sequence: 1, title: 'Linear Dynamics and Phase Space', targetWordCount: 210, sourceSectionIds: ['chunk-fa-1-1', 'chunk-fa-1-2'] },
+      { id: `smart-${bookAId}-ch-2`, chapterId: `smart-${bookAId}-ch-2`, sequence: 2, title: 'Gradient Convergence in Neural Manifolds', targetWordCount: 210, sourceSectionIds: ['chunk-fa-2-1', 'chunk-fa-2-2'] },
+      { id: `smart-${bookAId}-ch-3`, chapterId: `smart-${bookAId}-ch-3`, sequence: 3, title: 'Stochastic Stability and Limit Cycles', targetWordCount: 240, sourceSectionIds: ['chunk-fa-1-2', 'chunk-fa-2-1'] },
+    ]),
+    createdAt: now,
+  });
+
+  const faSmartCh1Text = `Continuous attractor neural networks maintain internal representations of analog variables by stabilizing continuous manifolds of fixed points. When symmetric recurrent connections balance feedforward sensory signals, state trajectories flow smoothly along flat directions corresponding to preserved analog coordinates.\n\nSynaptic noise and thermal fluctuations produce diffusive drift along neutral manifold directions unless counteracted by localized negative feedback loops. The geometry of the energy landscape determines whether the system retains absolute coordinate values or decays toward baseline firing rates.\n\nDecision thresholds and working memory retention reflect deep parabolic basins of attraction across multidimensional neural firing spaces. By tuning excitation-inhibition ratios, neuromodulatory signals adjust landscape curvature dynamically to match task demands.`;
+  const faSmartCh1Words = faSmartCh1Text.trim().split(/\s+/).length;
+  insertSmartChapter.run({
+    id: `smart-${bookAId}-ch-1`,
+    book_id: bookAId,
+    sequence: 1,
+    title: 'Linear Dynamics and Phase Space',
+    status: 'generated',
+    planned_source_section_ids: JSON.stringify(['chunk-fa-1-1', 'chunk-fa-1-2']),
+    planned_word_count: 210,
+    content: faSmartCh1Text,
+    synthesis_type: 'single_book',
+    metadata_json: JSON.stringify({
+      outlineId: `book-editorial-${bookAId}`,
+      chapterId: `smart-${bookAId}-ch-1`,
+      title: 'Linear Dynamics and Phase Space',
+      grounded: true,
+      chunkCount: 2,
+      provenance: ['chunk-fa-1-1', 'chunk-fa-1-2'],
+      canonicalBlocks: [
+        { type: 'paragraph', text: faSmartCh1Text.split('\n\n')[0] },
+        { type: 'paragraph', text: faSmartCh1Text.split('\n\n')[1] },
+        { type: 'paragraph', text: faSmartCh1Text.split('\n\n')[2] },
+      ],
+      provider: 'deterministic_synthesizer',
+      model: 'smart_reader_v4',
+      generatedAt: now,
+      actual_word_count: faSmartCh1Words,
+      source_word_count: faSmartCh1Words * 7,
+    }),
+    created_at: now,
+    updated_at: now,
+  });
+
+  [0, 1, 2].forEach((pIdx) => {
+    insertAttribution.run({
+      id: `attr-fa-1-${pIdx}`,
+      smart_chapter_id: `smart-${bookAId}-ch-1`,
+      paragraph_index: pIdx,
+      segments_json: JSON.stringify([{ sentence_start: 0, sentence_end: 1, chunk_id: pIdx === 2 ? 'chunk-fa-1-2' : 'chunk-fa-1-1', confidence: 0.94 }]),
+      source_chunk_ids: JSON.stringify([pIdx === 2 ? 'chunk-fa-1-2' : 'chunk-fa-1-1']),
+      weights_json: JSON.stringify({ [pIdx === 2 ? 'chunk-fa-1-2' : 'chunk-fa-1-1']: 1.0 }),
+      method: 'c_primary',
+      confidence: 'high',
+      grounded: 1,
+      verified_at: now,
+      fell_back: 0,
+      fallback_reason: null,
+    });
+  });
+
+  const faSmartCh2Text = `State trajectories in symmetric recurrent networks follow deterministic gradient descents across Lyapunov energy surfaces. Because energy strictly decreases during state updates, chaotic fluctuations and divergent cycles are mathematically precluded from occurring under asynchronous update schedules.\n\nIntroducing asymmetric coupling matrices breaks energy conservation and permits stable limit cycles to emerge within the state space. Such limit cycle dynamics provide robust biological pacemakers capable of sustaining rhythmic motor patterns and temporal coordination.\n\nSupercritical Hopf bifurcations govern the continuous transition between static point attractors and periodic rhythmic orbits. Experimental observations confirm that tonic neuromodulatory depolarization shifts the operating regime seamlessly between memory storage and oscillatory motor output.`;
+  const faSmartCh2Words = faSmartCh2Text.trim().split(/\s+/).length;
+  insertSmartChapter.run({
+    id: `smart-${bookAId}-ch-2`,
+    book_id: bookAId,
+    sequence: 2,
+    title: 'Gradient Convergence in Neural Manifolds',
+    status: 'generated',
+    planned_source_section_ids: JSON.stringify(['chunk-fa-2-1', 'chunk-fa-2-2']),
+    planned_word_count: 210,
+    content: faSmartCh2Text,
+    synthesis_type: 'single_book',
+    metadata_json: JSON.stringify({
+      outlineId: `book-editorial-${bookAId}`,
+      chapterId: `smart-${bookAId}-ch-2`,
+      title: 'Gradient Convergence in Neural Manifolds',
+      grounded: true,
+      chunkCount: 2,
+      provenance: ['chunk-fa-2-1', 'chunk-fa-2-2'],
+      canonicalBlocks: [
+        { type: 'paragraph', text: faSmartCh2Text.split('\n\n')[0] },
+        { type: 'paragraph', text: faSmartCh2Text.split('\n\n')[1] },
+        { type: 'paragraph', text: faSmartCh2Text.split('\n\n')[2] },
+      ],
+      provider: 'deterministic_synthesizer',
+      model: 'smart_reader_v4',
+      generatedAt: now,
+      actual_word_count: faSmartCh2Words,
+      source_word_count: faSmartCh2Words * 7,
+    }),
+    created_at: now,
+    updated_at: now,
+  });
+
+  [0, 1, 2].forEach((pIdx) => {
+    insertAttribution.run({
+      id: `attr-fa-2-${pIdx}`,
+      smart_chapter_id: `smart-${bookAId}-ch-2`,
+      paragraph_index: pIdx,
+      segments_json: JSON.stringify([{ sentence_start: 0, sentence_end: 1, chunk_id: pIdx === 0 ? 'chunk-fa-2-1' : 'chunk-fa-2-2', confidence: 0.92 }]),
+      source_chunk_ids: JSON.stringify([pIdx === 0 ? 'chunk-fa-2-1' : 'chunk-fa-2-2']),
+      weights_json: JSON.stringify({ [pIdx === 0 ? 'chunk-fa-2-1' : 'chunk-fa-2-2']: 1.0 }),
+      method: 'c_primary',
+      confidence: 'high',
+      grounded: 1,
+      verified_at: now,
+      fell_back: 0,
+      fallback_reason: null,
+    });
+  });
+
+  insertSmartChapter.run({
+    id: `smart-${bookAId}-ch-3`,
+    book_id: bookAId,
+    sequence: 3,
+    title: 'Stochastic Stability and Limit Cycles',
+    status: 'pending',
+    planned_source_section_ids: JSON.stringify(['chunk-fa-1-2', 'chunk-fa-2-1']),
+    planned_word_count: 240,
+    content: null,
+    synthesis_type: 'single_book',
+    metadata_json: null,
+    created_at: now,
+    updated_at: now,
+  });
+
+  // =========================================================================
+  // FIXTURE B — Realistic Book (book-fixture-b)
+  // 6 source chapters, 8 smart_chapters (5 generated, 2 pending, 1 failed)
+  // paragraph_attributions cover: c_primary, c_verified_by_a, b_arbitrated, ungrounded
+  // =========================================================================
+  const bookBId = 'book-fixture-b';
+  insertBook.run({
+    id: bookBId,
+    title: 'Practical Machine Learning and Distributed Systems',
+    author: 'Elena Vance & Marcus Brody',
+    description: 'A comprehensive treatment of distributed consensus, replicated state machines, and high-throughput machine learning infrastructure.',
+    cover_path: 'covers/default-distributed.png',
+    content_type: 'technical',
+    status: 'active',
+    original_filename: 'practical_machine_learning.pdf',
+    source_site: 'Systems Engineering Press',
+    source_url: 'https://example.org/practical-ml-distributed',
+    section_count: 6,
+    integrity_status: 'valid',
+    semantic_status: 'indexed',
+    semantic_chunk_count: 12,
+    semantic_indexed_at: now,
+    created_at: now,
+    updated_at: now,
+  });
+
+  const fbSourceData = [
+    { num: 1, title: 'Consensus Foundations and Safety Guarantees', p1: 'Distributed consensus protocols guarantee deterministic state transitions across asynchronous nodes prone to message delays and network partitions.', p2: 'Safety properties dictate that uncommitted operations never become visible to external client applications without majority quorum validation.' },
+    { num: 2, title: 'Paxos and Raft Protocol Mechanics', p1: 'Leader election in Raft relies on randomized election timeouts to prevent split votes and establish authoritative log sequences.', p2: 'Two-phase commit combined with replicated logs ensures serializable transaction ordering across physically distributed server clusters.' },
+    { num: 3, title: 'Distributed Sharding and Partitioning', p1: 'Consistent hashing with virtual nodes provides uniform key distribution and minimizes data movement when cluster topology changes dynamically.', p2: 'Cross-shard transactions utilize atomic commit protocols to maintain referential integrity without incurring excessive network round-trip overhead.' },
+    { num: 4, title: 'Causal Consistency and Vector Clocks', p1: 'Vector clocks capture causal dependency relationships between concurrent updates in decentralized database replicas without central clock synchronization.', p2: 'Resolving concurrent conflict writes requires deterministic application-level merge functions or last-write-wins timestamps anchored by synchronized true-time hardware.' },
+    { num: 5, title: 'Byzantine Fault Tolerance and Quorums', p1: 'Byzantine fault tolerance protocols guarantee safety when up to one-third of participatory nodes exhibit arbitrary malicious behavior or silent corruption.', p2: 'Threshold cryptography and aggregate signature schemes reduce message complexity in large-scale consensus networks while maintaining cryptographic verifiability.' },
+    { num: 6, title: 'Stream Processing and Backpressure Dynamics', p1: 'Asynchronous stream processing architectures handle bursty message ingestion by employing adaptive reactive backpressure protocols throughout operator pipelines.', p2: 'Stateful stream operators persist incremental checkpoints to distributed blob storage to enable rapid failure recovery without reprocessing historical streams.' }
+  ];
+
+  fbSourceData.forEach((src) => {
+    const rawContent = `${src.p1}\n\n${src.p2}`;
+    const blocks = [
+      { type: 'heading', level: 1, text: src.title },
+      { type: 'paragraph', text: src.p1 },
+      { type: 'paragraph', text: src.p2 },
+    ];
+    insertChapter.run({
+      id: `ch-fb-${src.num}`,
+      book_id: bookBId,
+      number: src.num,
+      title: src.title,
+      content: rawContent,
+      canonical_content: JSON.stringify(blocks),
+      word_count: rawContent.split(/\s+/).length,
+      status: 'read',
+      created_at: now,
+      updated_at: now,
+    });
+    addChunk(bookBId, `ch-fb-${src.num}`, `chunk-fb-${src.num}-1`, (src.num - 1) * 2, `${src.title} Part A`, src.p1);
+    addChunk(bookBId, `ch-fb-${src.num}`, `chunk-fb-${src.num}-2`, (src.num - 1) * 2 + 1, `${src.title} Part B`, src.p2);
+  });
+
+  const fbSmartPlan = [
+    { seq: 1, title: 'Consensus Architectures in Modern Distributed Clusters', target: 220, chunks: ['chunk-fb-1-1', 'chunk-fb-1-2'] },
+    { seq: 2, title: 'Leader Election and Replicated Log State Machines', target: 200, chunks: ['chunk-fb-2-1', 'chunk-fb-2-2'] },
+    { seq: 3, title: 'Partitioning Topologies and Hash-Ring Sharding', target: 240, chunks: ['chunk-fb-3-1', 'chunk-fb-3-2'] },
+    { seq: 4, title: 'Vector Clocks and Temporal Ordering in Partitioned Networks', target: 210, chunks: ['chunk-fb-4-1', 'chunk-fb-4-2'] },
+    { seq: 5, title: 'Byzantine Fault Tolerance and Quorum Protocols', target: 230, chunks: ['chunk-fb-5-1', 'chunk-fb-5-2'] },
+    { seq: 6, title: 'Asynchronous Stream Topologies and Adaptive Backpressure', target: 250, chunks: ['chunk-fb-6-1', 'chunk-fb-6-2'] },
+    { seq: 7, title: 'Cross-Datacenter Replication and Geo-Distributed Latency', target: 240, chunks: ['chunk-fb-1-2', 'chunk-fb-4-1'] },
+    { seq: 8, title: 'Autonomous Self-Healing in Heterogeneous Clusters', target: 260, chunks: ['chunk-fb-3-2', 'chunk-fb-5-1'] },
+  ];
+
+  insertOutline.run({
+    outlineId: `book-editorial-${bookBId}`,
+    collectionId: bookBId,
+    title: 'Smart Reading: Practical Machine Learning and Distributed Systems',
+    type: 'single_book',
+    chapters: JSON.stringify(fbSmartPlan.map((p) => ({
+      id: `smart-${bookBId}-ch-${p.seq}`,
+      chapterId: `smart-${bookBId}-ch-${p.seq}`,
+      sequence: p.seq,
+      title: p.title,
+      targetWordCount: p.target,
+      sourceSectionIds: p.chunks,
+    }))),
+    createdAt: now,
+  });
+
+  const fbGenTexts = [
+    `Distributed consensus architectures form the immutable backbone of contemporary transactional storage systems. By guaranteeing deterministic state machine transitions across geographically scattered compute instances, consensus engines shield applications from transient network disconnects and packet degradation.\n\nQuorum validation requires that every state transition receives cryptographic sign-off from a strict numerical majority of participants before mutation logs are flushed to persistent media. This rigorous barrier eliminates split-brain split-execution anomalies across arbitrary data partitions.\n\nModern distributed environments prioritize linearizable safety over raw throughput during network anomalies. When node membership fluctuates, consensus protocols dynamically renegotiate quorum configurations without compromising inflight client operations.`,
+
+    `Leader election protocols such as Raft enforce deterministic log ordering by establishing single-leader authority within defined temporal epochs. Randomized heartbeats and election timers prevent split-vote deadlocks, ensuring rapid automated failover when primary nodes become unreachable.\n\nReplicated write-ahead logs guarantee that all follower replicas execute identical state updates in identical chronological sequences. Once committed by the cluster leader, log entries cannot be overwritten or discarded by subsequent leader terms.\n\nBy unifying term leadership and log synchronization, contemporary algorithms drastically simplify formal correctness verification while delivering enterprise-grade transactional resilience.`,
+
+    `Dynamic partitioning strategies distribute massive tabular workloads across elastic storage nodes using consistent hashing algorithms. By mapping server instances onto a virtualized hash ring, cluster reorganizations require migrating only a tiny fraction of total partitioned key-ranges.\n\nTwo-phase atomic commit mechanisms guarantee transactional atomicity across multiple distinct storage shards. When distributed transactions span non-colocated partitions, transaction coordinators synchronize prepare and commit phases to prevent partial update anomalies.\n\nOptimized partition routing reduces unnecessary cross-datacenter round-trips, empowering analytical databases to sustain high-throughput ingestion rates while retaining full snapshot isolation guarantees.`,
+
+    `Decentralized distributed replicas cannot rely on physical wall-clock timestamps for causal event ordering due to pervasive hardware clock drift. Vector clocks overcome this physical limit by tracking causal ancestor sets across independent distributed processes.\n\nWhen concurrent updates produce irreconcilable branch histories, application-specific deterministic merge routines resolve divergent state versions. In scenarios prioritizing eventual consistency, conflict-free replicated data types provide mathematical convergence guarantees.\n\nBy capturing logical causality rather than wall-clock time, decentralized networks maintain coherent global states under frequent partitions and unpredictable latency spikes.`,
+
+    `Byzantine fault tolerance protocols ensure absolute cryptographic integrity even when hostile nodes transmit conflicting instructions to different peers. By demanding a two-thirds supermajority consensus threshold, Byzantine networks neutralize coordinated malicious disruptions.\n\nThreshold signature schemes compress multi-party attestations into compact verifiable proofs, drastically reducing peer-to-peer network payload bandwidth requirements across thousands of validator nodes.\n\nHardware enclave verifications combined with zero-knowledge cryptographic primitives establish performant decentralized settlement layers that operate reliably over untrusted public network infrastructure.`
+  ];
+
+  [1, 2, 3, 4, 5].forEach((seq) => {
+    const text = fbGenTexts[seq - 1];
+    const words = text.trim().split(/\s+/).length;
+    const isFallback = seq === 5;
+    const plan = fbSmartPlan[seq - 1];
+
+    insertSmartChapter.run({
+      id: `smart-${bookBId}-ch-${seq}`,
+      book_id: bookBId,
+      sequence: seq,
+      title: plan.title,
+      status: 'generated',
+      planned_source_section_ids: JSON.stringify(plan.chunks),
+      planned_word_count: plan.target,
+      content: text,
+      synthesis_type: 'single_book',
+      metadata_json: JSON.stringify({
+        outlineId: `book-editorial-${bookBId}`,
+        chapterId: `smart-${bookBId}-ch-${seq}`,
+        title: plan.title,
+        grounded: true,
+        chunkCount: plan.chunks.length,
+        provenance: plan.chunks,
+        canonicalBlocks: text.split('\n\n').map((p) => ({ type: 'paragraph', text: p })),
+        provider: 'deterministic_synthesizer',
+        model: 'smart_reader_v4',
+        generatedAt: now,
+        actual_word_count: words,
+        source_word_count: words * 7,
+        ...(isFallback ? { fell_back: true, fallback_reason: 'provider_unavailable' } : {}),
+      }),
+      created_at: now,
+      updated_at: now,
+    });
+  });
+
+  // Paragraph attributions covering c_primary, c_verified_by_a, b_arbitrated, ungrounded
+  // Ch 1: c_primary
+  [0, 1, 2].forEach((pIdx) => {
+    insertAttribution.run({
+      id: `attr-fb-1-${pIdx}`,
+      smart_chapter_id: `smart-${bookBId}-ch-1`,
+      paragraph_index: pIdx,
+      segments_json: JSON.stringify([{ sentence_start: 0, sentence_end: 1, chunk_id: 'chunk-fb-1-1', confidence: 0.95 }]),
+      source_chunk_ids: JSON.stringify(['chunk-fb-1-1']),
+      weights_json: JSON.stringify({ 'chunk-fb-1-1': 1.0 }),
+      method: 'c_primary',
+      confidence: 'high',
+      grounded: 1,
+      verified_at: now,
+      fell_back: 0,
+      fallback_reason: null,
+    });
+  });
+
+  // Ch 2: c_verified_by_a
+  [0, 1, 2].forEach((pIdx) => {
+    insertAttribution.run({
+      id: `attr-fb-2-${pIdx}`,
+      smart_chapter_id: `smart-${bookBId}-ch-2`,
+      paragraph_index: pIdx,
+      segments_json: JSON.stringify([{ sentence_start: 0, sentence_end: 1, chunk_id: 'chunk-fb-2-1', confidence: 0.78 }]),
+      source_chunk_ids: JSON.stringify(['chunk-fb-2-1']),
+      weights_json: JSON.stringify({ 'chunk-fb-2-1': 1.0 }),
+      method: pIdx === 0 ? 'c_verified_by_a' : 'c_primary',
+      confidence: pIdx === 0 ? 'medium' : 'high',
+      grounded: 1,
+      verified_at: now,
+      fell_back: 0,
+      fallback_reason: null,
+    });
+  });
+
+  // Ch 3: b_arbitrated
+  [0, 1, 2].forEach((pIdx) => {
+    insertAttribution.run({
+      id: `attr-fb-3-${pIdx}`,
+      smart_chapter_id: `smart-${bookBId}-ch-3`,
+      paragraph_index: pIdx,
+      segments_json: JSON.stringify([{ sentence_start: 0, sentence_end: 1, chunk_id: 'chunk-fb-3-1', confidence: 0.72 }]),
+      source_chunk_ids: JSON.stringify(['chunk-fb-3-1']),
+      weights_json: JSON.stringify({ 'chunk-fb-3-1': 1.0 }),
+      method: pIdx === 0 ? 'b_arbitrated' : 'c_primary',
+      confidence: pIdx === 0 ? 'medium' : 'high',
+      grounded: 1,
+      verified_at: now,
+      fell_back: 0,
+      fallback_reason: null,
+    });
+  });
+
+  // Ch 4: ungrounded on paragraph 2
+  [0, 1, 2].forEach((pIdx) => {
+    const isUngrounded = pIdx === 2;
+    insertAttribution.run({
+      id: `attr-fb-4-${pIdx}`,
+      smart_chapter_id: `smart-${bookBId}-ch-4`,
+      paragraph_index: pIdx,
+      segments_json: isUngrounded ? '[]' : JSON.stringify([{ sentence_start: 0, sentence_end: 1, chunk_id: 'chunk-fb-4-1', confidence: 0.88 }]),
+      source_chunk_ids: isUngrounded ? '[]' : JSON.stringify(['chunk-fb-4-1']),
+      weights_json: isUngrounded ? '{}' : JSON.stringify({ 'chunk-fb-4-1': 1.0 }),
+      method: isUngrounded ? 'ungrounded' : 'c_primary',
+      confidence: isUngrounded ? 'none' : 'high',
+      grounded: isUngrounded ? 0 : 1,
+      verified_at: now,
+      fell_back: 0,
+      fallback_reason: null,
+    });
+  });
+
+  // Ch 5: fell_back
+  [0, 1, 2].forEach((pIdx) => {
+    insertAttribution.run({
+      id: `attr-fb-5-${pIdx}`,
+      smart_chapter_id: `smart-${bookBId}-ch-5`,
+      paragraph_index: pIdx,
+      segments_json: JSON.stringify([{ sentence_start: 0, sentence_end: 1, chunk_id: 'chunk-fb-5-1', confidence: 0.85 }]),
+      source_chunk_ids: JSON.stringify(['chunk-fb-5-1']),
+      weights_json: JSON.stringify({ 'chunk-fb-5-1': 1.0 }),
+      method: 'c_primary',
+      confidence: 'high',
+      grounded: 1,
+      verified_at: now,
+      fell_back: 1,
+      fallback_reason: 'provider_unavailable',
+    });
+  });
+
+  // Pending and failed chapters for Fixture B
+  insertSmartChapter.run({
+    id: `smart-${bookBId}-ch-6`,
+    book_id: bookBId,
+    sequence: 6,
+    title: fbSmartPlan[5].title,
+    status: 'pending',
+    planned_source_section_ids: JSON.stringify(fbSmartPlan[5].chunks),
+    planned_word_count: fbSmartPlan[5].target,
+    content: null,
+    synthesis_type: 'single_book',
+    metadata_json: null,
+    created_at: now,
+    updated_at: now,
+  });
+
+  insertSmartChapter.run({
+    id: `smart-${bookBId}-ch-7`,
+    book_id: bookBId,
+    sequence: 7,
+    title: fbSmartPlan[6].title,
+    status: 'pending',
+    planned_source_section_ids: JSON.stringify(fbSmartPlan[6].chunks),
+    planned_word_count: fbSmartPlan[6].target,
+    content: null,
+    synthesis_type: 'single_book',
+    metadata_json: null,
+    created_at: now,
+    updated_at: now,
+  });
+
+  insertSmartChapter.run({
+    id: `smart-${bookBId}-ch-8`,
+    book_id: bookBId,
+    sequence: 8,
+    title: fbSmartPlan[7].title,
+    status: 'failed',
+    planned_source_section_ids: JSON.stringify(fbSmartPlan[7].chunks),
+    planned_word_count: fbSmartPlan[7].target,
+    content: null,
+    synthesis_type: 'single_book',
+    metadata_json: JSON.stringify({ error: 'LLM rate limit exceeded during synthesis' }),
+    created_at: now,
+    updated_at: now,
+  });
+
+  // =========================================================================
+  // FIXTURE S — Supporting Source Book (book-fixture-s)
+  // Provides 3rd source book for multi-source dossier chunk citations
+  // =========================================================================
+  const bookSId = 'book-fixture-s';
+  insertBook.run({
+    id: bookSId,
+    title: 'Cognitive Architectures and Semantic Memory',
+    author: 'Dr. Clara Sterling',
+    description: 'Theoretical principles of semantic memory networks, episodic indexing, and cognitive representations.',
+    cover_path: 'covers/default-cognitive.png',
+    content_type: 'paper',
+    status: 'active',
+    original_filename: 'cognitive_memory.txt',
+    source_site: 'Cognitive Science Quarterly',
+    source_url: 'https://example.org/cognitive-memory',
+    section_count: 2,
+    integrity_status: 'valid',
+    semantic_status: 'indexed',
+    semantic_chunk_count: 4,
+    semantic_indexed_at: now,
+    created_at: now,
+    updated_at: now,
+  });
+
+  const fsCh1Text = `Semantic memory networks structure categorical knowledge through hierarchical spreading activation across associative concepts. Retrieval latency correlates directly with semantic graph distance between retrieval cues and target nodes.`;
+  insertChapter.run({
+    id: 'ch-fs-1',
+    book_id: bookSId,
+    number: 1,
+    title: 'Hierarchical Categorical Memory',
+    content: fsCh1Text,
+    canonical_content: JSON.stringify([
+      { type: 'heading', level: 1, text: 'Hierarchical Categorical Memory' },
+      { type: 'paragraph', text: fsCh1Text }
+    ]),
+    word_count: fsCh1Text.split(/\s+/).length,
+    status: 'read',
+    created_at: now,
+    updated_at: now,
+  });
+  addChunk(bookSId, 'ch-fs-1', 'chunk-fs-1-1', 0, 'Spreading Activation Networks', fsCh1Text);
+  addChunk(bookSId, 'ch-fs-1', 'chunk-fs-1-2', 1, 'Associative Retrieval Dynamics', 'Retrieval latency correlates directly with semantic graph distance between retrieval cues and target nodes.');
+
+  const fsCh2Text = `Episodic memory indexing maps temporal experiences into contextual spatial coordinates, allowing rapid recollection of sequential event streams.`;
+  insertChapter.run({
+    id: 'ch-fs-2',
+    book_id: bookSId,
+    number: 2,
+    title: 'Episodic Context Coordinates',
+    content: fsCh2Text,
+    canonical_content: JSON.stringify([
+      { type: 'heading', level: 1, text: 'Episodic Context Coordinates' },
+      { type: 'paragraph', text: fsCh2Text }
+    ]),
+    word_count: fsCh2Text.split(/\s+/).length,
+    status: 'read',
+    created_at: now,
+    updated_at: now,
+  });
+  addChunk(bookSId, 'ch-fs-2', 'chunk-fs-2-1', 0, 'Temporal Context Mapping', fsCh2Text);
+  addChunk(bookSId, 'ch-fs-2', 'chunk-fs-2-2', 1, 'Sequential Recollection Streams', 'Sequential recollection streams enable continuous episodic reconstruction over long horizons.');
+
+  // =========================================================================
+  // FIXTURE C — Multi-Source Dossier (dossier-fixture-c)
+  // 4 smart_chapters, planned_source_section_ids pointing at chunks from 3 fixture books
+  // =========================================================================
+  const dossierCId = 'dossier-fixture-c';
+  insertBook.run({
+    id: dossierCId,
+    title: 'Comparative Synthesis: Adaptive Systems',
+    author: 'Multi-Source Editorial Board',
+    description: 'Synthesized research collection comparing biological neural state spaces with distributed algorithmic consensus.',
+    cover_path: 'covers/default-dossier.png',
+    content_type: 'reference',
+    status: 'active',
+    original_filename: 'adaptive_systems_dossier.json',
+    source_site: 'Multi-Source Dossier',
+    source_url: '',
+    section_count: 0,
+    integrity_status: 'valid',
+    semantic_status: 'indexed',
+    semantic_chunk_count: 0,
+    semantic_indexed_at: now,
+    created_at: now,
+    updated_at: now,
+  });
+
+  const dossierPlan = [
+    { seq: 1, title: 'Comparative State Convergence: Manifolds and Quorums', chunks: ['chunk-fa-1-1', 'chunk-fb-1-1', 'chunk-fs-1-1'], target: 220 },
+    { seq: 2, title: 'Temporal Ordering and Energy Conservation Across Domains', chunks: ['chunk-fa-2-1', 'chunk-fb-4-1', 'chunk-fs-2-1'], target: 220 },
+    { seq: 3, title: 'Decentralized Fault Handling in Biological and Artificial Networks', chunks: ['chunk-fa-1-2', 'chunk-fb-3-1', 'chunk-fs-1-2'], target: 230 },
+    { seq: 4, title: 'Adaptive Homeostasis and Protocol Resiliency', chunks: ['chunk-fa-2-2', 'chunk-fb-6-1', 'chunk-fs-2-2'], target: 240 },
+  ];
+
+  insertOutline.run({
+    outlineId: `dossier-editorial-${dossierCId}`,
+    collectionId: dossierCId,
+    title: 'Multi-Source Synthesis: Adaptive & Distributed Architectures',
+    type: 'multi_source',
+    chapters: JSON.stringify(dossierPlan.map((p) => ({
+      id: `smart-${dossierCId}-ch-${p.seq}`,
+      chapterId: `smart-${dossierCId}-ch-${p.seq}`,
+      sequence: p.seq,
+      title: p.title,
+      targetWordCount: p.target,
+      sourceSectionIds: p.chunks,
+    }))),
+    createdAt: now,
+  });
+
+  const dossierCh1Text = `Biological neural manifolds and distributed consensus protocols converge upon identical mathematical principles when stabilizing state transitions under asynchronous noise. While continuous attractor networks utilize symmetric synaptic feedback to suppress thermal drift, distributed computing clusters employ majority quorums to eliminate split-brain anomalies.\n\nCognitive spreading activation networks mirror distributed hash-ring routing by directing associative retrieval flows along shortest graph geodesics. Both paradigms balance local autonomy against global coherence without relying on centralized bottlenecks.\n\nBy cross-referencing neural energy landscapes with distributed state machine logs, unified architectural frameworks emerge that simultaneously optimize memory retention, latency bounds, and fault tolerance.`;
+  const dossierCh1Words = dossierCh1Text.trim().split(/\s+/).length;
+
+  insertSmartChapter.run({
+    id: `smart-${dossierCId}-ch-1`,
+    book_id: dossierCId,
+    sequence: 1,
+    title: dossierPlan[0].title,
+    status: 'generated',
+    planned_source_section_ids: JSON.stringify(dossierPlan[0].chunks),
+    planned_word_count: dossierPlan[0].target,
+    content: dossierCh1Text,
+    synthesis_type: 'multi_source',
+    metadata_json: JSON.stringify({
+      outlineId: `dossier-editorial-${dossierCId}`,
+      chapterId: `smart-${dossierCId}-ch-1`,
+      title: dossierPlan[0].title,
+      grounded: true,
+      chunkCount: 3,
+      provenance: dossierPlan[0].chunks,
+      canonicalBlocks: dossierCh1Text.split('\n\n').map((p) => ({ type: 'paragraph', text: p })),
+      provider: 'deterministic_synthesizer',
+      model: 'smart_reader_v4',
+      generatedAt: now,
+      actual_word_count: dossierCh1Words,
+      source_word_count: dossierCh1Words * 7,
+    }),
+    created_at: now,
+    updated_at: now,
+  });
+
+  // Cross-source attributions referencing chunks from 3 different books
+  [
+    { pIdx: 0, chunk: 'chunk-fa-1-1', method: 'c_primary', conf: 'high' },
+    { pIdx: 1, chunk: 'chunk-fb-1-1', method: 'c_verified_by_a', conf: 'medium' },
+    { pIdx: 2, chunk: 'chunk-fs-1-1', method: 'c_primary', conf: 'high' },
+  ].forEach((attr) => {
+    insertAttribution.run({
+      id: `attr-dossier-1-${attr.pIdx}`,
+      smart_chapter_id: `smart-${dossierCId}-ch-1`,
+      paragraph_index: attr.pIdx,
+      segments_json: JSON.stringify([{ sentence_start: 0, sentence_end: 1, chunk_id: attr.chunk, confidence: 0.89 }]),
+      source_chunk_ids: JSON.stringify([attr.chunk]),
+      weights_json: JSON.stringify({ [attr.chunk]: 1.0 }),
+      method: attr.method,
+      confidence: attr.conf,
+      grounded: 1,
+      verified_at: now,
+      fell_back: 0,
+      fallback_reason: null,
+    });
+  });
+
+  const dossierCh2Text = `Temporal ordering across decentralized systems reveals deep mathematical analogies between vector clock causal sets and multidimensional Lyapunov gradient surfaces. In biological networks, neuromodulatory tone shifts operating regimes smoothly between stable point attractors and oscillatory limit cycles.\n\nSimilarly, distributed algorithms reconcile concurrent write conflicts through deterministic application merges, preventing split-brain divergence without central clock synchronization.\n\nSynthesizing episodic spatial coordinates with distributed consensus mechanics demonstrates that robust fault tolerance requires tracking relative historical causality rather than absolute temporal coordinates.`;
+  const dossierCh2Words = dossierCh2Text.trim().split(/\s+/).length;
+
+  insertSmartChapter.run({
+    id: `smart-${dossierCId}-ch-2`,
+    book_id: dossierCId,
+    sequence: 2,
+    title: dossierPlan[1].title,
+    status: 'generated',
+    planned_source_section_ids: JSON.stringify(dossierPlan[1].chunks),
+    planned_word_count: dossierPlan[1].target,
+    content: dossierCh2Text,
+    synthesis_type: 'multi_source',
+    metadata_json: JSON.stringify({
+      outlineId: `dossier-editorial-${dossierCId}`,
+      chapterId: `smart-${dossierCId}-ch-2`,
+      title: dossierPlan[1].title,
+      grounded: true,
+      chunkCount: 3,
+      provenance: dossierPlan[1].chunks,
+      canonicalBlocks: dossierCh2Text.split('\n\n').map((p) => ({ type: 'paragraph', text: p })),
+      provider: 'deterministic_synthesizer',
+      model: 'smart_reader_v4',
+      generatedAt: now,
+      actual_word_count: dossierCh2Words,
+      source_word_count: dossierCh2Words * 7,
+    }),
+    created_at: now,
+    updated_at: now,
+  });
+
+  [
+    { pIdx: 0, chunk: 'chunk-fa-2-1', method: 'c_primary', conf: 'high' },
+    { pIdx: 1, chunk: 'chunk-fb-4-1', method: 'b_arbitrated', conf: 'medium' },
+    { pIdx: 2, chunk: 'chunk-fs-2-1', method: 'c_primary', conf: 'high' },
+  ].forEach((attr) => {
+    insertAttribution.run({
+      id: `attr-dossier-2-${attr.pIdx}`,
+      smart_chapter_id: `smart-${dossierCId}-ch-2`,
+      paragraph_index: attr.pIdx,
+      segments_json: JSON.stringify([{ sentence_start: 0, sentence_end: 1, chunk_id: attr.chunk, confidence: 0.85 }]),
+      source_chunk_ids: JSON.stringify([attr.chunk]),
+      weights_json: JSON.stringify({ [attr.chunk]: 1.0 }),
+      method: attr.method,
+      confidence: attr.conf,
+      grounded: 1,
+      verified_at: now,
+      fell_back: 0,
+      fallback_reason: null,
+    });
+  });
+
+  insertSmartChapter.run({
+    id: `smart-${dossierCId}-ch-3`,
+    book_id: dossierCId,
+    sequence: 3,
+    title: dossierPlan[2].title,
+    status: 'pending',
+    planned_source_section_ids: JSON.stringify(dossierPlan[2].chunks),
+    planned_word_count: dossierPlan[2].target,
+    content: null,
+    synthesis_type: 'multi_source',
+    metadata_json: null,
+    created_at: now,
+    updated_at: now,
+  });
+
+  insertSmartChapter.run({
+    id: `smart-${dossierCId}-ch-4`,
+    book_id: dossierCId,
+    sequence: 4,
+    title: dossierPlan[3].title,
+    status: 'pending',
+    planned_source_section_ids: JSON.stringify(dossierPlan[3].chunks),
+    planned_word_count: dossierPlan[3].target,
+    content: null,
+    synthesis_type: 'multi_source',
+    metadata_json: null,
+    created_at: now,
+    updated_at: now,
+  });
+
+  // Seed sample summary representation for chapter_representations table (which survives for SUMMARY / BOOK_SUMMARY)
+  insertSummaryRep.run({
+    id: 'rep-sample-summary-fa-1',
+    chapter_id: 'ch-fa-1',
+    book_id: bookAId,
+    type: 'SUMMARY',
+    content: '• Key Milestones:\n1. Linear attractor networks preserve continuous variables in neural state space.\n2. Excitation and inhibition balance prevents signal drift under thermal noise.',
+    metadata_json: JSON.stringify({ model: 'smart_reader_v4', provider: 'deterministic_synthesizer' }),
+    created_at: now,
+  });
 }
 
 function closeDatabase() {

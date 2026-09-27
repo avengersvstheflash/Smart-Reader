@@ -130,39 +130,41 @@ async function runBuild4Verification() {
   });
 
   assert(synthesisResult, 'Synthesis result must be defined');
-  const rep = synthesisResult.representation;
-  assert(rep, 'Representation must be returned and stored');
-  assert.strictEqual(rep.synthesisType, 'cross_source', 'Representation synthesisType must be "cross_source"');
-  assert(rep.content && rep.content.length > 50, 'Representation content must be substantial synthesized text');
+  const sc = synthesisResult.smartChapter || synthesisResult.representation;
+  assert(sc, 'Smart chapter must be returned and stored');
+  assert.strictEqual(sc.synthesis_type || sc.synthesisType, 'cross_source', 'Smart chapter synthesisType must be "cross_source"');
+  assert(sc.content && sc.content.length > 50, 'Representation content must be substantial synthesized text');
   assert(Array.isArray(synthesisResult.canonicalBlocks) && synthesisResult.canonicalBlocks.length > 0, 'Must produce canonical blocks');
 
-  // Provable provenance: representation.provenance must contain valid chunkIds
-  assert(Array.isArray(rep.provenance), 'representation.provenance must be an array of chunk IDs');
-  assert(rep.provenance.length > 0, 'representation.provenance must not be empty');
+  // Provable provenance: sc.provenance or sc.metadata.provenance must contain valid chunkIds
+  const meta = typeof sc.metadata_json === 'string' ? JSON.parse(sc.metadata_json) : (sc.metadata || {});
+  const prov = sc.provenance || meta.provenance || synthesisResult.provenance;
+  assert(Array.isArray(prov), 'provenance must be an array of chunk IDs');
+  assert(prov.length > 0, 'provenance must not be empty');
 
   // Verify all chunk IDs in provenance exist in semantic_chunks
-  const provPlaceholders = rep.provenance.map(() => '?').join(',');
+  const provPlaceholders = prov.map(() => '?').join(',');
   const validChunks = db.prepare(
     `SELECT id, book_id FROM semantic_chunks WHERE id IN (${provPlaceholders})`
-  ).all(...rep.provenance);
+  ).all(...prov);
 
-  assert.strictEqual(validChunks.length, rep.provenance.length, 'Every provenance chunkId must exist in the database');
-  console.log(`  Verified ${rep.provenance.length} provable source chunk IDs in database`);
+  assert.strictEqual(validChunks.length, prov.length, 'Every provenance chunkId must exist in the database');
+  console.log(`  Verified ${prov.length} provable source chunk IDs in database`);
   console.log('  ✓ Test 3 & 4 passed: Synthesized chapter has grounded content and valid, provable provenance.\n');
 
   // -------------------------------------------------------------------------
   // TEST 5: Deletion cascade: deleting an outline cleans up associated representations
   // -------------------------------------------------------------------------
-  console.log('Test 5: Deletion cascade: deleting an outline cleans up associated representations');
+  console.log('Test 5: Deletion cascade: deleting an outline cleans up associated smart chapters');
 
-  // Confirm outline and representation exist before delete
+  // Confirm outline and smart chapter exist before delete
   const outlineBefore = outlineRepository.getById(outline.outlineId);
   assert(outlineBefore, 'Outline must exist in database before deletion');
 
-  const repCheckBefore = db.prepare(
-    'SELECT COUNT(*) as cnt FROM chapter_representations WHERE chapter_id = ?'
+  const scCheckBefore = db.prepare(
+    'SELECT COUNT(*) as cnt FROM smart_chapters WHERE id = ?'
   ).get(targetChapter.chapterId);
-  assert(repCheckBefore.cnt > 0, 'Representation must exist before deletion');
+  assert(scCheckBefore.cnt > 0, 'Smart chapter must exist before deletion');
 
   // Execute deletion of outline
   const deleteSuccess = editorialService.deleteOutline(outline.outlineId);
@@ -172,12 +174,12 @@ async function runBuild4Verification() {
   const outlineAfter = outlineRepository.getById(outline.outlineId);
   assert(!outlineAfter, 'Outline must be deleted from database');
 
-  // Verify associated chapter representations are cleaned up
-  const repCheckAfter = db.prepare(
-    'SELECT COUNT(*) as cnt FROM chapter_representations WHERE chapter_id = ?'
+  // Verify associated smart chapters are cleaned up
+  const scCheckAfter = db.prepare(
+    'SELECT COUNT(*) as cnt FROM smart_chapters WHERE id = ?'
   ).get(targetChapter.chapterId);
-  assert.strictEqual(repCheckAfter.cnt, 0, 'Associated representations must be deleted by outline deletion cascade');
-  console.log('  ✓ Test 5 passed: Outline deletion cascade successfully cleaned up outline and all associated chapter representations.\n');
+  assert.strictEqual(scCheckAfter.cnt, 0, 'Associated smart chapters must be deleted by outline deletion cascade');
+  console.log('  ✓ Test 5 passed: Outline deletion cascade successfully cleaned up outline and all associated smart chapters.\n');
 
   console.log('🎉 ALL BUILD 4 CROSS-SOURCE INTELLIGENCE & EDITORIAL SYNTHESIS TESTS PASSED!\n');
 }

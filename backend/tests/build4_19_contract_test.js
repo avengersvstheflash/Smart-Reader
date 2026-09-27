@@ -117,16 +117,14 @@ async function runContractTest() {
   console.log(`  ✓ Checked ${chapters.length} chapter(s).`);
 
   // --------------------------------------------------------------------------
-  // 3. EDITORIAL_SYNTHESIS Representations contract
+  // 3. Smart Chapters contract
   // --------------------------------------------------------------------------
-  console.log('[3/3] Validating EDITORIAL_SYNTHESIS Representations contract...');
-  const reps = db
-    .prepare("SELECT * FROM chapter_representations WHERE type = 'EDITORIAL_SYNTHESIS' ORDER BY created_at ASC")
-    .all();
+  console.log('[3/3] Validating Smart Chapters contract...');
+  const reps = db.prepare("SELECT * FROM smart_chapters WHERE status = 'generated' ORDER BY created_at ASC").all();
 
   if (reps.length === 0) {
-    console.log('  [Notice] No EDITORIAL_SYNTHESIS representations found in DB.');
-    console.log('  [Skip] Skipping representation checks cleanly (requires prior synthesis run).\n');
+    console.log('  [Notice] No generated smart chapters found in DB.');
+    console.log('  [Skip] Skipping smart chapter checks cleanly (requires prior synthesis run).\n');
     const report = {
       counts: { books: books.length, chapters: chapters.length, representations: 0 },
       issues,
@@ -253,7 +251,7 @@ async function runContractTest() {
       }
     }
   }
-  console.log(`  ✓ Checked ${reps.length} EDITORIAL_SYNTHESIS representation(s).`);
+  console.log(`  ✓ Checked ${reps.length} generated smart chapter(s).`);
 
   // --------------------------------------------------------------------------
   // 4. Report & Aggregate status

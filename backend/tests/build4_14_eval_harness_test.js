@@ -35,10 +35,7 @@ async function runEvalHarness() {
   let targetBookTitle = null;
 
   if (canonicalBook) {
-    const repCount = db.prepare(`
-      SELECT COUNT(id) as c FROM chapter_representations 
-      WHERE book_id = ? AND type = 'EDITORIAL_SYNTHESIS'
-    `).get(canonicalBook.id);
+    const repCount = db.prepare(`SELECT COUNT(id) as c FROM smart_chapters WHERE book_id = ? AND status = 'generated'`).get(canonicalBook.id);
     if (repCount && repCount.c > 0) {
       targetBookId = canonicalBook.id;
       targetBookTitle = canonicalBook.title;
@@ -46,15 +43,7 @@ async function runEvalHarness() {
   }
 
   if (!targetBookId) {
-    const candidate = db.prepare(`
-      SELECT cr.book_id, b.title, COUNT(cr.id) as c 
-      FROM chapter_representations cr
-      LEFT JOIN books b ON b.id = cr.book_id
-      WHERE cr.type = 'EDITORIAL_SYNTHESIS'
-      GROUP BY cr.book_id
-      ORDER BY c DESC, cr.rowid DESC
-      LIMIT 1
-    `).get();
+    const candidate = db.prepare(`SELECT sc.book_id, b.title, COUNT(sc.id) as c FROM smart_chapters sc LEFT JOIN books b ON b.id = sc.book_id WHERE sc.status = 'generated' GROUP BY sc.book_id ORDER BY c DESC, sc.rowid DESC LIMIT 1`).get();
 
     if (candidate && candidate.c > 0) {
       targetBookId = candidate.book_id;
@@ -64,7 +53,7 @@ async function runEvalHarness() {
 
   // If no representations exist, skip cleanly
   if (!targetBookId) {
-    console.log('[Notice] No EDITORIAL_SYNTHESIS representations found in DB.');
+    console.log('[Notice] No generated smart chapters found in DB.');
     console.log('[Skip] Skipping compression evaluation cleanly (requires prior synthesis run).\n');
     const emptyReport = {
       bookId: null,
@@ -83,14 +72,9 @@ async function runEvalHarness() {
   console.log(`[Target] Evaluating book: ${targetBookId} ("${targetBookTitle}")`);
 
   // Step 2: Query all EDITORIAL_SYNTHESIS representations for that book
-  const reps = db.prepare(`
-    SELECT id, chapter_id, content, metadata_json, created_at
-    FROM chapter_representations
-    WHERE book_id = ? AND type = 'EDITORIAL_SYNTHESIS'
-    ORDER BY created_at ASC
-  `).all(targetBookId);
+  const reps = db.prepare(`SELECT id, sequence, title, content, metadata_json, created_at FROM smart_chapters WHERE book_id = ? AND status = 'generated' ORDER BY sequence ASC`).all(targetBookId);
 
-  console.log(`[Found] ${reps.length} EDITORIAL_SYNTHESIS representation(s).\n`);
+  console.log(`[Found] ${reps.length} generated smart chapter(s).\n`);
 
   if (reps.length === 0) {
     console.log('[Skip] 0 representations found for target book.');
@@ -143,11 +127,11 @@ async function runEvalHarness() {
     assert.strictEqual(
       hasProvenance,
       true,
-      `Chapter representation ${rep.id} must have non-empty provenance array`
+      `Smart chapter ${rep.id} must have non-empty provenance array`
     );
 
     // Track outliers for bounds and ratio
-    const chapterLabel = meta.title || rep.chapter_id || `Chapter ${idx + 1}`;
+    const chapterLabel = meta.title || rep.title || rep.id || `Chapter ${idx + 1}`;
     console.log(`  [Ch ${idx + 1}] "${chapterLabel}": ${wordCount} words, ${sourceWords} source words (ratio: ${ratio}:1, ${provenance.length} source chunks)`);
 
     if (wordCount < 180 || wordCount > 450) {
@@ -162,7 +146,7 @@ async function runEvalHarness() {
 
     perChapter.push({
       id: rep.id,
-      chapterId: rep.chapter_id,
+      chapterId: rep.id,
       title: meta.title || '',
       wordCount,
       sourceWords,

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Build 4.1 Editorial Intelligence Test Suite
  *
  * Covers:
@@ -10,9 +10,9 @@
  * - Test 6: every sourceSectionId in planner output exists in input. Invalid IDs are discarded.
  * - Test 7: planner selects organizationStrategy='thematic' for multi-source dossier.
  * - Test 8: planner selects organizationStrategy='chronological' for narrative content.
- * - Test 9: planner produces 5–10 chapters for a synthetic 40-section dossier.
+ * - Test 9: planner produces 5â€“10 chapters for a synthetic 40-section dossier.
  * - Test 10: planner does NOT produce one chapter per source section.
- * - Test 11: planner fails honestly (status='failed') when AI returns invalid JSON — does NOT substitute a deterministic outline.
+ * - Test 11: planner fails honestly (status='failed') when AI returns invalid JSON â€” does NOT substitute a deterministic outline.
  * - Test 12: regeneration invalidates stale representations.
  * - Test 13: regeneration preserves original source material.
  */
@@ -31,6 +31,7 @@ const bookRepository = require('../repositories/bookRepository');
 const chapterRepository = require('../repositories/chapterRepository');
 const semanticChunkRepository = require('../repositories/semanticChunkRepository');
 const outlineRepository = require('../repositories/outlineRepository');
+const smartChapterRepository = require('../repositories/smartChapterRepository');
 const { getDatabase } = require('../db/database');
 
 async function runTests() {
@@ -44,10 +45,10 @@ async function runTests() {
   function runTest(name, fn) {
     try {
       fn();
-      console.log(`✓ ${name}`);
+      console.log(`âœ“ ${name}`);
       passed++;
     } catch (err) {
-      console.error(`✗ ${name}`);
+      console.error(`âœ— ${name}`);
       console.error(`  Error: ${err.message}`);
       if (err.stack) console.error(err.stack.split('\n').slice(1, 4).join('\n'));
       failed++;
@@ -57,10 +58,10 @@ async function runTests() {
   async function runAsyncTest(name, fn) {
     try {
       await fn();
-      console.log(`✓ ${name}`);
+      console.log(`âœ“ ${name}`);
       passed++;
     } catch (err) {
-      console.error(`✗ ${name}`);
+      console.error(`âœ— ${name}`);
       console.error(`  Error: ${err.message}`);
       if (err.stack) console.error(err.stack.split('\n').slice(1, 4).join('\n'));
       failed++;
@@ -287,9 +288,9 @@ async function runTests() {
   });
 
   // ----------------------------------------------------
-  // Test 9: planner produces 5–10 chapters for a synthetic 40-section dossier
+  // Test 9: planner produces 5â€“10 chapters for a synthetic 40-section dossier
   // ----------------------------------------------------
-  runTest("Test 9: planner produces 5–10 chapters for a synthetic 40-section dossier", () => {
+  runTest("Test 9: planner produces 5â€“10 chapters for a synthetic 40-section dossier", () => {
     const syntheticSections = [];
     const sourceNames = ['Wikipedia', 'Variety', 'The Hollywood Reporter', 'Box Office Mojo'];
     const sectionTypes = ['Introduction', 'Plot', 'Cast', 'Production', 'Visual Effects', 'Music & Score', 'Release & Marketing', 'Critical Reception', 'Box Office', 'Legacy & Sequels'];
@@ -349,7 +350,7 @@ async function runTests() {
   });
 
   // ----------------------------------------------------
-  // Test 11: planner fails honestly (status='failed') when AI returns invalid JSON — does NOT substitute a deterministic outline
+  // Test 11: planner fails honestly (status='failed') when AI returns invalid JSON â€” does NOT substitute a deterministic outline
   // ----------------------------------------------------
   async function testPlannerFailsHonestly() {
     const mockFailingAi = {
@@ -422,9 +423,11 @@ async function runTests() {
     );
     assert(synthResult.representation);
 
-    // Verify representation exists in database
-    const initialReps = chapterRepository.getRepresentations(targetChapter.chapterId);
-    assert(initialReps.length > 0, 'Synthesized representation should exist in DB');
+    // Verify smart chapter exists in database
+    const smartChapterId = synthResult.representation.id || targetChapter.chapterId;
+    const initialSmartChapter = smartChapterRepository.getById(smartChapterId);
+    assert(initialSmartChapter, 'Synthesized smart chapter should exist in DB');
+    assert.strictEqual(initialSmartChapter.status, 'generated', 'Smart chapter status should be generated');
 
     // Call regeneration
     const regenerated = await editorialService.regenerateOutline(initialOutline.outlineId, {
@@ -434,9 +437,14 @@ async function runTests() {
 
     assert.strictEqual(regenerated.outlineId, initialOutline.outlineId, 'Regenerated outline preserves the same outlineId');
 
-    // Verify stale representations were invalidated
-    const staleReps = chapterRepository.getRepresentations(targetChapter.chapterId);
-    assert.strictEqual(staleReps.length, 0, 'Stale synthesized representations must be invalidated on regeneration');
+    // Verify stale smart chapters were invalidated (content wiped, status reset to pending)
+    const staleSmartChapter = smartChapterRepository.getById(smartChapterId);
+    if (staleSmartChapter) {
+      // Row may be re-created by regeneration with 'pending' status and no content
+      assert.notStrictEqual(staleSmartChapter.status, 'generated', 'Stale smart chapter status must not be generated after regeneration');
+      assert.strictEqual(staleSmartChapter.content, null, 'Stale smart chapter content must be cleared on regeneration');
+    }
+    // If row is gone entirely, that also counts as invalidated
 
     // Clean up
     editorialService.deleteOutline(initialOutline.outlineId);

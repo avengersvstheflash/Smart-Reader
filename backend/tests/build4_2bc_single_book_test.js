@@ -111,22 +111,24 @@ async function runTests() {
   });
 
   assert(synthRes, 'Synthesis result must exist');
-  assert(synthRes.representation, 'Representation must exist');
-  assert(synthRes.representation.content, 'Content must not be empty');
-  assert(Array.isArray(synthRes.representation.canonicalBlocks), 'canonicalBlocks must be array');
+  assert(synthRes.smartChapter || synthRes.representation, 'Smart chapter must exist');
+  const scResult = synthRes.smartChapter || synthRes.representation;
+  assert(scResult.content, 'Content must not be empty');
+  assert(Array.isArray(synthRes.canonicalBlocks || scResult.canonicalBlocks), 'canonicalBlocks must be array');
 
-  // Verify in DB representation repository
-  const rep = chapterRepository.getRepresentationByType(firstChap.id, 'EDITORIAL_SYNTHESIS');
-  assert(rep, 'Representation for first chapter must exist in DB');
-  assert.strictEqual(rep.synthesis_type, 'single_book', 'synthesis_type must be single_book');
-  assert.strictEqual(rep.book_id, testBook.id, 'book_id must match testBook.id');
+  // Verify in DB smartChapterRepository
+  const smartChapterRepository = require('../repositories/smartChapterRepository');
+  const sc = smartChapterRepository.getById(firstChap.id);
+  assert(sc, 'Smart chapter must exist in DB');
+  assert.strictEqual(sc.synthesis_type, 'single_book', 'synthesis_type must be single_book');
+  assert.strictEqual(sc.book_id, testBook.id, 'book_id must match testBook.id');
   console.log('  ✓ Test 4 passed: Synthesized chapter with synthesis_type=single_book and book_id set.\n');
 
   // ---------------------------------------------------------------------------
   // TEST 5: Provenance mapping preserved
   // ---------------------------------------------------------------------------
   console.log('Test 5: Provenance mapping preserved in representation');
-  const meta = typeof rep.metadata === 'string' ? JSON.parse(rep.metadata) : (rep.metadata || {});
+  const meta = typeof sc.metadata_json === 'string' ? JSON.parse(sc.metadata_json) : (sc.metadata_json || {});
   assert(Array.isArray(meta.provenance), 'Metadata provenance must be an array');
   assert(meta.provenance.length > 0, 'Metadata provenance must not be empty');
   console.log(`  ✓ Test 5 passed: Provenance has ${meta.provenance.length} grounded chunk IDs.\n`);
@@ -139,9 +141,9 @@ async function runTests() {
   const afterDelete = await editorialService.getSingleBookOutline(testBook.id);
   assert.strictEqual(afterDelete, null, 'Outline after deletion should be null');
   
-  const repAfterDelete = chapterRepository.getRepresentationByType(firstChap.id, 'EDITORIAL_SYNTHESIS');
-  assert.strictEqual(repAfterDelete, null, 'Representation should be completely deleted');
-  console.log('  ✓ Test 6 passed: Deleted outline and all associated representations cleanly.\n');
+  const scAfterDelete = smartChapterRepository.getById(firstChap.id);
+  assert.strictEqual(scAfterDelete, null, 'Smart chapter should be completely deleted');
+  console.log('  ✓ Test 6 passed: Deleted outline and all associated smart chapters cleanly.\n');
 
   // ---------------------------------------------------------------------------
   // TEST 7: Multi-source outline backwards compatibility & isolation

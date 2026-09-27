@@ -243,8 +243,10 @@ class EditorialService {
     // 1. Invalidate affected synthesized representations
     if (Array.isArray(outline.chapters)) {
       for (const ch of outline.chapters) {
-        if (ch.chapterId) {
-          const reps = chapterRepository.getRepresentations(ch.chapterId);
+        const cId = ch.chapterId || ch.id;
+        if (cId) {
+          smartChapterRepository.delete(cId);
+          const reps = chapterRepository.getRepresentations(cId);
           for (const r of reps) {
             chapterRepository.deleteRepresentation(r.id);
           }
@@ -503,8 +505,10 @@ class EditorialService {
     const outline = outlineRepository.getById(outlineId);
     if (outline && Array.isArray(outline.chapters)) {
       for (const ch of outline.chapters) {
-        if (ch.chapterId) {
-          const reps = chapterRepository.getRepresentations(ch.chapterId);
+        const cId = ch.chapterId || ch.id;
+        if (cId) {
+          smartChapterRepository.delete(cId);
+          const reps = chapterRepository.getRepresentations(cId);
           for (const r of reps) {
             chapterRepository.deleteRepresentation(r.id);
           }

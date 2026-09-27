@@ -22,19 +22,19 @@ class SmartChapterRepository {
 
     stmt.run({
       id: chapter.id,
-      book_id: chapter.book_id,
+      book_id: chapter.book_id || chapter.bookId,
       sequence: chapter.sequence,
       title: chapter.title || null,
       status: chapter.status || 'pending',
-      planned_source_section_ids: typeof chapter.planned_source_section_ids === 'string'
-        ? chapter.planned_source_section_ids
-        : JSON.stringify(chapter.planned_source_section_ids || []),
-      planned_word_count: chapter.planned_word_count || null,
+      planned_source_section_ids: typeof (chapter.planned_source_section_ids || chapter.plannedSourceSectionIds) === 'string'
+        ? (chapter.planned_source_section_ids || chapter.plannedSourceSectionIds)
+        : JSON.stringify(chapter.planned_source_section_ids || chapter.plannedSourceSectionIds || []),
+      planned_word_count: chapter.planned_word_count || chapter.plannedWordCount || null,
       content: chapter.content || null,
-      synthesis_type: chapter.synthesis_type || 'single_book',
-      metadata_json: typeof chapter.metadata_json === 'string'
-        ? chapter.metadata_json
-        : JSON.stringify(chapter.metadata_json || {}),
+      synthesis_type: chapter.synthesis_type || chapter.synthesisType || 'single_book',
+      metadata_json: typeof (chapter.metadata_json || chapter.metadata) === 'string'
+        ? (chapter.metadata_json || chapter.metadata)
+        : JSON.stringify(chapter.metadata_json || chapter.metadata || {}),
       opened_at: chapter.opened_at || null,
       read_at: chapter.read_at || null,
       read_source: chapter.read_source || null,
@@ -69,19 +69,19 @@ class SmartChapterRepository {
       for (const ch of items) {
         insert.run({
           id: ch.id,
-          book_id: ch.book_id,
+          book_id: ch.book_id || ch.bookId,
           sequence: ch.sequence,
           title: ch.title || null,
           status: ch.status || 'pending',
-          planned_source_section_ids: typeof ch.planned_source_section_ids === 'string'
-            ? ch.planned_source_section_ids
-            : JSON.stringify(ch.planned_source_section_ids || []),
-          planned_word_count: ch.planned_word_count || null,
+          planned_source_section_ids: typeof (ch.planned_source_section_ids || ch.plannedSourceSectionIds) === 'string'
+            ? (ch.planned_source_section_ids || ch.plannedSourceSectionIds)
+            : JSON.stringify(ch.planned_source_section_ids || ch.plannedSourceSectionIds || []),
+          planned_word_count: ch.planned_word_count || ch.plannedWordCount || null,
           content: ch.content || null,
-          synthesis_type: ch.synthesis_type || 'single_book',
-          metadata_json: typeof ch.metadata_json === 'string'
-            ? ch.metadata_json
-            : JSON.stringify(ch.metadata_json || {}),
+          synthesis_type: ch.synthesis_type || ch.synthesisType || 'single_book',
+          metadata_json: typeof (ch.metadata_json || ch.metadata) === 'string'
+            ? (ch.metadata_json || ch.metadata)
+            : JSON.stringify(ch.metadata_json || ch.metadata || {}),
           opened_at: ch.opened_at || null,
           read_at: ch.read_at || null,
           read_source: ch.read_source || null,
@@ -92,7 +92,7 @@ class SmartChapterRepository {
     });
 
     insertMany(chapters);
-    return this.getByBookId(chapters[0].book_id);
+    return this.getByBookId(chapters[0].book_id || chapters[0].bookId);
   }
 
   getById(id) {

@@ -358,10 +358,10 @@ OUTPUT:`;
       const bookKey = outline.collectionId || outlineId;
       const db = getDatabase();
       const existingReps = db.prepare(`
-        SELECT id, chapter_id, content, metadata_json
-        FROM chapter_representations
-        WHERE (book_id = ? OR book_id = ?) AND chapter_id != ? AND id != ?
-      `).all(bookKey, outlineId, chapterId, repId);
+        SELECT id, content, metadata_json
+        FROM smart_chapters
+        WHERE (book_id = ? OR book_id = ?) AND id != ?
+      `).all(bookKey, outlineId, targetSmartId);
 
       for (const rep of existingReps) {
         let repMeta = {};
@@ -660,7 +660,8 @@ OUTPUT:`;
   getSynthesis(outlineId, chapterId) {
     let sc = smartChapterRepository.getById(chapterId);
     if (!sc && outlineId) {
-      const allForBook = smartChapterRepository.getByBookId(outlineId);
+      const bookKey = outlineId.replace(/^book-editorial-/, '');
+      const allForBook = smartChapterRepository.getByBookId(bookKey);
       sc = allForBook.find((c) => c.id === chapterId || String(c.sequence) === String(chapterId));
     }
     if (sc && sc.status === 'generated') {
