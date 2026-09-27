@@ -8,17 +8,17 @@ class AttributionRepository {
     const db = getDatabase();
     const stmt = db.prepare(`
       INSERT INTO paragraph_attributions (
-        id, representation_id, paragraph_index, segments_json, source_chunk_ids,
+        id, smart_chapter_id, paragraph_index, segments_json, source_chunk_ids,
         weights_json, method, confidence, grounded, verified_at, fell_back, fallback_reason
       ) VALUES (
-        @id, @representation_id, @paragraph_index, @segments_json, @source_chunk_ids,
+        @id, @smart_chapter_id, @paragraph_index, @segments_json, @source_chunk_ids,
         @weights_json, @method, @confidence, @grounded, @verified_at, @fell_back, @fallback_reason
       )
     `);
 
     stmt.run({
       id: attr.id,
-      representation_id: attr.representation_id,
+      smart_chapter_id: attr.smart_chapter_id || attr.representation_id,
       paragraph_index: attr.paragraph_index,
       segments_json: typeof attr.segments_json === 'string' ? attr.segments_json : JSON.stringify(attr.segments || []),
       source_chunk_ids: typeof attr.source_chunk_ids === 'string' ? attr.source_chunk_ids : JSON.stringify(attr.source_chunk_ids || []),
@@ -42,10 +42,10 @@ class AttributionRepository {
     const db = getDatabase();
     const insert = db.prepare(`
       INSERT INTO paragraph_attributions (
-        id, representation_id, paragraph_index, segments_json, source_chunk_ids,
+        id, smart_chapter_id, paragraph_index, segments_json, source_chunk_ids,
         weights_json, method, confidence, grounded, verified_at, fell_back, fallback_reason
       ) VALUES (
-        @id, @representation_id, @paragraph_index, @segments_json, @source_chunk_ids,
+        @id, @smart_chapter_id, @paragraph_index, @segments_json, @source_chunk_ids,
         @weights_json, @method, @confidence, @grounded, @verified_at, @fell_back, @fallback_reason
       )
     `);
@@ -54,7 +54,7 @@ class AttributionRepository {
       for (const attr of items) {
         insert.run({
           id: attr.id,
-          representation_id: attr.representation_id,
+          smart_chapter_id: attr.smart_chapter_id || attr.representation_id,
           paragraph_index: attr.paragraph_index,
           segments_json: typeof attr.segments_json === 'string' ? attr.segments_json : JSON.stringify(attr.segments || []),
           source_chunk_ids: typeof attr.source_chunk_ids === 'string' ? attr.source_chunk_ids : JSON.stringify(attr.source_chunk_ids || []),
@@ -70,7 +70,7 @@ class AttributionRepository {
     });
 
     insertMany(attributions);
-    return this.getByRepresentationId(attributions[0].representation_id);
+    return this.getByRepresentationId(attributions[0].smart_chapter_id);
   }
 
   /**
@@ -89,7 +89,7 @@ class AttributionRepository {
     const db = getDatabase();
     const rows = db.prepare(`
       SELECT * FROM paragraph_attributions
-      WHERE representation_id = ?
+      WHERE smart_chapter_id = ?
       ORDER BY paragraph_index ASC
     `).all(representationId);
 
@@ -101,13 +101,16 @@ class AttributionRepository {
    */
   deleteByRepresentationId(representationId) {
     const db = getDatabase();
-    const result = db.prepare('DELETE FROM paragraph_attributions WHERE representation_id = ?').run(representationId);
+    const result = db.prepare('DELETE FROM paragraph_attributions WHERE smart_chapter_id = ?').run(representationId);
     return result.changes;
   }
 
   /**
    * Format SQLite row into structured object with parsed JSON fields
    */
+  getByRepresentationId(id) { return this.getBySmartChapterId(id); }
+  deleteByRepresentationId(id) { return this.deleteBySmartChapterId(id); }
+
   formatRow(row) {
     if (!row) return null;
     let segments = [];
@@ -133,7 +136,8 @@ class AttributionRepository {
 
     return {
       id: row.id,
-      representation_id: row.representation_id,
+      smart_chapter_id: row.smart_chapter_id,
+      representation_id: row.smart_chapter_id,
       paragraph_index: row.paragraph_index,
       segments,
       source_chunk_ids: sourceChunkIds,

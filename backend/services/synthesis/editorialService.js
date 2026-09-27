@@ -2,6 +2,7 @@ const outlineRepository = require('../../repositories/outlineRepository');
 const bookRepository = require('../../repositories/bookRepository');
 const semanticChunkRepository = require('../../repositories/semanticChunkRepository');
 const chapterRepository = require('../../repositories/chapterRepository');
+const smartChapterRepository = require('../../repositories/smartChapterRepository');
 const retrievalService = require('../semantic/retrievalService');
 const contextBuilder = require('../semantic/contextBuilder');
 const aiService = require('../ai/aiService');
@@ -181,19 +182,38 @@ class EditorialService {
       chapters = this.createAdaptiveOutlineChapters(books, rawSections, topic);
     }
 
-    // Step 5: Persist outline
+    // Step 5: Persist outline and seed smart_chapters rows
     const outlineId = options.outlineId || `outline-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const targetBookId = (collectionId && collectionId !== 'default') ? collectionId : bookIds[0];
 
+    // Cascade delete previous smart_chapters for this targetBookId to prevent orphaned rows on plan shrinkage (audit fix #4)
+    smartChapterRepository.deleteByBookId(targetBookId);
+
+    const smartChaptersToSeed = [];
     for (let i = 0; i < chapters.length; i++) {
       if (!chapters[i].sourceSectionIds || chapters[i].sourceSectionIds.length === 0) {
         const fallback = activeCandidates[i % activeCandidates.length];
         chapters[i].sourceSectionIds = [fallback.id];
       }
-      const rawId = chapters[i].id || chapters[i].chapterId || `ch-${i + 1}`;
-      const fullId = rawId.startsWith(outlineId) ? rawId : `${outlineId}-${rawId}`;
-      chapters[i].chapterId = fullId;
-      chapters[i].id = fullId;
+      const seq = i + 1;
+      const smartId = `smart-${targetBookId}-ch-${seq}`;
+      chapters[i].chapterId = smartId;
+      chapters[i].id = smartId;
+      chapters[i].sequence = seq;
+
+      smartChaptersToSeed.push({
+        id: smartId,
+        book_id: targetBookId,
+        sequence: seq,
+        title: chapters[i].title,
+        status: 'pending',
+        planned_source_section_ids: chapters[i].sourceSectionIds,
+        planned_word_count: chapters[i].plannedWordCount || 1000,
+        synthesis_type: options.type || (isMultiSource ? 'multi_source' : 'single_book'),
+      });
     }
+
+    smartChapterRepository.createBatch(smartChaptersToSeed);
 
     const saved = outlineRepository.saveOutline({
       outlineId,
@@ -232,6 +252,10 @@ class EditorialService {
       }
     }
     chapterRepository.deleteRepresentationsByBook(outlineId);
+    if (outline.collectionId) {
+      smartChapterRepository.deleteByBookId(outline.collectionId);
+    }
+    smartChapterRepository.deleteByBookId(outlineId);
 
     // 2. Resolve book IDs
     let bookIds = options.bookIds;
@@ -491,6 +515,10 @@ class EditorialService {
     if (outline && outline.collectionId && outline.collectionId !== outlineId) {
       chapterRepository.deleteRepresentationsByBook(outline.collectionId);
     }
+    if (outline && outline.collectionId) {
+      smartChapterRepository.deleteByBookId(outline.collectionId);
+    }
+    smartChapterRepository.deleteByBookId(outlineId);
     return outlineRepository.delete(outlineId);
   }
 }

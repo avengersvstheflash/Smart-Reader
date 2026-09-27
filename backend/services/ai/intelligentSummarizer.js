@@ -337,27 +337,38 @@ OUTPUT:`;
         maxTokens: 5000,
       });
 
-      // Gather chapter-level representations if available
-      const chapters = chapterRepository.getByBookId(bookId) || [];
-      const chapterReps = chapterRepository.getRepresentationsByBook(bookId) || [];
-      const repByChapterId = new Map();
-      for (const rep of chapterReps) {
-        if (!repByChapterId.has(rep.chapterId) || rep.type === 'EDITORIAL_SYNTHESIS') {
-          repByChapterId.set(rep.chapterId, rep);
-        }
-      }
+      // Gather chapter-level smart chapters (status='generated') or fallback representations
+      const smartChapterRepository = require('../../repositories/smartChapterRepository');
+      const generatedSmartChapters = smartChapterRepository.getGeneratedByBookId(bookId) || [];
 
       let chapterSummariesText = '';
-      if (chapters.length > 0 && repByChapterId.size > 0) {
-        const sections = [];
-        for (let i = 0; i < chapters.length; i++) {
-          const ch = chapters[i];
-          const rep = repByChapterId.get(ch.id);
-          if (rep && rep.content) {
-            sections.push(`[Chapter ${ch.number || (i + 1)}: ${ch.title}]\n${rep.content.trim()}`);
+      if (generatedSmartChapters.length > 0) {
+        chapterSummariesText = generatedSmartChapters
+          .map((sc) => `[Smart Chapter ${sc.sequence}: ${sc.title || 'Untitled'}]\n${(sc.content || '').trim()}`)
+          .filter((t) => t.trim().length > 0)
+          .join('\n\n');
+      }
+
+      if (!chapterSummariesText.trim()) {
+        const chapters = chapterRepository.getByBookId(bookId) || [];
+        const chapterReps = chapterRepository.getRepresentationsByBook(bookId) || [];
+        const repByChapterId = new Map();
+        for (const rep of chapterReps) {
+          if (!repByChapterId.has(rep.chapterId)) {
+            repByChapterId.set(rep.chapterId, rep);
           }
         }
-        chapterSummariesText = sections.join('\n\n');
+        if (chapters.length > 0 && repByChapterId.size > 0) {
+          const sections = [];
+          for (let i = 0; i < chapters.length; i++) {
+            const ch = chapters[i];
+            const rep = repByChapterId.get(ch.id);
+            if (rep && rep.content) {
+              sections.push(`[Chapter ${ch.number || (i + 1)}: ${ch.title}]\n${rep.content.trim()}`);
+            }
+          }
+          chapterSummariesText = sections.join('\n\n');
+        }
       }
 
       if (!chapterSummariesText.trim()) {

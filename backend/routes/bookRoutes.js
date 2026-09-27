@@ -27,11 +27,9 @@ router.get('/', (req, res, next) => {
     const books = bookService.getAllBooks();
     const db = getDatabase();
     const smartRows = db.prepare(`
-      SELECT DISTINCT eo.collectionId AS book_id
-      FROM editorial_outlines eo
-      JOIN chapter_representations cr
-        ON (cr.book_id = eo.collectionId OR cr.book_id = eo.outlineId)
-      WHERE cr.type = 'EDITORIAL_SYNTHESIS'
+      SELECT DISTINCT book_id
+      FROM smart_chapters
+      WHERE status = 'generated'
     `).all();
     const smartSet = new Set(smartRows.map((r) => r.book_id));
 

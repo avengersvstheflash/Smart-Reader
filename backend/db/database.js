@@ -17,9 +17,63 @@ function getDatabase() {
     dbInstance = new Database(config.DB_PATH);
     dbInstance.pragma('journal_mode = WAL');
     dbInstance.pragma('foreign_keys = ON');
+    runPendingMigrations(dbInstance);
     initSchema(dbInstance);
   }
   return dbInstance;
+}
+
+function runPendingMigrations(db) {
+  const version = db.pragma('user_version', { simple: true });
+  if (version >= 1) return;
+
+  // Migration 1: smart_chapters + paragraph_attributions rebuild
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS smart_chapters (
+      id TEXT PRIMARY KEY,
+      book_id TEXT NOT NULL,
+      sequence INTEGER NOT NULL,
+      title TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      planned_source_section_ids TEXT,
+      planned_word_count INTEGER,
+      content TEXT,
+      synthesis_type TEXT,
+      metadata_json TEXT,
+      opened_at TEXT,
+      read_at TEXT,
+      read_source TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_smart_chapters_book_seq
+      ON smart_chapters(book_id, sequence);
+
+    DROP TABLE IF EXISTS paragraph_attributions;
+
+    CREATE TABLE IF NOT EXISTS paragraph_attributions (
+      id TEXT PRIMARY KEY,
+      smart_chapter_id TEXT NOT NULL,
+      paragraph_index INTEGER NOT NULL,
+      segments_json TEXT NOT NULL,
+      source_chunk_ids TEXT NOT NULL,
+      weights_json TEXT NOT NULL,
+      method TEXT NOT NULL,
+      confidence TEXT NOT NULL,
+      grounded BOOLEAN NOT NULL,
+      verified_at TEXT NOT NULL,
+      fell_back BOOLEAN NOT NULL DEFAULT 0,
+      fallback_reason TEXT,
+      FOREIGN KEY (smart_chapter_id) REFERENCES smart_chapters(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_para_attr_chapter
+      ON paragraph_attributions(smart_chapter_id, paragraph_index);
+  `);
+
+  db.pragma('user_version = 1');
 }
 
 function initSchema(db) {
@@ -146,7 +200,7 @@ function initSchema(db) {
 
     CREATE TABLE IF NOT EXISTS paragraph_attributions (
       id                TEXT PRIMARY KEY,
-      representation_id TEXT NOT NULL,
+      smart_chapter_id  TEXT NOT NULL,
       paragraph_index   INTEGER NOT NULL,
       segments_json     TEXT NOT NULL,
       source_chunk_ids  TEXT NOT NULL,
@@ -157,11 +211,10 @@ function initSchema(db) {
       verified_at       TEXT NOT NULL,
       fell_back         BOOLEAN NOT NULL DEFAULT 0,
       fallback_reason   TEXT,
-      FOREIGN KEY (representation_id) REFERENCES chapter_representations(id) ON DELETE CASCADE
+      FOREIGN KEY (smart_chapter_id) REFERENCES smart_chapters(id) ON DELETE CASCADE
     );
 
-    CREATE INDEX IF NOT EXISTS idx_para_attr_rep ON paragraph_attributions(representation_id);
-    CREATE INDEX IF NOT EXISTS idx_para_attr_rep_idx ON paragraph_attributions(representation_id, paragraph_index);
+    CREATE INDEX IF NOT EXISTS idx_para_attr_chapter ON paragraph_attributions(smart_chapter_id, paragraph_index);
   `);
 
   // Migrate chapter_representations if foreign key constraint blocks cross_source outline chapters
@@ -185,39 +238,6 @@ function initSchema(db) {
       DROP TABLE chapter_representations;
       ALTER TABLE chapter_representations_v2 RENAME TO chapter_representations;
       CREATE INDEX IF NOT EXISTS idx_representations_chapter ON chapter_representations(chapter_id, type);
-    `);
-    db.pragma('foreign_keys = ON');
-  }
-
-  // Migrate paragraph_attributions if foreign key constraint references book_representations
-  const paraAttrSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='paragraph_attributions'").get();
-  if (paraAttrSql && paraAttrSql.sql && paraAttrSql.sql.includes('REFERENCES book_representations')) {
-    db.pragma('foreign_keys = OFF');
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS paragraph_attributions_v2 (
-        id                TEXT PRIMARY KEY,
-        representation_id TEXT NOT NULL,
-        paragraph_index   INTEGER NOT NULL,
-        segments_json     TEXT NOT NULL,
-        source_chunk_ids  TEXT NOT NULL,
-        weights_json      TEXT NOT NULL,
-        method            TEXT NOT NULL,
-        confidence        TEXT NOT NULL,
-        grounded          BOOLEAN NOT NULL,
-        verified_at       TEXT NOT NULL,
-        fell_back         BOOLEAN NOT NULL DEFAULT 0,
-        fallback_reason   TEXT,
-        FOREIGN KEY (representation_id) REFERENCES chapter_representations(id) ON DELETE CASCADE
-      );
-      INSERT OR REPLACE INTO paragraph_attributions_v2 (
-        id, representation_id, paragraph_index, segments_json, source_chunk_ids, weights_json, method, confidence, grounded, verified_at, fell_back, fallback_reason
-      )
-      SELECT id, representation_id, paragraph_index, segments_json, source_chunk_ids, weights_json, method, confidence, grounded, verified_at, fell_back, fallback_reason 
-      FROM paragraph_attributions;
-      DROP TABLE paragraph_attributions;
-      ALTER TABLE paragraph_attributions_v2 RENAME TO paragraph_attributions;
-      CREATE INDEX IF NOT EXISTS idx_para_attr_rep ON paragraph_attributions(representation_id);
-      CREATE INDEX IF NOT EXISTS idx_para_attr_rep_idx ON paragraph_attributions(representation_id, paragraph_index);
     `);
     db.pragma('foreign_keys = ON');
   }
@@ -339,6 +359,7 @@ function resetAndSeedDatabase(db) {
   db.transaction(() => {
     db.exec(`
       DELETE FROM paragraph_attributions;
+      DELETE FROM smart_chapters;
       DELETE FROM semantic_chunks;
       DELETE FROM book_representations;
       DELETE FROM book_supporting_materials;

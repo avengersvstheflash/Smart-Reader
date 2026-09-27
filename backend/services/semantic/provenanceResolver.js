@@ -1,6 +1,7 @@
 const embeddingService = require('./embeddingService');
 const attributionArbiter = require('./attributionArbiter');
 const chapterRepository = require('../../repositories/chapterRepository');
+const smartChapterRepository = require('../../repositories/smartChapterRepository');
 const semanticChunkRepository = require('../../repositories/semanticChunkRepository');
 const outlineRepository = require('../../repositories/outlineRepository');
 const jobRepository = require('../../repositories/jobRepository');
@@ -30,13 +31,16 @@ class ProvenanceResolver {
    * @returns {Promise<object>}
    */
   async verifyRepresentation(representationId, options = {}) {
-    const rep = chapterRepository.getRepresentationById(representationId);
+    let rep = smartChapterRepository.getById(representationId);
+    if (!rep) {
+      rep = chapterRepository.getRepresentationById(representationId);
+    }
     if (!rep) {
       throw new Error(`Representation not found: ${representationId}`);
     }
 
     // Idempotency check: if attributions exist and not forced, return existing
-    const existing = attributionRepository.getByRepresentationId(representationId);
+    const existing = attributionRepository.getBySmartChapterId(representationId);
     if (existing.length > 0 && !options.force) {
       return {
         representation_id: representationId,
@@ -61,12 +65,16 @@ class ProvenanceResolver {
 
     try {
       if (options.force && existing.length > 0) {
-        attributionRepository.deleteByRepresentationId(representationId);
+        attributionRepository.deleteBySmartChapterId(representationId);
       }
 
       // 1. Load candidate source chunks
       let chunkIds = [];
-      if (Array.isArray(rep.provenance) && rep.provenance.length > 0) {
+      if (Array.isArray(rep.planned_source_section_ids) && rep.planned_source_section_ids.length > 0) {
+        chunkIds = rep.planned_source_section_ids;
+      } else if (Array.isArray(rep.sourceSectionIds) && rep.sourceSectionIds.length > 0) {
+        chunkIds = rep.sourceSectionIds;
+      } else if (Array.isArray(rep.provenance) && rep.provenance.length > 0) {
         chunkIds = rep.provenance;
       } else if (rep.metadata && Array.isArray(rep.metadata.provenance) && rep.metadata.provenance.length > 0) {
         chunkIds = rep.metadata.provenance;
@@ -248,6 +256,7 @@ class ProvenanceResolver {
 
         attributionRecords.push({
           id: `attr-${representationId}-${pIdx}`,
+          smart_chapter_id: representationId,
           representation_id: representationId,
           paragraph_index: pIdx,
           segments,
@@ -275,6 +284,7 @@ class ProvenanceResolver {
       }
 
       return {
+        smart_chapter_id: representationId,
         representation_id: representationId,
         verified_at: attributionRecords[0]?.verified_at || new Date().toISOString(),
         paragraphs: saved,
@@ -295,11 +305,14 @@ class ProvenanceResolver {
    * @returns {Promise<object>}
    */
   async triggerVerificationForBook(bookId, options = {}) {
-    const reps = chapterRepository.getRepresentationsByBook(bookId);
-    const editorialReps = reps.filter((r) => r.type === 'EDITORIAL_SYNTHESIS');
+    let targets = smartChapterRepository.getGeneratedByBookId(bookId);
+    if (!targets || targets.length === 0) {
+      const reps = chapterRepository.getRepresentationsByBook(bookId);
+      targets = reps.filter((r) => r.type === 'EDITORIAL_SYNTHESIS');
+    }
 
-    if (editorialReps.length === 0) {
-      return { bookId, verifiedCount: 0, message: 'No EDITORIAL_SYNTHESIS representations to verify' };
+    if (targets.length === 0) {
+      return { bookId, verifiedCount: 0, message: 'No generated smart chapters to verify' };
     }
 
     const jobId = `job-verify-book-${bookId}-${Date.now()}`;
@@ -313,15 +326,15 @@ class ProvenanceResolver {
 
     try {
       let verifiedCount = 0;
-      for (let i = 0; i < editorialReps.length; i++) {
-        const rep = editorialReps[i];
-        await this.verifyRepresentation(rep.id, {
+      for (let i = 0; i < targets.length; i++) {
+        const target = targets[i];
+        await this.verifyRepresentation(target.id, {
           jobId,
           skipJobCreation: true,
           ...options,
         });
         verifiedCount++;
-        const pct = Math.round(((i + 1) / editorialReps.length) * 100);
+        const pct = Math.round(((i + 1) / targets.length) * 100);
         jobRepository.update(jobId, { progress: Math.min(pct, 95) });
       }
 
@@ -340,9 +353,10 @@ class ProvenanceResolver {
    * @returns {object}
    */
   getProvenance(representationId) {
-    const rows = attributionRepository.getByRepresentationId(representationId);
+    const rows = attributionRepository.getBySmartChapterId(representationId);
     if (!rows || rows.length === 0) {
       return {
+        smart_chapter_id: representationId,
         representation_id: representationId,
         verified_at: null,
         paragraphs: [],
@@ -350,6 +364,7 @@ class ProvenanceResolver {
     }
 
     return {
+      smart_chapter_id: representationId,
       representation_id: representationId,
       verified_at: rows[0].verified_at,
       paragraphs: rows.map((r) => ({

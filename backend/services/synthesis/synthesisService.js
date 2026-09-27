@@ -1,5 +1,6 @@
 const outlineRepository = require('../../repositories/outlineRepository');
 const chapterRepository = require('../../repositories/chapterRepository');
+const smartChapterRepository = require('../../repositories/smartChapterRepository');
 const semanticChunkRepository = require('../../repositories/semanticChunkRepository');
 const bookRepository = require('../../repositories/bookRepository');
 const contextBuilder = require('../semantic/contextBuilder');
@@ -34,6 +35,28 @@ class SynthesisService {
     if (!chapter) {
       throw new Error(`Chapter ${chapterId} not found in outline ${outlineId}`);
     }
+
+    const targetSmartId = chapter.chapterId || chapter.id || chapterId;
+    if (smartChapterRepository.getById(targetSmartId)) {
+      smartChapterRepository.update(targetSmartId, { status: 'generating' });
+    }
+
+    try {
+      return await this._executeSynthesizeChapter(outline, chapter, targetSmartId, options);
+    } catch (err) {
+      if (smartChapterRepository.getById(targetSmartId)) {
+        smartChapterRepository.update(targetSmartId, {
+          status: 'failed',
+          metadata_json: { error: err.message, failedAt: new Date().toISOString() },
+        });
+      }
+      throw err;
+    }
+  }
+
+  async _executeSynthesizeChapter(outline, chapter, targetSmartId, options) {
+    const outlineId = outline.outlineId;
+    const chapterId = targetSmartId;
 
     // Step a: Retrieve chunks mapped to the chapter
     const sourceSectionIds = chapter.sourceSectionIds || [];
@@ -393,19 +416,20 @@ OUTPUT:`;
       compression_violation: compression_violation === true,
     };
 
-    const savedRepresentation = chapterRepository.saveRepresentation({
-      id: repId,
-      chapterId,
-      bookId: outline.collectionId || outlineId,
-      type: options.type || 'EDITORIAL_SYNTHESIS',
-      content: cleanContent,
-      metadata,
-      provenance: chunkIds,
-      synthesisType,
-    });
+    let smartChapter = smartChapterRepository.getById(targetSmartId);
+    if (smartChapter) {
+      smartChapter = smartChapterRepository.update(targetSmartId, {
+        status: 'generated',
+        content: cleanContent,
+        synthesis_type: synthesisType,
+        metadata_json: metadata,
+        updated_at: new Date().toISOString(),
+      });
+    }
 
     return {
-      representation: savedRepresentation,
+      smartChapter,
+      representation: smartChapter,
       canonicalBlocks,
       context,
       grounded: true,
@@ -602,27 +626,30 @@ OUTPUT:`;
    */
   invalidateOutdatedRepresentations() {
     const db = getDatabase();
-    const rows = db.prepare("SELECT * FROM chapter_representations WHERE synthesisType = 'cross_source'").all();
+    const rows = db.prepare("SELECT * FROM smart_chapters WHERE synthesis_type IN ('multi_source', 'cross_source')").all();
     let invalidatedCount = 0;
 
     for (const row of rows) {
-      if (!row.provenance) continue;
       let chunkIds = [];
       try {
-        chunkIds = typeof row.provenance === 'string' ? JSON.parse(row.provenance) : row.provenance;
+        chunkIds = typeof row.planned_source_section_ids === 'string'
+          ? JSON.parse(row.planned_source_section_ids)
+          : (row.planned_source_section_ids || []);
       } catch {
         chunkIds = [];
       }
 
       if (!Array.isArray(chunkIds) || chunkIds.length === 0) continue;
 
-      // Check if all provenance chunks still exist
       const placeholders = chunkIds.map(() => '?').join(',');
       const count = db.prepare(`SELECT COUNT(*) as count FROM semantic_chunks WHERE id IN (${placeholders})`).get(...chunkIds).count;
 
       if (count < chunkIds.length) {
-        // At least one contributing chunk was deleted or modified
-        db.prepare('DELETE FROM chapter_representations WHERE id = ?').run(row.id);
+        smartChapterRepository.update(row.id, {
+          status: 'pending',
+          content: null,
+          metadata_json: { invalidated: true, reason: 'contributing_chunks_removed' },
+        });
         invalidatedCount++;
       }
     }
@@ -631,13 +658,21 @@ OUTPUT:`;
   }
 
   getSynthesis(outlineId, chapterId) {
-    // Check if valid
+    let sc = smartChapterRepository.getById(chapterId);
+    if (!sc && outlineId) {
+      const allForBook = smartChapterRepository.getByBookId(outlineId);
+      sc = allForBook.find((c) => c.id === chapterId || String(c.sequence) === String(chapterId));
+    }
+    if (sc && sc.status === 'generated') {
+      return sc;
+    }
+    // Transition fallback
     const repId = `rep-cross-${outlineId}-${chapterId}`;
     let rep = chapterRepository.getRepresentationById(repId);
     if (!rep) {
       rep = chapterRepository.getRepresentationByType(chapterId, 'EDITORIAL_SYNTHESIS');
     }
-    return rep;
+    return rep || null;
   }
 }
 

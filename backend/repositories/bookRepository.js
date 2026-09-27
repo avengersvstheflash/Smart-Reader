@@ -5,13 +5,13 @@ class BookRepository {
     const db = getDatabase();
     const books = db.prepare(`
       SELECT b.*, 
-        (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id) as chapter_count,
-        (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id AND c.status = 'read') as read_chapter_count,
-        (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
+        (SELECT COUNT(*) FROM smart_chapters sc WHERE sc.book_id = b.id) as chapter_count,
+        (SELECT COUNT(*) FROM smart_chapters sc WHERE sc.book_id = b.id AND sc.read_at IS NOT NULL) as read_chapter_count,
+        (SELECT COALESCE(SUM(sc.planned_word_count), 0) FROM smart_chapters sc WHERE sc.book_id = b.id) as total_words
       FROM books b
       WHERE b.status != 'failed'
         AND EXISTS (
-          SELECT 1 FROM chapter_representations cr WHERE cr.book_id = b.id
+          SELECT 1 FROM smart_chapters sc WHERE sc.book_id = b.id
         )
       ORDER BY b.updated_at DESC
     `).all();
@@ -124,7 +124,8 @@ class BookRepository {
       // 2. Delete associated supporting materials
       db.prepare('DELETE FROM book_supporting_materials WHERE book_id = ?').run(bookId);
 
-      // 3. Delete associated chapter representations
+      // 3. Delete associated smart chapters and chapter representations
+      db.prepare('DELETE FROM smart_chapters WHERE book_id = ?').run(bookId);
       db.prepare(`
         DELETE FROM chapter_representations 
         WHERE book_id = ? OR chapter_id IN (SELECT id FROM chapters WHERE book_id = ?)
