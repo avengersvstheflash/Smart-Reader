@@ -1,4 +1,4 @@
-﻿import { useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient, ApiError } from '../api/client';
 import { SmartChapter } from '../types/domain';
 
