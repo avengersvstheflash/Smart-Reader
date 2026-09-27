@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Search, AlertCircle, RotateCw, CheckSquare, Plus } from 'lucide-react';
 import { useBooks } from '../hooks/useBooks';
@@ -8,6 +8,40 @@ import { SearchField } from '../components/shared/SearchField';
 import { EmptyState } from '../components/shared/EmptyState';
 import { useLibraryStore } from '../store/useLibraryStore';
 
+const STORAGE_KEY = 'library-filters-v1';
+
+interface StoredFilters {
+  filterType?: string;
+  selectedTags?: string[];
+  searchQuery?: string;
+}
+
+function getStoredFilters(): StoredFilters {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    return {
+      filterType: typeof parsed.filterType === 'string' ? parsed.filterType : undefined,
+      selectedTags: Array.isArray(parsed.selectedTags)
+        ? parsed.selectedTags.filter((t: unknown): t is string => typeof t === 'string')
+        : undefined,
+      searchQuery: typeof parsed.searchQuery === 'string' ? parsed.searchQuery : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function persistFilters(filters: { filterType: string; selectedTags: string[]; searchQuery: string }) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+  } catch {
+    // silent fallback
+  }
+}
+
 export const LibraryRoute: React.FC = () => {
   const navigate = useNavigate();
   const { books, isLoading, isError, error, refetch } = useBooks();
@@ -16,7 +50,11 @@ export const LibraryRoute: React.FC = () => {
     console.warn('[LibraryRoute] Expected books to be an array, got:', typeof books, books);
   }
   const bookList = Array.isArray(books) ? books : [];
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  const [selectedTags, setSelectedTags] = useState<string[]>(() => {
+    const stored = getStoredFilters();
+    return stored.selectedTags || [];
+  });
 
   const {
     searchQuery,
@@ -29,6 +67,33 @@ export const LibraryRoute: React.FC = () => {
     toggleBookSelection,
     clearSelection,
   } = useLibraryStore();
+
+  const isRestoredRef = useRef(false);
+
+  // Restore on LibraryRoute mount if missing or out of sync
+  useEffect(() => {
+    const stored = getStoredFilters();
+    if (stored.filterType !== undefined && stored.filterType !== filterType) {
+      setFilterType(stored.filterType);
+    }
+    if (stored.searchQuery !== undefined && stored.searchQuery !== searchQuery) {
+      setSearchQuery(stored.searchQuery);
+    }
+    if (stored.selectedTags !== undefined) {
+      setSelectedTags(stored.selectedTags);
+    }
+    isRestoredRef.current = true;
+  }, []);
+
+  // Persist filter changes across tab navigation
+  useEffect(() => {
+    if (!isRestoredRef.current) return;
+    persistFilters({
+      filterType,
+      selectedTags,
+      searchQuery,
+    });
+  }, [filterType, selectedTags, searchQuery]);
 
   // Filter options with dynamic counts
   const filterOptions: FilterOption[] = useMemo(() => {

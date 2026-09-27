@@ -12,9 +12,28 @@ interface LibraryState {
   clearSelection: () => void;
 }
 
+const STORAGE_KEY = 'library-filters-v1';
+
+function getStoredFilters(): { searchQuery?: string; filterType?: string } {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    return {
+      searchQuery: typeof parsed.searchQuery === 'string' ? parsed.searchQuery : undefined,
+      filterType: typeof parsed.filterType === 'string' ? parsed.filterType : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+const initialFilters = getStoredFilters();
+
 export const useLibraryStore = create<LibraryState>((set) => ({
-  searchQuery: '',
-  filterType: 'all',
+  searchQuery: initialFilters.searchQuery ?? '',
+  filterType: initialFilters.filterType ?? 'all',
   selectionMode: false,
   selectedBookIds: [],
   setSearchQuery: (searchQuery) => set({ searchQuery }),

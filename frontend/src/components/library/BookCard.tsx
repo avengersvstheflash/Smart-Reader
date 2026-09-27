@@ -186,6 +186,11 @@ export const BookCard: React.FC<BookCardProps> = ({
           <p className="text-caption text-ink-muted line-clamp-1 mt-0.5">
             {book.author || 'Unknown Author'}
           </p>
+          {book.chapterCount > 0 && (book.readChapterCount ?? 0) > 0 && (
+            <p className="text-caption text-ink-muted mt-1">
+              {book.readChapterCount} of {book.chapterCount} read
+            </p>
+          )}
         </div>
 
         {/* Footer meta */}
