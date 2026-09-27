@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+﻿import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Search, AlertCircle, RotateCw, CheckSquare, Plus } from 'lucide-react';
 import { useBooks } from '../hooks/useBooks';
@@ -7,40 +7,8 @@ import { FilterChips, FilterOption } from '../components/library/FilterChips';
 import { SearchField } from '../components/shared/SearchField';
 import { EmptyState } from '../components/shared/EmptyState';
 import { useLibraryStore } from '../store/useLibraryStore';
-
-const STORAGE_KEY = 'library-filters-v1';
-
-interface StoredFilters {
-  filterType?: string;
-  selectedTags?: string[];
-  searchQuery?: string;
-}
-
-function getStoredFilters(): StoredFilters {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null) return {};
-    return {
-      filterType: typeof parsed.filterType === 'string' ? parsed.filterType : undefined,
-      selectedTags: Array.isArray(parsed.selectedTags)
-        ? parsed.selectedTags.filter((t: unknown): t is string => typeof t === 'string')
-        : undefined,
-      searchQuery: typeof parsed.searchQuery === 'string' ? parsed.searchQuery : undefined,
-    };
-  } catch {
-    return {};
-  }
-}
-
-function persistFilters(filters: { filterType: string; selectedTags: string[]; searchQuery: string }) {
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
-  } catch {
-    // silent fallback
-  }
-}
+import { ExpandableTagPanel } from '../components/library/ExpandableTagPanel';
+import { getStoredFilters, persistFilters } from '../lib/libraryFilters';
 
 export const LibraryRoute: React.FC = () => {
   const navigate = useNavigate();
@@ -233,49 +201,20 @@ export const LibraryRoute: React.FC = () => {
 
           {/* Tags Filter Row (only rendered when tags exist in collection) */}
           {topTags.length > 0 && (
-            <div
-              role="toolbar"
-              aria-label="Filter by tags"
-              className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none min-h-[32px]"
-            >
-              <span className="text-caption text-ink-muted font-medium mr-1 shrink-0 select-none">
-                Tags:
-              </span>
-              {topTags.map(({ tag, count }) => {
-                const isSelected = selectedTags.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    aria-pressed={isSelected}
-                    onClick={() =>
-                      setSelectedTags((prev) =>
-                        prev.includes(tag)
-                          ? prev.filter((t) => t !== tag)
-                          : [...prev, tag]
-                      )
-                    }
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-caption font-medium transition-all whitespace-nowrap select-none border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                      isSelected
-                        ? 'bg-accent-wash text-accent-ink border-accent/40 shadow-xs'
-                        : 'bg-subtle text-ink-muted border-transparent hover:bg-card hover:text-ink hover:border-line'
-                    }`}
-                  >
-                    <span>{tag}</span>
-                    <span className="text-[10px] opacity-70">({count})</span>
-                  </button>
-                );
-              })}
-              {selectedTags.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedTags([])}
-                  className="text-caption text-ink-muted hover:text-ink underline ml-1.5 shrink-0 select-none"
-                >
-                  Clear tags
-                </button>
-              )}
-            </div>
+            <ExpandableTagPanel
+              tags={topTags}
+              selectedTags={selectedTags}
+              onToggle={(tag) =>
+                setSelectedTags((prev) =>
+                  prev.includes(tag)
+                    ? prev.filter((t) => t !== tag)
+                    : [...prev, tag]
+                )
+              }
+              onClear={selectedTags.length > 0 ? () => setSelectedTags([]) : undefined}
+              interactive={true}
+              className="pt-1"
+            />
           )}
         </div>
       )}

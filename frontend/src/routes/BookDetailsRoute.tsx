@@ -17,6 +17,7 @@ import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
 import { useModal } from '../store/useModalStore';
 import { getCoverTheme, formatReadingTime } from '../components/library/BookCard';
+import { ExpandableTagPanel } from '../components/library/ExpandableTagPanel';
 import { EmptyState } from '../components/shared/EmptyState';
 
 function formatAiProvider(raw?: string): string | null {
@@ -238,7 +239,7 @@ export default function BookDetailsRoute() {
       </div>
 
       {/* ── HERO ── */}
-      <section aria-labelledby="book-hero-title" className="flex flex-col sm:flex-row gap-6 items-start">
+      <section aria-labelledby="book-hero-title" className="rounded-lg border border-line bg-card p-6 shadow-sm flex flex-col sm:flex-row gap-6 items-start">
         {/* Cover Block (3:4 aspect, size ~140x187) */}
         <div
           className="relative w-[140px] h-[187px] rounded-md overflow-hidden shadow-inner flex flex-col justify-between p-3 text-white select-none shrink-0"
@@ -288,34 +289,24 @@ export default function BookDetailsRoute() {
 
           {/* Classification Chips Row */}
           {book.classification && (
-            <div className="flex flex-wrap items-center gap-1.5 pt-0.5" aria-label="Book classification">
-              {book.classification.contentType && (
-                <span className="text-micro uppercase font-semibold px-2 py-0.5 rounded bg-brand/10 text-brand tracking-wider select-none">
-                  {book.classification.contentType}
-                </span>
-              )}
-              {book.classification.readingLevel && (
-                <span className="text-caption font-medium px-2 py-0.5 rounded bg-subtle text-ink-muted capitalize select-none">
-                  {book.classification.readingLevel}
-                </span>
-              )}
+            <div className="space-y-2 pt-0.5">
+              <div className="flex flex-wrap items-center gap-2" aria-label="Book classification">
+                {book.classification.contentType && (
+                  <span className="text-micro uppercase font-semibold px-2.5 py-0.5 rounded-md bg-brand/10 text-brand tracking-wider select-none">
+                    {book.classification.contentType}
+                  </span>
+                )}
+                {book.classification.readingLevel && (
+                  <span className="text-caption font-medium px-2.5 py-0.5 rounded-md bg-subtle text-ink-muted capitalize select-none">
+                    {book.classification.readingLevel}
+                  </span>
+                )}
+              </div>
               {Array.isArray(book.classification.tags) && book.classification.tags.length > 0 && (
-                <>
-                  <span className="text-ink-muted/40 text-caption select-none">·</span>
-                  {book.classification.tags.slice(0, 5).map((tag) => (
-                    <span
-                      key={tag}
-                      className="text-caption font-medium px-2 py-0.5 rounded bg-accent-wash text-accent-ink select-none"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                  {book.classification.tags.length > 5 && (
-                    <span className="text-caption text-ink-muted select-none">
-                      +{book.classification.tags.length - 5} more
-                    </span>
-                  )}
-                </>
+                <ExpandableTagPanel
+                  tags={book.classification.tags}
+                  interactive={false}
+                />
               )}
             </div>
           )}
@@ -352,10 +343,10 @@ export default function BookDetailsRoute() {
 
       {/* ── SYNOPSIS PANEL ── */}
       <section aria-labelledby="synopsis-heading">
-        <div className="rounded-md border border-line bg-card p-5 transition-colors">
+        <div className="rounded-lg border border-line bg-card p-6 shadow-xs hover:border-line-strong transition-colors">
           {synopsis && synopsis.content ? (
             <div className="space-y-2">
-              <span className="text-micro font-bold tracking-wider uppercase text-faint select-none">
+              <span id="synopsis-heading" className="text-micro font-semibold tracking-wider uppercase text-accent-ink select-none">
                 DERIVED · SYNOPSIS
               </span>
               {synopsis.fellBack === true && (
@@ -408,9 +399,9 @@ export default function BookDetailsRoute() {
 
         return (
           <section aria-labelledby="bibliographic-heading">
-            <div className="rounded-md border border-line bg-card p-5 transition-colors space-y-2.5">
+            <div className="rounded-lg border border-line bg-card p-6 shadow-xs hover:border-line-strong transition-colors space-y-3">
               <div className="flex items-center justify-between">
-                <span id="bibliographic-heading" className="text-micro font-bold tracking-wider uppercase text-faint select-none">
+                <span id="bibliographic-heading" className="text-micro font-semibold tracking-wider uppercase text-ink-muted select-none">
                   SOURCE · BIBLIOGRAPHY
                 </span>
                 {biblio.fell_back && (
@@ -560,7 +551,7 @@ export default function BookDetailsRoute() {
           </div>
 
           {/* Indexing status row */}
-          <div className="p-3.5 rounded-md border border-line bg-card space-y-1">
+          <div className="p-4 rounded-lg border border-line bg-card shadow-xs hover:border-line-strong transition-colors space-y-1.5">
             <div className="flex items-center gap-2 text-ui-sm">
               {isSemanticLoading ? (
                 <>
