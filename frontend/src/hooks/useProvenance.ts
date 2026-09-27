@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+﻿import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { ProvenanceData } from '../types/domain';
 
@@ -7,7 +7,7 @@ export function useProvenance(representationId: string | null | undefined, expan
     queryKey: ['provenance', representationId, expand],
     queryFn: async () => {
       if (!representationId) return null;
-      const url = `/api/representations/${representationId}/provenance${expand ? `?expand=${expand}` : ''}`;
+      const url = `/api/smart-chapters/${representationId}/provenance${expand ? `?expand=${expand}` : ''}`;
       return apiClient<ProvenanceData>(url);
     },
     enabled: Boolean(representationId),

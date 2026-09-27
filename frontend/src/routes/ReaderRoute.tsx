@@ -1,12 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+﻿import { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   AlertCircle,
   RotateCw,
   BookOpen,
   ArrowLeft,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
-import { useChapters, useChapter } from '../hooks/useChapters';
+import { useSmartChapters, useSmartChapter } from '../hooks/useSmartChapters';
 import {
   useEditorial,
   useEditorialProgress,
@@ -19,6 +21,7 @@ import { ChapterNav } from '../components/reader/ChapterNav';
 import { ScrollProgress } from '../components/reader/ScrollProgress';
 import { EmptyState } from '../components/shared/EmptyState';
 import { useScrollDirection } from '../hooks/useScrollDirection';
+import { Chapter, ChapterRepresentation, CanonicalBlock } from '../types/domain';
 
 function ReaderSkeleton() {
   return (
@@ -38,9 +41,106 @@ function ReaderSkeleton() {
         <div className="h-4 bg-subtle rounded w-full" />
         <div className="h-4 bg-subtle rounded w-3/4" />
       </div>
-      <div className="space-y-4">
-        <div className="h-4 bg-subtle rounded w-full" />
-        <div className="h-4 bg-subtle rounded w-5/6" />
+    </div>
+  );
+}
+
+/** Status view for Smart chapters that are not yet generated */
+function SmartChapterStatus({
+  status,
+  title,
+  sequence,
+  bookId,
+  onGenerate,
+  busy,
+}: {
+  status: 'pending' | 'generating' | 'failed';
+  title: string | null;
+  sequence: number;
+  bookId: string;
+  onGenerate: (count: number) => void;
+  busy: boolean;
+}) {
+  if (status === 'generating' || busy) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 px-4 text-center space-y-4">
+        <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
+        <h2 className="text-h2 font-semibold text-ink">
+          {title || `Chapter ${sequence}`}
+        </h2>
+        <p className="text-body text-ink-muted">
+          Synthesizing Smart chapter content with citations and provenance…
+        </p>
+        <Link
+          to={`/book/${bookId}`}
+          className="inline-flex items-center gap-1.5 text-caption text-accent-ink hover:underline pt-2"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Book Details</span>
+        </Link>
+      </div>
+    );
+  }
+
+  if (status === 'failed') {
+    return (
+      <div className="max-w-2xl mx-auto py-16 px-4 text-center space-y-4">
+        <AlertCircle className="w-10 h-10 text-err mx-auto" />
+        <h2 className="text-h2 font-semibold text-ink">
+          {title || `Chapter ${sequence}`}
+        </h2>
+        <p className="text-body text-ink-muted">
+          Generation failed for this chapter. You can retry generating it.
+        </p>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onGenerate(1)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+            <span>Retry Synthesis</span>
+          </button>
+          <Link
+            to={`/book/${bookId}`}
+            className="inline-flex items-center gap-1.5 text-caption text-ink-muted hover:text-ink"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Book Details</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // pending
+  return (
+    <div className="max-w-2xl mx-auto py-16 px-4 text-center space-y-4">
+      <Clock className="w-10 h-10 text-ink-muted mx-auto opacity-60" />
+      <h2 className="text-h2 font-semibold text-ink">
+        {title || `Chapter ${sequence}`}
+      </h2>
+      <p className="text-body text-ink-muted">
+        This Smart chapter is queued and has not been synthesized yet.
+      </p>
+      <div className="flex items-center justify-center gap-3 pt-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onGenerate(1)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Synthesize this chapter</span>
+        </button>
+        <Link
+          to={`/book/${bookId}`}
+          className="inline-flex items-center gap-1.5 text-caption text-ink-muted hover:text-ink"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Book Details</span>
+        </Link>
       </div>
     </div>
   );
@@ -51,25 +151,27 @@ export default function ReaderRoute() {
     bookId: string;
     chapterId: string;
   }>();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  // Smart chapters for the book
   const {
-    chapters,
-    isLoading: isChaptersLoading,
-    isError: isChaptersError,
-    error: chaptersError,
-    refetch: refetchChapters,
-  } = useChapters(bookId);
+    chapters: smartChapters,
 
+
+    isLoading: isSmartListLoading,
+    isError: isSmartListError,
+    error: smartListError,
+    refetch: refetchSmartList,
+  } = useSmartChapters(bookId);
+
+  // Active smart chapter content — chapterId is the smart chapter ID
   const {
-    chapter,
-    representations,
-    isLoading: isChapterLoading,
-    isError: isChapterError,
-    error: chapterError,
-    refetch: refetchChapter,
-  } = useChapter(chapterId);
+    smartChapter,
+    isLoading: isSmartChapterLoading,
+    isError: isSmartChapterError,
+    error: smartChapterError,
+    refetch: refetchSmartChapter,
+  } = useSmartChapter(chapterId);
 
   const {
     outline,
@@ -77,43 +179,6 @@ export default function ReaderRoute() {
     synthesizedCount,
     refetch: refetchEditorial,
   } = useEditorial(bookId);
-
-  const fromRep = searchParams.get('fromRep');
-
-  const activeRepresentation = useMemo(() => {
-    if (!representations || representations.length === 0) return null;
-
-    // 1. If explicit fromRep requested, match it
-    if (fromRep) {
-      const match = representations.find((r) => r.id === fromRep);
-      if (match) return match;
-    }
-
-    // 2. If editorial representations exist and we have an outline,
-    // order representations by the outline's chapter sequence
-    if (outline?.chapters && outline.chapters.length > 0) {
-      const orderMap = new Map<string, number>();
-      outline.chapters.forEach((ch, idx) => {
-        orderMap.set(ch.chapterId, idx);
-      });
-      const sorted = [...representations].sort((a, b) => {
-        const orderA = orderMap.get(a.chapter_id || '') ?? 9999;
-        const orderB = orderMap.get(b.chapter_id || '') ?? 9999;
-        return orderA - orderB;
-      });
-      const editorial = sorted.find((r) => r.type === 'EDITORIAL_SYNTHESIS');
-      const summary = sorted.find((r) => r.type === 'SUMMARY');
-      return editorial ?? summary ?? sorted[0];
-    }
-
-    // 3. Fallback: order by created_at ascending (first generated editorial chapter first)
-    const sorted = [...representations].sort((a, b) => {
-      return (a.created_at || '').localeCompare(b.created_at || '');
-    });
-    const editorial = sorted.find((r) => r.type === 'EDITORIAL_SYNTHESIS');
-    const summary = sorted.find((r) => r.type === 'SUMMARY');
-    return editorial ?? summary ?? sorted[0];
-  }, [representations, fromRep, outline]);
 
   const fontSize = useReaderStore((state) => state.fontSize);
   const align = useReaderStore((state) => state.align);
@@ -140,7 +205,6 @@ export default function ReaderRoute() {
   }, [chapterId]);
 
   const handleNavigateToSource = (chunkId: string) => {
-    // Preserve current scroll position in Smart mode
     const scrollKey = `smart_scroll_${chapterId}`;
     sessionStorage.setItem(scrollKey, String(window.scrollY));
 
@@ -173,12 +237,6 @@ export default function ReaderRoute() {
 
   const remaining = Math.max(0, (outlineChapterCount ?? 0) - (synthesizedCount ?? 0));
 
-  const currentChapterHasRepresentation = Boolean(activeRepresentation);
-
-  const reallyRemaining = currentChapterHasRepresentation
-    ? remaining
-    : Math.max(remaining, 1); // ensure the buttons render
-
   const handleBeginSmartReading = async () => {
     if (generating) return;
     try {
@@ -190,7 +248,8 @@ export default function ReaderRoute() {
     } finally {
       setGenerating(false);
       setBatchTotal(0);
-      refetchChapter();
+      refetchSmartChapter();
+      refetchSmartList();
       refetchEditorial();
     }
   };
@@ -206,19 +265,21 @@ export default function ReaderRoute() {
     } finally {
       setGenerating(false);
       setBatchTotal(0);
-      refetchChapter();
+      refetchSmartChapter();
+      refetchSmartList();
       refetchEditorial();
     }
   };
 
-  const isLoading = isChaptersLoading || isChapterLoading;
-  const isError = isChaptersError || isChapterError;
-  const error = chapterError || chaptersError;
+  const isLoading = isSmartListLoading || isSmartChapterLoading;
+  const isError = isSmartListError || isSmartChapterError;
+  const error = smartChapterError || smartListError;
 
   const handleNavigate = (newChapterId: string) => {
     navigate(`/read/${bookId}/${newChapterId}`);
   };
 
+  // Keyboard navigation across smart chapters
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
@@ -233,16 +294,16 @@ export default function ReaderRoute() {
       }
 
       if (e.key === 'ArrowLeft') {
-        const idx = chapters.findIndex((c) => c.id === chapterId);
+        const idx = smartChapters.findIndex((c) => c.id === chapterId);
         if (idx > 0) {
           e.preventDefault();
-          handleNavigate(chapters[idx - 1].id);
+          handleNavigate(smartChapters[idx - 1].id);
         }
       } else if (e.key === 'ArrowRight') {
-        const idx = chapters.findIndex((c) => c.id === chapterId);
-        if (idx !== -1 && idx < chapters.length - 1) {
+        const idx = smartChapters.findIndex((c) => c.id === chapterId);
+        if (idx !== -1 && idx < smartChapters.length - 1) {
           e.preventDefault();
-          handleNavigate(chapters[idx + 1].id);
+          handleNavigate(smartChapters[idx + 1].id);
         }
       }
     }
@@ -251,7 +312,7 @@ export default function ReaderRoute() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [chapters, chapterId, bookId]);
+  }, [smartChapters, chapterId, bookId]);
 
   if (isError) {
     return (
@@ -264,8 +325,8 @@ export default function ReaderRoute() {
         <button
           type="button"
           onClick={() => {
-            refetchChapters();
-            refetchChapter();
+            refetchSmartList();
+            refetchSmartChapter();
           }}
           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-md bg-brand text-white hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
@@ -276,12 +337,12 @@ export default function ReaderRoute() {
     );
   }
 
-  if (!isLoading && chapters.length === 0) {
+  if (!isLoading && smartChapters.length === 0) {
     return (
       <EmptyState
         icon={BookOpen}
-        title="No chapters available"
-        body="This book has no chapters or content available for reading."
+        title="No smart chapters available"
+        body="This book has no Smart chapters generated yet."
         action={{
           label: 'Back to Book Details',
           onClick: () => navigate(`/book/${bookId}`),
@@ -289,6 +350,45 @@ export default function ReaderRoute() {
       />
     );
   }
+
+  const smartStatus = smartChapter?.status;
+  const isGenerated = smartStatus === 'generated';
+
+  // Canonical blocks from metadata
+  const canonicalBlocksFromMeta = (
+    (smartChapter?.metadata as Record<string, unknown> | null)?.canonicalBlocks as CanonicalBlock[] | undefined
+  ) ?? [];
+
+  // Adapt smart chapter into Chapter and ChapterRepresentation for ReaderView
+  const chapterForReader: Chapter | null = smartChapter
+    ? {
+        id: smartChapter.id,
+        number: smartChapter.sequence,
+        title: smartChapter.title || `Chapter ${smartChapter.sequence}`,
+        wordCount: smartChapter.plannedWordCount || 0,
+        status: 'read',
+        bookId: smartChapter.bookId,
+        content: smartChapter.content || '',
+      }
+    : null;
+
+  const repForReader: ChapterRepresentation | null = smartChapter
+    ? {
+        id: smartChapter.id,
+        book_id: smartChapter.bookId,
+        type: 'SMART_CHAPTER',
+        content: smartChapter.content || '',
+        metadata: {
+          ...(smartChapter.metadata ?? {}),
+          canonicalBlocks: canonicalBlocksFromMeta,
+        },
+        created_at: smartChapter.createdAt,
+      }
+    : null;
+
+  const reallyRemaining = isGenerated
+    ? remaining
+    : Math.max(remaining, 1);
 
   return (
     <div className="relative min-h-screen flex flex-col justify-between">
@@ -309,18 +409,27 @@ export default function ReaderRoute() {
           </button>
         </div>
 
-        {/* Content Area: Skeleton while loading, or ReaderView */}
-        {isLoading || !chapter ? (
+        {/* Content Area */}
+        {isLoading || !chapterForReader ? (
           <ReaderSkeleton />
+        ) : !isGenerated && smartStatus ? (
+          <SmartChapterStatus
+            status={smartStatus as 'pending' | 'generating' | 'failed'}
+            title={smartChapter.title}
+            sequence={smartChapter.sequence}
+            bookId={bookId}
+            onGenerate={handleGenerate}
+            busy={generating}
+          />
         ) : (
           <ReaderView
-            chapter={chapter}
-            representation={activeRepresentation}
+            chapter={chapterForReader}
+            representation={repForReader}
             mode="smart"
             fontSize={fontSize}
             align={align}
             onNavigateToSource={handleNavigateToSource}
-            provenanceRepId={fromRep || activeRepresentation?.id || null}
+            provenanceRepId={smartChapter?.id ?? null}
             smartState={{
               hasOutline,
               remaining: reallyRemaining,
@@ -340,14 +449,19 @@ export default function ReaderRoute() {
       </div>
 
       {/* Chapter Navigation Bar */}
-      {chapters.length > 0 && (
+      {smartChapters.length > 0 && (
         <div
           className={`sticky bottom-0 z-20 w-full transition-transform duration-200 ease-out motion-reduce:transition-none ${
             navVisible ? 'translate-y-0' : 'translate-y-full'
           }`}
         >
           <ChapterNav
-            chapters={chapters}
+            chapters={smartChapters.map((sc) => ({
+              id: sc.id,
+              number: sc.sequence,
+              title: sc.title || `Chapter ${sc.sequence}`,
+              status: sc.status,
+            }))}
             currentId={chapterId}
             onNavigate={handleNavigate}
           />
@@ -356,3 +470,4 @@ export default function ReaderRoute() {
     </div>
   );
 }
+

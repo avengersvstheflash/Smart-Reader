@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+﻿import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, ApiError } from '../api/client';
 
 export interface EditorialChapter {
@@ -132,6 +132,8 @@ export function useGenerateOutline(bookId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['editorial', bookId] });
+      queryClient.invalidateQueries({ queryKey: ['smart-chapters', 'book', bookId] });
+      queryClient.invalidateQueries({ queryKey: ['smart-chapters'] });
     },
   });
 }
@@ -155,9 +157,9 @@ export function useSynthesizeNext(bookId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['editorial', bookId] });
+      queryClient.invalidateQueries({ queryKey: ['smart-chapters'] });
       queryClient.invalidateQueries({ queryKey: ['chapter'] });
       queryClient.invalidateQueries({ queryKey: ['editorial-progress', bookId] });
     },
   });
 }
-

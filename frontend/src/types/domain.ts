@@ -1,4 +1,4 @@
-export type Theme = 'default' | 'warm' | 'dark' | 'glass';
+﻿export type Theme = 'default' | 'warm' | 'dark' | 'glass';
 export type RepMode = 'original' | 'smart';
 export type JobState = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
@@ -354,7 +354,7 @@ export interface ChapterRepresentation {
   chapterId?: string;
   book_id: string;
   bookId?: string;
-  type: string;             // 'SUMMARY' | 'EDITORIAL_SYNTHESIS' | ...
+  type: string;             // 'SUMMARY' | 'BOOK_SUMMARY' | ...
   content: string;
   metadata_json?: string;   // raw JSON from DB
   metadata?: RepresentationMetadata;  // parsed if available
@@ -475,12 +475,16 @@ export interface ProvenanceData {
 
 export interface SmartChapter {
   id: string;
-  outlineId: string;
-  title: string;
-  order: number;
-  status: 'not-generated' | 'queued' | 'generating' | 'ready' | 'failed';
-  progress?: number;
-  representationId?: string;
+  bookId: string;
+  sequence: number;
+  title: string | null;
+  status: 'pending' | 'generating' | 'generated' | 'failed';
+  plannedWordCount: number | null;
+  content: string | null;
+  synthesisType: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BookSummary {
@@ -498,3 +502,4 @@ export interface SemanticStatus {
   dimensions?: number;
   status?: string;
 }
+

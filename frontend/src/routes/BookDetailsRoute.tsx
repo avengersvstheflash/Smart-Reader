@@ -1,10 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+﻿import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   BookOpen,
-  Circle,
-  CheckCircle2,
   FileText,
   AlertCircle,
   RotateCw,
@@ -15,10 +12,10 @@ import {
 } from 'lucide-react';
 import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
+import { useSmartChapters } from '../hooks/useSmartChapters';
 import { useModal } from '../store/useModalStore';
-import { getCoverTheme, formatReadingTime } from '../components/library/BookCard';
+import { getCoverTheme } from '../components/library/BookCard';
 import { ExpandableTagPanel } from '../components/library/ExpandableTagPanel';
-import { EmptyState } from '../components/shared/EmptyState';
 
 function formatAiProvider(raw?: string): string | null {
   if (!raw) return null;
@@ -95,9 +92,16 @@ export default function BookDetailsRoute() {
 
   const {
     chapters,
-    isLoading: isChaptersLoading,
     refetch: refetchChapters,
   } = useChapters(bookId);
+
+  const {
+    chapters: smartChapters,
+    total: smartTotal,
+    generated: smartGenerated,
+    isLoading: isSmartChaptersLoading,
+    refetch: refetchSmartChapters,
+  } = useSmartChapters(bookId);
 
   const {
     synopsis,
@@ -111,14 +115,6 @@ export default function BookDetailsRoute() {
   } = useSemanticStatus(bookId);
 
   const providerLabel = formatAiProvider(book?.aiProvider);
-
-  // Keyboard navigation for roving tabindex in chapter list
-  const [focusedChapterIndex, setFocusedChapterIndex] = useState(0);
-  const chapterRowRefs = useRef<(HTMLAnchorElement | null)[]>([]);
-
-  useEffect(() => {
-    chapterRowRefs.current = chapterRowRefs.current.slice(0, chapters.length);
-  }, [chapters]);
 
   // Loading state
   if (isBookLoading) {
@@ -139,6 +135,7 @@ export default function BookDetailsRoute() {
           onClick={() => {
             refetchBook();
             refetchChapters();
+            refetchSmartChapters();
             refetchSynopsis();
             refetchSemantic();
           }}
@@ -184,32 +181,10 @@ export default function BookDetailsRoute() {
       ? `~${totalMinutes}m`
       : `~${Math.max(1, Math.round(wordCount / 12000))}h`;
 
-  const firstChapterId = chapters.length > 0 ? chapters[0].id : '';
-  const hasChapters = chapters.length > 0;
-
-  // Roving tabindex key handlers
-  const handleChapterKeyDown = (e: React.KeyboardEvent, index: number) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      const next = Math.min(chapters.length - 1, index + 1);
-      setFocusedChapterIndex(next);
-      chapterRowRefs.current[next]?.focus();
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      const prev = Math.max(0, index - 1);
-      setFocusedChapterIndex(prev);
-      chapterRowRefs.current[prev]?.focus();
-    } else if (e.key === 'Home') {
-      e.preventDefault();
-      setFocusedChapterIndex(0);
-      chapterRowRefs.current[0]?.focus();
-    } else if (e.key === 'End') {
-      e.preventDefault();
-      const last = chapters.length - 1;
-      setFocusedChapterIndex(last);
-      chapterRowRefs.current[last]?.focus();
-    }
-  };
+  // Navigate to first generated Smart chapter
+  const firstGeneratedSmartChapter = smartChapters.find((sc) => sc.status === 'generated');
+  const firstSmartChapterId = firstGeneratedSmartChapter?.id ?? '';
+  const hasSmartChapters = Boolean(firstSmartChapterId);
 
   return (
     <div className="space-y-8 pb-16">
@@ -319,9 +294,9 @@ export default function BookDetailsRoute() {
           <div className="flex flex-wrap items-center gap-3 pt-4">
             <button
               type="button"
-              disabled={!hasChapters}
-              title={!hasChapters ? 'No chapters' : 'Read smart synthesis'}
-              onClick={() => navigate(`/read/${book.id}/${firstChapterId}`)}
+              disabled={!hasSmartChapters}
+              title={!hasSmartChapters ? 'No Smart chapters generated yet' : 'Read first Smart chapter'}
+              onClick={() => navigate(`/read/${book.id}/${firstSmartChapterId}`)}
               className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <span>▶</span>
@@ -450,97 +425,95 @@ export default function BookDetailsRoute() {
 
       {/* ── TWO-COLUMN BODY (65/35 split at lg+; stacked on mobile) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* LEFT COLUMN: CHAPTERS (65% / col-span-8) */}
+        {/* LEFT COLUMN: SMART CHAPTERS (65% / col-span-8) */}
         <div className="lg:col-span-8 space-y-4">
           <div className="flex items-center justify-between border-b border-line/60 pb-2">
-            <h2 className="text-h2 font-semibold text-ink">Chapters</h2>
+            <h2 className="text-h2 font-semibold text-ink">Smart Chapters</h2>
             <span className="text-caption text-ink-faint">
-              {chapters.length} total
+              {smartGenerated} of {smartTotal} generated
             </span>
           </div>
 
-          {isChaptersLoading ? (
+          {isSmartChaptersLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="h-11 bg-subtle rounded animate-pulse" />
               ))}
             </div>
-          ) : chapters.length === 0 ? (
-            <div className="py-8">
-              <EmptyState
-                icon={FileText}
-                title="No chapters detected"
-                body="Add a chapter manually to begin reading."
-                action={{
-                  label: 'Back to Library',
-                  onClick: () => navigate('/'),
-                }}
-              />
+          ) : smartChapters.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-caption text-ink-muted">No Smart chapters yet.</p>
+              <p className="text-micro text-ink-faint mt-1">They will appear here once synthesis begins.</p>
             </div>
           ) : (
-            <div className="space-y-1">
-              <ol role="list" className="divide-y divide-line/40">
-                {chapters.map((ch, idx) => {
-                  const readingTime = formatReadingTime(ch.wordCount, 1);
-                  const isRead = ch.status === 'read';
-                  const isFocused = focusedChapterIndex === idx;
+            <ol role="list" className="divide-y divide-line/40">
+              {smartChapters.map((sc) => {
+                const isGenerated = sc.status === 'generated';
+                const isGenerating = sc.status === 'generating';
+                const isPending = sc.status === 'pending';
+                const isFailed = sc.status === 'failed';
 
-                  return (
-                    <li key={ch.id}>
+                const badge = isGenerating ? (
+                  <span className="text-micro font-semibold px-2 py-0.5 rounded-full bg-accent/10 text-accent-ink animate-pulse">
+                    Generating…
+                  </span>
+                ) : isPending ? (
+                  <span className="text-micro font-medium px-2 py-0.5 rounded-full bg-subtle text-ink-muted">
+                    Queued
+                  </span>
+                ) : isFailed ? (
+                  <span className="text-micro font-semibold px-2 py-0.5 rounded-full bg-err/10 text-err">
+                    Failed
+                  </span>
+                ) : null;
+
+                const rowContent = (
+                  <>
+                    <div className="flex items-center gap-3 min-w-0 pr-4">
+                      <span className="font-mono text-caption text-faint w-7 text-right shrink-0">
+                        {sc.sequence}.
+                      </span>
+                      <span
+                        className={`text-ui-sm truncate font-medium ${
+                          isGenerated
+                            ? 'text-ink group-hover:text-accent-ink transition-colors'
+                            : 'text-ink-muted'
+                        }`}
+                      >
+                        {sc.title ?? `Chapter ${sc.sequence}`}
+                      </span>
+                    </div>
+                    {badge && <div className="shrink-0">{badge}</div>}
+                  </>
+                );
+
+                return (
+                  <li key={sc.id}>
+                    {isGenerated ? (
                       <Link
-                        ref={(el) => (chapterRowRefs.current[idx] = el)}
-                        to={`/read/${book.id}/${ch.id}`}
-                        tabIndex={isFocused ? 0 : -1}
-                        onKeyDown={(e) => handleChapterKeyDown(e, idx)}
-                        onFocus={() => setFocusedChapterIndex(idx)}
+                        to={`/read/${book.id}/${sc.id}`}
                         className="group flex items-center justify-between py-2.5 px-3 rounded hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       >
-                        <div className="flex items-center gap-3 min-w-0 pr-4">
-                          <span className="font-mono text-caption text-faint w-7 text-right shrink-0">
-                            {ch.number}.
-                          </span>
-                          <span className="text-ui-sm text-ink truncate group-hover:text-accent-ink transition-colors font-medium">
-                            {ch.title}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-3 shrink-0 text-caption text-ink-muted">
-                          <span>{readingTime}</span>
-                          {isRead ? (
-                            <CheckCircle2
-                              className="w-3.5 h-3.5 text-ok stroke-[2]"
-                              aria-label="Read"
-                            />
-                          ) : (
-                            <Circle
-                              className="w-3.5 h-3.5 text-ink-faint stroke-[1.5]"
-                              aria-label="Unread"
-                            />
-                          )}
-                        </div>
+                        {rowContent}
                       </Link>
-                    </li>
-                  );
-                })}
-              </ol>
-
-              {/* Ghost Add Chapter row */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    open('addChapter', {
-                      bookId: book.id,
-                      nextNumber: chapters.length + 1,
-                    })
-                  }
-                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded border border-dashed border-line text-caption text-ink hover:bg-subtle hover:border-line-strong transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Add chapter</span>
-                </button>
-              </div>
-            </div>
+                    ) : (
+                      <div
+                        className="flex items-center justify-between py-2.5 px-3 rounded opacity-60 cursor-not-allowed"
+                        title={
+                          isPending
+                            ? 'Not yet generated'
+                            : isGenerating
+                            ? 'Generating…'
+                            : 'Generation failed'
+                        }
+                      >
+                        {rowContent}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
           )}
         </div>
 

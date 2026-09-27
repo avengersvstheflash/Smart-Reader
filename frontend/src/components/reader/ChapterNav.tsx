@@ -1,13 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Chapter } from '../../types/domain';
+
+export interface ChapterNavItem {
+  id: string;
+  number: number;
+  title: string;
+  status?: string;
+}
 
 export function ChapterNav({
   chapters,
   currentId,
   onNavigate,
 }: {
-  chapters: Pick<Chapter, 'id' | 'number' | 'title'>[];
+  chapters: ChapterNavItem[];
   currentId: string;
   onNavigate: (chapterId: string) => void;
 }) {
@@ -156,6 +162,7 @@ export function ChapterNav({
               {chapters.map((ch, idx) => {
                 const isActive = ch.id === currentId;
                 const isHighlighted = highlightedIndex === idx;
+                const isNonGenerated = ch.status && ch.status !== 'generated';
 
                 return (
                   <li key={ch.id} role="presentation">
@@ -172,17 +179,26 @@ export function ChapterNav({
                         isActive
                           ? 'bg-subtle text-ink font-semibold border-l-2 border-accent'
                           : 'text-ink-muted hover:text-ink hover:bg-subtle/50'
-                      } ${isHighlighted ? 'ring-1 ring-accent' : ''}`}
+                      } ${isNonGenerated ? 'opacity-60' : ''} ${isHighlighted ? 'ring-1 ring-accent' : ''}`}
                       onClick={() => {
                         onNavigate(ch.id);
                         setIsOpen(false);
                         triggerRef.current?.focus();
                       }}
                     >
-                      <span className="text-caption text-faint mr-2 font-mono">
-                        {ch.number}.
-                      </span>
-                      <span className="truncate">{ch.title}</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center min-w-0 pr-2">
+                          <span className="text-caption text-faint mr-2 font-mono">
+                            {ch.number}.
+                          </span>
+                          <span className="truncate">{ch.title}</span>
+                        </div>
+                        {isNonGenerated && (
+                          <span className="text-micro px-1.5 py-0.5 rounded bg-subtle text-ink-muted shrink-0 capitalize">
+                            {ch.status}
+                          </span>
+                        )}
+                      </div>
                     </button>
                   </li>
                 );
