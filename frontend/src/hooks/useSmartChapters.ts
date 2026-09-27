@@ -126,7 +126,7 @@ export function useUpdateSmartChapterProgress(bookId?: string) {
   return useMutation<
     { success: boolean; id: string; status: string; read_at: string | null; opened_at: string | null },
     Error,
-    { smartChapterId: string; status: 'opened' | 'read'; source?: 'scroll' | 'button' }
+    { smartChapterId: string; status: 'opened' | 'read' | 'unread'; source?: 'scroll' | 'button' }
   >({
     mutationFn: async ({ smartChapterId, status, source }) => {
       return apiClient(`/api/smart-chapters/${smartChapterId}/progress`, {
@@ -138,11 +138,49 @@ export function useUpdateSmartChapterProgress(bookId?: string) {
       queryClient.invalidateQueries({ queryKey: ['smart-chapters', variables.smartChapterId] });
       if (bookId) {
         queryClient.invalidateQueries({ queryKey: ['smart-chapters', 'book', bookId] });
+        queryClient.invalidateQueries({ queryKey: ['resume-target', bookId] });
       } else {
         queryClient.invalidateQueries({ queryKey: ['smart-chapters'] });
+        queryClient.invalidateQueries({ queryKey: ['resume-target'] });
       }
       queryClient.invalidateQueries({ queryKey: ['books'] });
       queryClient.invalidateQueries({ queryKey: ['book'] });
     },
   });
+}
+
+export interface ResumeTargetResponse {
+  smartChapterId: string | null;
+  sequence?: number;
+  title?: string | null;
+  timestamp?: string | null;
+}
+
+export function useResumeTarget(bookId: string | null | undefined) {
+  const { data, isLoading, isError, error, refetch } = useQuery<ResumeTargetResponse | null, Error>({
+    queryKey: ['resume-target', bookId],
+    queryFn: async () => {
+      if (!bookId) return null;
+      try {
+        return await apiClient<ResumeTargetResponse>(`/api/books/${bookId}/resume-target`);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) return null;
+        throw err;
+      }
+    },
+    enabled: Boolean(bookId),
+    staleTime: 10 * 1000,
+  });
+
+  return {
+    resumeTarget: data ?? null,
+    smartChapterId: data?.smartChapterId ?? null,
+    sequence: data?.sequence,
+    title: data?.title,
+    timestamp: data?.timestamp,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  };
 }

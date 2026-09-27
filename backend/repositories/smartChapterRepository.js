@@ -193,6 +193,22 @@ class SmartChapterRepository {
     return this.getById(id);
   }
 
+  markUnread(id) {
+    const db = getDatabase();
+    const existing = db.prepare('SELECT id FROM smart_chapters WHERE id = ?').get(id);
+    if (!existing) return null;
+
+    db.prepare(`
+      UPDATE smart_chapters
+      SET read_at = NULL,
+          read_source = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(id);
+
+    return this.getById(id);
+  }
+
   deleteByBookId(bookId) {
     const db = getDatabase();
     const res = db.prepare('DELETE FROM smart_chapters WHERE book_id = ?').run(bookId);

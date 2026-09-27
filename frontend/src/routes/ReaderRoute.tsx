@@ -470,31 +470,34 @@ export default function ReaderRoute() {
           </button>
 
           {isGenerated && smartChapter && (
-            smartChapter.readAt ? (
-              <button
-                type="button"
-                disabled
-                className="inline-flex items-center gap-1 px-3 py-1 text-caption font-medium rounded-md border border-line/50 bg-subtle/50 text-ink-muted opacity-60 cursor-default select-none"
-              >
-                <span>✓ Read</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={updateProgress.isPending}
-                onClick={() => {
+            <button
+              type="button"
+              disabled={updateProgress.isPending}
+              title={smartChapter.readAt ? 'Click to mark unread' : 'Mark as read'}
+              onClick={() => {
+                if (smartChapter.readAt) {
+                  hasFiredReadRef.current = false;
+                  updateProgress.mutate({
+                    smartChapterId: smartChapter.id,
+                    status: 'unread',
+                  });
+                } else {
                   hasFiredReadRef.current = true;
                   updateProgress.mutate({
                     smartChapterId: smartChapter.id,
                     status: 'read',
                     source: 'button',
                   });
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1 text-caption font-medium rounded-md border border-line bg-surface text-ink hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                <span>Mark as read</span>
-              </button>
-            )
+                }
+              }}
+              className={
+                smartChapter.readAt
+                  ? 'inline-flex items-center gap-1 px-3 py-1 text-caption font-medium rounded-md border border-line/50 bg-subtle/50 text-ink-muted hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer'
+                  : 'inline-flex items-center gap-1.5 px-3 py-1 text-caption font-medium rounded-md border border-line bg-surface text-ink hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer'
+              }
+            >
+              <span>{smartChapter.readAt ? '✓ Read' : 'Mark as read'}</span>
+            </button>
           )}
         </div>
 

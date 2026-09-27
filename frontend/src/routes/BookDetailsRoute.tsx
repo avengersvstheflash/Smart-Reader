@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
-import { useSmartChapters } from '../hooks/useSmartChapters';
+import { useSmartChapters, useResumeTarget } from '../hooks/useSmartChapters';
+import { formatRelativeTime } from '../lib/relativeTime';
 import { useModal } from '../store/useModalStore';
 import { getCoverTheme } from '../components/library/BookCard';
 import { ExpandableTagPanel } from '../components/library/ExpandableTagPanel';
@@ -181,10 +182,23 @@ export default function BookDetailsRoute() {
       ? `~${totalMinutes}m`
       : `~${Math.max(1, Math.round(wordCount / 12000))}h`;
 
-  // Navigate to first generated Smart chapter
+  const { resumeTarget } = useResumeTarget(bookId);
+
+  // Navigate to first generated Smart chapter or resume target
   const firstGeneratedSmartChapter = smartChapters.find((sc) => sc.status === 'generated');
   const firstSmartChapterId = firstGeneratedSmartChapter?.id ?? '';
   const hasSmartChapters = Boolean(firstSmartChapterId);
+
+  const resumeSmartChapterId = resumeTarget?.smartChapterId;
+  const targetChapterId = resumeSmartChapterId || firstSmartChapterId;
+  const isResuming = Boolean(resumeSmartChapterId && resumeTarget?.sequence);
+  const readButtonLabel = isResuming
+    ? `Continue: Chapter ${resumeTarget?.sequence}`
+    : hasSmartChapters
+    ? 'Start reading'
+    : 'Read';
+
+  const readCount = smartChapters.filter((sc) => Boolean(sc.readAt)).length;
 
   return (
     <div className="space-y-8 pb-16">
@@ -295,12 +309,18 @@ export default function BookDetailsRoute() {
             <button
               type="button"
               disabled={!hasSmartChapters}
-              title={!hasSmartChapters ? 'No Smart chapters generated yet' : 'Read first Smart chapter'}
-              onClick={() => navigate(`/read/${book.id}/${firstSmartChapterId}`)}
+              title={
+                !hasSmartChapters
+                  ? 'No Smart chapters generated yet'
+                  : isResuming
+                  ? `Continue reading from Chapter ${resumeTarget?.sequence}`
+                  : 'Start reading from Chapter 1'
+              }
+              onClick={() => navigate(`/read/${book.id}/${targetChapterId}`)}
               className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <span>▶</span>
-              <span>Read</span>
+              <span>{readButtonLabel}</span>
             </button>
 
             <button
@@ -430,7 +450,7 @@ export default function BookDetailsRoute() {
           <div className="flex items-center justify-between border-b border-line/60 pb-2">
             <h2 className="text-h2 font-semibold text-ink">Smart Chapters</h2>
             <span className="text-caption text-ink-faint">
-              {smartGenerated} of {smartTotal} generated
+              {smartGenerated} of {smartTotal} generated{readCount > 0 ? ` · ${readCount} read` : ''}
             </span>
           </div>
 
@@ -467,6 +487,16 @@ export default function BookDetailsRoute() {
                   </span>
                 ) : null;
 
+                const readIndicator = sc.readAt ? (
+                  <span className="text-micro text-ink-faint shrink-0">
+                    Read {formatRelativeTime(sc.readAt)}
+                  </span>
+                ) : sc.openedAt ? (
+                  <span className="text-micro text-ink-faint shrink-0">
+                    Opened {formatRelativeTime(sc.openedAt)}
+                  </span>
+                ) : null;
+
                 const rowContent = (
                   <>
                     <div className="flex items-center gap-3 min-w-0 pr-4">
@@ -482,6 +512,7 @@ export default function BookDetailsRoute() {
                       >
                         {sc.title ?? `Chapter ${sc.sequence}`}
                       </span>
+                      {readIndicator}
                     </div>
                     {badge && <div className="shrink-0">{badge}</div>}
                   </>

@@ -95,6 +95,36 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
   }
 });
 
+// GET /api/books/:id/resume-target - resume from last-read/opened chapter
+router.get('/:id/resume-target', (req, res, next) => {
+  try {
+    const db = getDatabase();
+    const row = db.prepare(`
+      SELECT id, sequence, title,
+             COALESCE(read_at, opened_at) AS last_touched
+      FROM smart_chapters
+      WHERE book_id = ?
+        AND status = 'generated'
+        AND (read_at IS NOT NULL OR opened_at IS NOT NULL)
+      ORDER BY last_touched DESC
+      LIMIT 1
+    `).get(req.params.id);
+
+    if (!row) {
+      return res.json({ smartChapterId: null });
+    }
+
+    return res.json({
+      smartChapterId: row.id,
+      sequence: row.sequence,
+      title: row.title,
+      timestamp: row.last_touched,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/books/:id - get book by ID
 router.get('/:id', (req, res, next) => {
   try {

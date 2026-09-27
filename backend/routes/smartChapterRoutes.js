@@ -112,7 +112,7 @@ router.post('/:id/progress', (req, res, next) => {
     const { id } = req.params;
     const { status, source } = req.body || {};
 
-    if (status !== 'opened' && status !== 'read') {
+    if (status !== 'opened' && status !== 'read' && status !== 'unread') {
       return res.status(400).json({ error: 'invalid_status' });
     }
 
@@ -122,6 +122,8 @@ router.post('/:id/progress', (req, res, next) => {
     } else if (status === 'read') {
       const readSource = (source === 'scroll' || source === 'button') ? source : 'button';
       updatedRow = smartChapterRepository.markRead(id, readSource);
+    } else if (status === 'unread') {
+      updatedRow = smartChapterRepository.markUnread(id);
     }
 
     if (!updatedRow) {
