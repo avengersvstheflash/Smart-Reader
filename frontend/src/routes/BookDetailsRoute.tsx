@@ -115,6 +115,8 @@ export default function BookDetailsRoute() {
     refetch: refetchSemantic,
   } = useSemanticStatus(bookId);
 
+  const { resumeTarget } = useResumeTarget(bookId);
+
   const providerLabel = formatAiProvider(book?.aiProvider);
 
   // Loading state
@@ -182,7 +184,6 @@ export default function BookDetailsRoute() {
       ? `~${totalMinutes}m`
       : `~${Math.max(1, Math.round(wordCount / 12000))}h`;
 
-  const { resumeTarget } = useResumeTarget(bookId);
 
   // Navigate to first generated Smart chapter or resume target
   const firstGeneratedSmartChapter = smartChapters.find((sc) => sc.status === 'generated');
