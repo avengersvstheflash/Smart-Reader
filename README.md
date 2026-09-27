@@ -91,15 +91,17 @@ Dense technical content preserves every claim at tighter ratios. Accessible narr
 - **Compression** — grounded Smart Chapter synthesis with self-assessment. Two-phase: Phase A estimates the words needed to preserve every claim; Phase B compresses to that target. Reasoning disabled, dynamic clamps on output.
 - **Synopsis** — generated from preface + TOC + strategic samples, sequenced before chapter compression
 - **Provenance resolution** — paragraph-level source attribution with sentence-level segmentation. C-primary arbitration (embedding similarity), A-corroboration (compressor's emitted citations), B-fallback (LLM arbitration on ambiguous cases). Ungrounded paragraphs marked honestly.
-- **Library / Research API split** — `/api/books` serves synthesized readings only (via `chapter_representations.book_id = b.id`), while `/api/books/sources` serves all ingested source materials
-- **Chunk resolution API** — `GET /api/chunks/:id` maps chunk IDs directly to sequence indices for cross-representation DOM block highlighting
+- **Library / Research API split** — `/api/books` serves Smart chapters only (via `smart_chapters.book_id = b.id`), while `/api/books/sources` serves all ingested source materials
+- **Chunk resolution API** — `GET /api/chunks/:id` maps chunk IDs to sequence indices for cross-representation DOM block highlighting
+- **Smart Chapters as first-class entities** — dedicated `smart_chapters` table with lifecycle (`pending` / `generating` / `generated` / `failed`), planned source-section IDs, and per-chapter metadata. `chapter_representations` narrowed to SUMMARY / BOOK_SUMMARY.
+- **Reading progress API** — `POST /api/smart-chapters/:id/progress` accepts `opened` / `read` / `unread`. `GET /api/books/:id/resume-target` returns the most recently touched generated chapter.
 - **Job lifecycle** — 6 tracked stages (`INGEST` → `SEMANTIC_INDEX` → `CLASSIFICATION` → `SYNOPSIS` → `SYNTHESIS` → `PROVENANCE_VERIFY`) with boot-time zombie sweep and `INTERRUPTED` rendering
 - **Fallback honesty** — every deterministic-fallback representation carries `fell_back: true`, `fallback_reason`, `truncated`, `compression_violation`, and `insufficient_marker` metadata
 
 ### Frontend
-- **Library** — responsive book grid with search, content-type filters, dynamic tag filter chips, and Smart badge (Smart-only readings)
-- **Book Details** — hero, classification chips, synopsis panel, bibliographic panel, chapter list, semantic intelligence panel, AI-provider disclosure
-- **Reader** — Smart-only reading view; clicking any sentence provenance chip navigates directly to the source chunk in Research view
+- **Library** — responsive book grid with search, content-type filters, expandable tag panel (collapsed inline, expanded wrapped grid — no horizontal scroll), filter persistence across tab navigation, and Smart-only readings
+- **Book Details** — hero card with classification chips, synopsis panel, bibliographic panel, Smart Chapters list with status badges (`Queued` / `Generating…` / `Failed`), relative-time read indicators, and "Continue: Chapter N" resume button
+- **Reader** — Smart-only reading view with toggle "Mark as read" / "✓ Read", fires `opened` on mount, auto-marks `read` on scroll-end (IntersectionObserver, 80% + scrollY > 200 guard); clicking any sentence provenance chip navigates directly to the source chunk in Research view
 - **Research tab** — dedicated collection view of original sources with format/type filters (PDF, EPUB, Web, Paste, Dossiers) and "Imported, not yet synthesized" badges
 - **Research Viewer** — serene paper visual identity (serif prose, wide calm margins, neutral palette), theme-aware across all 4 app themes (default, warm, dark, glass)
 - **Cross-tab provenance navigation** — clicking a Smart sentence source chip jumps directly into the Research viewer with chunk highlight wash and auto-centering; sticky return arrow restores reader scroll position via sessionStorage
@@ -149,7 +151,7 @@ flowchart LR
 
     subgraph PRESENTATION [" 4. Library & Research Presentation "]
         Canon ===>|"Immutable Paper"| ResearchViewer["Research Viewer\n(/research/:bookId)"]
-        ProvResolver ===>|"Tinted Lens"| LibraryReader["Library Smart Reader\n(/read/:bookId)"]
+        ProvResolver ===>|"Tinted Lens"| LibraryReader["Library Smart Reader\n(/read/:bookId/:smartChapterId)"]
         LibraryReader -.->|"Clickable Provenance (?highlight=chk-X)"| ResearchViewer
     end
 ```
@@ -239,9 +241,11 @@ Compression enforced. Import pipeline hardened. Classification shipped. Cinemati
 | **5.1b.2** | ✅ | Empirical threshold calibration |
 | **5.2** | ✅ | Reader click-through UI — interactive provenance |
 | **5.3** | ✅ | Research tab foundation & Library/Research architectural split (shipped 5.3a–f) |
-| **5.5** | 🚧 | Library polish + UI/UX backlog |
+| **5.5** | ✅ | Library polish + Smart Chapters as first-class entities (shipped 5.5a–d.2) |
 | **5.6** | ⏳ | Validation and refine loops |
-| **5.7** | ⏳ | Python sidecar architecture (OCR, Discussion, Story) |
+| **5.7.1** | ⏳ | Python sidecar + OCR |
+| **5.7.2** | ⏳ | Slicer refactor + hybrid parallelism (embedding + synthesis) |
+| **5.7.3** | ⏳ | Capability router + DOCX/RTF ingestion |
 
 ### Later
 
@@ -249,8 +253,8 @@ Compression enforced. Import pipeline hardened. Classification shipped. Cinemati
 |---|---|
 | **Phase 6** | Tauri packaging (native desktop app) |
 | **Build 5** | Audio mode (local Kokoro-82M TTS) |
-| **Build 6** | Discussion mode (local Ollama multi-agent) |
-| **Build 7** | Story mode (narrative + image pipeline) — frozen until winter–spring 2027 |
+
+> **Note (2026-09-27):** Discussion mode and Story mode were removed from the roadmap. If either re-enters, it does so as a new module in a future build — with its own plan, own sessions, own scope. Bundling features into existing phases is a scope hazard.
 
 > Full roadmap: [`docs/ROADMAP_2026-09.md`](./docs/ROADMAP_2026-09.md).
 
@@ -272,9 +276,9 @@ Developed in strict phases. Each phase closes clean — tests green, tree clean,
 
 | Limitation | Status |
 |---|---|
-| **OCR for image-only PDFs** | Deferred to Python sidecar (Phase 5.7). Empty-content PDFs fail honestly today. |
+| **OCR for image-only PDFs** | Deferred to Python sidecar (Phase 5.7.1). Empty-content PDFs fail honestly today. |
+| **Chapter slicing heuristic** | Currently emits one Smart chapter per source section on real imports (ML PDF produced 31 where ~5–8 expected). Refactor scheduled for Phase 5.7.2. |
 | **Compression ratio tuning** | Adaptive clamps shipped; empirical tuning deferred to Phase 5.6 validation loops. |
-| **Tag chip placement** | Hero shows tags inline; relocation queued for Phase 5.5. |
 | **Preface-less source handling** | Synopsis retries and produces acceptable prose, but path is fragile. |
 | **Fixture licensing** | Two fixtures require swap before commercial release. See [`docs/RIGHTS.md`](./docs/RIGHTS.md). |
 
