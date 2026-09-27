@@ -34,6 +34,17 @@ class BookRepository {
 
   getById(id) {
     const db = getDatabase();
+    const hasSmart = db.prepare('SELECT 1 FROM smart_chapters WHERE book_id = ? LIMIT 1').get(id);
+    if (hasSmart) {
+      return db.prepare(`
+        SELECT b.*, 
+          (SELECT COUNT(*) FROM smart_chapters sc WHERE sc.book_id = b.id) as chapter_count,
+          (SELECT COUNT(*) FROM smart_chapters sc WHERE sc.book_id = b.id AND sc.read_at IS NOT NULL) as read_chapter_count,
+          (SELECT COALESCE(SUM(sc.planned_word_count), 0) FROM smart_chapters sc WHERE sc.book_id = b.id) as total_words
+        FROM books b
+        WHERE b.id = ?
+      `).get(id);
+    }
     const book = db.prepare(`
       SELECT b.*, 
         (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id) as chapter_count,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   AlertCircle,
@@ -8,7 +8,12 @@ import {
   Clock,
   Sparkles,
 } from 'lucide-react';
-import { useSmartChapters, useSmartChapter } from '../hooks/useSmartChapters';
+import {
+  useSmartChapters,
+  useSmartChapter,
+  useUpdateSmartChapterProgress,
+} from '../hooks/useSmartChapters';
+import { apiClient } from '../api/client';
 import {
   useEditorial,
   useEditorialProgress,
@@ -156,8 +161,6 @@ export default function ReaderRoute() {
   // Smart chapters for the book
   const {
     chapters: smartChapters,
-
-
     isLoading: isSmartListLoading,
     isError: isSmartListError,
     error: smartListError,
@@ -180,11 +183,72 @@ export default function ReaderRoute() {
     refetch: refetchEditorial,
   } = useEditorial(bookId);
 
+  const updateProgress = useUpdateSmartChapterProgress(bookId);
+
   const fontSize = useReaderStore((state) => state.fontSize);
   const align = useReaderStore((state) => state.align);
 
   const { direction, isAtTop } = useScrollDirection();
   const navVisible = direction === 'up' || isAtTop;
+
+  const smartStatus = smartChapter?.status;
+  const isGenerated = smartStatus === 'generated';
+
+  // 3a. Record opened_at on mount of a generated smart chapter (fire-and-forget)
+  const hasFiredOpenedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isGenerated && smartChapter && hasFiredOpenedRef.current !== smartChapter.id) {
+      hasFiredOpenedRef.current = smartChapter.id;
+      apiClient(`/api/smart-chapters/${smartChapter.id}/progress`, {
+        method: 'POST',
+        body: JSON.stringify({ status: 'opened' }),
+      }).catch((err) => {
+        console.error('[ReaderRoute] Failed to record chapter opened:', err);
+      });
+    }
+  }, [isGenerated, smartChapter?.id]);
+
+  // 3b. IntersectionObserver on the last CanonicalBlock container
+  const hasFiredReadRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    hasFiredReadRef.current = Boolean(smartChapter?.readAt);
+  }, [chapterId, smartChapter?.readAt]);
+
+  useEffect(() => {
+    if (!isGenerated || !smartChapter || smartChapter.readAt || hasFiredReadRef.current) {
+      return;
+    }
+
+    const targetEl = document.querySelector('[data-last-canonical-block="true"]');
+    if (!targetEl) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.8) {
+            if (window.scrollY > 200 && !hasFiredReadRef.current) {
+              hasFiredReadRef.current = true;
+              observer.disconnect();
+              updateProgress.mutate({
+                smartChapterId: chapterId,
+                status: 'read',
+                source: 'scroll',
+              });
+            }
+          }
+        }
+      },
+      { threshold: 0.8 }
+    );
+
+    observer.observe(targetEl);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isGenerated, smartChapter?.id, smartChapter?.readAt, chapterId, updateProgress]);
 
   // Restore scroll position when entering Smart mode if previously saved
   useEffect(() => {
@@ -351,9 +415,6 @@ export default function ReaderRoute() {
     );
   }
 
-  const smartStatus = smartChapter?.status;
-  const isGenerated = smartStatus === 'generated';
-
   // Canonical blocks from metadata
   const canonicalBlocksFromMeta = (
     (smartChapter?.metadata as Record<string, unknown> | null)?.canonicalBlocks as CanonicalBlock[] | undefined
@@ -397,7 +458,7 @@ export default function ReaderRoute() {
 
       {/* Main Reading Canvas */}
       <div className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-6 pb-24">
-        {/* Top bar with Back Link */}
+        {/* Top bar with Back Link and Mark as read */}
         <div className="flex items-center justify-between py-2 mb-6 border-b border-line/60">
           <button
             type="button"
@@ -407,6 +468,34 @@ export default function ReaderRoute() {
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Book details</span>
           </button>
+
+          {isGenerated && smartChapter && (
+            smartChapter.readAt ? (
+              <button
+                type="button"
+                disabled
+                className="inline-flex items-center gap-1 px-3 py-1 text-caption font-medium rounded-md border border-line/50 bg-subtle/50 text-ink-muted opacity-60 cursor-default select-none"
+              >
+                <span>✓ Read</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={updateProgress.isPending}
+                onClick={() => {
+                  hasFiredReadRef.current = true;
+                  updateProgress.mutate({
+                    smartChapterId: smartChapter.id,
+                    status: 'read',
+                    source: 'button',
+                  });
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 text-caption font-medium rounded-md border border-line bg-surface text-ink hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <span>Mark as read</span>
+              </button>
+            )
+          )}
         </div>
 
         {/* Content Area */}
@@ -470,4 +559,3 @@ export default function ReaderRoute() {
     </div>
   );
 }
-

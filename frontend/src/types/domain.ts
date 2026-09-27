@@ -485,6 +485,9 @@ export interface SmartChapter {
   metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
+  openedAt: string | null;
+  readAt: string | null;
+  readSource: 'scroll' | 'button' | null;
 }
 
 export interface BookSummary {

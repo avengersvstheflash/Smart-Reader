@@ -1,4 +1,4 @@
-﻿const { getDatabase } = require('../db/database');
+const { getDatabase } = require('../db/database');
 
 class SmartChapterRepository {
   create(chapter) {
@@ -163,6 +163,36 @@ class SmartChapterRepository {
     return res.changes > 0;
   }
 
+  markOpened(id) {
+    const db = getDatabase();
+    const existing = db.prepare('SELECT id FROM smart_chapters WHERE id = ?').get(id);
+    if (!existing) return null;
+
+    db.prepare(`
+      UPDATE smart_chapters
+      SET opened_at = COALESCE(opened_at, CURRENT_TIMESTAMP)
+      WHERE id = ?
+    `).run(id);
+
+    return this.getById(id);
+  }
+
+  markRead(id, source = 'button') {
+    const db = getDatabase();
+    const existing = db.prepare('SELECT id FROM smart_chapters WHERE id = ?').get(id);
+    if (!existing) return null;
+
+    db.prepare(`
+      UPDATE smart_chapters
+      SET read_at = CURRENT_TIMESTAMP,
+          read_source = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(source, id);
+
+    return this.getById(id);
+  }
+
   deleteByBookId(bookId) {
     const db = getDatabase();
     const res = db.prepare('DELETE FROM smart_chapters WHERE book_id = ?').run(bookId);
@@ -197,6 +227,12 @@ class SmartChapterRepository {
       sourceSectionIds: planned_source_section_ids,
       plannedWordCount: row.planned_word_count,
       synthesisType: row.synthesis_type,
+      bookId: row.book_id,
+      openedAt: row.opened_at || null,
+      readAt: row.read_at || null,
+      readSource: row.read_source || null,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 }

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, ApiError } from '../api/client';
 import { SmartChapter } from '../types/domain';
 
@@ -34,6 +34,32 @@ export interface SmartChapterResponse {
   };
 }
 
+export function normalizeSmartChapter(raw: any): SmartChapter {
+  if (!raw) return raw;
+  return {
+    id: raw.id,
+    bookId: raw.bookId || raw.book_id || '',
+    sequence: raw.sequence ?? 0,
+    title: raw.title ?? null,
+    status: raw.status || 'pending',
+    plannedWordCount: raw.plannedWordCount ?? raw.planned_word_count ?? null,
+    content: raw.content ?? null,
+    synthesisType: raw.synthesisType ?? raw.synthesis_type ?? null,
+    metadata:
+      raw.metadata ??
+      (raw.metadata_json
+        ? typeof raw.metadata_json === 'string'
+          ? JSON.parse(raw.metadata_json)
+          : raw.metadata_json
+        : null),
+    createdAt: raw.createdAt || raw.created_at || '',
+    updatedAt: raw.updatedAt || raw.updated_at || '',
+    openedAt: raw.openedAt || raw.opened_at || null,
+    readAt: raw.readAt || raw.read_at || null,
+    readSource: raw.readSource || raw.read_source || null,
+  };
+}
+
 export function useSmartChapters(bookId: string | null | undefined) {
   const { data, isLoading, isError, error, refetch } = useQuery<SmartChaptersResponse | null, Error>({
     queryKey: ['smart-chapters', 'book', bookId],
@@ -51,7 +77,7 @@ export function useSmartChapters(bookId: string | null | undefined) {
   });
 
   return {
-    chapters: data?.chapters ?? [],
+    chapters: (data?.chapters ?? []).map(normalizeSmartChapter),
     total: data?.total ?? 0,
     generated: data?.generated ?? 0,
     pending: data?.pending ?? 0,
@@ -81,10 +107,42 @@ export function useSmartChapter(smartChapterId: string | null | undefined) {
   });
 
   return {
-    smartChapter: data?.smartChapter ?? null,
+    smartChapter: data?.smartChapter
+      ? {
+          ...normalizeSmartChapter(data.smartChapter),
+          attributions: data.smartChapter.attributions,
+        }
+      : null,
     isLoading,
     isError,
     error,
     refetch,
   };
+}
+
+export function useUpdateSmartChapterProgress(bookId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    { success: boolean; id: string; status: string; read_at: string | null; opened_at: string | null },
+    Error,
+    { smartChapterId: string; status: 'opened' | 'read'; source?: 'scroll' | 'button' }
+  >({
+    mutationFn: async ({ smartChapterId, status, source }) => {
+      return apiClient(`/api/smart-chapters/${smartChapterId}/progress`, {
+        method: 'POST',
+        body: JSON.stringify({ status, source }),
+      });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['smart-chapters', variables.smartChapterId] });
+      if (bookId) {
+        queryClient.invalidateQueries({ queryKey: ['smart-chapters', 'book', bookId] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['smart-chapters'] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+      queryClient.invalidateQueries({ queryKey: ['book'] });
+    },
+  });
 }

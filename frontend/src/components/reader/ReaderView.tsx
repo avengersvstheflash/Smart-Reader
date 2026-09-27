@@ -253,6 +253,7 @@ export function ReaderView({
               <div
                 key={i}
                 id={`sblk-${representation.id}-${i}`}
+                data-last-canonical-block={i === smartBlocks.length - 1 ? 'true' : undefined}
                 className={`canonical-block relative group transition-colors rounded ${
                   isParagraph ? 'px-1 -mx-1' : ''
                 }`}

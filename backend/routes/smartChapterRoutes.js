@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const smartChapterRepository = require('../repositories/smartChapterRepository');
 const attributionRepository = require('../repositories/attributionRepository');
@@ -106,11 +106,38 @@ router.get('/:id/provenance', (req, res, next) => {
   }
 });
 
-// POST /api/smart-chapters/:id/progress - reserved for Phase 5.5d (stub returns 501)
-router.post('/:id/progress', (req, res) => {
-  return res.status(501).json({
-    error: 'Reading progress endpoints are reserved for Phase 5.5d.',
-  });
+// POST /api/smart-chapters/:id/progress - track chapter opened/read status
+router.post('/:id/progress', (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, source } = req.body || {};
+
+    if (status !== 'opened' && status !== 'read') {
+      return res.status(400).json({ error: 'invalid_status' });
+    }
+
+    let updatedRow = null;
+    if (status === 'opened') {
+      updatedRow = smartChapterRepository.markOpened(id);
+    } else if (status === 'read') {
+      const readSource = (source === 'scroll' || source === 'button') ? source : 'button';
+      updatedRow = smartChapterRepository.markRead(id, readSource);
+    }
+
+    if (!updatedRow) {
+      return res.status(404).json({ error: 'smart_chapter_not_found' });
+    }
+
+    return res.json({
+      success: true,
+      id: updatedRow.id,
+      status: updatedRow.status,
+      read_at: updatedRow.read_at || updatedRow.readAt || null,
+      opened_at: updatedRow.opened_at || updatedRow.openedAt || null,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;
