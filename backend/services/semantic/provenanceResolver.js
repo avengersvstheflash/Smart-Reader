@@ -8,18 +8,102 @@ const jobRepository = require('../../repositories/jobRepository');
 const attributionRepository = require('../../repositories/attributionRepository');
 
 /**
- * Split paragraph into sentences preserving natural boundaries
+ * Abbreviations that end with a period but are NOT sentence boundaries.
+ * Phase 5.5e: must mirror frontend/src/types/domain.ts ABBREVIATIONS exactly.
+ */
+const ABBREVIATIONS = new Set([
+  'e.g.', 'i.e.', 'etc.', 'vs.', 'cf.', 'fig.', 'eq.', 'no.',
+  'mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'st.', 'approx.', 'ca.', 'al.',
+  'ch.', 'sec.', 'vol.', 'ed.', 'eds.', 'pp.', 'p.', 'op.', 'cit.',
+  'ibid.', 'et.', 'dept.', 'est.', 'inc.', 'corp.', 'ltd.', 'co.',
+  'jan.', 'feb.', 'mar.', 'apr.', 'jun.', 'jul.', 'aug.', 'sep.',
+  'oct.', 'nov.', 'dec.',
+]);
+
+/**
+ * Split paragraph into sentences, abbreviation-aware.
+ * Phase 5.5e: mirrors frontend/src/types/domain.ts splitIntoSentences exactly so
+ * sentence_start/sentence_end indices stored in the DB align with frontend rendering.
  */
 function splitIntoSentences(text) {
   const t = (text || '').trim();
   if (!t) return [];
-  const regex = /.*?(?:[.!?]+(?:\s*\[Source\s+\d+\]+)*|\s*\[Source\s+\d+\]+[.!?]*)(?=\s+|$)/gi;
-  const matches = t.match(regex);
-  if (!matches || matches.length === 0) return [t];
-  const sents = matches
-    .map((s) => s.trim().replace(/\s*\[Source\s+\d+\]/gi, '').trim())
-    .filter(Boolean);
-  return sents.length > 0 ? sents : [t];
+
+  // Strip inline [Source N] citation markers before splitting.
+  const cleaned = t.replace(/\s*\[Source\s+\d+\]/gi, '').trim();
+  if (!cleaned) return [t];
+
+  const result = [];
+  let sentenceStart = 0;
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (ch !== '.' && ch !== '!' && ch !== '?') continue;
+
+    // Consume trailing punctuation cluster
+    let boundaryEnd = i;
+    while (boundaryEnd + 1 < cleaned.length && /[.!?]/.test(cleaned[boundaryEnd + 1])) {
+      boundaryEnd++;
+    }
+
+    // Consume optional closing quote/paren
+    let afterBoundary = boundaryEnd + 1;
+    if (afterBoundary < cleaned.length && /["'\)\]]/.test(cleaned[afterBoundary])) {
+      afterBoundary++;
+    }
+
+    // End of string → final sentence
+    if (afterBoundary >= cleaned.length) {
+      const sent = cleaned.slice(sentenceStart).trim();
+      if (sent) result.push(sent);
+      sentenceStart = cleaned.length;
+      break;
+    }
+
+    const afterChar = cleaned[afterBoundary];
+
+    // Rule A: followed by lowercase → not a boundary
+    if (/[a-z]/.test(afterChar)) { i = boundaryEnd; continue; }
+
+    // Rule B: known abbreviation or single-letter initial
+    if (ch === '.') {
+      let tokenEnd = i;
+      let tokenStart = tokenEnd - 1;
+      while (tokenStart > sentenceStart && cleaned[tokenStart - 1] !== ' ') tokenStart--;
+      const token = cleaned.slice(tokenStart, tokenEnd).toLowerCase() + '.';
+      if (ABBREVIATIONS.has(token) || /^[a-z]\.$/.test(token)) { i = boundaryEnd; continue; }
+    }
+
+    // Rule C: must be followed by whitespace
+    if (!/\s/.test(afterChar)) { i = boundaryEnd; continue; }
+
+    // Find first non-space char after boundary
+    let nextWordStart = afterBoundary;
+    while (nextWordStart < cleaned.length && /\s/.test(cleaned[nextWordStart])) nextWordStart++;
+
+    if (nextWordStart >= cleaned.length) {
+      const sent = cleaned.slice(sentenceStart, afterBoundary).trim();
+      if (sent) result.push(sent);
+      sentenceStart = cleaned.length;
+      i = boundaryEnd;
+      continue;
+    }
+
+    const nextCh = cleaned[nextWordStart];
+    if (!/[A-Z0-9"'([]/.test(nextCh)) { i = boundaryEnd; continue; }
+
+    const sent = cleaned.slice(sentenceStart, afterBoundary).trim();
+    if (sent) result.push(sent);
+    sentenceStart = nextWordStart;
+    i = boundaryEnd;
+  }
+
+  if (sentenceStart < cleaned.length) {
+    const sent = cleaned.slice(sentenceStart).trim();
+    if (sent) result.push(sent);
+  }
+
+  return result.length > 0 ? result : [cleaned];
 }
 
 class ProvenanceResolver {

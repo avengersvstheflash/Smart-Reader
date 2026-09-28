@@ -194,25 +194,22 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
 }
 
 /* Phase 5.2.3 Sentence-level highlight (gradient accent bar + wash, no per-line border duplication) */
+/* Phase 5.5e: transition background shorthand removed — it re-runs gradient every frame → garbled paint.
+   Only transition background-color and box-shadow (GPU-composited, no reflow). */
 .sentence-span {
-  transition: background-color 150ms ease, background 150ms ease;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
   border-radius: 2px;
 }
 
+/* Phase 5.5e Fix 1: padding-left removed (was 4px → caused layout-shift on hover → oscillation).
+   Left accent stripe now uses inset box-shadow: GPU-composited, zero reflow, zero layout impact.
+   background-color replaces the linear-gradient shorthand (no per-frame repaint). */
 .sentence-span.segment-highlighted,
 .sentence-span.tts-active {
-  background: linear-gradient(
-    to right,
-    rgb(var(--accent) / 0.22) 0,
-    rgb(var(--accent) / 0.22) 3px,
-    rgb(var(--accent) / 0.10) 3px,
-    rgb(var(--accent) / 0.10) 100%
-  );
-  padding-left: 4px;
-  border-left: none;
-  box-shadow: none;
-  box-decoration-break: slice;
-  -webkit-box-decoration-break: slice;
+  background-color: rgb(var(--accent) / 0.10);
+  box-shadow: inset 3px 0 0 rgb(var(--accent) / 0.4);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 /* Phase 5.3b Research Viewer paper prose and block highlight */

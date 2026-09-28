@@ -410,19 +410,143 @@ export interface SegmentRun {
 }
 
 /**
- * Split paragraph text into sentences preserving sentence boundary punctuation.
+ * Abbreviations that end with a period but are NOT sentence boundaries.
+ * Phase 5.5e: covers academic prose, citations, and common Latin abbreviations.
+ */
+const ABBREVIATIONS = new Set([
+  'e.g.', 'i.e.', 'etc.', 'vs.', 'cf.', 'fig.', 'eq.', 'no.',
+  'mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'st.', 'approx.', 'ca.', 'al.',
+  'ch.', 'sec.', 'vol.', 'ed.', 'eds.', 'pp.', 'p.', 'op.', 'cit.',
+  'ibid.', 'et.', 'dept.', 'est.', 'inc.', 'corp.', 'ltd.', 'co.',
+  'jan.', 'feb.', 'mar.', 'apr.', 'jun.', 'jul.', 'aug.', 'sep.',
+  'oct.', 'nov.', 'dec.',
+]);
+
+/**
+ * Split paragraph text into sentences, preserving sentence boundary punctuation.
+ * Phase 5.5e: abbreviation-aware — "e.g.", "i.e.", "etc.", initials, and
+ * lowercase-following periods are NOT treated as sentence boundaries.
  * Matches backend provenanceResolver.splitIntoSentences contract.
+ *
+ * Contract: concatenating all returned sentences reproduces the original text
+ * exactly (each sentence retains its trailing whitespace from the source).
  */
 export function splitIntoSentences(text?: string | null): string[] {
   const t = (text || '').trim();
   if (!t) return [];
-  const regex = /[^.!?]+[.!?]+["']?\s*|[^.!?]+$/g;
-  const matches = t.match(regex);
-  if (!matches || matches.length === 0) return [t];
-  const sents = matches
-    .map((s) => s.trim().replace(/\s*\[Source\s+\d+\]/gi, '').trim())
-    .filter(Boolean);
-  return sents.length > 0 ? sents : [t];
+
+  // Strip inline [Source N] citation markers before splitting.
+  const cleaned = t
+    .replace(/\s*\[Source\s+\d+\]/gi, '')
+    .trim();
+
+  if (!cleaned) return [t];
+
+  const result: string[] = [];
+  let sentenceStart = 0;
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+
+    // Only candidate boundaries: . ! ?
+    if (ch !== '.' && ch !== '!' && ch !== '?') continue;
+
+    // Consume trailing punctuation cluster (e.g. "..." or "!?")
+    let boundaryEnd = i;
+    while (boundaryEnd + 1 < cleaned.length && /[.!?]/.test(cleaned[boundaryEnd + 1])) {
+      boundaryEnd++;
+    }
+
+    // Consume optional closing quote/paren
+    let afterBoundary = boundaryEnd + 1;
+    if (afterBoundary < cleaned.length && /["'\)\]]/.test(cleaned[afterBoundary])) {
+      afterBoundary++;
+    }
+
+    // If at end of string, this is the final sentence — emit and stop.
+    if (afterBoundary >= cleaned.length) {
+      const sent = cleaned.slice(sentenceStart).trim();
+      if (sent) result.push(sent);
+      sentenceStart = cleaned.length;
+      break;
+    }
+
+    // What follows the boundary?
+    const afterChar = cleaned[afterBoundary];
+
+    // Rule A: if followed by lowercase → NOT a boundary (sentence continuation).
+    // Handles "e. g. argument" and similar spacing artifacts.
+    if (/[a-z]/.test(afterChar)) {
+      i = boundaryEnd;
+      continue;
+    }
+
+    // Rule B: if the terminal is '.', check abbreviations and initials.
+    if (ch === '.') {
+      // Find the token immediately before this '.': walk back to previous space or start.
+      let tokenEnd = i; // exclusive: the '.' itself is not in the token
+      let tokenStart = tokenEnd - 1;
+      while (tokenStart > sentenceStart && cleaned[tokenStart - 1] !== ' ') {
+        tokenStart--;
+      }
+      const token = cleaned.slice(tokenStart, tokenEnd).toLowerCase() + '.';
+
+      // Is it a known abbreviation?
+      if (ABBREVIATIONS.has(token)) {
+        i = boundaryEnd;
+        continue;
+      }
+
+      // Is it a single-letter initial (e.g. "J. K. Rowling")?
+      if (/^[a-z]\.$/.test(token)) {
+        i = boundaryEnd;
+        continue;
+      }
+    }
+
+    // Rule C: must be followed by whitespace then an uppercase letter (or digit for new sentence).
+    if (!/\s/.test(afterChar)) {
+      i = boundaryEnd;
+      continue;
+    }
+
+    // Find first non-space char after boundary
+    let nextWordStart = afterBoundary;
+    while (nextWordStart < cleaned.length && /\s/.test(cleaned[nextWordStart])) {
+      nextWordStart++;
+    }
+
+    if (nextWordStart >= cleaned.length) {
+      // Trailing whitespace — emit final sentence
+      const sent = cleaned.slice(sentenceStart, afterBoundary).trim();
+      if (sent) result.push(sent);
+      sentenceStart = cleaned.length;
+      i = boundaryEnd;
+      continue;
+    }
+
+    const nextCh = cleaned[nextWordStart];
+
+    // Only split if next word starts uppercase or a digit (new sentence heuristic).
+    if (!/[A-Z0-9"'([]/.test(nextCh)) {
+      i = boundaryEnd;
+      continue;
+    }
+
+    // Emit this sentence (up to and including boundary punctuation, no trailing space).
+    const sent = cleaned.slice(sentenceStart, afterBoundary).trim();
+    if (sent) result.push(sent);
+    sentenceStart = nextWordStart;
+    i = boundaryEnd;
+  }
+
+  // Emit any remainder
+  if (sentenceStart < cleaned.length) {
+    const sent = cleaned.slice(sentenceStart).trim();
+    if (sent) result.push(sent);
+  }
+
+  return result.length > 0 ? result : [cleaned];
 }
 
 /**
