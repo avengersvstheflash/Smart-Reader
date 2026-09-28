@@ -219,6 +219,18 @@ class PDFJSParser {
       const maxLineFontSize = Math.max(...line.map((s) => s.fontSize));
       const lineY = line[0].y;
 
+      // Math formula check: lines predominantly math symbols or matching equation numbers
+      // classify as 'paragraph' not 'heading'
+      if (this.isMathLine(lineText)) {
+        if (lastLineY !== null && Math.abs(lastLineY - lineY) > 20) {
+          flushParagraph();
+        }
+        currentParagraph.push(lineText);
+        lastLineY = lineY;
+        i++;
+        continue;
+      }
+
       // 1. Two-line explicit Chapter Opener:
       // Line i is "CHAPTER 01" / "CHAPTER 2" at top/middle of page (Y > 300)
       // and Line i+1 is a title heading (fontSize >= 14 or title-case text)
@@ -290,7 +302,35 @@ class PDFJSParser {
       // 3. Standalone major heading (e.g. Contents, Foreword, Preface, Appendix, Index)
       if (maxLineFontSize >= 28) {
         flushParagraph();
-        let fullTitle = lineText.replace(/(\w+)-\s+(\w+)/g, '$1-$2');
+        const headingLines = [lineText];
+        let lastHeadingY = lineY;
+
+        while (i + 1 < allLines.length) {
+          const nextLine = allLines[i + 1];
+          const nextText = nextLine.map((s) => s.text.trim()).join(' ').replace(/\s+/g, ' ').trim();
+          if (!nextText) break;
+          const nextFontSize = Math.max(...nextLine.map((s) => s.fontSize));
+          const nextY = nextLine[0].y;
+
+          if (
+            nextFontSize >= 20 &&
+            !this.isMathLine(nextText) &&
+            !/^\d+(\.\d+)+\s+/.test(nextText) &&
+            !/^(?:chapter|part)\s+\d+/i.test(nextText) &&
+            Math.abs(lastHeadingY - nextY) <= 50
+          ) {
+            headingLines.push(nextText);
+            lastHeadingY = nextY;
+            i++;
+          } else {
+            break;
+          }
+        }
+
+        let fullTitle = headingLines
+          .join(' ')
+          .replace(/[\u2010\u2011\u2012\u2013\u2014\u00AD\uFE63\uFF0D]/g, '-')
+          .replace(/(\w+)-\s+(\w+)/g, '$1-$2');
 
         if (/^appendix\b/i.test(fullTitle)) {
           const sub = fullTitle.replace(/^appendix\s*[:.—–-]?\s*/i, '').trim();
@@ -314,14 +354,44 @@ class PDFJSParser {
       // 4. Section Headings (14 <= fontSize < 28)
       if (maxLineFontSize >= 14 && maxLineFontSize < 28) {
         flushParagraph();
+        const headingLines = [lineText];
+        let lastHeadingY = lineY;
+
+        while (i + 1 < allLines.length) {
+          const nextLine = allLines[i + 1];
+          const nextText = nextLine.map((s) => s.text.trim()).join(' ').replace(/\s+/g, ' ').trim();
+          if (!nextText) break;
+          const nextFontSize = Math.max(...nextLine.map((s) => s.fontSize));
+          const nextY = nextLine[0].y;
+
+          if (
+            nextFontSize >= 14 &&
+            !this.isMathLine(nextText) &&
+            !/^\d+(\.\d+)+\s+/.test(nextText) &&
+            !/^(?:chapter|part)\s+\d+/i.test(nextText) &&
+            Math.abs(lastHeadingY - nextY) <= 50
+          ) {
+            headingLines.push(nextText);
+            lastHeadingY = nextY;
+            i++;
+          } else {
+            break;
+          }
+        }
+
+        let fullHeading = headingLines
+          .join(' ')
+          .replace(/[\u2010\u2011\u2012\u2013\u2014\u00AD\uFE63\uFF0D]/g, '-')
+          .replace(/(\w+)-\s+(\w+)/g, '$1-$2');
+
         blocks.push({
           id: `blk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           type: 'heading',
           level: 2,
-          text: lineText,
+          text: fullHeading,
           sourcePage: pageNum,
-          section: lineText,
-          sectionHint: lineText,
+          section: fullHeading,
+          sectionHint: fullHeading,
         });
         i++;
         lastLineY = null;
@@ -384,6 +454,36 @@ class PDFJSParser {
     }
 
     return lines;
+  }
+
+  /**
+   * Identifies whether a line is a math formula or equation rather than a heading.
+   * Matches lines with equation-number pattern (e.g. (2.38)), large equation glyphs (∑, ∫),
+   * or predominantly math symbols / control characters.
+   * @param {string} text
+   * @returns {boolean}
+   */
+  isMathLine(text) {
+    if (!text) return false;
+    // Matches equation-number pattern like (2.38), (4.6)
+    if (/\(\d+\.\d+\)/.test(text)) return true;
+
+    // Matches prominent equation glyphs: summation, integral, product, etc.
+    if (/[∑∫∏√∂∇]/.test(text)) return true;
+
+    // Check if text is predominantly math symbols / non-word characters
+    const mathChars = (text.match(/[∑∫∏√±≤≥≠≈∞∂∇∈∉⊂⊆∪∩∧∨¬⇒⇔→←=+\-–—/*×÷^<>~|\\{}\[\]\x00-\x1F]/g) || []).length;
+    const words = text.split(/\s+/).filter((w) => /^[a-zA-Z]{2,}/.test(w));
+    const letters = (text.match(/[a-zA-Z]/g) || []).length;
+
+    if (mathChars > 0) {
+      if (words.length <= 1 && mathChars >= 1) return true;
+      if (mathChars >= letters) return true;
+    }
+
+    if (/^[A-Za-z]?\s*[\x00-\x1F]/.test(text)) return true;
+
+    return false;
   }
 
   /**
