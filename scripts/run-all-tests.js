@@ -41,7 +41,8 @@ const SUITES = [
   'build4_15b_front_matter_filter_test.js',
   'build5_1a_bibliographic_test.js',
   'build5_1b_provenance_test.js',
-  'build5_3_library_split_test.js'
+  'build5_3_library_split_test.js',
+  'phase5_6_validation_test.js',
 ];
 
 let passed = 0;

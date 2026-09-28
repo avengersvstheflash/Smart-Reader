@@ -13,10 +13,18 @@ async function runBuild4Verification() {
 
   const db = getDatabase();
 
-  const books = bookService.getAllBooks();
-  assert(books.length >= 2, 'Must have at least 2 books in database to test cross-source intelligence');
-  const book1 = books[0];
-  const book2 = books[1];
+  const book1 = await bookService.createBook({
+    title: `Cross-Source Test Book 1 ${Date.now()}`,
+    author: 'Editorial Tester 1',
+    description: 'A test book for cross-source verification.',
+    fileType: 'text',
+  });
+  const book2 = await bookService.createBook({
+    title: `Cross-Source Test Book 2 ${Date.now()}`,
+    author: 'Editorial Tester 2',
+    description: 'A test book for cross-source verification.',
+    fileType: 'text',
+  });
 
   console.log(`Using sources for cross-source testing:\n  Book 1: "${book1.title}" (${book1.id})\n  Book 2: "${book2.title}" (${book2.id})\n`);
 
@@ -26,7 +34,7 @@ async function runBuild4Verification() {
       id: `chunk-b1-1-${Date.now()}`,
       chapterId: 'ch-b1-1',
       chunkIndex: 0,
-      textContent: 'Distributed systems require fault-tolerant consensus mechanisms to maintain coherent state across nodes.',
+      textContent: 'Distributed systems require fault-tolerant consensus mechanisms to maintain coherent state across nodes. In modern asynchronous networks, consensus cannot be guaranteed in the presence of unannounced node failures without partial synchrony assumptions. This chapter explores replicated state machines and the fundamental trade-offs between safety and liveness across partitioned networks. Network partitions necessitate explicit partition-handling strategies where systems must choose between consistency guarantees and high availability during communication interruptions across geographically isolated data center availability zones. Modern architectural frameworks integrate formally verified safety invariants to prevent data corruption during unexpected cluster partitioning and split-brain scenarios.',
       contentType: 'paragraph',
       sectionHeading: 'Consensus in Distributed Networks',
     },
@@ -34,7 +42,7 @@ async function runBuild4Verification() {
       id: `chunk-b1-2-${Date.now()}`,
       chapterId: 'ch-b1-1',
       chunkIndex: 1,
-      textContent: 'Leader election protocols provide deterministic ordering for transactional state machines under network latency.',
+      textContent: 'Leader election protocols provide deterministic ordering for transactional state machines under network latency. Paxos and Raft introduce structured terms to ensure that at most one valid leader can propose state transitions at any given epoch, thereby preventing split-brain anomalies and inconsistent replicas. Log replication mechanisms enforce that follower replicas acknowledge log entries sequentially before commits become permanent across quorum nodes. Heartbeat timers detect crashed coordinators promptly, initiating randomized election timeouts to mitigate recurring split-vote scenarios during high node churn. Cluster membership reconfiguration requires joint consensus phases to safely add or remove server replicas without disrupting ongoing transaction processing workflows across nodes.',
       contentType: 'paragraph',
       sectionHeading: 'Leader Election and State Replicas',
     }
@@ -45,7 +53,7 @@ async function runBuild4Verification() {
       id: `chunk-b2-1-${Date.now()}`,
       chapterId: 'ch-b2-1',
       chunkIndex: 0,
-      textContent: 'Decentralized consensus algorithms achieve fault tolerance without relying on centralized leader nodes.',
+      textContent: 'Decentralized consensus algorithms achieve fault tolerance without relying on centralized leader nodes. Peer-to-peer networks distribute validation responsibilities across autonomous validating nodes using gossip dissemination protocols. Cryptographic threshold signatures and proof-of-stake validation mechanisms deter adversarial Byzantine actors from corrupting global state transitions. Asynchronous Byzantine agreement protocols ensure deterministic finality even when network adversaries selectively delay message delivery across arbitrary communication channels without violating safety invariants. Verifiable secret sharing schemes further enhance resilience by distributing private keys among multiple independent participants across distributed validator networks.',
       contentType: 'paragraph',
       sectionHeading: 'Decentralized Fault Tolerance',
     },
@@ -53,7 +61,7 @@ async function runBuild4Verification() {
       id: `chunk-b2-2-${Date.now()}`,
       chapterId: 'ch-b2-1',
       chunkIndex: 1,
-      textContent: 'High latency and packet drops degrade throughput across distributed computing networks.',
+      textContent: 'High latency and packet drops degrade throughput across distributed computing networks. Transmission control protocols react to packet losses by halving congestion windows, resulting in severe throughput penalties across high-bandwidth wide-area interconnections. Speculative execution and hedging request patterns mitigate the tail-latency impact of straggler nodes in distributed query evaluation engines. Forward error correction schemes reduce retransmission overhead across noisy network topologies, maintaining stable response latency profiles under adverse network conditions. Dynamic routing policies actively monitor path conditions to reroute critical transactional packets around congested transit links during peak load periods.',
       contentType: 'paragraph',
       sectionHeading: 'Network Latency Dynamics',
     }

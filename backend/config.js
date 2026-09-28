@@ -52,4 +52,11 @@ module.exports = {
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || '',
   OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash',
   OPENROUTER_TIMEOUT_MS: parseInt(process.env.OPENROUTER_TIMEOUT_MS || '30000', 10),
+
+  // Synthesis Validation & Refine Loops (Phase 5.6)
+  MIN_SOURCE_CHUNK_WORDS: parseInt(process.env.MIN_SOURCE_CHUNK_WORDS || '75', 10),
+  AUTO_RESYNTHESIZE_ON_VIOLATION: process.env.AUTO_RESYNTHESIZE_ON_VIOLATION !== undefined
+    ? process.env.AUTO_RESYNTHESIZE_ON_VIOLATION === 'true'
+    : true,
+  MAX_AUTO_RESYNTHESIZE_ATTEMPTS: parseInt(process.env.MAX_AUTO_RESYNTHESIZE_ATTEMPTS || '2', 10),
 };

@@ -23,19 +23,19 @@ async function runTests() {
   const ch1 = await bookService.addChapter(testBook.id, {
     number: 1,
     title: 'Foundations of Modern Distributed Architectures',
-    content: 'Distributed systems require fault-tolerant consensus mechanisms to maintain coherent state across nodes. In modern asynchronous networks, consensus cannot be guaranteed in the presence of unannounced node failures without partial synchrony assumptions. This chapter explores replicated state machines and the fundamental trade-offs between safety and liveness across partitioned networks.',
+    content: 'Distributed systems require fault-tolerant consensus mechanisms to maintain coherent state across nodes. In modern asynchronous networks, consensus cannot be guaranteed in the presence of unannounced node failures without partial synchrony assumptions. This chapter explores replicated state machines and the fundamental trade-offs between safety and liveness across partitioned networks. Network partitions necessitate explicit partition-handling strategies where systems must choose between consistency guarantees and high availability during communication interruptions across geographically isolated data center availability zones. Modern architectural frameworks integrate formally verified safety invariants to prevent data corruption during unexpected cluster partitioning.',
   });
 
   const ch2 = await bookService.addChapter(testBook.id, {
     number: 2,
     title: 'Consensus Protocols and Leader Election Mechanics',
-    content: 'Leader election protocols provide deterministic ordering for transactional state machines under network latency. Paxos and Raft introduce structured terms to ensure that at most one valid leader can propose state transitions at any given epoch, thereby preventing split-brain anomalies and inconsistent replicas.',
+    content: 'Leader election protocols provide deterministic ordering for transactional state machines under network latency. Paxos and Raft introduce structured terms to ensure that at most one valid leader can propose state transitions at any given epoch, thereby preventing split-brain anomalies and inconsistent replicas. Log replication mechanisms enforce that follower replicas acknowledge log entries sequentially before commits become permanent across quorum nodes. Heartbeat timers detect crashed coordinators promptly, initiating randomized election timeouts to mitigate recurring split-vote scenarios during high node churn. Cluster membership reconfiguration requires joint consensus phases to safely add or remove server replicas without disrupting ongoing transaction processing workflows.',
   });
 
   const ch3 = await bookService.addChapter(testBook.id, {
     number: 3,
     title: 'Distributed Transaction Processing and Storage Engines',
-    content: 'Transactional storage engines require ACID guarantees over decentralized storage shards. Two-phase commit combined with Paxos or Raft enables distributed transactional integrity, ensuring durable writes, atomic commits, and serializable snapshot isolation across heterogeneous database clusters.',
+    content: 'Transactional storage engines require ACID guarantees over decentralized storage shards. Two-phase commit combined with Paxos or Raft enables distributed transactional integrity, ensuring durable writes, atomic commits, and serializable snapshot isolation across heterogeneous database clusters. Concurrency control algorithms resolve write conflicts using multi-version concurrency control or deterministic locking protocols across cross-shard transaction boundaries. Distributed storage engines leverage write-ahead logging and log-structured merge trees to maximize sequential write throughput on persistent solid-state flash media. Read replicas offload analytical querying overhead while maintaining bounded staleness guarantees relative to active primary shard leaders.',
   });
 
   // Index semantic chunks for this single book

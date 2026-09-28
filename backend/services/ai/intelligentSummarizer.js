@@ -2,6 +2,7 @@ const retrievalService = require('../semantic/retrievalService');
 const contextBuilder = require('../semantic/contextBuilder');
 const aiNormalizer = require('./aiNormalizer');
 const aiService = require('./aiService');
+const aiRetryGuard = require('./aiRetryGuard');
 const representationRepository = require('../../repositories/representationRepository');
 const bookRepository = require('../../repositories/bookRepository');
 const chapterRepository = require('../../repositories/chapterRepository');
@@ -171,37 +172,31 @@ OUTPUT:`;
       let wordCountViolation = false;
 
       try {
-        aiResult = await this.executeAIGeneration(context, {
-          task: 'synopsis',
-          book,
-          options,
-          prompt: synopsisPrompt,
-          maxTokens: 600,
-        });
-        if (aiResult && aiResult.summary && aiResult.summary.trim()) {
-          rawSynopsis = aiResult.summary;
-          let wordCount = rawSynopsis.trim().split(/\s+/).filter(Boolean).length;
-          if (wordCount < 180 || wordCount > 320) {
-            console.warn(`[Synopsis Compression] Output word count (${wordCount}) outside bounds [180, 320]. Retrying once with stricter constraint...`);
-            const retryPrompt = `${synopsisPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous attempt was ${wordCount} words, which violates the required length. Return exactly 250 words. Do not exceed 300 words. Hard bounds: 180 minimum, 320 maximum.`;
-            const retryResult = await this.executeAIGeneration(context, {
+        const guardResult = await aiRetryGuard.executeWithWordCountGuard({
+          generateFn: async (promptToRun) => {
+            return await this.executeAIGeneration(context, {
               task: 'synopsis',
               book,
               options,
-              prompt: retryPrompt,
+              prompt: promptToRun,
               maxTokens: 600,
             });
-            if (retryResult && retryResult.summary && retryResult.summary.trim()) {
-              rawSynopsis = retryResult.summary;
-              aiResult = retryResult;
-              wordCount = rawSynopsis.trim().split(/\s+/).filter(Boolean).length;
-              if (wordCount < 180 || wordCount > 320) {
-                wordCountViolation = true;
-                console.warn(`[Synopsis Compression] Retry word count (${wordCount}) still outside bounds [180, 320]. Flagging word_count_violation.`);
-              }
-            } else {
-              wordCountViolation = true;
-            }
+          },
+          prompt: synopsisPrompt,
+          tightenedPrompt: (wCount, b) =>
+            `${synopsisPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous attempt was ${wCount} words, which violates the required length. Return exactly 250 words. Do not exceed ${b.hardCeiling} words. Hard bounds: ${b.hardFloor} minimum, ${b.hardCeiling} maximum.`,
+          bounds: { targetWords: 250, hardFloor: 180, hardCeiling: 320 },
+          maxRetries: 1,
+          contextLabel: '[Synopsis]',
+          structuralCheck: false,
+        });
+
+        if (guardResult.text && guardResult.text.trim()) {
+          rawSynopsis = guardResult.text;
+          aiResult = guardResult.rawResponse || aiResult;
+          if (guardResult.violation) {
+            wordCountViolation = true;
+            console.warn(`[Synopsis Compression] Retry word count (${guardResult.wordCount}) still outside bounds [180, 320]. Flagging word_count_violation.`);
           }
         } else {
           fellBack = true;
@@ -436,38 +431,31 @@ OUTPUT:`;
       let wordCountViolation = false;
 
       try {
-        aiResult = await this.executeAIGeneration(context, {
-          task: 'book_summary',
-          book,
-          options,
-          prompt: summaryPrompt,
-          maxTokens: 1400,
-        });
-
-        if (aiResult && aiResult.summary && aiResult.summary.trim()) {
-          rawSummary = aiResult.summary;
-          let wordCount = rawSummary.trim().split(/\s+/).filter(Boolean).length;
-          if (wordCount < 500 || wordCount > 1000) {
-            console.warn(`[Book Summary Compression] Output word count (${wordCount}) outside bounds [500, 1000]. Retrying once with stricter constraint...`);
-            const retryPrompt = `${summaryPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous attempt was ${wordCount} words, which violates the required length. Return between 600 and 900 words. Do not exceed 1000 words. Hard bounds: 500 minimum, 1000 maximum.`;
-            const retryResult = await this.executeAIGeneration(context, {
+        const guardResult = await aiRetryGuard.executeWithWordCountGuard({
+          generateFn: async (promptToRun) => {
+            return await this.executeAIGeneration(context, {
               task: 'book_summary',
               book,
               options,
-              prompt: retryPrompt,
+              prompt: promptToRun,
               maxTokens: 1400,
             });
-            if (retryResult && retryResult.summary && retryResult.summary.trim()) {
-              rawSummary = retryResult.summary;
-              aiResult = retryResult;
-              wordCount = rawSummary.trim().split(/\s+/).filter(Boolean).length;
-              if (wordCount < 500 || wordCount > 1000) {
-                wordCountViolation = true;
-                console.warn(`[Book Summary Compression] Retry word count (${wordCount}) still outside bounds [500, 1000]. Flagging word_count_violation.`);
-              }
-            } else {
-              wordCountViolation = true;
-            }
+          },
+          prompt: summaryPrompt,
+          tightenedPrompt: (wCount, b) =>
+            `${summaryPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous attempt was ${wCount} words, which violates the required length. Return between 600 and 900 words. Do not exceed ${b.hardCeiling} words. Hard bounds: ${b.hardFloor} minimum, ${b.hardCeiling} maximum.`,
+          bounds: { targetWords: 750, hardFloor: 500, hardCeiling: 1000 },
+          maxRetries: 1,
+          contextLabel: '[Book Summary]',
+          structuralCheck: false,
+        });
+
+        if (guardResult.text && guardResult.text.trim()) {
+          rawSummary = guardResult.text;
+          aiResult = guardResult.rawResponse || aiResult;
+          if (guardResult.violation) {
+            wordCountViolation = true;
+            console.warn(`[Book Summary Compression] Retry word count (${guardResult.wordCount}) still outside bounds [500, 1000]. Flagging word_count_violation.`);
           }
         } else {
           usedFallback = true;

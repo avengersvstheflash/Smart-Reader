@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Build 4.1 Editorial Intelligence Test Suite
  *
  * Covers:
@@ -393,15 +393,15 @@ async function runTests() {
     const c1 = semanticChunkRepository.create({
       book_id: b1.id,
       sequence_index: 0,
-      text_content: 'Deep analysis of quantum computing hardware architectures and qubit coherence.',
-      token_count: 50,
+      text_content: 'Deep analysis of quantum computing hardware architectures and qubit coherence. Superconducting qubits require dilution refrigeration systems reaching millikelvin temperatures to suppress thermal excitations and maintain quantum superposition. Josephson junctions provide the non-linear inductance necessary to isolate two computational energy levels from higher parasitic states. Systematic benchmarking of state preparation and measurement errors enables accurate fault threshold estimates across physical planar transmon arrays. Quantum error correction codes will protect sensitive quantum information from environmental noise and decoherence mechanisms in large scale quantum computers.',
+      token_count: 85,
       section_heading: 'Hardware Architecture',
     });
     const c2 = semanticChunkRepository.create({
       book_id: b2.id,
       sequence_index: 0,
-      text_content: 'Comparative study of topological versus superconducting qubit fault tolerance.',
-      token_count: 50,
+      text_content: 'Comparative study of topological versus superconducting qubit fault tolerance. Topological systems leverage non-Abelian anyons whose braiding operations provide geometric protection against local environmental decoherence. Surface code implementations on planar superconducting arrays demand physical error rates below one percent per gate operation. Syndrome measurement circuits detect both bit-flip and phase-flip errors concurrently without collapsing coherent data qubit states. High threshold lattice configurations allow realistic experimental operations under typical laboratory microwave control imperfections.',
+      token_count: 85,
       section_heading: 'Fault Tolerance',
     });
 

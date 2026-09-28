@@ -7,6 +7,16 @@ const contextBuilder = require('../semantic/contextBuilder');
 const retrievalService = require('../semantic/retrievalService');
 const aiNormalizer = require('../ai/aiNormalizer');
 const aiService = require('../ai/aiService');
+const aiRetryGuard = require('../ai/aiRetryGuard');
+const config = require('../../config');
+
+class PreLLMValidationError extends Error {
+  constructor(message, details = {}) {
+    super(message);
+    this.name = 'PreLLMValidationError';
+    this.details = details;
+  }
+}
 const { getDatabase } = require('../../db/database');
 
 class SynthesisService {
@@ -45,10 +55,19 @@ class SynthesisService {
       return await this._executeSynthesizeChapter(outline, chapter, targetSmartId, options);
     } catch (err) {
       if (smartChapterRepository.getById(targetSmartId)) {
-        smartChapterRepository.update(targetSmartId, {
-          status: 'failed',
-          metadata_json: { error: err.message, failedAt: new Date().toISOString() },
-        });
+        const existing = smartChapterRepository.getById(targetSmartId);
+        let existingMeta = {};
+        try {
+          existingMeta = typeof existing.metadata_json === 'string'
+            ? JSON.parse(existing.metadata_json)
+            : (existing.metadata || {});
+        } catch {}
+        if (existing.status !== 'failed' || !existingMeta.fallback_reason) {
+          smartChapterRepository.update(targetSmartId, {
+            status: 'failed',
+            metadata_json: { error: err.message, failedAt: new Date().toISOString() },
+          });
+        }
       }
       throw err;
     }
@@ -58,20 +77,49 @@ class SynthesisService {
     const outlineId = outline.outlineId;
     const chapterId = targetSmartId;
 
-    // Step a: Retrieve chunks mapped to the chapter
+    // Step a: Pre-LLM source guard (Phase 5.6)
     const sourceSectionIds = chapter.sourceSectionIds || [];
     let chunks = [];
+    const missingChunkIds = [];
+    const insufficientChunkIds = [];
+
     for (const chunkId of sourceSectionIds) {
       const chunk = semanticChunkRepository.getById(chunkId);
-      if (chunk) {
-        chunks.push(chunk);
+      if (!chunk) {
+        missingChunkIds.push(chunkId);
+      } else {
+        const text = chunk.textContent || chunk.content || chunk.text_content || '';
+        const wCount = text.trim().split(/\s+/).filter(Boolean).length;
+        if (wCount < config.MIN_SOURCE_CHUNK_WORDS) {
+          insufficientChunkIds.push({ id: chunkId, words: wCount });
+        } else {
+          chunks.push(chunk);
+        }
       }
     }
 
-    // If mapped chunks missing or none found, fallback to search across outline collection
-    if (chunks.length === 0) {
-      const allChunks = semanticChunkRepository.getAll();
-      chunks = allChunks.slice(0, 4);
+    if (sourceSectionIds.length === 0 || missingChunkIds.length > 0 || insufficientChunkIds.length > 0 || chunks.length === 0) {
+      const details = missingChunkIds.length > 0
+        ? `Missing source chunk(s): ${missingChunkIds.join(', ')}`
+        : insufficientChunkIds.length > 0
+          ? `Source chunk(s) below MIN_SOURCE_CHUNK_WORDS (${config.MIN_SOURCE_CHUNK_WORDS}): ${insufficientChunkIds.map((c) => `${c.id} (${c.words}w)`).join(', ')}`
+          : 'No sourceSectionIds specified for chapter';
+
+      smartChapterRepository.update(targetSmartId, {
+        status: 'failed',
+        metadata_json: {
+          fallback_reason: 'pre_llm_source_missing',
+          missing_ids: missingChunkIds,
+          insufficient_chunk_ids: insufficientChunkIds,
+          details,
+          failedAt: new Date().toISOString(),
+        },
+      });
+
+      throw new PreLLMValidationError(`Pre-LLM guard failed: ${details}`, {
+        missingChunkIds,
+        insufficientChunkIds,
+      });
     }
 
     // Step b: Build compression context
@@ -156,9 +204,9 @@ Compression ratio for this task: ~${ratio}:1.
 
 Rules:
 
-Preserve every distinct concept, argument, example, and factual claim from the source. If the source names 14 methods, name 14.
+Preserve every distinct concept, argument, example, and factual claim from the source. If the source names 14 methods, name all 14.
 
-Do not add narrative framing, introductions, transitions, or conclusions not present in the source.
+Do not add narrative framing, introductions, meta-commentary, transitions, or conclusions not present in the source. Begin directly with dense factual statements.
 
 Do not paraphrase away specificity. "Gradient descent, SGD, and OLS" must not become "several optimization methods".
 
@@ -166,11 +214,11 @@ Use the source's own structure denser, not a rewritten structure.
 
 Every sentence must cite its source chunk at the end: [Source N].
 
-If ${assessedTargetWords} words is too small for the source's information density, emit [INSUFFICIENT_M: needs ~X words] as the final line instead of exceeding the ceiling.
-
-Do NOT exceed ${hardCeiling} words. This is a hard ceiling, not a target.
-
 Structure the output as 3–5 paragraphs separated by blank lines. Each paragraph covers one coherent movement of the source. Do not emit the output as a single block.
+
+Target length: exactly ${assessedTargetWords} words. Aim for the lower half of the band (${hardFloor}–${assessedTargetWords} words) to avoid ceiling overshoot. Do NOT exceed ${hardCeiling} words.
+
+If ${assessedTargetWords} words is strictly too small for the source's information density, emit [INSUFFICIENT_M: needs ~X words] as the final line instead of exceeding ${hardCeiling} words.
 
 Final enforcement: count your own words. If you would exceed ${hardCeiling}, cut from the middle, not the end. The last sentence must be complete.
 
@@ -186,70 +234,65 @@ OUTPUT:`;
     let fellBack = false;
     let fallbackReason = null;
     let compression_violation = false;
+    let violation_type = null;
     let finishReason = 'stop';
     let truncated = false;
 
     if (!options.fast && aiService.isAvailable && aiService.isAvailable()) {
       try {
-        let response = await aiService.generateText(compressionPrompt, {
-          temperature: 0.3,
-          maxTokens: Math.ceil(assessedTargetWords * 2.5),
-          reasoning: { enabled: false },
-        });
-
-        finishReason = response?.finish_reason || 'stop';
-        truncated = finishReason === 'length';
-        if (truncated) {
-          console.warn('[SynthesisService] Output truncated at token ceiling (finish_reason: length). Accepting truncated output.');
-        }
-
-        // Post-generation validation & single tightening retry if outside [assessed * 0.8, assessed * 1.2]
-        if (response && response.text && response.text.trim().length > 0) {
-          let wordCount = response.text.trim().split(/\s+/).filter(Boolean).length;
-          if (wordCount < hardFloor || wordCount > hardCeiling) {
-            console.warn(`[SynthesisService] Word count ${wordCount} outside [${hardFloor}, ${hardCeiling}] (assessed: ${assessedTargetWords}). Retrying with tightening prompt...`);
-            const retryPrompt = `Your output was ${wordCount} words. Required: ${assessedTargetWords}. Rewrite to hit the target exactly, preserving every distinct concept.
-
+        const guardResult = await aiRetryGuard.executeWithWordCountGuard({
+          generateFn: async (promptToRun) => {
+            return await aiService.generateText(promptToRun, {
+              temperature: 0.25,
+              maxTokens: Math.ceil(assessedTargetWords * 2.5),
+              reasoning: { enabled: false },
+            });
+          },
+          prompt: compressionPrompt,
+          tightenedPrompt: (wordCount, bounds, vType) => {
+            if (vType === 'structural_placeholder') {
+              return `${compressionPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous output lacked normal sentence structure or variety. Emit well-formed sentences with standard punctuation (. ! ?) and distinct prose paragraphs. Target: exactly ${bounds.targetWords} words. Ceiling: ${bounds.hardCeiling}. Floor: ${bounds.hardFloor}.`;
+            }
+            return `Your previous output was ${wordCount} words. Required: ${bounds.targetWords} words. Hard bounds: [${bounds.hardFloor}, ${bounds.hardCeiling}].
+Rewrite to hit the target exactly, preserving every distinct concept.
 Rules:
 Preserve every distinct concept, argument, example, and factual claim from the source.
 Structure the output as 3–5 paragraphs separated by blank lines.
 Every sentence must cite its source chunk at the end: [Source N].
-Do not exceed ${hardCeiling} words.
+Do not exceed ${bounds.hardCeiling} words.
 
 SOURCE MATERIAL:
 ${sourceMaterial}
 
 OUTPUT:`;
+          },
+          bounds: {
+            targetWords: assessedTargetWords,
+            hardFloor,
+            hardCeiling,
+          },
+          maxRetries: 1,
+          contextLabel: `[Smart Chapter ${chapterId}]`,
+          structuralCheck: true,
+        });
 
-            const retryResponse = await aiService.generateText(retryPrompt, {
-              temperature: 0.2,
-              maxTokens: Math.ceil(assessedTargetWords * 2.5),
-              reasoning: { enabled: false },
-            });
-
-            if (retryResponse && retryResponse.text && retryResponse.text.trim().length > 0) {
-              response = retryResponse;
-              finishReason = response.finish_reason || 'stop';
-              truncated = finishReason === 'length';
-              wordCount = response.text.trim().split(/\s+/).filter(Boolean).length;
-              if (wordCount < hardFloor || wordCount > hardCeiling) {
-                compression_violation = true;
-                console.warn(`[SynthesisService] Retry word count ${wordCount} still outside [${hardFloor}, ${hardCeiling}]. Flagging compression_violation.`);
-              } else {
-                compression_violation = false;
-              }
-            } else {
-              compression_violation = true;
-            }
-          } else {
-            compression_violation = false;
-          }
+        finishReason = guardResult.finishReason || 'stop';
+        truncated = finishReason === 'length';
+        if (truncated) {
+          console.warn('[SynthesisService] Output truncated at token ceiling (finish_reason: length). Accepting truncated output.');
         }
 
-        if (response && response.text && response.text.trim().length > 0) {
-          rawCompression = response.text;
-          providerName = response.provider || 'gemini';
-          modelName = response.model || 'gemini-1.5-flash';
+        if (guardResult.text && guardResult.text.trim().length > 0) {
+          rawCompression = guardResult.text;
+          const resp = guardResult.rawResponse;
+          providerName = (resp && resp.provider) || 'gemini';
+          modelName = (resp && resp.model) || 'gemini-1.5-flash';
+
+          if (guardResult.violation) {
+            compression_violation = true;
+            violation_type = guardResult.violationType;
+            console.warn(`[synthesisService] violation content preview: "${rawCompression.slice(0, 100).replace(/\r?\n/g, ' ')}..."`);
+          }
         } else {
           fellBack = true;
           fallbackReason = 'provider_unavailable';
@@ -387,6 +430,8 @@ OUTPUT:`;
     }
 
     const actualWordCount = cleanContent.trim().split(/\s+/).filter(Boolean).length;
+    const resynthesisAttempts = options.resynthesis_attempts || 0;
+
     const metadata = {
       outlineId,
       chapterId,
@@ -406,15 +451,62 @@ OUTPUT:`;
       claimed_attributions: claimedAttributions,
       truncated,
       finish_reason: finishReason,
+      resynthesis_attempts: resynthesisAttempts,
+      ...(violation_type ? { violation_type } : {}),
       ...(insufficientMarker ? { insufficient_marker: insufficientMarker } : {}),
       ...(fellBack ? {
         fell_back: true,
         fallback_reason: fallbackReason || 'provider_unavailable',
         ...(isDuplicate ? { duplicate: true } : {}),
       } : {}),
-      ...(compression_violation ? { compression_violation: true } : {}),
       compression_violation: compression_violation === true,
     };
+
+    // Step 5: Auto-resynthesize on violation (Phase 5.6)
+    if (compression_violation && config.AUTO_RESYNTHESIZE_ON_VIOLATION && !options.fast && !fellBack) {
+      if (resynthesisAttempts < config.MAX_AUTO_RESYNTHESIZE_ATTEMPTS) {
+        const nextAttempt = resynthesisAttempts + 1;
+        console.warn(`[SynthesisService] Compression violation detected (${violation_type}). Auto-resynthesizing chapter ${targetSmartId} (attempt ${nextAttempt}/${config.MAX_AUTO_RESYNTHESIZE_ATTEMPTS})...`);
+        smartChapterRepository.update(targetSmartId, {
+          status: 'generating',
+          metadata_json: {
+            ...metadata,
+            resynthesis_attempts: nextAttempt,
+          },
+        });
+        return await this._executeSynthesizeChapter(outline, chapter, targetSmartId, {
+          ...options,
+          resynthesis_attempts: nextAttempt,
+        });
+      } else {
+        // Attempts exhausted: status = 'failed'
+        console.warn(`[SynthesisService] Auto-resynthesis exhausted (${config.MAX_AUTO_RESYNTHESIZE_ATTEMPTS} attempts) on chapter ${targetSmartId}. Marking status='failed'.`);
+        metadata.fallback_reason = 'auto_resynthesis_exhausted';
+        metadata.resynthesis_attempts = config.MAX_AUTO_RESYNTHESIZE_ATTEMPTS;
+
+        let smartChapter = smartChapterRepository.getById(targetSmartId);
+        if (smartChapter) {
+          smartChapter = smartChapterRepository.update(targetSmartId, {
+            status: 'failed',
+            content: cleanContent,
+            synthesis_type: synthesisType,
+            metadata_json: metadata,
+            updated_at: new Date().toISOString(),
+          });
+        }
+
+        return {
+          smartChapter,
+          representation: smartChapter,
+          canonicalBlocks,
+          context,
+          grounded: true,
+          provenance: chunkIds,
+          provider: providerName,
+          model: modelName,
+        };
+      }
+    }
 
     let smartChapter = smartChapterRepository.getById(targetSmartId);
     if (smartChapter) {
@@ -677,4 +769,8 @@ OUTPUT:`;
   }
 }
 
-module.exports = new SynthesisService();
+const synthesisServiceInstance = new SynthesisService();
+synthesisServiceInstance.PreLLMValidationError = PreLLMValidationError;
+module.exports = synthesisServiceInstance;
+module.exports.PreLLMValidationError = PreLLMValidationError;
+
