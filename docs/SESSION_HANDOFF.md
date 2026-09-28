@@ -8,15 +8,24 @@
 
 ## 1. Where we are
 
-**Phase 5.5 CLOSED 2026-09-27/28.** All 20 test suites green. Frontend build clean. Library polish complete. Smart Chapters promoted to first-class entities. Reading memory (toggle, indicators, resume) live.
+**Phase 5.6 CLOSED 2026-09-28.** Sub-phases 5.6.1 through 5.6.3 all shipped, plus reader hotfixes 5.5e and 5.5e.1. All 21 test suites green. Frontend build clean. Origin synced.
 
-**Last shipped commit:** `27ed088` — fix(frontend): enforce React rules of hooks in BookDetailsRoute.
+**Last shipped commit:** `18df66b` — fix(phase5.5e.1): correct splitter over-clumping regression.
 
-**Test state:** 20/20 root suites green. Frontend `tsc --noEmit` clean. Runtime ~6–8 min. Origin synced.
+**Test state:** 21/21 root suites green. Frontend `tsc --noEmit` clean. Runtime ~8–10 min. Origin synced.
 
-**Next phase:** Phase 5.6 — Validation and refine loops.
+**Next phase:** Phase 5.7.1 — Python sidecar + OCR.
 
-### What ships today (Phase 5.5)
+### What ships today (Phase 5.6)
+
+- **Pre-LLM source guard**: rejects synthesis when source chunks are missing or below MIN_SOURCE_CHUNK_WORDS (75).
+- **Post-LLM output guard (aiRetryGuard.js)**: centralizes word-count validation, structural placeholder detection, retry with corrective prompt. Replaces ad-hoc retry logic in synthesisService and intelligentSummarizer.
+- **Auto-resynthesis on persistent violation**, capped at 2 attempts (`AUTO_RESYNTHESIZE_ON_VIOLATION`, `MAX_AUTO_RESYNTHESIZE_ATTEMPTS`).
+- **Semantic chunker hardening**: heading glue invariant, targetMinTokens activated, post-pass merge. Sub-75w chunks: 120 → 3 (atomic tables).
+- **PDF parser heading consolidation + math symbol filter**: 24 math headings → 0. Multi-line headings joined.
+- **Reader chip stability**: no oscillation on hover, no garbled paint, abbreviation-aware sentence splitter (mirrored frontend/backend).
+
+### What shipped previously (Phase 5.5)
 
 **Backend**
 - New `smart_chapters` table: id, book_id, sequence, title, status (pending | generating | generated | failed), planned_source_section_ids, planned_word_count, content, synthesis_type, metadata_json, opened_at, read_at, read_source, created_at, updated_at.
@@ -48,7 +57,8 @@
 4.13.1 → 4.14 → 4.15a → 4.15b → 4.16 → 4.19 → 4.20 → 4.21 → 4.21.1 →
 4.24 → 4.25 → 5.1a → 5.1b → 5.1b.1 → 5.1b.2 → 5.2 → 5.2.1 → 5.2.2 →
 5.2.3 → 5.3a → 5.3b → 5.3b.1 → 5.3d → 5.3d.1 → 5.3e → 5.3f → 5.5a →
-5.5b → 5.5c.1 → 5.5c.2 → 5.5c.3 → 5.5d → 5.5d.1 → 5.5d.2
+5.5b → 5.5c.1 → 5.5c.2 → 5.5c.3 → 5.5d → 5.5d.1 → 5.5d.2 → 5.6.1 →
+5.6.2 → 5.6.3 → 5.5e → 5.5e.1
 
 ---
 
@@ -87,52 +97,36 @@
 
 ## 4. Next task
 
-### Immediate: Docs close for Phase 5.5
+### Phase 5.7.1 — Python sidecar + OCR (2 sessions)
 
-Before opening 5.6, complete the phase close:
-- SESSION_HANDOFF §1, §4, §5, §8 updates (this document)
-- docs/session-logs/2026-09-27.md
-- Roadmap reshape per §5 below
-
-### Phase 5.6 — Validation and refine loops (2–3 sessions)
-
-**Goal:** Make the compression pipeline self-correcting. Today the system produces output and marks failures honestly, but it does not verify or repair.
+**Goal:** Establish the Python sidecar process for local, CPU-heavy primitives starting with OCR for scanned/image-only PDFs.
 
 **Scope:**
-1. **Pre-LLM source guard.** Before synthesis, verify that source chunks exist, are non-empty, and match the outline's planned section IDs. Fail honestly rather than compress garbage.
-2. **Post-LLM output guard.** After synthesis, verify that output falls within the target word band and (where provenance is available) that compressed sentences map to cited chunks. Flag or retry if the ratio is wildly off.
-3. **A3 resolution.** The uniform-character synthesis reps issue (flagged in Phase 4.25) — validate that generated reps have real sentence structure, not placeholder content.
-4. **Compression overshoot tuning.** LLM self-assessment over-asks; the clamp enforces. Explore whether upstream prompts can reduce post-clamp violations.
-5. **Retry policy consolidation.** Currently retries exist for word count violations in several places. Centralize the policy.
-
-**Depends on:** Phase 5.5 (smart_chapters lifecycle enables the generating → generated → failed states used by validation).
-
-**Not in scope for 5.6:**
-- Slicer refactor (deferred to 5.7.2 — see below)
-- Python sidecar (5.7)
-- Tauri packaging (Phase 6)
+1. FastAPI process on `localhost:8765`.
+2. PaddleOCR engine integration.
+3. Node client integration with graceful fallback (if Python sidecar is down, non-OCR ingestion continues unharmed).
+4. Automated verification test suite.
 
 ---
 
-## 5. Roadmap (reshaped 2026-09-27)
+## 5. Roadmap (reshaped 2026-09-28)
 
-### Phase 5.6 (2–3 sessions) — Validation and refine loops
-See §4 for scope.
+### Phase 5.6 (shipped 2026-09-28) — Validation and refine loops
+✅ **CLOSED**. Pre-LLM and post-LLM validation guards, centralized aiRetryGuard, auto-resynthesis on persistent violation, semantic chunker hardening (heading glue + post-pass merge), and PDF parser heading/math refinement. Reader chip stability (5.5e, 5.5e.1) shipped.
 
 ### Phase 5.7.1 (2 sessions) — Python sidecar + OCR
 Unchanged. FastAPI process on localhost:8765, PaddleOCR, Node integration, graceful fallback. Ships working OCR for image-only PDFs.
 
-### Phase 5.7.2 (2–3 sessions) — Slicer refactor + hybrid parallelism
-**Reshaped from original "Discussion + Story stubs".**
-
-Bundles three concerns:
-1. **Slicer refactor.** The chapter-slicing heuristic currently produces one Smart chapter per source section. On the ML PDF, this yielded 31 planned chapters where ~5–8 were expected. Target: segment by compressed-unit count, not source-section count. Same fix pass as the hybrid work below.
-2. **BGE-M3 embedding migration to Python.** Current Node implementation serializes embedding calls. Python thread pool (sentence-transformers or equivalent) gives realistic 3–4× speedup on the ~3.5-minute ML PDF indexing step. Node keeps orchestration; Python owns the CPU-bound primitive.
-3. **Parallel synthesis primitives.** Node-side promise pool for OpenRouter-bound work. Chapters within a book (or books within a batch) can synthesize concurrently with bounded concurrency. Rate-limit aware.
+### Phase 5.7.2 (3–4 sessions, AMENDED SCOPE) — NLP migration (chunker/slicer/splitter) + hybrid parallelism
+Bundles four concerns:
+1. **NLP pipeline migration to Python.** Chunker, slicer, and sentence splitter all move from Node to Python sidecar. Rationale: pysbd/spaCy handle abbreviation-aware sentence boundaries, citations, math notation, and multi-language text correctly — the regex-based Node splitter required two hotfixes in a single session. Python owns text segmentation; Node keeps SQLite writes, HTTP API, and OpenRouter calls. Frontend receives pre-computed sentence_start/sentence_end indices from backend; the local splitter in frontend/src/types/domain.ts is removed. This expands 5.7.2 from ~2-3 sessions to ~3-4 sessions.
+2. **Slicer refactor.** The chapter-slicing heuristic currently produces one Smart chapter per source section. On the ML PDF, this yielded 31 planned chapters where ~5–8 were expected. Target: segment by compressed-unit count, not source-section count.
+3. **BGE-M3 embedding migration to Python.** Python thread pool (sentence-transformers or equivalent) gives realistic 3–4× speedup on the ~3.5-minute ML PDF indexing step. Node keeps orchestration; Python owns the CPU-bound primitive.
+4. **Parallel synthesis primitives.** Node-side promise pool for OpenRouter-bound work. Chapters within a book (or books within a batch) can synthesize concurrently with bounded concurrency. Rate-limit aware.
 
 **Architectural boundary (locked):**
 - Node owns: orchestration, OpenRouter calls, SQLite writes, HTTP API.
-- Python owns: CPU-heavy primitives (embedding, OCR), exposed over local HTTP.
+- Python owns: CPU-heavy primitives (embedding, OCR, NLP segmentation), exposed over local HTTP.
 - No cross-process DB writes. Node is the sole writer.
 - Interface between languages is small and versioned.
 
@@ -222,7 +216,14 @@ Two loops, building on top of Phase 5.1/5.5:
 
 - **Buffer drift — 3 incidents.** Stale editor buffer flushes post-commit, corrupting working tree. **Rule: after every commit, `git status --short`. If unexpected `M` lines appear, `git diff` then `git checkout HEAD -- <file>`. Never `git reset --hard`.**
 
+- **Buffer drift via editor flush (2026-09-28).** After committing 3468c83, the working tree showed M on multiple files whose buffers had flushed post-commit. Standard resolution worked: `git checkout HEAD -- <file>`. Never `git reset --hard`. This reinforces the standing rule: after every commit, run `git status --short` and inspect for unexpected modifications.
+
 - **Fabricated verification — 1 incident (2026-09-23).** **Rule: verification evidence must always be pasted from actual terminal output. Any invented evidence is a project-integrity failure.**
+
+- **Fabricated report output (2nd incident, 2026-09-28).** During 5.6.3, the agent reported "ALL 21 TEST SUITES PASSED" with a list of suite filenames that do not exist on disk (`phase4-synthesis-smoke.test.js`, `citation-integrity.test.js`, `heading-detection.test.js`, etc.). Actual suite names were verified independently by the user. The code fix was real; only the report's evidence list was fabricated. **Distinction from 4.24:** 4.24 was code-not-real + evidence-fabricated; this incident was code-real + evidence-fabricated. Same integrity violation, different shape.
+  **Rule:** any claim of test passage must include the actual suite filenames as they appear in backend/tests/. "All X passed" without filenames is unverifiable and will be rejected.
+
+- **Regex-based sentence splitting is fragile (2026-09-28).** The splitter required two hotfixes in a single session (5.5e and 5.5e.1) to handle English abbreviations, initials, and math notation correctly. Each fix introduced new edge cases. **Rule:** any future sentence-boundary work should target the Python NLP migration (5.7.2) rather than patching the regex further. pysbd/spaCy handle this natively.
 
 - **License-check any fixture before git add.** See `docs/RIGHTS.md`.
 
@@ -261,12 +262,17 @@ Transcript spelunking incidents stopped mid-Phase 5.5. Prompts now re-paste cont
 ## 9. Deferred & Ideas
 
 ### Deferred (tracked, with target)
+- **Phase 5.5e.2 — reader chip spacing.** Currently the source chip reserves horizontal space when hidden (inline-block with opacity:0 preserves space), creating a visible gap in normal reading flow. Non-blocking visual issue. Fix approaches: absolute positioning (chip floats over text) or width:0 + overflow:hidden when opacity is 0. Estimated ~30 min session.
+- **Phase 5.6.4 — provenance granularity.** A long compressed sentence can be attributed to a small source chunk (e.g., a section heading only). Attribution is technically correct (first claim maps to that chunk), but visually disproportionate — the reader sees a chip pointing to a 5-word source for a 40-word paragraph. Investigate: segmenter chunk-mapping weighting, minimum source-chunk size for provenance display, or paragraph-level attribution merge. Estimated ~1 session.
+- **NLP pipeline migration to Python (part of 5.7.2, AMENDED SCOPE).** Chunker, slicer, and sentence splitter all move from Node to Python sidecar. Rationale: pysbd/spaCy handle abbreviation-aware sentence boundaries, citations, math notation, and multi-language text correctly — the regex-based Node splitter required two hotfixes in a single session. Python owns text segmentation; Node keeps SQLite writes, HTTP API, and OpenRouter calls. Frontend receives pre-computed sentence_start/sentence_end indices from backend; the local splitter in `frontend/src/types/domain.ts` is removed. This expands 5.7.2 from ~2-3 sessions to ~3-4 sessions.
+- **Slicer refactor** — target Phase 5.7.2 (unchanged). Real ML PDF import yielded 31 Smart chapters (one per source section). Target ~5–8 by segmenting on compressed-unit count. Bundled with hybrid parallelism work.
 - **Citation integrity check** — dropped from Phase 5.6; deferred to post-Python hybrid phase (Phase 5.7+). Sentence-level verification of [Source N] grounding against indexed chunk vectors is best performed alongside embedding-accelerated Python primitives.
-- **Slicer refactor** — target Phase 5.7.2. Real ML PDF import yielded 31 Smart chapters (one per source section). Target ~5–8 by segmenting on compressed-unit count. Bundled with hybrid parallelism work.
+- **Fixture licensing swap** — RIGHTS.md, pre-commercial release.
+- **Preface-less source handling** — synopsis degradation on sources lacking preface + TOC. Retry logic saves it today; fragile.
+- **Compression overshoot tuning** — prompt-level compression tuning and adaptive ratio validation (ongoing).
 - **Timestamp format consistency** — non-blocking. Repository now normalizes to ISO 8601 UTC. Check any future timestamp fields for the same pattern before shipping.
 - **`formatRelativeTime` scope drift** — report mentioned `Xmo ago` and `Xy ago` in the implementation. Spec only asked for `just now / Nm / Nh / Nd / Mon D`. Verify on next touch; non-blocking.
 - **Empty chapter handling** in synthesis (pre-existing).
-- **Fixture licensing swap** — RIGHTS.md, pre-commercial release.
 
 ### Ideas (not scheduled, recorded for context)
 - **Hybrid Node + Python is the target model.** Not a fallback. Node owns orchestration, I/O, HTTP, SQLite writes. Python owns CPU-heavy primitives (embedding, OCR, future ML). Each language does what it is uniquely good at. The interface between them is small and stable. This is a philosophy, not a workaround.

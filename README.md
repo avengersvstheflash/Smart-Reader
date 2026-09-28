@@ -13,7 +13,7 @@
 [![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3)
 [![BGE-M3 Embeddings](https://img.shields.io/badge/Embeddings-BGE--M3_1024d-blue)](https://huggingface.co/BAAI/bge-m3)
 
-[![Tests 20/20 Passing](https://img.shields.io/badge/Tests-20%2F20_Passing-3fb950)](#test)
+[![Tests 21/21 Passing](https://img.shields.io/badge/Tests-21%2F21_Passing-3fb950)](#test)
 [![Local-First Enabled](https://img.shields.io/badge/Local--First-enabled-2ea043)](#design-philosophy)
 [![Status Phase 5 In Progress](https://img.shields.io/badge/Status-Phase_5_in_progress-blue)](#roadmap)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
@@ -75,7 +75,7 @@ Dense technical content preserves every claim at tighter ratios. Accessible narr
 | **PDF parsing** | `pdfjs-dist` with layout heuristics |
 | **Web extraction** | `cheerio` with chrome stripping |
 | **AI (compression)** | OpenRouter → DeepSeek V4 Flash (configurable; Ollama supported for fully local mode) |
-| **Testing** | 20 regression suites, real fixtures, ~8–10 min runtime |
+| **Testing** | 21 regression suites, real fixtures, ~8–10 min runtime |
 
 ---
 
@@ -88,6 +88,8 @@ Dense technical content preserves every claim at tighter ratios. Accessible narr
 - **Auto-classification** — LLM-based `contentType`, tags, reading level, target audience; heuristic fallback if the provider is unavailable
 - **Bibliographic extraction** — publisher, year, ISBN, edition, authors, copyright holder, language; deterministic regex fallback; honest nulls for non-book sources (SEC filings, reports)
 - **Editorial planning** — 1,500–2,500 word source-unit slicing with even distribution and defensive subdivision for oversize sections
+- **Validation guards** — pre-LLM source validation (missing or undersized chunks rejected), post-LLM output validation (word count + structural check), auto-resynthesis on persistent violation (max 2 attempts).
+- **Semantic chunker hardening** — heading-glue invariant, targetMinTokens enforcement, post-pass merge for undersized chunks.
 - **Compression** — grounded Smart Chapter synthesis with self-assessment. Two-phase: Phase A estimates the words needed to preserve every claim; Phase B compresses to that target. Reasoning disabled, dynamic clamps on output.
 - **Synopsis** — generated from preface + TOC + strategic samples, sequenced before chapter compression
 - **Provenance resolution** — paragraph-level source attribution with sentence-level segmentation. C-primary arbitration (embedding similarity), A-corroboration (compressor's emitted citations), B-fallback (LLM arbitration on ambiguous cases). Ungrounded paragraphs marked honestly.
@@ -101,7 +103,7 @@ Dense technical content preserves every claim at tighter ratios. Accessible narr
 ### Frontend
 - **Library** — responsive book grid with search, content-type filters, expandable tag panel (collapsed inline, expanded wrapped grid — no horizontal scroll), filter persistence across tab navigation, and Smart-only readings
 - **Book Details** — hero card with classification chips, synopsis panel, bibliographic panel, Smart Chapters list with status badges (`Queued` / `Generating…` / `Failed`), relative-time read indicators, and "Continue: Chapter N" resume button
-- **Reader** — Smart-only reading view with toggle "Mark as read" / "✓ Read", fires `opened` on mount, auto-marks `read` on scroll-end (IntersectionObserver, 80% + scrollY > 200 guard); clicking any sentence provenance chip navigates directly to the source chunk in Research view
+- **Reader** — Smart-only reading view with toggle "Mark as read" / "✓ Read"; stable source-chip hover (no oscillation, no paint artifacts); abbreviation-aware sentence segmentation (handles e.g., i.e., etc., Dr., J. K. initials, math notation); clicking any sentence provenance chip navigates directly to the source chunk in Research view
 - **Research tab** — dedicated collection view of original sources with format/type filters (PDF, EPUB, Web, Paste, Dossiers) and "Imported, not yet synthesized" badges
 - **Research Viewer** — serene paper visual identity (serif prose, wide calm margins, neutral palette), theme-aware across all 4 app themes (default, warm, dark, glass)
 - **Cross-tab provenance navigation** — clicking a Smart sentence source chip jumps directly into the Research viewer with chunk highlight wash and auto-centering; sticky return arrow restores reader scroll position via sessionStorage
@@ -214,7 +216,7 @@ Open `http://localhost:5173/` and import a document.
 ### Test
 
 ```bash
-npm test # 20 regression suites, ~8–10 minutes
+npm test # 21 regression suites, ~8–10 minutes
 ```
 
 > **Test Isolation:** Test runs execute against `storage/test-data.db` — your working development library at `storage/data.db` is never touched.
@@ -242,9 +244,9 @@ Compression enforced. Import pipeline hardened. Classification shipped. Cinemati
 | **5.2** | ✅ | Reader click-through UI — interactive provenance |
 | **5.3** | ✅ | Research tab foundation & Library/Research architectural split (shipped 5.3a–f) |
 | **5.5** | ✅ | Library polish + Smart Chapters as first-class entities (shipped 5.5a–d.2) |
-| **5.6** | ⏳ | Validation and refine loops |
+| **5.6** | ✅ | Validation and refine loops |
 | **5.7.1** | ⏳ | Python sidecar + OCR |
-| **5.7.2** | ⏳ | Slicer refactor + hybrid parallelism (embedding + synthesis) |
+| **5.7.2** | ⏳ | NLP migration (chunker/slicer/splitter) + BGE-M3 to Python + Node parallel synthesis |
 | **5.7.3** | ⏳ | Capability router + DOCX/RTF ingestion |
 
 ### Later
@@ -276,6 +278,8 @@ Developed in strict phases. Each phase closes clean — tests green, tree clean,
 
 | Limitation | Status |
 |---|---|
+| **Provenance granularity** | Long compressed sentences can attribute to small source chunks. Investigation queued for Phase 5.6.4. |
+| **Reader chip spacing** | Source chips reserve horizontal space when hidden, creating visible gaps. Fix queued for Phase 5.5e.2. |
 | **OCR for image-only PDFs** | Deferred to Python sidecar (Phase 5.7.1). Empty-content PDFs fail honestly today. |
 | **Chapter slicing heuristic** | Currently emits one Smart chapter per source section on real imports (ML PDF produced 31 where ~5–8 expected). Refactor scheduled for Phase 5.7.2. |
 | **Compression ratio tuning** | Adaptive clamps shipped; empirical tuning deferred to Phase 5.6 validation loops. |
@@ -295,7 +299,7 @@ Solo development, active. Issues and discussion via the GitHub issue tracker.
 - `chore(scope): <description>` — build, deps, tooling
 - `phase<N>.<M>: <description>` — roadmap phase work
 
-*Test suite must stay green (`npm test` → 20/20 passing) through every commit.*
+*Test suite must stay green (`npm test` → 21/21 passing) through every commit.*
 
 ---
 
