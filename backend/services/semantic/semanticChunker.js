@@ -1,10 +1,12 @@
+'use strict';
 const crypto = require('crypto');
 
 class SemanticChunker {
   constructor(options = {}) {
-    this.targetMinTokens = options.targetMinTokens || 80;
+    this.targetMinTokens = options.targetMinTokens || 80;   // ~60 words activated (1b)
     this.targetMaxTokens = options.targetMaxTokens || 350;
     this.hardMaxTokens = options.hardMaxTokens || 550;
+    this.minWordCount = options.minWordCount || 75; // post-pass merge threshold (1c)
   }
 
   chunkPreprocessedUnits(units, bookMetadata = {}) {
@@ -12,18 +14,24 @@ class SemanticChunker {
 
     const chunks = [];
     let currentAccumulator = null;
+    let pendingHeading = false;   // (1a) heading glue flag
     let chunkSequence = 0;
 
-    const flushAccumulator = () => {
+    const flushAccumulator = (forceEmit = false) => {
       if (!currentAccumulator) return;
       const combinedText = currentAccumulator.textParts.join('\n\n').trim();
       if (!combinedText) {
         currentAccumulator = null;
+        pendingHeading = false;
         return;
       }
 
-      const chunkId = `chk-${currentAccumulator.bookId.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}-${chunkSequence}`;
       const tokenCount = this.estimateTokens(combinedText);
+
+      // (1b) carry forward if below min and not forced
+      if (!forceEmit && tokenCount < this.targetMinTokens) return;
+
+      const chunkId = `chk-${currentAccumulator.bookId.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}-${chunkSequence}`;
       const hash = this.hashContent(`${currentAccumulator.sectionHeading}:${combinedText}`);
 
       chunks.push({
@@ -42,22 +50,23 @@ class SemanticChunker {
         structuralRole: currentAccumulator.structuralRole || 'chapter',
         tokenCount,
         contentHash: hash,
+        metadata: currentAccumulator.metadata || {},
       });
 
       currentAccumulator = null;
+      pendingHeading = false;
     };
+
+    const commitAccumulator = () => flushAccumulator(true);
 
     for (let i = 0; i < units.length; i++) {
       const unit = units[i];
       if (!unit || !unit.textContent) continue;
 
-      // Atomic structural units: Tables, Callouts, Blockquotes, Lists
-      // These should NEVER be split across unrelated chunks
       const isAtomic = ['table', 'callout', 'quote', 'list'].includes(unit.contentType);
 
       if (isAtomic) {
-        flushAccumulator();
-
+        commitAccumulator();
         const chunkId = `chk-${(unit.bookId || 'bk').slice(0, 8)}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}-${chunkSequence}`;
         chunks.push({
           id: chunkId,
@@ -73,14 +82,14 @@ class SemanticChunker {
           structuralRole: unit.structuralRole || 'chapter',
           tokenCount: unit.tokenCount || this.estimateTokens(unit.textContent),
           contentHash: unit.contentHash || this.hashContent(`${unit.sectionHeading}:${unit.textContent}`),
+          metadata: {},
         });
         continue;
       }
 
-      // Headings
+      // (1a) Heading glue invariant: headings NEVER emitted standalone.
       if (unit.contentType === 'heading') {
-        flushAccumulator();
-        // Start new accumulator under this heading
+        commitAccumulator();
         currentAccumulator = {
           bookId: unit.bookId,
           chapterId: unit.chapterId,
@@ -92,16 +101,17 @@ class SemanticChunker {
           textParts: [`[Section: ${unit.textContent}]`],
           canonicalBlocks: [unit.canonicalBlock],
           approxTokens: unit.tokenCount || this.estimateTokens(unit.textContent),
+          metadata: {},
         };
+        pendingHeading = true;
         continue;
       }
 
-      // Paragraphs
+      // Paragraphs / other content
       const unitTokens = unit.tokenCount || this.estimateTokens(unit.textContent);
 
-      // If unit alone exceeds hardMaxTokens, split cleanly by sentences
       if (unitTokens > this.hardMaxTokens) {
-        flushAccumulator();
+        commitAccumulator();
         const sentenceSplits = this.splitBySentences(unit.textContent, this.targetMaxTokens);
         for (const sentenceGroup of sentenceSplits) {
           const chunkId = `chk-${(unit.bookId || 'bk').slice(0, 8)}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}-${chunkSequence}`;
@@ -119,12 +129,12 @@ class SemanticChunker {
             structuralRole: unit.structuralRole || 'chapter',
             tokenCount: this.estimateTokens(sentenceGroup),
             contentHash: this.hashContent(`${unit.sectionHeading}:${sentenceGroup}`),
+            metadata: {},
           });
         }
         continue;
       }
 
-      // Accumulate with existing group if same section and within budget
       if (
         currentAccumulator &&
         currentAccumulator.sectionHeading === unit.sectionHeading &&
@@ -136,9 +146,9 @@ class SemanticChunker {
         if (!currentAccumulator.sourcePage && unit.sourcePage) {
           currentAccumulator.sourcePage = unit.sourcePage;
         }
+        pendingHeading = false;
       } else {
-        // Exceeds budget or new section
-        flushAccumulator();
+        commitAccumulator();
         currentAccumulator = {
           bookId: unit.bookId,
           chapterId: unit.chapterId,
@@ -150,17 +160,86 @@ class SemanticChunker {
           textParts: [unit.textContent],
           canonicalBlocks: [unit.canonicalBlock],
           approxTokens: unitTokens,
+          metadata: {},
         };
+        pendingHeading = false;
       }
     }
 
-    flushAccumulator();
-    return chunks;
+    // End-of-stream: handle pending heading (merge backward or emit heading_only).
+    if (currentAccumulator && pendingHeading) {
+      const combinedText = currentAccumulator.textParts.join('\n\n').trim();
+      if (chunks.length > 0) {
+        const prev = chunks[chunks.length - 1];
+        prev.textContent = prev.textContent + '\n\n' + combinedText;
+        prev.tokenCount = this.estimateTokens(prev.textContent);
+        prev.contentHash = this.hashContent(`${prev.sectionHeading}:${prev.textContent}`);
+        currentAccumulator = null;
+        pendingHeading = false;
+      } else {
+        console.warn('[semanticChunker] heading-only chapter emitted as fallback');
+        if (currentAccumulator) currentAccumulator.metadata = { merged_from: 'heading_only' };
+        commitAccumulator();
+      }
+    }
+
+    commitAccumulator();
+
+    // (1c) Post-pass merge: chunks with word count < minWordCount merge forward/backward.
+    // Atomic chunks (table, callout, quote, list) are NEVER merged — they are always emitted intact.
+    const atomicTypes = new Set(['table', 'callout', 'quote', 'list']);
+    const postPassMerge = (arr) => {
+      if (arr.length === 0) return arr;
+      const wordCount = (c) => {
+        const t = c.textContent || '';
+        return t.trim() === '' ? 0 : t.trim().split(/\s+/).length;
+      };
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (let i = 0; i < arr.length; i++) {
+          // Never merge atomic chunks
+          if (atomicTypes.has(arr[i].contentType)) continue;
+          if (wordCount(arr[i]) < this.minWordCount) {
+            if (arr.length === 1) break; // single chunk — accept it
+            // Prefer merging forward into a non-atomic neighbor
+            if (i + 1 < arr.length && !atomicTypes.has(arr[i + 1].contentType)) {
+              const merged = arr[i].textContent + '\n\n' + arr[i + 1].textContent;
+              arr[i + 1] = {
+                ...arr[i + 1],
+                textContent: merged.trim(),
+                tokenCount: this.estimateTokens(merged.trim()),
+                contentHash: this.hashContent(`${arr[i + 1].sectionHeading}:${merged.trim()}`),
+              };
+              arr.splice(i, 1);
+            } else if (i > 0 && !atomicTypes.has(arr[i - 1].contentType)) {
+              // Merge backward into a non-atomic neighbor
+              const merged = arr[i - 1].textContent + '\n\n' + arr[i].textContent;
+              arr[i - 1] = {
+                ...arr[i - 1],
+                textContent: merged.trim(),
+                tokenCount: this.estimateTokens(merged.trim()),
+                contentHash: this.hashContent(`${arr[i - 1].sectionHeading}:${merged.trim()}`),
+              };
+              arr.splice(i, 1);
+            } else {
+              // Both neighbors are atomic or don't exist — emit undersized chunk as-is
+              continue;
+            }
+            changed = true;
+            break;
+          }
+        }
+      }
+      arr.forEach((c, idx) => { c.sequence = idx; });
+      return arr;
+    };
+
+    return postPassMerge(chunks);
   }
 
   splitBySentences(text, maxTokensPerGroup) {
     if (!text) return [];
-    // Split on sentence boundaries: periods, exclamation points, questions followed by space or newline
     const rawSentences = text.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g) || [text];
     const groups = [];
     let currentGroup = [];
