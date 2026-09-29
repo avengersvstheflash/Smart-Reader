@@ -54,3 +54,11 @@ patch*.js
 backend/tests/fixtures/*.pdf
 backend/tests/fixtures/stress/*.pdf
 !backend/tests/fixtures/stress/NOTICE.md
+# Exception: committed OCR calibration fixture (PD, NIST 500-20, rasterized pages 1-5)
+!backend/tests/fixtures/ocr_calibration_sample.pdf
+
+# Python venv + bytecode cache
+.venv/
+venv/
+__pycache__/
+*.pyc

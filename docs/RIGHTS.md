@@ -23,6 +23,18 @@ as of 2026-09-22. Working title: **Omnitome**.
 | `backend/tests/fixtures/stress/math-heavy.pdf` | NIST FIPS 197-upd1 (AES) | Public Domain (US Gov) | ✓ clean |
 | `backend/tests/fixtures/stress/table-heavy.pdf` | SEC EDGAR, Apple Inc. FY23 10-K | Public Domain (filing) | ✓ clean |
 | `backend/tests/fixtures/stress/code-heavy.pdf` | Think Python 2e, Allen Downey | CC BY-NC 3.0 | ✗ blocked (NC) |
+| `backend/tests/fixtures/ocr_calibration_sample.pdf` | NIST NBS SP 500-20 (1980), pages 1–5 rasterized at 200 DPI | Public Domain (US Gov, 17 USC §105) | ✓ clean |
+
+### OCR calibration fixture (Phase 5.7.1)
+
+- **File:** `backend/tests/fixtures/ocr_calibration_sample.pdf`
+- **Source:** *Validating the Correctness of Hardware Implementations of the NBS Data Encryption Standard*, National Bureau of Standards (NBS, now NIST), NBS Special Publication 500-20 (Revised September 1980)
+- **Original URL:** https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nbsspecialpublication500-20e1980.pdf
+- **Pages used:** Pages 1–5 (Title, Foreword, Abstract, and Sections 1–2), rasterized at 200 DPI to remove embedded text layer
+- **License:** Public Domain (US Government work, 17 USC §105)
+- **Purpose:** Phase 5.7.1 OCR timeout calibration — NOT a runtime fixture, NOT distributed with the application.
+- **Selection criterion:** Noisy typewritten scan reflecting worst-case OCR input. Chosen for difficulty, not cleanliness, so the derived timeout is conservative.
+- **Verified slice:** 5 pages, 843.78 KB, 0 embedded selectable characters
 
 ### Fixture swap plan (before any commercial release)
 
@@ -40,6 +52,7 @@ as of 2026-09-22. Working title: **Omnitome**.
    of the arXiv-hosted PDF. Note in NOTICE.md.
 4. **NIST FIPS 197** — keep. Public domain.
 5. **Apple 10-K** — keep. Public domain filing.
+6. **OCR calibration fixture** — keep. US Government work, public domain.
 
 ## User content
 
@@ -103,4 +116,3 @@ resolvable commit IDs.
 
 **Rule:** license-check any fixture before `git add`. CC-BY-NC and CC-BY-NC-ND
 fixtures must never be committed to a public repository.
-
