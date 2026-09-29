@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, BookOpen, Check } from 'lucide-react';
-import { Book } from '../../types/domain';
+import { Book, formatAuthorList } from '../../types/domain';
 
 export interface BookCardProps {
   book: Book;
@@ -66,6 +66,7 @@ export const BookCard: React.FC<BookCardProps> = ({
   const theme = getCoverTheme(book.title + book.id);
   const readingTime = formatReadingTime(book.wordCount, book.chapterCount);
   const isEmptyContent = book.integrityStatus === 'empty_content';
+  const displayAuthor = formatAuthorList(book.bibliographic?.authors, book.author);
 
   const handleCardClick = () => {
     if (onOpen) {
@@ -146,7 +147,7 @@ export const BookCard: React.FC<BookCardProps> = ({
 
         {/* Cover Footer */}
         <div className="relative z-10 flex items-center justify-between pl-2 text-[11px] opacity-90 font-medium">
-          <span className="truncate max-w-[80%]">{book.author || 'Unknown Author'}</span>
+          <span className="truncate max-w-[80%]">{displayAuthor}</span>
           <span className="text-accent-wash opacity-80" aria-hidden="true">✦</span>
         </div>
 
@@ -184,7 +185,7 @@ export const BookCard: React.FC<BookCardProps> = ({
             {book.title}
           </h3>
           <p className="text-caption text-ink-muted line-clamp-1 mt-0.5">
-            {book.author || 'Unknown Author'}
+            {displayAuthor}
           </p>
           {book.chapterCount > 0 && (book.readChapterCount ?? 0) > 0 && (
             <p className="text-caption text-ink-muted mt-1">

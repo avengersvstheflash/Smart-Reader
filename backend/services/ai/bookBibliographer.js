@@ -205,10 +205,29 @@ OUTPUT:`;
         bibliographic: bibliographicData,
       };
 
+      let updatedAuthor = currentBook.author;
+      if (
+        (!currentBook.author || currentBook.author === 'Unknown Author') &&
+        Array.isArray(bibliographicData.authors) &&
+        bibliographicData.authors.length > 0
+      ) {
+        const clean = bibliographicData.authors
+          .map((a) => (typeof a === 'string' ? a.trim() : ''))
+          .filter(Boolean);
+        if (clean.length === 1) {
+          updatedAuthor = clean[0];
+        } else if (clean.length === 2) {
+          updatedAuthor = `${clean[0]} and ${clean[1]}`;
+        } else if (clean.length > 2) {
+          updatedAuthor = `${clean.slice(0, -1).join(', ')}, and ${clean[clean.length - 1]}`;
+        }
+      }
+
       db.prepare(
-        'UPDATE books SET metadata_json = ?, updated_at = ? WHERE id = ?'
+        'UPDATE books SET metadata_json = ?, author = ?, updated_at = ? WHERE id = ?'
       ).run(
         JSON.stringify(updatedMeta),
+        updatedAuthor || currentBook.author || 'Unknown Author',
         new Date().toISOString(),
         bookId
       );

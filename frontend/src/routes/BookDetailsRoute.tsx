@@ -17,6 +17,7 @@ import { formatRelativeTime } from '../lib/relativeTime';
 import { useModal } from '../store/useModalStore';
 import { getCoverTheme } from '../components/library/BookCard';
 import { ExpandableTagPanel } from '../components/library/ExpandableTagPanel';
+import { formatAuthorList } from '../types/domain';
 
 function formatAiProvider(raw?: string): string | null {
   if (!raw) return null;
@@ -263,7 +264,7 @@ export default function BookDetailsRoute() {
           </div>
 
           <div className="relative z-10 flex items-center justify-between pl-2 text-[10px] opacity-90 font-medium">
-            <span className="truncate max-w-[80%]">{book.author || 'Unknown Author'}</span>
+            <span className="truncate max-w-[80%]">{formatAuthorList(book.bibliographic?.authors, book.author)}</span>
             <span className="text-accent-wash opacity-80" aria-hidden="true">✦</span>
           </div>
         </div>
@@ -274,7 +275,7 @@ export default function BookDetailsRoute() {
             {book.title}
           </h1>
           <p className="text-ui font-medium text-ink-muted">
-            {book.author || 'Unknown Author'}
+            {formatAuthorList(book.bibliographic?.authors, book.author)}
           </p>
 
           {/* Classification Chips Row */}
@@ -383,7 +384,9 @@ export default function BookDetailsRoute() {
         if (!biblio) return null;
 
         const pubYear = biblio.publication_year ?? biblio.publicationYear;
+        const hasAuthors = Array.isArray(biblio.authors) && biblio.authors.length > 0;
         const hasFields = Boolean(
+          hasAuthors ||
           biblio.publisher ||
           pubYear ||
           biblio.isbn ||
@@ -408,6 +411,14 @@ export default function BookDetailsRoute() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 pt-0.5" aria-label="Bibliographic details">
+                {hasAuthors && (
+                  <span className="inline-flex items-center gap-1.5 text-caption font-medium px-2.5 py-1 rounded bg-subtle text-ink">
+                    <span className="text-micro font-semibold uppercase text-ink-muted/80 tracking-wider">
+                      {(biblio.authors?.length ?? 0) > 1 ? 'Authors' : 'Author'}
+                    </span>
+                    <span>{formatAuthorList(biblio.authors)}</span>
+                  </span>
+                )}
                 {biblio.publisher && (
                   <span className="inline-flex items-center gap-1.5 text-caption font-medium px-2.5 py-1 rounded bg-subtle text-ink">
                     <span className="text-micro font-semibold uppercase text-ink-muted/80 tracking-wider">Publisher</span>

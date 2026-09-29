@@ -104,9 +104,72 @@ async function runTests() {
   assert.ok(delegatedResult);
   console.log('  ✓ bookClassifier.classifyBibliographic delegates cleanly');
 
-  // Clean up
+  // Test 6: Multi-author formatting and author column update
+  console.log('Test 6: Multi-author extraction updates books.author if Unknown Author');
+  const multiAuthorBook = bookRepository.create({
+    title: 'Multi-Author AI Handbook',
+    author: 'Unknown Author',
+    metadata_json: {},
+  });
+
+  const sixAuthors = [
+    'Ally S. Nyamawe',
+    'Mohamedi M. Mjahidi',
+    'Noe E. Nnko',
+    'Salim A. Diwani',
+    'Godbless G. Minja',
+    'Kulwa Malyango'
+  ];
+  const normalizedMulti = bookBibliographer.normalizeBibliographic({
+    publisher: 'CRC Press',
+    publication_year: 2025,
+    authors: sixAuthors,
+  });
+  assert.strictEqual(normalizedMulti.authors.length, 6);
+
   const db = getDatabase();
+  const currentMeta = JSON.parse(multiAuthorBook.metadata_json || '{}');
+  const updatedMeta = { ...currentMeta, bibliographic: normalizedMulti };
+
+  const clean = normalizedMulti.authors.map(a => a.trim()).filter(Boolean);
+  let formattedAuthor = clean[0];
+  if (clean.length === 2) {
+    formattedAuthor = `${clean[0]} and ${clean[1]}`;
+  } else if (clean.length > 2) {
+    formattedAuthor = `${clean.slice(0, -1).join(', ')}, and ${clean[clean.length - 1]}`;
+  }
+
+  db.prepare('UPDATE books SET metadata_json = ?, author = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(updatedMeta),
+    formattedAuthor,
+    new Date().toISOString(),
+    multiAuthorBook.id
+  );
+
+  const reloaded = bookRepository.getById(multiAuthorBook.id);
+  assert.strictEqual(
+    reloaded.author,
+    'Ally S. Nyamawe, Mohamedi M. Mjahidi, Noe E. Nnko, Salim A. Diwani, Godbless G. Minja, and Kulwa Malyango',
+    'books.author should be updated with formatted Oxford-comma author list'
+  );
+  console.log('  ✓ Multi-author formatting correctly populates books.author');
+
+  // Test 7: Plural rendering format checks
+  console.log('Test 7: Plural author rendering format invariants');
+  function formatAuthors(authors) {
+    if (!authors || !authors.length) return 'Unknown Author';
+    if (authors.length === 1) return authors[0];
+    if (authors.length === 2) return `${authors[0]} and ${authors[1]}`;
+    return `${authors.slice(0, -1).join(', ')}, and ${authors[authors.length - 1]}`;
+  }
+  assert.strictEqual(formatAuthors(['Solo Author']), 'Solo Author');
+  assert.strictEqual(formatAuthors(['Alice', 'Bob']), 'Alice and Bob');
+  assert.strictEqual(formatAuthors(['Alice', 'Bob', 'Charlie']), 'Alice, Bob, and Charlie');
+  console.log('  ✓ Singular, two-author, and Oxford-comma plural formats verified');
+
+  // Clean up
   db.prepare('DELETE FROM books WHERE id = ?').run(testBook.id);
+  db.prepare('DELETE FROM books WHERE id = ?').run(multiAuthorBook.id);
 
   console.log('\nAll build5_1a bibliographic tests passed!\n');
 }

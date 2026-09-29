@@ -126,6 +126,17 @@ export interface RawBook {
   bibliographic?: BookBibliographic;
 }
 
+export function formatAuthorList(authors?: string[] | null, fallback: string = 'Unknown Author'): string {
+  if (!authors || !Array.isArray(authors) || authors.length === 0) {
+    return fallback;
+  }
+  const clean = authors.map((a) => (typeof a === 'string' ? a.trim() : '')).filter(Boolean);
+  if (clean.length === 0) return fallback;
+  if (clean.length === 1) return clean[0];
+  if (clean.length === 2) return `${clean[0]} and ${clean[1]}`;
+  return `${clean.slice(0, -1).join(', ')}, and ${clean[clean.length - 1]}`;
+}
+
 export function normalizeBook(raw: RawBook): Book {
   let classification: BookClassification | undefined;
   let bibliographic: BookBibliographic | undefined;
@@ -161,10 +172,15 @@ export function normalizeBook(raw: RawBook): Book {
     }
   }
 
+  const rawAuthor = raw.author?.trim();
+  const effectiveAuthor = (bibliographic?.authors && bibliographic.authors.length > 0)
+    ? formatAuthorList(bibliographic.authors, rawAuthor || 'Unknown Author')
+    : (rawAuthor || 'Unknown Author');
+
   return {
     id: raw.id,
     title: raw.title || 'Untitled',
-    author: raw.author || 'Unknown Author',
+    author: effectiveAuthor,
     description: raw.description || '',
     contentType: raw.contentType || raw.content_type || 'novel',
     chapterCount: raw.chapterCount ?? raw.chapter_count ?? 0,

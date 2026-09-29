@@ -353,6 +353,29 @@ function initSchema(db) {
     db.exec(`ALTER TABLE processing_jobs ADD COLUMN interrupted_at TEXT;`);
   }
 
+  // Backfill books.author from metadata_json.bibliographic.authors if author is 'Unknown Author' or empty
+  try {
+    const booksWithUnknownAuthor = db.prepare("SELECT id, author, metadata_json FROM books WHERE author IS NULL OR author = '' OR author = 'Unknown Author'").all();
+    for (const b of booksWithUnknownAuthor) {
+      if (!b.metadata_json) continue;
+      try {
+        const meta = typeof b.metadata_json === 'string' ? JSON.parse(b.metadata_json) : b.metadata_json;
+        if (meta && meta.bibliographic && Array.isArray(meta.bibliographic.authors) && meta.bibliographic.authors.length > 0) {
+          const clean = meta.bibliographic.authors.map(a => (typeof a === 'string' ? a.trim() : '')).filter(Boolean);
+          if (clean.length > 0) {
+            let authorStr = clean[0];
+            if (clean.length === 2) {
+              authorStr = `${clean[0]} and ${clean[1]}`;
+            } else if (clean.length > 2) {
+              authorStr = `${clean.slice(0, -1).join(', ')}, and ${clean[clean.length - 1]}`;
+            }
+            db.prepare("UPDATE books SET author = ?, updated_at = ? WHERE id = ?").run(authorStr, new Date().toISOString(), b.id);
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+
   seedDefaultBookIfEmpty(db);
 }
 
@@ -394,11 +417,13 @@ function seedSampleBooks(db) {
       id, title, author, description, cover_path, content_type, status,
       original_filename, source_site, source_url, section_count, integrity_status,
       semantic_status, semantic_chunk_count, semantic_indexed_at,
+      metadata_json,
       created_at, updated_at
     ) VALUES (
       @id, @title, @author, @description, @cover_path, @content_type, @status,
       @original_filename, @source_site, @source_url, @section_count, @integrity_status,
       @semantic_status, @semantic_chunk_count, @semantic_indexed_at,
+      @metadata_json,
       @created_at, @updated_at
     )
   `);
@@ -502,6 +527,22 @@ function seedSampleBooks(db) {
     semantic_status: 'indexed',
     semantic_chunk_count: 4,
     semantic_indexed_at: now,
+    metadata_json: JSON.stringify({
+      classification: {
+        contentType: 'textbook',
+        tags: ['neural-dynamics', 'attractor-networks'],
+        readingLevel: 'advanced',
+      },
+      bibliographic: {
+        publisher: 'University Press',
+        publication_year: 2024,
+        isbn: '978-0-262-12345-6',
+        edition: 'First edition',
+        authors: ['Dr. Aris Thorne'],
+        language: 'en',
+        fell_back: false,
+      },
+    }),
     created_at: now,
     updated_at: now,
   });
@@ -700,6 +741,22 @@ function seedSampleBooks(db) {
     semantic_status: 'indexed',
     semantic_chunk_count: 12,
     semantic_indexed_at: now,
+    metadata_json: JSON.stringify({
+      classification: {
+        contentType: 'technical',
+        tags: ['machine-learning', 'distributed-systems', 'consensus'],
+        readingLevel: 'intermediate',
+      },
+      bibliographic: {
+        publisher: 'Systems Engineering Press',
+        publication_year: 2026,
+        isbn: '978-0-13-400001-8',
+        edition: '1st edition',
+        authors: ['Elena Vance', 'Marcus Brody', 'Dr. Sarah Jenkins'],
+        language: 'en',
+        fell_back: false,
+      },
+    }),
     created_at: now,
     updated_at: now,
   });
@@ -970,6 +1027,20 @@ function seedSampleBooks(db) {
     semantic_status: 'indexed',
     semantic_chunk_count: 4,
     semantic_indexed_at: now,
+    metadata_json: JSON.stringify({
+      classification: {
+        contentType: 'paper',
+        tags: ['cognitive-science', 'memory-networks'],
+        readingLevel: 'research',
+      },
+      bibliographic: {
+        publisher: 'Cognitive Science Quarterly',
+        publication_year: 2025,
+        authors: ['Dr. Clara Sterling'],
+        language: 'en',
+        fell_back: false,
+      },
+    }),
     created_at: now,
     updated_at: now,
   });
@@ -1033,6 +1104,20 @@ function seedSampleBooks(db) {
     semantic_status: 'indexed',
     semantic_chunk_count: 0,
     semantic_indexed_at: now,
+    metadata_json: JSON.stringify({
+      classification: {
+        contentType: 'reference',
+        tags: ['comparative-systems', 'adaptive-networks'],
+        readingLevel: 'advanced',
+      },
+      bibliographic: {
+        publisher: 'Multi-Source Dossier',
+        publication_year: 2026,
+        authors: ['Multi-Source Editorial Board'],
+        language: 'en',
+        fell_back: false,
+      },
+    }),
     created_at: now,
     updated_at: now,
   });

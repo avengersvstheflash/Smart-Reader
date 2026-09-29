@@ -34,10 +34,19 @@ router.get('/', (req, res, next) => {
     `).all();
     const smartSet = new Set(smartRows.map((r) => r.book_id));
 
-    const booksWithSmart = books.map((b) => ({
-      ...b,
-      has_smart_content: smartSet.has(b.id),
-    }));
+    const booksWithSmart = books.map((b) => {
+      let parsedMeta = {};
+      try {
+        parsedMeta = typeof b.metadata_json === 'string' ? JSON.parse(b.metadata_json || '{}') : (b.metadata_json || {});
+      } catch {}
+      return {
+        ...b,
+        metadata_json: parsedMeta,
+        bibliographic: parsedMeta.bibliographic || null,
+        classification: parsedMeta.classification || null,
+        has_smart_content: smartSet.has(b.id),
+      };
+    });
 
     return res.json({ books: booksWithSmart });
   } catch (err) {
@@ -131,7 +140,19 @@ router.get('/:id', (req, res, next) => {
   try {
     const book = bookService.getBook(req.params.id);
     const config = require('../config');
-    return res.json({ book: { ...book, ai_provider: config.AI_PROVIDER } });
+    let parsedMeta = {};
+    try {
+      parsedMeta = typeof book.metadata_json === 'string' ? JSON.parse(book.metadata_json || '{}') : (book.metadata_json || {});
+    } catch {}
+    return res.json({
+      book: {
+        ...book,
+        metadata_json: parsedMeta,
+        bibliographic: parsedMeta.bibliographic || null,
+        classification: parsedMeta.classification || null,
+        ai_provider: config.AI_PROVIDER,
+      },
+    });
   } catch (err) {
     next(err);
   }
