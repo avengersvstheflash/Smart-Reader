@@ -7,6 +7,7 @@ import {
   BookSummary,
   BookSynopsis,
   SemanticStatus,
+  CanonicalBlock,
 } from '../types/domain';
 
 interface BookResponse {
@@ -170,8 +171,20 @@ export function useBookSynopsis(bookId: string) {
           }
         }
 
+        let canonicalBlocks: CanonicalBlock[] | undefined = undefined;
+        if (rep && Array.isArray(rep.canonicalBlocks)) {
+          canonicalBlocks = rep.canonicalBlocks as CanonicalBlock[];
+        } else if (rep && typeof rep.canonical_content === 'string') {
+          try {
+            const parsed = JSON.parse(rep.canonical_content);
+            if (Array.isArray(parsed)) canonicalBlocks = parsed as CanonicalBlock[];
+          } catch {
+            canonicalBlocks = undefined;
+          }
+        }
+
         if (!content) return null;
-        return { content, fellBack, fallbackReason };
+        return { content, canonicalBlocks, fellBack, fallbackReason };
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
           return null;

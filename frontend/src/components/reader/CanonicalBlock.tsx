@@ -14,7 +14,7 @@ import {
 // user imports a .md file with nested emphasis, swap to a real parser
 // (marked / remark) or make this recursive. Tracked in
 // docs/SESSION_HANDOFF.md as a soft refactor item.
-function renderInlineText(text?: string | null): React.ReactNode {
+export function renderInlineText(text?: string | null): React.ReactNode {
   if (!text) return null;
   const str = String(text);
   if (!/[*_`~]/.test(str)) {

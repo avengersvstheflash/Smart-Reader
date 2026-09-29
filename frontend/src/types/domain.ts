@@ -566,6 +566,7 @@ export interface BookSynopsis {
   content: string;
   fellBack?: boolean;
   fallbackReason?: string;
+  canonicalBlocks?: CanonicalBlock[];
 }
 
 export interface SemanticStatus {

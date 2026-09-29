@@ -286,6 +286,20 @@ function initSchema(db) {
       AND (SELECT COUNT(*) FROM chapters c WHERE c.book_id = books.id) = 0;
   `);
 
+  // Cleanup historical markdown leakage in books.description
+  try {
+    const aiNormalizer = require('../services/ai/aiNormalizer');
+    const mdBooks = db.prepare("SELECT id, description FROM books WHERE description LIKE '%**%'").all();
+    for (const b of mdBooks) {
+      if (b.description) {
+        db.prepare('UPDATE books SET description = ? WHERE id = ?')
+          .run(aiNormalizer.stripMarkdownSymbols(b.description), b.id);
+      }
+    }
+  } catch (err) {
+    console.warn('[DB Migration] books.description markdown cleanup skipped:', err.message);
+  }
+
   // Ensure metadata columns exist on books table
   const bookCols = db.prepare(`PRAGMA table_info(books)`).all();
   if (!bookCols.some(c => c.name === 'status')) {

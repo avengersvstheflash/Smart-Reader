@@ -280,10 +280,11 @@ OUTPUT:`;
         metadata,
       });
 
-      // Also update books.description if appropriate
+      // Also update books.description if appropriate (clean prose without markdown symbols)
+      const cleanDescription = aiNormalizer.stripMarkdownSymbols(rawSynopsis);
       const db = getDatabase();
       db.prepare('UPDATE books SET description = ?, updated_at = ? WHERE id = ?')
-        .run(rawSynopsis, new Date().toISOString(), book.id);
+        .run(cleanDescription, new Date().toISOString(), book.id);
 
       jobRepository.complete(jobId);
 
