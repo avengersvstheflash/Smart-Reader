@@ -179,8 +179,9 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
   border-radius: 4px;
 }
 
-/* Phase 5.2.3 Paragraph-level hover scoped strictly to Smart mode */
+/* Phase 5.2.3 Paragraph-level hover scoped strictly to Smart mode (Phase 5.5e.3 reflow isolation) */
 .reader-smart .reader-paragraph {
+  contain: layout paint style;
   transition: background-color 150ms ease;
   border-radius: 4px;
 }
@@ -237,7 +238,7 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
   }
 }
 
-/* Phase 5.2.3 Segment Source Chip (Phase 5.5e.2 zero-space width collapse) */
+/* Phase 5.2.3 Segment Source Chip (Phase 5.5e.3 reflow-isolated, GPU-promoted chip animation) */
 .segment-source-chip {
   display: inline-block;
   max-width: 0;
@@ -262,7 +263,17 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
   user-select: none;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 120ms ease, max-width 120ms ease, margin-left 120ms ease, padding 120ms ease, border-width 120ms ease, background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  will-change: max-width, opacity, margin-left;
+  transition:
+    opacity 100ms cubic-bezier(0.16, 1, 0.3, 1),
+    max-width 100ms cubic-bezier(0.16, 1, 0.3, 1),
+    margin-left 100ms cubic-bezier(0.16, 1, 0.3, 1),
+    padding 100ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-width 100ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
 }
 
 .sentence-span:hover .segment-source-chip,
@@ -274,7 +285,7 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
 .segment-source-chip.active,
 .reader-smart .reader-paragraph:hover > .segment-source-chip,
 .reader-smart .reader-paragraph[data-has-active-chip="true"] .segment-source-chip.active {
-  max-width: 100px;
+  max-width: 70px;
   margin-left: 6px;
   padding: 1px 6px;
   border-width: 1px;
