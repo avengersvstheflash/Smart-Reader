@@ -156,38 +156,48 @@ function CanonicalParagraph({
               (activeRun && sIdx >= activeRun.sentenceStart && sIdx <= activeRun.sentenceEnd)
             );
 
+            const runForSentence = runs.find(
+              (r) => sIdx >= r.sentenceStart && sIdx <= r.sentenceEnd
+            );
+
             return (
               <React.Fragment key={sIdx}>
                 <span
                   data-sentence-index={sIdx}
                   className={`sentence-span ${isHighlighted ? 'segment-highlighted' : ''}`}
+                  onMouseEnter={() => {
+                    if (runForSentence) onHoverRun?.(runForSentence.runIndex);
+                  }}
+                  onMouseLeave={() => {
+                    if (runForSentence) onHoverRun?.(null);
+                  }}
                 >
                   {renderInlineText(sent)}
+                  {matchingRuns.map((run) => (
+                    <button
+                      key={run.runIndex}
+                      type="button"
+                      data-segment-run-index={run.runIndex}
+                      onMouseEnter={() => onHoverRun?.(run.runIndex)}
+                      onMouseLeave={() => onHoverRun?.(null)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onClickRun?.(run.runIndex, e.currentTarget);
+                      }}
+                      className={`segment-source-chip ${
+                        activeRunIndex === run.runIndex
+                          ? 'active'
+                          : hoveredRunIndex === run.runIndex
+                          ? 'hovered'
+                          : ''
+                      }`}
+                      aria-label={`View source provenance for segment ${run.runIndex + 1}`}
+                      aria-expanded={activeRunIndex === run.runIndex}
+                    >
+                      Source
+                    </button>
+                  ))}
                 </span>
-                {matchingRuns.map((run) => (
-                  <button
-                    key={run.runIndex}
-                    type="button"
-                    data-segment-run-index={run.runIndex}
-                    onMouseEnter={() => onHoverRun?.(run.runIndex)}
-                    onMouseLeave={() => onHoverRun?.(null)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onClickRun?.(run.runIndex, e.currentTarget);
-                    }}
-                    className={`segment-source-chip ${
-                      activeRunIndex === run.runIndex
-                        ? 'active'
-                        : hoveredRunIndex === run.runIndex
-                        ? 'hovered'
-                        : ''
-                    }`}
-                    aria-label={`View source provenance for segment ${run.runIndex + 1}`}
-                    aria-expanded={activeRunIndex === run.runIndex}
-                  >
-                    Source
-                  </button>
-                ))}
                 {sIdx < sentences.length - 1 ? ' ' : ''}
               </React.Fragment>
             );

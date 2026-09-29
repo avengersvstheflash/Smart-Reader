@@ -237,10 +237,15 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
   }
 }
 
-/* Phase 5.2.3 Segment Source Chip */
+/* Phase 5.2.3 Segment Source Chip (Phase 5.5e.2 zero-space width collapse) */
 .segment-source-chip {
   display: inline-block;
-  margin-left: 6px;
+  max-width: 0;
+  margin-left: 0;
+  padding: 0;
+  border-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   vertical-align: baseline;
   font-family: 'JetBrains Mono', Consolas, monospace;
   font-size: 9px;
@@ -248,22 +253,31 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   line-height: 1.4;
-  padding: 1px 6px;
   border-radius: 9999px;
-  border: 1px solid rgb(var(--line));
+  border-style: solid;
+  border-color: rgb(var(--line));
   background-color: rgb(var(--surface) / 0.95);
   color: rgb(var(--ink-muted));
   cursor: pointer;
   user-select: none;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 150ms ease, background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  transition: opacity 120ms ease, max-width 120ms ease, margin-left 120ms ease, padding 120ms ease, border-width 120ms ease, background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 
-.reader-smart .reader-paragraph:hover .segment-source-chip,
-.reader-smart .canonical-block:hover .segment-source-chip,
-.reader-smart .group:hover .segment-source-chip,
-.reader-smart .reader-paragraph[data-has-active-chip="true"] .segment-source-chip {
+.sentence-span:hover .segment-source-chip,
+.sentence-span:focus-within .segment-source-chip,
+.sentence-span:hover + .segment-source-chip,
+.sentence-span:focus-within + .segment-source-chip,
+.segment-source-chip:hover,
+.segment-source-chip.hovered,
+.segment-source-chip.active,
+.reader-smart .reader-paragraph:hover > .segment-source-chip,
+.reader-smart .reader-paragraph[data-has-active-chip="true"] .segment-source-chip.active {
+  max-width: 100px;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-width: 1px;
   opacity: 0.85;
   pointer-events: auto;
 }
