@@ -8,47 +8,29 @@
 
 ## 1. Where we are
 
-**Phase 5.6 CLOSED 2026-09-28.** Sub-phases 5.6.1 through 5.6.3 all shipped, plus reader hotfixes 5.5e and 5.5e.1. All 21 test suites green. Frontend build clean. Origin synced.
+**Phase 5.6.4 CLOSED 2026-09-29. Phase 5.5 and Phase 5.6 series FORMALLY CLOSED.** All 21 test suites green. Frontend build clean. Origin synced.
 
-**Last shipped commit:** `18df66b` — fix(phase5.5e.1): correct splitter over-clumping regression.
+**Current HEAD:** `9341540` — feat(phase5.6.4): multi-source provenance popup cards and preview wiring.
 
-**Test state:** 21/21 root suites green. Frontend `tsc --noEmit` clean. Runtime ~8–10 min. Origin synced.
+**Test state:** 21/21 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
 
-**Next phase:** Phase 5.7.1 — Python sidecar + OCR.
+**Next phase:** Phase 5.7.1 — Python sidecar + OCR (fresh chat recommended given accumulated context).
 
-### What ships today (Phase 5.6)
+### What ships today (2026-09-29)
 
-- **Pre-LLM source guard**: rejects synthesis when source chunks are missing or below MIN_SOURCE_CHUNK_WORDS (75).
-- **Post-LLM output guard (aiRetryGuard.js)**: centralizes word-count validation, structural placeholder detection, retry with corrective prompt. Replaces ad-hoc retry logic in synthesisService and intelligentSummarizer.
-- **Auto-resynthesis on persistent violation**, capped at 2 attempts (`AUTO_RESYNTHESIZE_ON_VIOLATION`, `MAX_AUTO_RESYNTHESIZE_ATTEMPTS`).
-- **Semantic chunker hardening**: heading glue invariant, targetMinTokens activated, post-pass merge. Sub-75w chunks: 120 → 3 (atomic tables).
-- **PDF parser heading consolidation + math symbol filter**: 24 math headings → 0. Multi-line headings joined.
-- **Reader chip stability**: no oscillation on hover, no garbled paint, abbreviation-aware sentence splitter (mirrored frontend/backend).
+- **Phase 5.5e.2 — reader chip zero-space when hidden**: width collapse via `max-width: 0; padding: 0; border-width: 0; margin-left: 0; overflow: hidden`, removing visible reading-flow gaps when chips are hidden.
+- **Phase 5.5e.3 — chip animation polish**: reflow isolation via `contain: layout paint style`, `will-change` GPU hint, and expo-out easing (100ms) for smooth expand/collapse.
+- **Phase 5.6.5 — author extraction + multi-author display**: Oxford-comma `formatAuthorList()` in domain.ts, `bibliographic.authors` as source of truth across hero, cover, and SOURCE · BIBLIOGRAPHY panel, plus startup database backfill for existing records.
+- **Phase 5.6.6 — synopsis markdown normalization + full render**: rendered paragraphs with `renderInlineText` (bold styled without raw `**` tokens), write-time markdown stripping on `books.description`, and removal of arbitrary `.slice(0, 300)` mid-sentence truncation.
+- **Phase 5.6.4 — multi-source provenance granularity**: `MULTI_CHUNK_DELTA_THRESHOLD = 0.08`, `SINGLE_SENTENCE_WEIGHT_FLOOR = 0.25`, `chunk_ids` array per segment, `haveSameChunks()` grouping, stacked popup source cards with uppercase section badges, defensive `[Section: X]` prefix stripping from excerpts, and dynamic `Source (N)` chip labels.
 
-### What shipped previously (Phase 5.5)
+### Previously shipped (Phase 5.5 & 5.6 series)
 
-**Backend**
-- New `smart_chapters` table: id, book_id, sequence, title, status (pending | generating | generated | failed), planned_source_section_ids, planned_word_count, content, synthesis_type, metadata_json, opened_at, read_at, read_source, created_at, updated_at.
-- `paragraph_attributions` rebuilt with `smart_chapter_id` FK.
-- PRAGMA user_version = 1 migration guard. Idempotent; initSchema no longer contains DROPs.
-- `chapter_representations` narrowed to SUMMARY / BOOK_SUMMARY.
-- `GET /api/books` filter now checks `EXISTS (smart_chapters WHERE book_id)`.
-- `GET /api/smart-chapters/book/:bookId` — list + counts
-- `GET /api/smart-chapters/:id` — full content + attributions
-- `GET /api/smart-chapters/:id/provenance` — migrated
-- `POST /api/smart-chapters/:id/progress` — opened / read / unread
-- `GET /api/books/:id/resume-target` — last-touched generated chapter
-- `chapterRepository.getEditorialRepresentationsForSourceChapter` uses `json_each(planned_source_section_ids)` — bypasses editorial_outlines
-- `scripts/wipe-data.js` — dev DB wipe (test-data.db protected)
-
-**Frontend**
-- Three tabs remain: Import / Library / Research.
-- Library: filter persistence (sessionStorage `library-filters-v1`), expandable tag panel (collapsed inline, expanded wrapped grid, no horizontal scroll), "N of M read" indicator (render only when > 0).
-- Book Details: hero card elevation, section panel consistency, section headers with presence, Smart Chapters list with status badges + relative-time read/opened indicators + "Continue: Chapter N" button.
-- Reader: reads from `/api/smart-chapters/:id`. Four-state status view. Toggle "Mark as read" / "✓ Read" in chrome. Fires opened on mount, read-scroll at 80% with scrollY > 200 guard.
-- `useSmartChapters`, `useSmartChapter`, `useResumeTarget`, `useUpdateSmartChapterProgress` — new hooks.
-- `formatRelativeTime` — just now / Nm / Nh / Nd / Mon D.
-- `ExpandableTagPanel` — one component, two call sites.
+- **Phase 5.5a–b**: `smart_chapters` table, reading progress API, database schema migrations, and resume-target queries.
+- **Phase 5.5c.1–3**: Library filter persistence, expandable tag panel, and relative-time indicators.
+- **Phase 5.5d–d.2**: Dedicated reader route reading directly from `/api/smart-chapters/:id` with 4-state status views and scroll progress tracking.
+- **Phase 5.5e–e.1**: Reader chip stability (oscillation fix) and abbreviation-aware sentence splitting.
+- **Phase 5.6.1–3**: Pre-LLM source validation guards, post-LLM `aiRetryGuard` with auto-resynthesis, semantic chunker hardening (heading glue + post-pass merge), and PDF parser heading/math refinement.
 
 ### Phase 4 & 5 shipped, complete list
 
@@ -58,7 +40,7 @@
 4.24 → 4.25 → 5.1a → 5.1b → 5.1b.1 → 5.1b.2 → 5.2 → 5.2.1 → 5.2.2 →
 5.2.3 → 5.3a → 5.3b → 5.3b.1 → 5.3d → 5.3d.1 → 5.3e → 5.3f → 5.5a →
 5.5b → 5.5c.1 → 5.5c.2 → 5.5c.3 → 5.5d → 5.5d.1 → 5.5d.2 → 5.6.1 →
-5.6.2 → 5.6.3 → 5.5e → 5.5e.1
+5.6.2 → 5.6.3 → 5.5e → 5.5e.1 → 5.5e.2 → 5.5e.3 → 5.6.5 → 5.6.6 → 5.6.4
 
 ---
 
@@ -111,18 +93,19 @@
 
 ## 5. Roadmap (reshaped 2026-09-28)
 
-### Phase 5.6 (shipped 2026-09-28) — Validation and refine loops
-✅ **CLOSED**. Pre-LLM and post-LLM validation guards, centralized aiRetryGuard, auto-resynthesis on persistent violation, semantic chunker hardening (heading glue + post-pass merge), and PDF parser heading/math refinement. Reader chip stability (5.5e, 5.5e.1) shipped.
+### Phase 5.6 & 5.6.4 (shipped 2026-09-28 & 2026-09-29) — Validation and refine loops
+✅ **CLOSED**. Pre-LLM and post-LLM validation guards, centralized aiRetryGuard, auto-resynthesis on persistent violation, semantic chunker hardening (heading glue + post-pass merge), and PDF parser heading/math refinement. Reader chip stability (5.5e, 5.5e.1) and follow-up items 5.5e.2 (chip spacing), 5.5e.3 (chip animation), 5.6.5 (author extraction), 5.6.6 (synopsis markdown), and 5.6.4 (multi-source provenance granularity) all shipped and verified. Phase 5.5 and Phase 5.6 series formally closed.
 
 ### Phase 5.7.1 (2 sessions) — Python sidecar + OCR
 Unchanged. FastAPI process on localhost:8765, PaddleOCR, Node integration, graceful fallback. Ships working OCR for image-only PDFs.
 
-### Phase 5.7.2 (3–4 sessions, AMENDED SCOPE) — NLP migration (chunker/slicer/splitter) + hybrid parallelism
-Bundles four concerns:
+### Phase 5.7.2 (3–4 sessions, AMENDED SCOPE) — NLP migration (chunker/slicer/splitter) + hybrid parallelism + attribution refinement
+Bundles five concerns:
 1. **NLP pipeline migration to Python.** Chunker, slicer, and sentence splitter all move from Node to Python sidecar. Rationale: pysbd/spaCy handle abbreviation-aware sentence boundaries, citations, math notation, and multi-language text correctly — the regex-based Node splitter required two hotfixes in a single session. Python owns text segmentation; Node keeps SQLite writes, HTTP API, and OpenRouter calls. Frontend receives pre-computed sentence_start/sentence_end indices from backend; the local splitter in frontend/src/types/domain.ts is removed. This expands 5.7.2 from ~2-3 sessions to ~3-4 sessions.
 2. **Slicer refactor.** The chapter-slicing heuristic currently produces one Smart chapter per source section. On the ML PDF, this yielded 31 planned chapters where ~5–8 were expected. Target: segment by compressed-unit count, not source-section count.
 3. **BGE-M3 embedding migration to Python.** Python thread pool (sentence-transformers or equivalent) gives realistic 3–4× speedup on the ~3.5-minute ML PDF indexing step. Node keeps orchestration; Python owns the CPU-bound primitive.
 4. **Parallel synthesis primitives.** Node-side promise pool for OpenRouter-bound work. Chapters within a book (or books within a batch) can synthesize concurrently with bounded concurrency. Rate-limit aware.
+5. **Attribution algorithm refinement.** Sentence-level attribution misses multi-source paragraphs when 2nd-best chunk similarity falls outside MULTI_CHUNK_DELTA_THRESHOLD (0.08). Real example: a paragraph synthesized from ~3 source chunks displays as `Source` (singular) because per-sentence similarity is too tight. Python migration unlocks clause-aware split (pysbd), cross-encoder reranking (sentence-transformers), and paragraph-centroid anchoring (see §9).
 
 **Architectural boundary (locked):**
 - Node owns: orchestration, OpenRouter calls, SQLite writes, HTTP API.
@@ -262,20 +245,11 @@ Transcript spelunking incidents stopped mid-Phase 5.5. Prompts now re-paste cont
 ## 9. Deferred & Ideas
 
 ### Deferred (tracked, with target)
-- **Phase 5.5e.2 — reader chip spacing.** Currently the source chip reserves horizontal space when hidden (inline-block with opacity:0 preserves space), creating a visible gap in normal reading flow. Non-blocking visual issue. Fix approaches: absolute positioning (chip floats over text) or width:0 + overflow:hidden when opacity is 0. Estimated ~30 min session.
-- **Phase 5.6.4 — provenance granularity.** A long compressed sentence can be attributed to a small source chunk (e.g., a section heading only). Attribution is technically correct (first claim maps to that chunk), but visually disproportionate — the reader sees a chip pointing to a 5-word source for a 40-word paragraph. Investigate: segmenter chunk-mapping weighting, minimum source-chunk size for provenance display, or paragraph-level attribution merge. Estimated ~1 session.
-- **Phase 5.6.5 — author extraction + display.** The canonical ML PDF has six authors on its title page (Ally S. Nyamawe, Mohamedi M. Mjahidi, Noe E. Nnko, Salim A. Diwani, Godbless G. Minja, Kulwa Malyango) but the app displays "Unknown Author" and the SOURCE · BIBLIOGRAPHY panel shows publisher/year/ISBN/edition/language without any author field. Two candidate root causes to diagnose when the fix is opened:
-  - (A) Backend — `bookBibliographer.js` input window misses the title-page blocks, OR the parser classifies author names as front_matter and SectionFilter drops them before extraction. Evidence from SectionFilter logs: author name lines appear as `Filtered "Ally S. Nyamawe, Mohamedi M. Mjahidi," (...) : insufficient_content`.
-  - (B) Frontend — extraction works (5.1a verification showed authors array populated) but Book Details hero reads `book.author` (singular string) instead of `bibliographic.authors[]`.
-  Diagnostic on open:
-  ```bash
-  node -e "const db=require('better-sqlite3')('storage/data.db'); const b = db.prepare(\"SELECT id, author, metadata_json FROM books WHERE title LIKE '%practical machine learning%' ORDER BY created_at DESC LIMIT 1\").get(); const m = JSON.parse(b.metadata_json || '{}'); console.log('top-level author:', b.author); console.log('bibliographic.authors:', m.bibliographic?.authors);"
-  ```
-  Fix scope depends on outcome: ~45 min frontend if Hypothesis B, ~1 session backend if Hypothesis A. Add a fixture with multiple authors to exercise the plural rendering path.
-- **Phase 5.6.6 — synopsis markdown leak + truncation.** The DERIVED · SYNOPSIS panel currently shows raw markdown tokens (`**Core subject:**`, `**Scope and approach:**`) as visible asterisks instead of rendered bold. It also truncates mid-sentence at approximately 300 characters ("...across agri..."). Two independent bugs in the same surface:
-  1. LLM-generated synopsis content is stored or rendered with raw markdown. AINormalizer already exists for this purpose; the synopsis path likely bypasses it, or the frontend renders pre-normalized content as plain text without markdown processing. Same class as the 4.21 fallback-synopsis markdown issue, but for real LLM output.
-  2. Truncation at `synopsis.content.slice(0, 300)` in `BookDetailsRoute` cuts mid-word/mid-sentence. Either render full synopsis (it targets 200-300 words) or truncate on a sentence boundary with an honest "read more" affordance.
-  Fix scope: ~30-45 min. Verify both in the same session.
+- **Attribution algorithm refinement (target 5.7.2)** — Sentence-level attribution misses multi-source paragraphs when 2nd-best chunk similarity falls outside MULTI_CHUNK_DELTA_THRESHOLD (0.08). Real example: a paragraph synthesized from ~3 source chunks displays as `Source` (singular) because per-sentence similarity is too tight. The behavior is honest (single chip = single source per resolver) but under-inclusive. Python migration (5.7.2) unlocks the deeper fix:
+  - `pysbd` for clause-aware sentence boundaries
+  - `sentence-transformers` with cross-encoder reranking
+  - paragraph-centroid anchor for multi-source detection
+  Current 5.6.4 fix (multi-chunk Δ ≤ 0.08) is a partial improvement; the full solution ships with the NLP migration.
 - **NLP pipeline migration to Python (part of 5.7.2, AMENDED SCOPE).** Chunker, slicer, and sentence splitter all move from Node to Python sidecar. Rationale: pysbd/spaCy handle abbreviation-aware sentence boundaries, citations, math notation, and multi-language text correctly — the regex-based Node splitter required two hotfixes in a single session. Python owns text segmentation; Node keeps SQLite writes, HTTP API, and OpenRouter calls. Frontend receives pre-computed sentence_start/sentence_end indices from backend; the local splitter in `frontend/src/types/domain.ts` is removed. This expands 5.7.2 from ~2-3 sessions to ~3-4 sessions.
 - **Slicer refactor** — target Phase 5.7.2 (unchanged). Real ML PDF import yielded 31 Smart chapters (one per source section). Target ~5–8 by segmenting on compressed-unit count. Bundled with hybrid parallelism work.
 - **Citation integrity check** — dropped from Phase 5.6; deferred to post-Python hybrid phase (Phase 5.7+). Sentence-level verification of [Source N] grounding against indexed chunk vectors is best performed alongside embedding-accelerated Python primitives.
