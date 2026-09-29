@@ -123,8 +123,19 @@ class AttributionRepository {
     if (!row) return null;
     let segments = [];
     try {
-      segments = typeof row.segments_json === 'string' ? JSON.parse(row.segments_json) : row.segments_json;
+      segments = typeof row.segments_json === 'string' ? JSON.parse(row.segments_json) : (row.segments_json || []);
     } catch {
+      segments = [];
+    }
+
+    if (Array.isArray(segments)) {
+      segments = segments.map((seg) => ({
+        ...seg,
+        chunk_ids: Array.isArray(seg.chunk_ids) && seg.chunk_ids.length > 0
+          ? seg.chunk_ids
+          : (seg.chunk_id ? [seg.chunk_id] : []),
+      }));
+    } else {
       segments = [];
     }
 

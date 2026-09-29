@@ -19,6 +19,8 @@ const attributionRepository = require('../repositories/attributionRepository');
 const chapterRepository = require('../repositories/chapterRepository');
 const semanticChunkRepository = require('../repositories/semanticChunkRepository');
 const bookRepository = require('../repositories/bookRepository');
+const smartChapterRepository = require('../repositories/smartChapterRepository');
+const embeddingService = require('../services/semantic/embeddingService');
 const { getDatabase } = require('../db/database');
 
 async function runTests() {
@@ -338,6 +340,423 @@ async function runTests() {
     } catch {}
 
     console.log('  ✓ End-to-end ProvenanceResolver verification and API contract passed cleanly.');
+  }
+
+  const makeSentinelVec = (val) => {
+    const v = new Array(1024).fill(0);
+    v[0] = val;
+    return v;
+  };
+
+  // --------------------------------------------------------------------------
+  // Test 8: Multi-chunk inclusion at Δ ≤ 0.08
+  // --------------------------------------------------------------------------
+  console.log('Test 8: Multi-chunk inclusion at Δ ≤ 0.08');
+  {
+    const bookId = `book-test-t8-${Date.now()}`;
+    const smartId = `smart-test-t8-${Date.now()}`;
+    const origSim = embeddingService.cosineSimilarity;
+    const origEmbed = embeddingService.embedText;
+
+    try {
+      bookRepository.create({ id: bookId, title: 'Multi-Chunk Test Book', content_type: 'technical' });
+
+      const c1 = {
+        id: `chk-${bookId}-1`,
+        book_id: bookId,
+        chapter_id: null,
+        sequence: 0,
+        section_heading: 'Section 1',
+        text_content: 'Content about agile frameworks.',
+        embedding: makeSentinelVec(0.99),
+      };
+      const c2 = {
+        id: `chk-${bookId}-2`,
+        book_id: bookId,
+        chapter_id: null,
+        sequence: 1,
+        section_heading: 'Section 2',
+        text_content: 'Content about scrum ceremonies.',
+        embedding: makeSentinelVec(0.44),
+      };
+      semanticChunkRepository.insertBatch([c1, c2]);
+
+      const smartContent = 'Agile principles prioritize iterative delivery. Scrum sprints implement this through timeboxed cycles.';
+      smartChapterRepository.create({
+        id: smartId,
+        bookId,
+        sequence: 1,
+        title: 'Agile & Scrum Chapter',
+        status: 'generated',
+        content: smartContent,
+        metadata: {
+          outline: {
+            chapterId: smartId,
+            title: 'Agile & Scrum',
+            provenance: [c1.id, c2.id],
+            claimed_attributions: [
+              { paragraph_index: 0, weights: { [c1.id]: 0.55, [c2.id]: 0.45 } },
+            ],
+          },
+        },
+      });
+
+      embeddingService.embedText = async () => [0.5, 0.5, 0.5];
+      embeddingService.cosineSimilarity = (vA, vB) => {
+        if (!vB || !Array.isArray(vB)) return 0.5;
+        if (Math.abs(vB[0] - 0.99) < 0.01) return 0.85;
+        if (Math.abs(vB[0] - 0.44) < 0.01) return 0.80;
+        return 0.5;
+      };
+
+      const result = await provenanceResolver.verifyRepresentation(smartId, { fast: true, force: true });
+      assert.strictEqual(result.paragraphs.length, 1);
+      const segs = result.paragraphs[0].segments;
+      assert(segs.length >= 1, 'Must have at least 1 segment');
+      assert.strictEqual(segs[0].chunk_id, c1.id, 'Primary chunk must be best match');
+      assert(Array.isArray(segs[0].chunk_ids), 'chunk_ids must be an array');
+      assert.strictEqual(segs[0].chunk_ids.length, 2, 'Both chunks must be included when Δ <= 0.08');
+      assert(segs[0].chunk_ids.includes(c1.id) && segs[0].chunk_ids.includes(c2.id));
+      console.log('  ✓ Multi-chunk inclusion at Δ ≤ 0.08 verified: both chunks included in segment.chunk_ids.');
+    } finally {
+      embeddingService.cosineSimilarity = origSim;
+      embeddingService.embedText = origEmbed;
+      attributionRepository.deleteByRepresentationId(smartId);
+      smartChapterRepository.delete(smartId);
+      try {
+        const db = getDatabase();
+        db.prepare('DELETE FROM semantic_chunks WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
+      } catch {}
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 9: Threshold exclusion at Δ > 0.08
+  // --------------------------------------------------------------------------
+  console.log('Test 9: Threshold exclusion at Δ > 0.08');
+  {
+    const bookId = `book-test-t9-${Date.now()}`;
+    const smartId = `smart-test-t9-${Date.now()}`;
+    const origSim = embeddingService.cosineSimilarity;
+    const origEmbed = embeddingService.embedText;
+
+    try {
+      bookRepository.create({ id: bookId, title: 'Threshold Exclusion Book', content_type: 'technical' });
+
+      const c1 = {
+        id: `chk-${bookId}-1`,
+        book_id: bookId,
+        chapter_id: null,
+        sequence: 0,
+        section_heading: 'Section 1',
+        text_content: 'Content about machine learning.',
+        embedding: makeSentinelVec(0.99),
+      };
+      const c2 = {
+        id: `chk-${bookId}-2`,
+        book_id: bookId,
+        chapter_id: null,
+        sequence: 1,
+        section_heading: 'Section 2',
+        text_content: 'Content about hardware circuits.',
+        embedding: makeSentinelVec(0.44),
+      };
+      semanticChunkRepository.insertBatch([c1, c2]);
+
+      const smartContent = 'Machine learning optimizes weights. Gradient descent guides optimization step size.';
+      smartChapterRepository.create({
+        id: smartId,
+        bookId,
+        sequence: 1,
+        title: 'Optimization Chapter',
+        status: 'generated',
+        content: smartContent,
+        metadata: {
+          outline: {
+            chapterId: smartId,
+            title: 'Optimization',
+            provenance: [c1.id, c2.id],
+            claimed_attributions: [
+              { paragraph_index: 0, weights: { [c1.id]: 0.85, [c2.id]: 0.15 } },
+            ],
+          },
+        },
+      });
+
+      embeddingService.embedText = async () => [0.5, 0.5, 0.5];
+      embeddingService.cosineSimilarity = (vA, vB) => {
+        if (!vB || !Array.isArray(vB)) return 0.5;
+        if (Math.abs(vB[0] - 0.99) < 0.01) return 0.85;
+        if (Math.abs(vB[0] - 0.44) < 0.01) return 0.75;
+        return 0.5;
+      };
+
+      const result = await provenanceResolver.verifyRepresentation(smartId, { fast: true, force: true });
+      assert.strictEqual(result.paragraphs.length, 1);
+      const segs = result.paragraphs[0].segments;
+      assert(segs.length >= 1);
+      assert.strictEqual(segs[0].chunk_id, c1.id);
+      assert.deepStrictEqual(segs[0].chunk_ids, [c1.id], 'Secondary chunk must be excluded when Δ > 0.08');
+      console.log('  ✓ Threshold exclusion at Δ > 0.08 verified: secondary chunk excluded.');
+    } finally {
+      embeddingService.cosineSimilarity = origSim;
+      embeddingService.embedText = origEmbed;
+      attributionRepository.deleteByRepresentationId(smartId);
+      smartChapterRepository.delete(smartId);
+      try {
+        const db = getDatabase();
+        db.prepare('DELETE FROM semantic_chunks WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
+      } catch {}
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 10: Single-sentence paragraph override (weights ≥ 0.25)
+  // --------------------------------------------------------------------------
+  console.log('Test 10: Single-sentence paragraph override (weights ≥ 0.25)');
+  {
+    const bookId = `book-test-t10-${Date.now()}`;
+    const smartId = `smart-test-t10-${Date.now()}`;
+    const origSim = embeddingService.cosineSimilarity;
+    const origEmbed = embeddingService.embedText;
+
+    try {
+      bookRepository.create({ id: bookId, title: 'Single-Sentence Paragraph Book', content_type: 'technical' });
+
+      const c1 = {
+        id: `chk-${bookId}-1`,
+        book_id: bookId,
+        chapter_id: null,
+        sequence: 0,
+        section_heading: 'Alpha',
+        text_content: 'Alpha concepts.',
+        embedding: makeSentinelVec(0.99),
+      };
+      const c2 = {
+        id: `chk-${bookId}-2`,
+        book_id: bookId,
+        chapter_id: null,
+        sequence: 1,
+        section_heading: 'Beta',
+        text_content: 'Beta concepts.',
+        embedding: makeSentinelVec(0.44),
+      };
+      const c3 = {
+        id: `chk-${bookId}-3`,
+        book_id: bookId,
+        chapter_id: null,
+        sequence: 2,
+        section_heading: 'Gamma',
+        text_content: 'Gamma concepts.',
+        embedding: makeSentinelVec(0.11),
+      };
+      semanticChunkRepository.insertBatch([c1, c2, c3]);
+
+      const smartContent = 'Synthesizing alpha, beta, and gamma together into a unified framework.';
+      smartChapterRepository.create({
+        id: smartId,
+        bookId,
+        sequence: 1,
+        title: 'Single-Sentence Chapter',
+        status: 'generated',
+        content: smartContent,
+        metadata: {
+          outline: {
+            chapterId: smartId,
+            title: 'Single-Sentence',
+            provenance: [c1.id, c2.id, c3.id],
+            claimed_attributions: [
+              { paragraph_index: 0, weights: { [c1.id]: 0.40, [c2.id]: 0.35, [c3.id]: 0.25 } },
+            ],
+          },
+        },
+      });
+
+      embeddingService.embedText = async () => [0.5, 0.5, 0.5];
+      embeddingService.cosineSimilarity = (vA, vB) => {
+        if (!vB || !Array.isArray(vB)) return 0.5;
+        if (Math.abs(vB[0] - 0.99) < 0.01) return 0.80;
+        if (Math.abs(vB[0] - 0.44) < 0.01) return 0.70;
+        if (Math.abs(vB[0] - 0.11) < 0.01) return 0.50;
+        return 0.5;
+      };
+
+      const result = await provenanceResolver.verifyRepresentation(smartId, { fast: true, force: true });
+      assert.strictEqual(result.paragraphs.length, 1);
+      const segs = result.paragraphs[0].segments;
+      assert.strictEqual(segs.length, 1);
+      assert.strictEqual(segs[0].chunk_id, c1.id);
+      assert.strictEqual(segs[0].chunk_ids.length, 3, 'All 3 chunks must be included in single-sentence paragraph when weights >= 0.25');
+      assert(segs[0].chunk_ids.includes(c1.id));
+      assert(segs[0].chunk_ids.includes(c2.id));
+      assert(segs[0].chunk_ids.includes(c3.id));
+      console.log('  ✓ Single-sentence paragraph override verified: all 3 qualifying chunks populated in chunk_ids.');
+    } finally {
+      embeddingService.cosineSimilarity = origSim;
+      embeddingService.embedText = origEmbed;
+      attributionRepository.deleteByRepresentationId(smartId);
+      smartChapterRepository.delete(smartId);
+      try {
+        const db = getDatabase();
+        db.prepare('DELETE FROM semantic_chunks WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
+      } catch {}
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 11: Single-sentence paragraph with a sub-threshold chunk
+  // --------------------------------------------------------------------------
+  console.log('Test 11: Single-sentence paragraph with a sub-threshold chunk');
+  {
+    const bookId = `book-test-t11-${Date.now()}`;
+    const smartId = `smart-test-t11-${Date.now()}`;
+    const origSim = embeddingService.cosineSimilarity;
+    const origEmbed = embeddingService.embedText;
+
+    try {
+      bookRepository.create({ id: bookId, title: 'Single-Sentence Sub-threshold Book', content_type: 'technical' });
+
+      const c1 = {
+        id: `chk-${bookId}-1`,
+        book_id: bookId,
+        chapter_id: null,
+        sequence: 0,
+        section_heading: 'Alpha',
+        text_content: 'Alpha content.',
+        embedding: makeSentinelVec(0.99),
+      };
+      const c2 = {
+        id: `chk-${bookId}-2`,
+        book_id: bookId,
+        chapter_id: null,
+        sequence: 1,
+        section_heading: 'Beta',
+        text_content: 'Beta content.',
+        embedding: makeSentinelVec(0.44),
+      };
+      const c3 = {
+        id: `chk-${bookId}-3`,
+        book_id: bookId,
+        chapter_id: null,
+        sequence: 2,
+        section_heading: 'Gamma',
+        text_content: 'Gamma content.',
+        embedding: makeSentinelVec(0.11),
+      };
+      semanticChunkRepository.insertBatch([c1, c2, c3]);
+
+      const smartContent = 'Synthesizing primarily alpha and beta, with a minor passing touch of gamma.';
+      smartChapterRepository.create({
+        id: smartId,
+        bookId,
+        sequence: 1,
+        title: 'Single-Sentence Chapter 2',
+        status: 'generated',
+        content: smartContent,
+        metadata: {
+          outline: {
+            chapterId: smartId,
+            title: 'Single-Sentence 2',
+            provenance: [c1.id, c2.id, c3.id],
+            claimed_attributions: [
+              { paragraph_index: 0, weights: { [c1.id]: 0.50, [c2.id]: 0.375, [c3.id]: 0.125 } },
+            ],
+          },
+        },
+      });
+
+      embeddingService.embedText = async () => [0.5, 0.5, 0.5];
+      embeddingService.cosineSimilarity = (vA, vB) => {
+        if (!vB || !Array.isArray(vB)) return 0.5;
+        if (Math.abs(vB[0] - 0.99) < 0.01) return 0.80;
+        if (Math.abs(vB[0] - 0.44) < 0.01) return 0.60;
+        if (Math.abs(vB[0] - 0.11) < 0.01) return 0.20;
+        return 0.5;
+      };
+
+      const result = await provenanceResolver.verifyRepresentation(smartId, { fast: true, force: true });
+      assert.strictEqual(result.paragraphs.length, 1);
+      const segs = result.paragraphs[0].segments;
+      assert.strictEqual(segs.length, 1);
+      assert.strictEqual(segs[0].chunk_ids.length, 2, 'Only chunks with weight >= 0.25 must be included');
+      assert(segs[0].chunk_ids.includes(c1.id));
+      assert(segs[0].chunk_ids.includes(c2.id));
+      assert(!segs[0].chunk_ids.includes(c3.id), 'Sub-threshold chunk c3 must be excluded');
+      console.log('  ✓ Sub-threshold chunk exclusion verified: only weights >= 0.25 populated in chunk_ids.');
+    } finally {
+      embeddingService.cosineSimilarity = origSim;
+      embeddingService.embedText = origEmbed;
+      attributionRepository.deleteByRepresentationId(smartId);
+      smartChapterRepository.delete(smartId);
+      try {
+        const db = getDatabase();
+        db.prepare('DELETE FROM semantic_chunks WHERE book_id = ?').run(bookId);
+        db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
+      } catch {}
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 12: Legacy attribution fallback in formatRow
+  // --------------------------------------------------------------------------
+  console.log('Test 12: Legacy attribution fallback in formatRow');
+  {
+    const legacyBookId = `book-legacy-${Date.now()}`;
+    const smartChapterId = `smart-legacy-chapter-${Date.now()}`;
+    const legacyAttrId = `attr-legacy-${Date.now()}`;
+    const legacySegments = [
+      { sentence_start: 0, sentence_end: 1, chunk_id: 'chk-legacy-alpha', confidence: 0.92 },
+      { sentence_start: 2, sentence_end: 3, chunk_id: 'chk-legacy-beta', confidence: 0.88 },
+    ];
+
+    bookRepository.create({
+      id: legacyBookId,
+      title: 'Legacy Test Book',
+      content_type: 'technical',
+    });
+    smartChapterRepository.create({
+      id: smartChapterId,
+      bookId: legacyBookId,
+      sequence: 1,
+      title: 'Legacy Chapter',
+      status: 'generated',
+      content: 'Legacy paragraph content.',
+      metadata: {},
+    });
+
+    const db = getDatabase();
+    db.prepare(`
+      INSERT INTO paragraph_attributions (
+        id, smart_chapter_id, paragraph_index, segments_json, source_chunk_ids,
+        weights_json, method, confidence, grounded, verified_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      legacyAttrId,
+      smartChapterId,
+      0,
+      JSON.stringify(legacySegments),
+      JSON.stringify(['chk-legacy-alpha', 'chk-legacy-beta']),
+      JSON.stringify({ 'chk-legacy-alpha': 0.6, 'chk-legacy-beta': 0.4 }),
+      'b_arbitrated',
+      'high',
+      1,
+      new Date().toISOString()
+    );
+
+    const loaded = attributionRepository.getById(legacyAttrId);
+    assert(loaded, 'Attribution row must load');
+    assert.strictEqual(loaded.segments.length, 2);
+    assert.deepStrictEqual(loaded.segments[0].chunk_ids, ['chk-legacy-alpha'], 'Legacy seg 0 must normalize to [chunk_id]');
+    assert.deepStrictEqual(loaded.segments[1].chunk_ids, ['chk-legacy-beta'], 'Legacy seg 1 must normalize to [chunk_id]');
+
+    // Cleanup
+    db.prepare('DELETE FROM paragraph_attributions WHERE id = ?').run(legacyAttrId);
+    smartChapterRepository.delete(smartChapterId);
+    bookRepository.delete(legacyBookId);
+    console.log('  ✓ Legacy attribution fallback verified: formatRow normalizes missing chunk_ids to [chunk_id].');
   }
 
   console.log('\n================================================================');

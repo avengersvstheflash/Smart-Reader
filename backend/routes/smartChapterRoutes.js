@@ -65,6 +65,17 @@ router.get('/:id/provenance', (req, res, next) => {
             chunkIds.add(cid);
           }
         }
+        if (Array.isArray(p.segments)) {
+          for (const seg of p.segments) {
+            if (Array.isArray(seg.chunk_ids)) {
+              for (const cid of seg.chunk_ids) {
+                chunkIds.add(cid);
+              }
+            } else if (seg.chunk_id) {
+              chunkIds.add(seg.chunk_id);
+            }
+          }
+        }
       }
 
       for (const cid of chunkIds) {
@@ -87,13 +98,17 @@ router.get('/:id/provenance', (req, res, next) => {
               }
             }
           }
+          const rawText = chunk.textContent || '';
+          const cleanText = rawText.replace(/^(?:\[Section:\s*[^\]]+\]\s*)+/gi, '').trim();
+          const excerpt = cleanText.length > 150 ? cleanText.slice(0, 150).trimEnd() + '…' : cleanText;
+
           chunkMap[cid] = {
             id: chunk.id,
             chapter_id: chunk.chapterId || null,
             sequence: chunk.sequence !== undefined && chunk.sequence !== null ? Number(chunk.sequence) : null,
             section_heading: chunk.sectionHeading || null,
             source_page: chunk.sourcePage !== undefined && chunk.sourcePage !== null ? Number(chunk.sourcePage) : null,
-            excerpt: (chunk.textContent || '').trim().slice(0, 150),
+            excerpt,
             block_ids: blockIds,
           };
         }

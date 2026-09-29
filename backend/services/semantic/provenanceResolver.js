@@ -74,6 +74,17 @@ function splitIntoSentences(text) {
   return out.length > 0 ? out : [cleaned];
 }
 
+const MULTI_CHUNK_DELTA_THRESHOLD = 0.08;
+const SINGLE_SENTENCE_WEIGHT_FLOOR = 0.25;
+
+function haveSameChunks(arr1, arr2) {
+  if (!arr1 || !arr2) return false;
+  if (arr1.length !== arr2.length) return false;
+  const s1 = [...arr1].sort().join(',');
+  const s2 = [...arr2].sort().join(',');
+  return s1 === s2;
+}
+
 class ProvenanceResolver {
   /**
    * Resolve paragraph-level provenance and sentence-level segmentation for an EDITORIAL_SYNTHESIS representation
@@ -251,45 +262,66 @@ class ProvenanceResolver {
               sentence_start: 0,
               sentence_end: sentences.length - 1,
               chunk_id: resolvedChunkIds[0],
+              chunk_ids: [resolvedChunkIds[0]],
+              confidence: Number((C_signal.top1 || 0.9).toFixed(4)),
+            });
+          } else if (sentences.length === 1) {
+            // Single-sentence paragraph: inherit all qualifying paragraph chunks with weight >= SINGLE_SENTENCE_WEIGHT_FLOOR
+            const qualifyingCids = resolvedChunkIds.filter((cid) => {
+              const w = arbiterResult.weights?.[cid] || 0;
+              return w >= SINGLE_SENTENCE_WEIGHT_FLOOR;
+            });
+            const assignedChunkIds = qualifyingCids.length > 0 ? qualifyingCids : resolvedChunkIds;
+            segments.push({
+              sentence_start: 0,
+              sentence_end: 0,
+              chunk_id: resolvedChunkIds[0],
+              chunk_ids: assignedChunkIds,
               confidence: Number((C_signal.top1 || 0.9).toFixed(4)),
             });
           } else {
-            // Map each sentence to top chunk among resolved chunk set
+            // Map each sentence to qualifying chunks within MULTI_CHUNK_DELTA_THRESHOLD
             const resolvedChunks = candidateChunks.filter((c) => resolvedChunkIds.includes(c.id));
             const sentenceAttributions = [];
 
             for (let sIdx = 0; sIdx < sentences.length; sIdx++) {
               const sentText = sentences[sIdx];
               const sentVec = await embeddingService.embedText(sentText);
-              let bestCid = resolvedChunkIds[0];
-              let bestScore = -1;
+              const chunkScores = [];
 
               for (const ch of resolvedChunks) {
                 const sim = ch.embedding ? embeddingService.cosineSimilarity(sentVec, ch.embedding) : 0;
-                if (sim > bestScore) {
-                  bestScore = sim;
-                  bestCid = ch.id;
-                }
+                chunkScores.push({ id: ch.id, score: sim });
               }
+
+              chunkScores.sort((a, b) => b.score - a.score);
+
+              const bestScore = chunkScores[0]?.score || 0;
+              const bestCid = chunkScores[0]?.id || resolvedChunkIds[0];
+              const assignedChunkIds = chunkScores
+                .filter((cs) => (bestScore - cs.score) <= MULTI_CHUNK_DELTA_THRESHOLD)
+                .map((cs) => cs.id);
 
               sentenceAttributions.push({
                 sIdx,
                 chunk_id: bestCid,
+                chunk_ids: assignedChunkIds.length > 0 ? assignedChunkIds : [bestCid],
                 score: Number(bestScore.toFixed(4)),
               });
             }
 
-            // Group contiguous runs with the same chunk_id
+            // Group contiguous runs with identical chunk_ids
             let currentRun = {
               sentence_start: 0,
               sentence_end: 0,
               chunk_id: sentenceAttributions[0].chunk_id,
+              chunk_ids: sentenceAttributions[0].chunk_ids,
               confidence: sentenceAttributions[0].score,
             };
 
             for (let sIdx = 1; sIdx < sentenceAttributions.length; sIdx++) {
               const sa = sentenceAttributions[sIdx];
-              if (sa.chunk_id === currentRun.chunk_id) {
+              if (haveSameChunks(sa.chunk_ids, currentRun.chunk_ids)) {
                 currentRun.sentence_end = sIdx;
                 currentRun.confidence = Math.max(currentRun.confidence, sa.score);
               } else {
@@ -298,6 +330,7 @@ class ProvenanceResolver {
                   sentence_start: sIdx,
                   sentence_end: sIdx,
                   chunk_id: sa.chunk_id,
+                  chunk_ids: sa.chunk_ids,
                   confidence: sa.score,
                 };
               }
@@ -434,5 +467,8 @@ class ProvenanceResolver {
 
 const instance = new ProvenanceResolver();
 instance.splitIntoSentences = splitIntoSentences;
+instance.MULTI_CHUNK_DELTA_THRESHOLD = MULTI_CHUNK_DELTA_THRESHOLD;
+instance.SINGLE_SENTENCE_WEIGHT_FLOOR = SINGLE_SENTENCE_WEIGHT_FLOOR;
 module.exports = instance;
+
 

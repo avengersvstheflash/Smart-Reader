@@ -404,6 +404,7 @@ export interface ProvenanceSegment {
   sentence_start: number;
   sentence_end: number;
   chunk_id: string;
+  chunk_ids?: string[];
   confidence: number;
 }
 
@@ -422,6 +423,7 @@ export interface SegmentRun {
   sentenceStart: number;
   sentenceEnd: number;
   chunkId: string;
+  chunkIds: string[];
   confidence: number;
 }
 
@@ -502,12 +504,19 @@ export function groupSegmentsIntoRuns(segments?: ProvenanceSegment[]): SegmentRu
   const runs: SegmentRun[] = [];
 
   for (const seg of segments) {
-    if (!seg.chunk_id) continue;
-    const chunkId = String(seg.chunk_id).trim();
-    if (!chunkId) continue;
+    const rawChunkIds = Array.isArray(seg.chunk_ids) && seg.chunk_ids.length > 0
+      ? seg.chunk_ids
+      : (seg.chunk_id ? [seg.chunk_id] : []);
+    const cleanChunkIds = rawChunkIds.map((c) => String(c).trim()).filter(Boolean);
+    if (cleanChunkIds.length === 0) continue;
+
+    const primaryChunkId = String(seg.chunk_id || cleanChunkIds[0]).trim();
+    const compositeKey = [...cleanChunkIds].sort().join(',');
 
     const lastRun = runs[runs.length - 1];
-    if (lastRun && lastRun.chunkId === chunkId) {
+    const lastKey = lastRun ? [...lastRun.chunkIds].sort().join(',') : null;
+
+    if (lastRun && lastKey === compositeKey) {
       lastRun.sentenceEnd = Math.max(lastRun.sentenceEnd, seg.sentence_end);
       lastRun.confidence = Math.max(lastRun.confidence, seg.confidence);
     } else {
@@ -515,7 +524,8 @@ export function groupSegmentsIntoRuns(segments?: ProvenanceSegment[]): SegmentRu
         runIndex: runs.length,
         sentenceStart: seg.sentence_start,
         sentenceEnd: seg.sentence_end,
-        chunkId,
+        chunkId: primaryChunkId,
+        chunkIds: cleanChunkIds,
         confidence: seg.confidence,
       });
     }

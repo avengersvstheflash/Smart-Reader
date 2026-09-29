@@ -173,30 +173,34 @@ function CanonicalParagraph({
                   }}
                 >
                   {renderInlineText(sent)}
-                  {matchingRuns.map((run) => (
-                    <button
-                      key={run.runIndex}
-                      type="button"
-                      data-segment-run-index={run.runIndex}
-                      onMouseEnter={() => onHoverRun?.(run.runIndex)}
-                      onMouseLeave={() => onHoverRun?.(null)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onClickRun?.(run.runIndex, e.currentTarget);
-                      }}
-                      className={`segment-source-chip ${
-                        activeRunIndex === run.runIndex
-                          ? 'active'
-                          : hoveredRunIndex === run.runIndex
-                          ? 'hovered'
-                          : ''
-                      }`}
-                      aria-label={`View source provenance for segment ${run.runIndex + 1}`}
-                      aria-expanded={activeRunIndex === run.runIndex}
-                    >
-                      Source
-                    </button>
-                  ))}
+                  {matchingRuns.map((run) => {
+                    const count = run.chunkIds?.length || 1;
+                    const label = count > 1 ? `Source (${count})` : 'Source';
+                    return (
+                      <button
+                        key={run.runIndex}
+                        type="button"
+                        data-segment-run-index={run.runIndex}
+                        onMouseEnter={() => onHoverRun?.(run.runIndex)}
+                        onMouseLeave={() => onHoverRun?.(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onClickRun?.(run.runIndex, e.currentTarget);
+                        }}
+                        className={`segment-source-chip ${
+                          activeRunIndex === run.runIndex
+                            ? 'active'
+                            : hoveredRunIndex === run.runIndex
+                            ? 'hovered'
+                            : ''
+                        }`}
+                        aria-label={`View source provenance for segment ${run.runIndex + 1}`}
+                        aria-expanded={activeRunIndex === run.runIndex}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </span>
                 {sIdx < sentences.length - 1 ? ' ' : ''}
               </React.Fragment>
