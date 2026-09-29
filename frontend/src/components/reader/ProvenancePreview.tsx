@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
+import React, { useEffect, useRef, useState, useLayoutEffect, useMemo } from 'react';
 import { ExternalLink, X, BookOpen } from 'lucide-react';
 import { ParagraphAttribution, ProvenanceChunk } from '../../types/domain';
 
@@ -7,9 +7,20 @@ export interface ProvenancePreviewProps {
   paragraphIndex?: number;
   provenanceRow?: ParagraphAttribution | null;
   chunk?: ProvenanceChunk | null;
+  chunkIds?: string[];
+  chunks?: Record<string, ProvenanceChunk>;
   anchorRef?: React.RefObject<HTMLElement> | HTMLElement | null;
   onNavigate: (chunkId: string, chapterId?: string | null) => void;
   onClose: () => void;
+}
+
+function cleanExcerpt(raw?: string | null): string {
+  if (!raw) return '';
+  const stripped = raw.replace(/^(?:\[Section:\s*[^\]]+\]\s*)+/gi, '').trim();
+  if (stripped.length > 150 && !stripped.endsWith('…')) {
+    return stripped.slice(0, 150).trimEnd() + '…';
+  }
+  return stripped;
 }
 
 export function ProvenancePreview({
@@ -17,6 +28,8 @@ export function ProvenancePreview({
   paragraphIndex,
   provenanceRow,
   chunk,
+  chunkIds,
+  chunks,
   anchorRef,
   onNavigate,
   onClose,
@@ -26,6 +39,20 @@ export function ProvenancePreview({
   void pIdx;
 
   const [positionStyle, setPositionStyle] = useState<React.CSSProperties>({});
+
+  // Resolve list of chunk IDs to display
+  const resolvedChunkIds: string[] = useMemo(() => {
+    if (Array.isArray(chunkIds) && chunkIds.length > 0) {
+      return chunkIds;
+    }
+    if (chunk?.id) {
+      return [chunk.id];
+    }
+    if (Array.isArray(provenanceRow?.source_chunk_ids) && provenanceRow.source_chunk_ids.length > 0) {
+      return provenanceRow.source_chunk_ids;
+    }
+    return [];
+  }, [chunkIds, chunk, provenanceRow]);
 
   // Close on Click Outside & Escape
   useEffect(() => {
@@ -61,7 +88,7 @@ export function ProvenancePreview({
       const rect = chipEl.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
-      const cardWidth = Math.min(384, viewportWidth - 32);
+      const cardWidth = Math.min(resolvedChunkIds.length > 1 ? 400 : 384, viewportWidth - 32);
 
       const isRightHalf = rect.left + rect.width / 2 > viewportWidth / 2;
       const top = rect.bottom + 8;
@@ -101,7 +128,7 @@ export function ProvenancePreview({
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [anchorRef]);
+  }, [anchorRef, resolvedChunkIds.length]);
 
   const isUngrounded =
     provenanceRow?.grounded === false || provenanceRow?.method === 'ungrounded';
@@ -114,11 +141,7 @@ export function ProvenancePreview({
       provenanceRow?.method?.startsWith('b_')
     );
 
-  const topChunkId = chunk?.id || provenanceRow?.source_chunk_ids?.[0];
-  const sectionHeading = chunk?.section_heading;
-  const sourcePage = chunk?.source_page;
-  const rawExcerpt = chunk?.excerpt || '';
-  const excerpt = rawExcerpt.trim().slice(0, 150);
+  const isMultiSource = resolvedChunkIds.length > 1;
 
   return (
     <div
@@ -135,7 +158,7 @@ export function ProvenancePreview({
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-line/60">
         <div className="flex items-center gap-1.5 text-micro uppercase tracking-wider font-semibold text-muted">
           <BookOpen className="w-3.5 h-3.5 text-accent" />
-          <span>Source Provenance</span>
+          <span>{isMultiSource ? `Sources (${resolvedChunkIds.length})` : 'Source Provenance'}</span>
         </div>
         <button
           type="button"
@@ -164,41 +187,126 @@ export function ProvenancePreview({
 
       {!isUngrounded && (
         <>
-          {/* Metadata Path & Page */}
-          {(Boolean(sectionHeading) || (sourcePage !== null && sourcePage !== undefined)) && (
-            <div className="flex items-center justify-between gap-2 text-micro text-ink-muted mb-2 font-mono">
-              {sectionHeading && (
-                <span className="truncate max-w-[70%]" title={sectionHeading}>
-                  {sectionHeading}
-                </span>
-              )}
-              {sourcePage !== null && sourcePage !== undefined && (
-                <span className="shrink-0 bg-subtle px-1.5 py-0.5 rounded text-[10px]">
-                  p. {sourcePage}
-                </span>
-              )}
+          {resolvedChunkIds.length === 0 ? (
+            <div className="py-2">
+              <p className="text-caption text-ink-muted italic mb-0">
+                Source details not available.
+              </p>
             </div>
-          )}
+          ) : isMultiSource ? (
+            <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+              {resolvedChunkIds.map((cid) => {
+                const c = chunks?.[cid] || (cid === chunk?.id ? chunk : null);
+                const cHeading = c?.section_heading;
+                const cPage = c?.source_page;
+                const cExcerpt = cleanExcerpt(c?.excerpt);
 
-          {/* Excerpt */}
-          {excerpt && (
-            <div className="text-xs text-ink/90 italic bg-subtle/50 border-l-2 border-accent/60 pl-2.5 py-1 my-2 leading-relaxed">
-              &ldquo;{excerpt}{excerpt.length >= 140 ? '…' : ''}&rdquo;
-            </div>
-          )}
+                return (
+                  <div
+                    key={cid}
+                    className="p-2.5 rounded-md border border-line/60 bg-subtle/30 space-y-2"
+                  >
+                    {/* Metadata Path & Page Badge */}
+                    {(Boolean(cHeading) || (cPage !== null && cPage !== undefined)) && (
+                      <div className="flex items-center justify-between gap-2 text-micro text-ink-muted font-mono">
+                        {cHeading ? (
+                          <span
+                            className="truncate max-w-[75%] font-semibold uppercase tracking-wider text-[10px] text-accent-ink"
+                            title={cHeading}
+                          >
+                            {cHeading}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] uppercase text-muted">Source Excerpt</span>
+                        )}
+                        {cPage !== null && cPage !== undefined && (
+                          <span className="shrink-0 bg-subtle px-1.5 py-0.5 rounded text-[10px]">
+                            p. {cPage}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
-          {/* Navigation to Original */}
-          {topChunkId && (
-            <div className="pt-2 mt-2 border-t border-line/40 flex justify-end">
-              <button
-                type="button"
-                onClick={() => onNavigate(topChunkId, chunk?.chapter_id)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-ink hover:text-accent-hover transition-colors group cursor-pointer"
-              >
-                <span>View full source</span>
-                <ExternalLink className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-              </button>
+                    {/* Excerpt */}
+                    {cExcerpt ? (
+                      <div className="text-xs text-ink/90 italic bg-subtle/50 border-l-2 border-accent/60 pl-2.5 py-1 leading-relaxed">
+                        &ldquo;{cExcerpt}&rdquo;
+                      </div>
+                    ) : (
+                      <div className="text-xs text-ink-muted italic py-1">
+                        No excerpt available for this chunk.
+                      </div>
+                    )}
+
+                    {/* Navigate to Original */}
+                    <div className="pt-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => onNavigate(cid, c?.chapter_id)}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-ink hover:text-accent-hover transition-colors group cursor-pointer"
+                      >
+                        <span>View full source</span>
+                        <ExternalLink className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+          ) : (
+            (() => {
+              const singleCid = resolvedChunkIds[0];
+              const c = chunks?.[singleCid] || (singleCid === chunk?.id ? chunk : null);
+              const sectionHeading = c?.section_heading;
+              const sourcePage = c?.source_page;
+              const excerpt = cleanExcerpt(c?.excerpt);
+
+              return (
+                <div className="space-y-2">
+                  {/* Metadata Path & Page Badge */}
+                  {(Boolean(sectionHeading) || (sourcePage !== null && sourcePage !== undefined)) && (
+                    <div className="flex items-center justify-between gap-2 text-micro text-ink-muted font-mono">
+                      {sectionHeading ? (
+                        <span
+                          className="truncate max-w-[75%] font-semibold uppercase tracking-wider text-[10px] text-accent-ink"
+                          title={sectionHeading}
+                        >
+                          {sectionHeading}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] uppercase text-muted">Source Excerpt</span>
+                      )}
+                      {sourcePage !== null && sourcePage !== undefined && (
+                        <span className="shrink-0 bg-subtle px-1.5 py-0.5 rounded text-[10px]">
+                          p. {sourcePage}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Excerpt */}
+                  {excerpt && (
+                    <div className="text-xs text-ink/90 italic bg-subtle/50 border-l-2 border-accent/60 pl-2.5 py-1 my-2 leading-relaxed">
+                      &ldquo;{excerpt}&rdquo;
+                    </div>
+                  )}
+
+                  {/* Navigation to Original */}
+                  {singleCid && (
+                    <div className="pt-2 mt-2 border-t border-line/40 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => onNavigate(singleCid, c?.chapter_id)}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-ink hover:text-accent-hover transition-colors group cursor-pointer"
+                      >
+                        <span>View full source</span>
+                        <ExternalLink className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()
           )}
         </>
       )}

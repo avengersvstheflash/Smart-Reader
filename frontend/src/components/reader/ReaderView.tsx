@@ -70,6 +70,7 @@ export function ReaderView({
     paraIndex: number;
     runIndex: number;
     chunkId: string;
+    chunkIds?: string[];
   } | null>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [hoveredRunByPara, setHoveredRunByPara] = useState<Record<number, number | null>>({});
@@ -287,6 +288,9 @@ export function ReaderView({
                         paraIndex: currentParaIndex,
                         runIndex: runIdx,
                         chunkId: targetChunkId,
+                        chunkIds: targetRun?.chunkIds && targetRun.chunkIds.length > 0
+                          ? targetRun.chunkIds
+                          : (targetChunkId ? [targetChunkId] : []),
                       });
                       setAnchorEl(chipEl);
                     }
@@ -300,10 +304,14 @@ export function ReaderView({
                       setAnchorEl(null);
                     } else {
                       const targetChunkId = provenanceRow?.source_chunk_ids?.[0] || '';
+                      const sourceChunkIds = provenanceRow?.source_chunk_ids;
                       setActivePreview({
                         paraIndex: currentParaIndex,
                         runIndex: -1,
                         chunkId: targetChunkId,
+                        chunkIds: Array.isArray(sourceChunkIds) && sourceChunkIds.length > 0
+                          ? sourceChunkIds
+                          : (targetChunkId ? [targetChunkId] : []),
                       });
                       setAnchorEl(chipEl);
                     }
@@ -327,6 +335,8 @@ export function ReaderView({
                 ) || null
               }
               chunk={chunks[activePreview.chunkId] || null}
+              chunkIds={activePreview.chunkIds}
+              chunks={chunks}
               anchorRef={anchorEl}
               onNavigate={(chunkId, targetChapterId) => {
                 setActivePreview(null);
