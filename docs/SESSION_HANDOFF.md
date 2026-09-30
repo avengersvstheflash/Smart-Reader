@@ -8,15 +8,16 @@
 
 ## 1. Where we are
 
-**Phase 5.7.2 Session 1 of 3 COMPLETE 2026-09-30.** Phase 5.7.1 CLOSED. All 23 test suites green. Frontend build clean. Origin synced.
+**Phase 5.7.2 Session 2a COMPLETE 2026-10-01.** All 24 test suites green. Frontend build clean. Origin synced.
 
-**Current HEAD:** `d11046b` — Phase 5.7.2 Session 1: NLP sidecar + modular Node client.
+**Current HEAD:** `ed98d1f` — feat(phase5.7.2): BGE-M3 Python embed endpoint + Node client + runtime switch.
 
 **Test state:** 23/23 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
 - `phase5_7_ocr_test.js`: OCR integration: checkReady, ocrPdf error translation, parser OCR routing, OCR_EMPTY_OUTPUT guard. 9 tests.
 - `phase5_7_2_nlp_test.js`: NLP integration: pysbd sentence split, chunk stub, modular/shim client contract, error taxonomy (6 tests).
+- `phase5_7_2_embed_test.js`: Embedding integration: embedClient contract, warming backoff, error taxonomy, shim integrity (6 tests).
 
-**Next phase:** Phase 5.7.2 Session 2 of 3 — BGE-M3 embedding migration + reranker.
+**Next phase:** Phase 5.7.2 Session 2b — slicer refactor (editorialPlanner.js). Then Session 3 (reranker + parallel synthesis + attribution).
 
 ### What ships today (2026-09-29)
 
@@ -222,6 +223,15 @@ Two loops, building on top of Phase 5.1/5.5:
 - **Buffer drift incident #5 (2026-09-30).** `docs/RIGHTS.md` reverted to HEAD between the Antigravity session end and the git status check. Recovery: manual re-application of the fixture entry. **Rule:** existing rule (`git status --short` after every commit) still applies. This is the 5th occurrence; it is not rare.
 
 - **License-check any fixture before git add.** See `docs/RIGHTS.md`.
+
+- **Antigravity write_to_file tool is broken (variant 4) (2026-10-01).** The tool reports success but writes 0 bytes to disk. Affects every session since 5.7.1 Session 1. Workaround: have the agent generate a Node script that writes file contents via fs.writeFileSync, then run it with `node <script>`. Never trust write_to_file's success report. Always verify sizes with Get-Item.
+  **Rule:** for any Antigravity task that creates more than 2 files, require the writer-script pattern in the prompt. Verify all target file sizes immediately after.
+
+- **Fabrication incident #4 (2026-10-01, Session 2a).** The agent's first Session 2a report synthesized file contents, sizes, test output, and curl responses for files that were never actually written. Same pattern as incidents #1 (4.24) and #2 (5.6.3). Caught by `Get-Item` size verification.
+  **Rule:** every report that claims file creation must include raw `Get-Item Name, Length` output. Every report that claims test passage must include the raw `=== <suite> ===` blocks from a fresh run. If either is missing or truncated, reject.
+
+- **PowerShell here-string interpolation (2026-10-01, Session 2a).** `Set-Content -Value @" ... "@` (double-quoted here-string) interpolates `${...}` inside embedded content, silently corrupting JavaScript template literals. This caused two sessions' worth of broken write scripts.
+  **Rule:** when embedding literal content that contains `${...}` or `$var`, use single-quoted here-string `@' ... '@`. Verify the generated file's content matches intent before running it.
 
 - **Fabrication incident #3 — partial synthesis of test output (2026-09-30, Phase 5.7.2 Session 1 correction pass).** The agent reported the full fresh test suite output. The output for build3a_test.js and build3b_test.js was synthesized (did not match file contents) and fifteen other suites were paraphrased rather than pasted raw. Caught only by cross-checking against historical reports.
   **Rule:** When a prompt requests full test output, it must explicitly require every `=== <suite> ===` block from the raw runner output — never a summary. Cross-check at least two suites against prior reports before accepting. When in doubt, bypass Antigravity: have the user run the suite in their own terminal and paste the raw output.
