@@ -134,7 +134,7 @@ class PDFJSParser {
             "This PDF document contains little or no selectable text. OCR was attempted but the document's language is not yet supported (currently English and Chinese)."
           );
         }
-        if (ocrSuccess || (err.message && err.message.includes('returned no usable text'))) {
+        if (ocrSuccess) {
           throw err;
         }
         ocrErr = err;

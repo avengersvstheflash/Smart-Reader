@@ -12,6 +12,7 @@
  * - T6: ocrPdf() throws .code === 'OCR_SIDECAR_UNAVAILABLE' when server is offline
  * - T7: Parser integration: image-only PDF (< 20 chars) routes to OCR and populates canonical pages
  * - T8: Parser integration: image-only PDF (< 20 chars) with sidecar down rejects with honest failure
+ * - T9: Parser integration: image-only PDF (< 20 chars) with empty OCR output rejects with honest failure
  *
  * Uses ephemeral port (port: 0) mock HTTP server without external dependencies.
  */
@@ -313,8 +314,63 @@ async function runTests() {
     );
     console.log('  ✓ T8 passed: parser correctly rejected with honest-failure error message');
 
+    // -------------------------------------------------------------------------
+    // T9: Parser integration: image-only PDF (< 20 chars) with empty OCR output rejects honestly
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 9] Parser integration: image-only PDF with empty OCR output rejects honestly');
+    process.env.PYTHON_SIDECAR_URL = mockBaseUrl;
+
+    activeMockHandler = (req, res) => {
+      if (req.url === '/v1/ready' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ready', model: 'ch_PP-OCRv4' }));
+        return;
+      }
+      if (req.url === '/v1/ocr/pdf' && req.method === 'POST') {
+        req.on('data', () => {});
+        req.on('end', () => {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              status: 'success',
+              pages: [{ num: 1, text: '' }],
+              model: 'ch_PP-OCRv4',
+            })
+          );
+        });
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    };
+
+    const originalWarn = console.warn;
+    const capturedWarns = [];
+    console.warn = (...args) => {
+      capturedWarns.push(args.join(' '));
+      originalWarn.apply(console, args);
+    };
+
+    let t9Error = null;
+    try {
+      await pdfjsParser.parse(pdfBuffer);
+    } catch (err) {
+      t9Error = err;
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    assert.ok(t9Error, 'Expected parser to throw on empty OCR output');
+    assert.ok(
+      t9Error.message.includes('OCR via the Python sidecar returned no usable text'),
+      `Expected empty OCR text error message, got: ${t9Error.message}`
+    );
+    const hasEmptyOutputLog = capturedWarns.some((msg) => msg.includes('Decision: OCR_EMPTY_OUTPUT'));
+    assert.ok(hasEmptyOutputLog, 'Expected Decision: OCR_EMPTY_OUTPUT in warning logs');
+    console.log('  ✓ T9 passed: parser correctly rejected empty OCR output with honest failure and logged OCR_EMPTY_OUTPUT');
+
     console.log('\n================================================================');
-    console.log('🎉 ALL 8 OCR INTEGRATION & MOCK TESTS PASSED');
+    console.log('🎉 ALL 9 OCR INTEGRATION & MOCK TESTS PASSED');
     console.log('================================================================\n');
   } finally {
     process.env.PYTHON_SIDECAR_URL = originalEnvUrl;
