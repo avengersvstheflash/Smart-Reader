@@ -7,3 +7,4 @@ python-multipart==0.0.6
 numpy<2.0.0
 pysbd==0.3.4
 opencv-python-headless<=4.6.0.66
+sentence-transformers==3.0.1
