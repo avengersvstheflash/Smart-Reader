@@ -2,11 +2,11 @@
 /**
  * scripts/run-all-tests.js
  *
- * Runs all 19 regression suites in order.
+ * Runs all regression suites in order.
  * Stops immediately on the first failure and exits with code 1.
- * Exits code 0 with "ALL 19 SUITES PASS" if all pass.
+ * Exits code 0 with "ALL <n> SUITES PASS" if all pass.
  *
- * Dependency-free — uses only node:child_process and node:path.
+ * Dependency-free - uses only node:child_process and node:path.
  */
 
 'use strict';
@@ -45,6 +45,7 @@ const SUITES = [
   'phase5_6_validation_test.js',
   'phase5_7_ocr_test.js',
   'phase5_7_2_nlp_test.js',
+  'phase5_7_2_embed_test.js',
 ];
 
 let passed = 0;
@@ -64,17 +65,17 @@ for (const name of SUITES) {
   const timedOut = result.error && result.error.code === 'ETIMEDOUT';
 
   if (timedOut) {
-    process.stderr.write(`\nFAILED: ${name} — timed out after ${TIMEOUT_MS / 1000}s\n`);
+    process.stderr.write(`\nFAILED: ${name} - timed out after ${TIMEOUT_MS / 1000}s\n`);
     process.exit(1);
   }
 
   if (result.error) {
-    process.stderr.write(`\nFAILED: ${name} — spawn error: ${result.error.message}\n`);
+    process.stderr.write(`\nFAILED: ${name} - spawn error: ${result.error.message}\n`);
     process.exit(1);
   }
 
   if (result.status !== 0) {
-    process.stderr.write(`\nFAILED: ${name} — exited with code ${result.status}\n`);
+    process.stderr.write(`\nFAILED: ${name} - exited with code ${result.status}\n`);
     process.exit(1);
   }
 

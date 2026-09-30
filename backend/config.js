@@ -64,5 +64,9 @@ module.exports = {
   PYTHON_SIDECAR_URL: process.env.PYTHON_SIDECAR_URL || 'http://127.0.0.1:8765',
   // Derived from Session 1 measurement (18.2s for 5 pages, ~3.64s/page, 20-page expected max, 1.5 safety factor: 3639ms * 20 * 1.5 = 109,175ms -> 110000ms)
   PYTHON_SIDECAR_TIMEOUT_MS: parseInt(process.env.PYTHON_SIDECAR_TIMEOUT_MS, 10) || 110000,
-};
 
+  // Python Sidecar Embedding Configuration (Phase 5.7.2)
+  // Default false: Node Xenova path remains authoritative until
+  // the migration is run and verified.
+  USE_PYTHON_EMBEDDER: process.env.USE_PYTHON_EMBEDDER === 'true'
+};

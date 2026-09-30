@@ -5,6 +5,7 @@
  *   - backend/services/ai/sidecarBase.js (resolveBaseUrl, checkReady, waitForReady, DEFAULT_MAX_WAIT_MS)
  *   - backend/services/ai/ocrClient.js (ocrPdf)
  *   - backend/services/ai/nlpClient.js (splitSentences, chunkBlocks)
+ *   - backend/services/ai/embedClient.js (embedBatch)
  *
  * This file is retained as a backward-compatible shim so existing callers continue to work seamlessly.
  */
@@ -14,9 +15,11 @@
 const sidecarBase = require('./sidecarBase');
 const ocrClient = require('./ocrClient');
 const nlpClient = require('./nlpClient');
+const embedClient = require('./embedClient');
 
 module.exports = {
   ...sidecarBase,
   ...ocrClient,
   ...nlpClient,
+  ...embedClient,
 };

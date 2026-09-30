@@ -14,11 +14,13 @@ import uvicorn
 
 from ocr.routes import router as ocr_router, start_ocr_warmup, is_ocr_ready
 from nlp.routes import router as nlp_router
+from embed.routes import router as embed_router
 
 app = FastAPI(title="Smart Reader Python Sidecar", version="1.0.0")
 
 app.include_router(ocr_router)
 app.include_router(nlp_router)
+app.include_router(embed_router)
 
 @app.on_event("startup")
 def on_startup():
