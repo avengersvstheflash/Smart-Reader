@@ -1,299 +1,37 @@
-import io
+import os
 import sys
-import threading
-import time
-from typing import List, Dict, Any, Optional
 
-import fitz  # PyMuPDF
-import numpy as np
-from fastapi import FastAPI, UploadFile, File, Response, status
-from fastapi.responses import JSONResponse
+# Ensure sidecars/python directory is in sys.path
+sys_path_dir = os.path.dirname(os.path.abspath(__file__))
+if sys_path_dir not in sys.path:
+    sys.path.insert(0, sys_path_dir)
+
+from common import setup_system_io
+setup_system_io()
+
+from fastapi import FastAPI
 import uvicorn
-from paddleocr import PaddleOCR
-from pydantic import BaseModel, Field
-import pysbd
 
-# Ensure UTF-8 output on Windows
-sys.stdout.reconfigure(encoding='utf-8')
-sys.stderr.reconfigure(encoding='utf-8')
+from ocr.routes import router as ocr_router, start_ocr_warmup, is_ocr_ready
+from nlp.routes import router as nlp_router
 
 app = FastAPI(title="Smart Reader Python Sidecar", version="1.0.0")
 
-# Global state for OCR engine and readiness
-ocr_engine: Optional[PaddleOCR] = None
-is_ready: bool = False
-warmup_duration_sec: float = 0.0
-
-def warm_up_engine():
-    """Initializes PaddleOCR and warms up weights in memory in background."""
-    global ocr_engine, is_ready, warmup_duration_sec
-    print("[Warmup] Starting PaddleOCR (ch_PP-OCRv4) background warm-up...")
-    t0 = time.time()
-    try:
-        engine = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
-        # Run a lightweight 64x64 blank image inference to load execution graph and weights into memory
-        blank_img = np.ones((64, 64, 3), dtype=np.uint8) * 255
-        engine.ocr(blank_img, cls=True)
-        ocr_engine = engine
-        warmup_duration_sec = round(time.time() - t0, 2)
-        is_ready = True
-        print(f"[Warmup] PaddleOCR engine ready in {warmup_duration_sec}s")
-    except Exception as e:
-        print(f"[Warmup] PaddleOCR initialization failed: {e}", file=sys.stderr)
+app.include_router(ocr_router)
+app.include_router(nlp_router)
 
 @app.on_event("startup")
 def on_startup():
-    # Start background warm-up thread so /v1/health responds immediately
-    thread = threading.Thread(target=warm_up_engine, daemon=True)
-    thread.start()
+    start_ocr_warmup()
 
 @app.get("/v1/health")
 def health_check():
-    """Returns 200 OK immediately when HTTP server is listening."""
     return {
         "status": "ok",
         "service": "python-sidecar",
         "version": "1.0.0",
-        "ready": is_ready
+        "ready": is_ocr_ready()
     }
-
-@app.get("/v1/ready")
-def readiness_probe():
-    """Returns 200 OK once OCR weights are in memory; 503 while warming up."""
-    if not is_ready:
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={
-                "status": "warming",
-                "message": "OCR engine is warming up",
-                "model": "ch_PP-OCRv4"
-            }
-        )
-    return {
-        "status": "ready",
-        "model": "ch_PP-OCRv4",
-        "warmup_sec": warmup_duration_sec
-    }
-
-@app.post("/v1/ocr/pdf")
-async def ocr_pdf(file: UploadFile = File(...)):
-    """
-    Extracts text from scanned/image PDF using PaddleOCR.
-    Rasterizes pages at 200 DPI using PyMuPDF (fitz).
-    Returns { status: 'success', pages: [{ num, text }], model: 'ch_PP-OCRv4' }
-    """
-    if not is_ready or ocr_engine is None:
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={
-                "status": "error",
-                "code": "OCR_SIDECAR_WARMING",
-                "message": "OCR engine is still warming up"
-            }
-        )
-
-    try:
-        content = await file.read()
-        if not content:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={
-                    "status": "error",
-                    "code": "EMPTY_PAYLOAD",
-                    "message": "Uploaded PDF file is empty"
-                }
-            )
-
-        doc = fitz.open(stream=content, filetype="pdf")
-        pages_out: List[Dict[str, Any]] = []
-        all_confidences: List[float] = []
-        total_extracted_chars = 0
-
-        for page_idx in range(len(doc)):
-            page = doc[page_idx]
-            # 200 DPI provides an optimal balance between recognition accuracy and CPU rasterization speed
-            pix = page.get_pixmap(dpi=200)
-            img = np.frombuffer(pix.samples, dtype=np.uint8).reshape((pix.h, pix.w, pix.n))
-            if pix.n == 4:
-                img = img[:, :, :3]
-
-            ocr_res = ocr_engine.ocr(img, cls=True)
-            page_lines: List[str] = []
-
-            if ocr_res and ocr_res[0]:
-                for line in ocr_res[0]:
-                    text, conf = line[1]
-                    cleaned = text.strip()
-                    if cleaned:
-                        page_lines.append(cleaned)
-                        all_confidences.append(float(conf))
-                        total_extracted_chars += len(cleaned)
-
-            page_text = "\n\n".join(page_lines)
-            pages_out.append({
-                "num": page_idx + 1,
-                "text": page_text
-            })
-
-        # Diagnostic Language Guard (Step 5 Decision):
-        # 1. If document extracted text across pages, evaluate average line confidence.
-        # Clean English print yields avg confidence > 0.90 (calibration: ~0.95+).
-        # Foreign unsupported scripts forced through 'ch' yield severe degradation (e.g. Greek avg 0.54, Cyrillic 0.75).
-        # We enforce a conservative 0.80 average confidence threshold for multi-line extractions.
-        if len(all_confidences) >= 3:
-            avg_conf = sum(all_confidences) / len(all_confidences)
-            if avg_conf < 0.80:
-                print(f"[LanguageGuard] Rejected document: average confidence {avg_conf:.4f} < 0.80 threshold")
-                return JSONResponse(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    content={
-                        "status": "error",
-                        "code": "OCR_LANGUAGE_UNSUPPORTED",
-                        "message": "OCR language not yet supported for this document",
-                        "avg_confidence": round(avg_conf, 4)
-                    }
-                )
-
-        return {
-            "status": "success",
-            "pages": pages_out,
-            "model": "ch_PP-OCRv4"
-        }
-
-    except Exception as err:
-        print(f"[OCR Error] Failed to process PDF: {err}", file=sys.stderr)
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "status": "error",
-                "code": "OCR_PROCESSING_FAILED",
-                "message": f"Failed to process PDF: {str(err)}"
-            }
-        )
-
-# -----------------------------------------------------------------------------
-# Phase 5.7.2 NLP Endpoints (Sentence Splitting & Semantic Chunking)
-# -----------------------------------------------------------------------------
-
-class SplitRequest(BaseModel):
-    text: str
-    language: str = "en"
-    clean: bool = False
-
-class ChunkBlock(BaseModel):
-    id: Optional[str] = None
-    text: str
-
-class ChunkRequest(BaseModel):
-    blocks: List[ChunkBlock]
-    target_tokens: int = 1500
-    overlap_tokens: int = 150
-
-@app.post("/v1/nlp/split")
-async def nlp_split(req: SplitRequest):
-    """
-    Splits input text into sentence spans with exact start/end character offsets using pysbd.
-    Returns: { "sentences": [{ "text": str, "start": int, "end": int }], "model": "pysbd-0.3.4" }
-    """
-    try:
-        segmenter = pysbd.Segmenter(language=req.language, clean=req.clean, char_span=True)
-        spans = segmenter.segment(req.text)
-        sentences_out = []
-        for s in spans:
-            if hasattr(s, "sent") and hasattr(s, "start") and hasattr(s, "end"):
-                sentences_out.append({
-                    "text": s.sent,
-                    "start": s.start,
-                    "end": s.end
-                })
-            elif isinstance(s, dict):
-                sentences_out.append({
-                    "text": s.get("sent", s.get("text", "")),
-                    "start": s.get("start", 0),
-                    "end": s.get("end", len(s.get("sent", "")))
-                })
-            else:
-                sent_str = str(s)
-                start_idx = req.text.find(sent_str)
-                end_idx = start_idx + len(sent_str) if start_idx != -1 else len(sent_str)
-                sentences_out.append({
-                    "text": sent_str,
-                    "start": max(0, start_idx),
-                    "end": max(0, end_idx)
-                })
-        return {
-            "sentences": sentences_out,
-            "model": "pysbd-0.3.4"
-        }
-    except Exception as err:
-        print(f"[NLP Error] Split failed: {err}", file=sys.stderr)
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "status": "error",
-                "code": "NLP_PROCESSING_FAILED",
-                "message": f"Sentence split failed: {str(err)}"
-            }
-        )
-
-@app.post("/v1/nlp/chunk")
-async def nlp_chunk(req: ChunkRequest):
-    """
-    Chunks blocks into token-bounded chunks respecting target_tokens and overlap_tokens.
-    Returns: { "chunks": [{ "id": str, "text": str, "tokenCount": int, "startBlockId": str, "endBlockId": str }], "model": "pysbd-0.3.4" }
-    """
-    try:
-        chunks_out = []
-        current_chunk_blocks = []
-        current_tokens = 0
-        chunk_idx = 0
-
-        for b in req.blocks:
-            b_text = b.text.strip()
-            if not b_text:
-                continue
-            token_count = max(1, len(b_text.split()))
-
-            if current_chunk_blocks and (current_tokens + token_count > req.target_tokens):
-                combined_text = " ".join([cb.text.strip() for cb in current_chunk_blocks])
-                chunks_out.append({
-                    "id": f"chk-v2-{chunk_idx}",
-                    "text": combined_text,
-                    "tokenCount": current_tokens,
-                    "startBlockId": current_chunk_blocks[0].id or "",
-                    "endBlockId": current_chunk_blocks[-1].id or ""
-                })
-                chunk_idx += 1
-                current_chunk_blocks = [b]
-                current_tokens = token_count
-            else:
-                current_chunk_blocks.append(b)
-                current_tokens += token_count
-
-        if current_chunk_blocks:
-            combined_text = " ".join([cb.text.strip() for cb in current_chunk_blocks])
-            chunks_out.append({
-                "id": f"chk-v2-{chunk_idx}",
-                "text": combined_text,
-                "tokenCount": current_tokens,
-                "startBlockId": current_chunk_blocks[0].id or "",
-                "endBlockId": current_chunk_blocks[-1].id or ""
-            })
-
-        return {
-            "chunks": chunks_out,
-            "model": "pysbd-0.3.4"
-        }
-    except Exception as err:
-        print(f"[NLP Error] Chunking failed: {err}", file=sys.stderr)
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "status": "error",
-                "code": "NLP_PROCESSING_FAILED",
-                "message": f"Chunking failed: {str(err)}"
-            }
-        )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8765)
