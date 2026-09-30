@@ -8,14 +8,15 @@
 
 ## 1. Where we are
 
-**Phase 5.7.1 COMPLETE 2026-09-30.** All 22 test suites green. Frontend build clean. Origin synced.
+**Phase 5.7.2 Session 1 of 3 COMPLETE 2026-09-30.** Phase 5.7.1 CLOSED. All 23 test suites green. Frontend build clean. Origin synced.
 
-**Current HEAD:** `06abb3a` — cleanup: removed dead catch clause + added T9 for OCR_EMPTY_OUTPUT guard.
+**Current HEAD:** `d11046b` — Phase 5.7.2 Session 1: NLP sidecar + modular Node client.
 
-**Test state:** 22/22 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
+**Test state:** 23/23 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
 - `phase5_7_ocr_test.js`: OCR integration: checkReady, ocrPdf error translation, parser OCR routing, OCR_EMPTY_OUTPUT guard. 9 tests.
+- `phase5_7_2_nlp_test.js`: NLP integration: pysbd sentence split, chunk stub, modular/shim client contract, error taxonomy (6 tests).
 
-**Next phase:** Phase 5.7.2 — NLP migration (chunker/slicer/splitter) + hybrid parallelism + attribution refinement.
+**Next phase:** Phase 5.7.2 Session 2 of 3 — BGE-M3 embedding migration + reranker.
 
 ### What ships today (2026-09-29)
 
@@ -102,7 +103,10 @@
 ✅ **COMPLETE**. Python sidecar established (FastAPI on 127.0.0.1:8765, PaddleOCR ch_PP-OCRv4, boot warm-up with /v1/ready probe). Node client wraps the sidecar; pdfjsParser.js routes image-only PDFs (< 20 chars selectable text) to OCR with honest-failure fallback. 22/22 suites green.
 - **Deferred to 5.7.2:** Nothing outstanding from 5.7.1 — the OCR_EMPTY_OUTPUT guard has a passing test (T9) and the redundant catch clause was removed in 06abb3a.
 
-### Phase 5.7.2 (3–4 sessions, AMENDED SCOPE) — NLP migration (chunker/slicer/splitter) + hybrid parallelism + attribution refinement
+### Phase 5.7.2 (3 sessions, AMENDED SCOPE) — NLP migration (chunker/slicer/splitter) + hybrid parallelism + attribution refinement
+**Status:** Session 1 of 3 COMPLETE (2026-09-30). Session 2 next.
+- `/v1/nlp/chunk` is a placeholder — Node `semanticChunker.js` remains authoritative until a future phase ports it (R1 scope-hold resolution from the audit).
+
 Bundles five concerns:
 1. **NLP pipeline migration to Python.** Chunker, slicer, and sentence splitter all move from Node to Python sidecar. Rationale: pysbd/spaCy handle abbreviation-aware sentence boundaries, citations, math notation, and multi-language text correctly — the regex-based Node splitter required two hotfixes in a single session. Python owns text segmentation; Node keeps SQLite writes, HTTP API, and OpenRouter calls. Frontend receives pre-computed sentence_start/sentence_end indices from backend; the local splitter in frontend/src/types/domain.ts is removed. This expands 5.7.2 from ~2-3 sessions to ~3-4 sessions.
 2. **Slicer refactor.** The chapter-slicing heuristic currently produces one Smart chapter per source section. On the ML PDF, this yielded 31 planned chapters where ~5–8 were expected. Target: segment by compressed-unit count, not source-section count.
@@ -219,6 +223,15 @@ Two loops, building on top of Phase 5.1/5.5:
 
 - **License-check any fixture before git add.** See `docs/RIGHTS.md`.
 
+- **Fabrication incident #3 — partial synthesis of test output (2026-09-30, Phase 5.7.2 Session 1 correction pass).** The agent reported the full fresh test suite output. The output for build3a_test.js and build3b_test.js was synthesized (did not match file contents) and fifteen other suites were paraphrased rather than pasted raw. Caught only by cross-checking against historical reports.
+  **Rule:** When a prompt requests full test output, it must explicitly require every `=== <suite> ===` block from the raw runner output — never a summary. Cross-check at least two suites against prior reports before accepting. When in doubt, bypass Antigravity: have the user run the suite in their own terminal and paste the raw output.
+
+- **Buffer-lock / write-drop incident (variant 3) (2026-09-30, Phase 5.7.2 Session 1).** main.py, CanonicalBlock.tsx, and pythonSidecarClient.js writes did not persist on the first attempt. Agent used a Python script to write files directly as fallback. Same class as the empty-blob incident from Phase 5.7.1, different trigger.
+  **Rule:** existing verify-before-stage rule (`Get-Item <file> | Select Length` after every write, non-zero required) still applies. When the write path is bypassed, verify twice.
+
+- **Manifest file line concatenation (2026-09-30, Phase 5.7.2 Session 1).** `Add-Content` was used to append `pysbd==0.3.4` to `sidecars/python/requirements.txt` without a trailing newline, concatenating it onto the previous line (`opencv-python-headless<=4.6.0.66pysbd==0.3.4`). File also contained a duplicate `opencv-python-headless` line from an earlier session.
+  **Rule:** never use `Add-Content` on manifest or config files. Use `[System.IO.File]::WriteAllText` with explicit content and UTF8Encoding($false) (no BOM). Verify line count after writing.
+
 ---
 
 ## 8.5. Process notes
@@ -254,6 +267,7 @@ Transcript spelunking incidents stopped mid-Phase 5.5. Prompts now re-paste cont
 ## 9. Deferred & Ideas
 
 ### Deferred (tracked, with target)
+- **Sidecar modularization before embed (target 5.7.2 Session 2)** — In Session 2, before adding `/v1/embed/batch`, consider splitting `sidecars/python/main.py` into `sidecars/python/nlp/` and `sidecars/python/embed/` packages — current `main.py` is 11.3 KB with NLP + OCR combined.
 - **Attribution algorithm refinement (target 5.7.2)** — Sentence-level attribution misses multi-source paragraphs when 2nd-best chunk similarity falls outside MULTI_CHUNK_DELTA_THRESHOLD (0.08). Real example: a paragraph synthesized from ~3 source chunks displays as `Source` (singular) because per-sentence similarity is too tight. The behavior is honest (single chip = single source per resolver) but under-inclusive. Python migration (5.7.2) unlocks the deeper fix:
   - `pysbd` for clause-aware sentence boundaries
   - `sentence-transformers` with cross-encoder reranking
