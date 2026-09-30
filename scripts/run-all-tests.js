@@ -44,6 +44,7 @@ const SUITES = [
   'build5_3_library_split_test.js',
   'phase5_6_validation_test.js',
   'phase5_7_ocr_test.js',
+  'phase5_7_2_nlp_test.js',
 ];
 
 let passed = 0;

@@ -5,6 +5,7 @@ import {
   ParagraphAttribution,
   groupSegmentsIntoRuns,
   splitIntoSentences,
+  ParagraphSentence,
 } from '../../types/domain';
 
 // TODO(nested-emphasis): non-recursive parser. Handles **bold**,
@@ -111,7 +112,10 @@ function CanonicalParagraph({
 
   const isUngrounded =
     provenanceRow?.grounded === false || provenanceRow?.method === 'ungrounded';
-  const sentences = splitIntoSentences(cleaned);
+  const hasPrecomputedSentences = Boolean(block.sentences && block.sentences.length > 0);
+  const sentences = hasPrecomputedSentences
+    ? (block.sentences as ParagraphSentence[]).map((s) => s.text)
+    : splitIntoSentences(cleaned);
   const runs = provenanceRow && !isUngrounded ? groupSegmentsIntoRuns(provenanceRow.segments) : [];
 
   React.useEffect(() => {

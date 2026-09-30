@@ -208,11 +208,18 @@ export type CanonicalBlockType =
   | 'callout'
   | 'table';
 
+export interface ParagraphSentence {
+  text: string;
+  start: number;
+  end: number;
+}
+
 export interface ParagraphBlock {
   id?: string;
   sourcePage?: number;
   type: 'paragraph';
   text: string;
+  sentences?: ParagraphSentence[];
 }
 
 export interface HeadingBlock {

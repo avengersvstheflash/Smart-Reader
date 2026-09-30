@@ -117,6 +117,7 @@ function buildReadingSegments(chapter) {
 
   const emitSegment = (seg) => {
     seg.id = `seg-${parentChapterId}-${segments.length}`;
+    seg.sentences = seg.sentences || [];
     segments.push(seg);
   };
 

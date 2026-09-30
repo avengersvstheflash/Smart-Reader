@@ -5,4 +5,5 @@ paddleocr==2.7.3
 PyMuPDF==1.23.7
 python-multipart==0.0.6
 numpy<2.0.0
+pysbd==0.3.4
 opencv-python-headless<=4.6.0.66
