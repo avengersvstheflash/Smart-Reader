@@ -43,6 +43,7 @@ const SUITES = [
   'build5_1b_provenance_test.js',
   'build5_3_library_split_test.js',
   'phase5_6_validation_test.js',
+  'phase5_7_ocr_test.js',
 ];
 
 let passed = 0;

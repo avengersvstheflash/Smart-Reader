@@ -59,4 +59,10 @@ module.exports = {
     ? process.env.AUTO_RESYNTHESIZE_ON_VIOLATION === 'true'
     : true,
   MAX_AUTO_RESYNTHESIZE_ATTEMPTS: parseInt(process.env.MAX_AUTO_RESYNTHESIZE_ATTEMPTS || '2', 10),
+
+  // Python Sidecar OCR Configuration (Phase 5.7.1)
+  PYTHON_SIDECAR_URL: process.env.PYTHON_SIDECAR_URL || 'http://127.0.0.1:8765',
+  // Derived from Session 1 measurement (18.2s for 5 pages, ~3.64s/page, 20-page expected max, 1.5 safety factor: 3639ms * 20 * 1.5 = 109,175ms -> 110000ms)
+  PYTHON_SIDECAR_TIMEOUT_MS: parseInt(process.env.PYTHON_SIDECAR_TIMEOUT_MS, 10) || 110000,
 };
+

@@ -3,6 +3,8 @@ const path = require('path');
 const { CanonicalDocument } = require('../models/canonicalContent');
 const contentNormalizer = require('../normalizers/contentNormalizer');
 const documentStructureAnalyzer = require('../structure/documentStructureAnalyzer');
+const pythonSidecarClient = require('../../ai/pythonSidecarClient');
+const config = require('../../../config');
 
 /**
  * PDF Parser for Smart Reader (Build 3B.1.9)
@@ -35,8 +37,8 @@ class PDFJSParser {
       throw new Error(`Failed to load PDF document: ${err.message}`);
     }
 
-    const pageCount = doc.numPages;
-    const pages = [];
+    let pageCount = doc.numPages;
+    let pages = [];
     const allBlocks = [];
     let tablesCount = 0;
 
@@ -72,12 +74,81 @@ class PDFJSParser {
       });
     }
 
-    // Check for scanned / image-only PDF with zero text
-    const combinedRawText = pages.map((p) => p.text || '').join('\n\n').trim();
-    if (!combinedRawText || combinedRawText.length < 20) {
-      throw new Error(
-        'This PDF document contains little or no selectable text. It may be a scanned image or bitmap document, which requires OCR (not supported in Build 2).'
+    // Check for selectable text vs scanned / image-only PDF (< 20 chars)
+    let combinedRawText = pages.map((p) => p.text || '').join('\n\n').trim();
+
+    if (combinedRawText.length >= 20) {
+      console.log(
+        `[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: ${combinedRawText.length} | Reason: Text extraction threshold met (>= 20 chars)`
       );
+    } else {
+      const sidecarUrl = process.env.PYTHON_SIDECAR_URL || config.PYTHON_SIDECAR_URL;
+      console.log(
+        `[Routing: Ingestion] Format: PDF | Decision: PYTHON_OCR | SelectableChars: ${combinedRawText.length} | Reason: Scanned/image-only PDF (< 20 chars) | SidecarUrl: ${sidecarUrl}`
+      );
+
+      let ocrSuccess = false;
+      let ocrErr = null;
+
+      try {
+        let readyStatus = await pythonSidecarClient.checkReady();
+        if (!readyStatus.ready && readyStatus.reason === 'warming') {
+          console.warn(
+            `[Routing: Ingestion] Format: PDF | Decision: OCR_SIDECAR_WARMING | Waiting up to 60s`
+          );
+          const warmed = await pythonSidecarClient.waitForReady(60000);
+          if (warmed) {
+            readyStatus = { ready: true };
+          }
+        }
+
+        if (readyStatus.ready) {
+          const ocrResult = await pythonSidecarClient.ocrPdf(buffer);
+          if (ocrResult && Array.isArray(ocrResult.pages) && ocrResult.pages.length > 0) {
+            pages = ocrResult.pages.map((p, idx) => ({
+              num: typeof p.num === 'number' ? p.num : idx + 1,
+              text: p.text || '',
+            }));
+            pageCount = pages.length;
+            combinedRawText = pages.map((p) => p.text || '').join('\n\n').trim();
+            allBlocks.length = 0;
+            ocrSuccess = true;
+
+            if (combinedRawText.length < 20) {
+              console.warn(
+                `[Routing: Ingestion] Format: PDF | Decision: OCR_EMPTY_OUTPUT | SelectableChars: ${combinedRawText.length} | Action: Rejecting with honest failure`
+              );
+              throw new Error(
+                'This PDF document contains little or no selectable text. OCR via the Python sidecar returned no usable text. The document may be blank, corrupted, or in a format the OCR engine cannot process.'
+              );
+            }
+          } else {
+            ocrErr = new Error('OCR returned no pages');
+          }
+        } else {
+          ocrErr = new Error('Sidecar service is not running or ready');
+        }
+      } catch (err) {
+        if (err.code === 'OCR_LANGUAGE_UNSUPPORTED') {
+          throw new Error(
+            "This PDF document contains little or no selectable text. OCR was attempted but the document's language is not yet supported (currently English and Chinese)."
+          );
+        }
+        if (ocrSuccess || (err.message && err.message.includes('returned no usable text'))) {
+          throw err;
+        }
+        ocrErr = err;
+      }
+
+      if (!ocrSuccess) {
+        const failureErr = ocrErr || new Error('Sidecar unavailable');
+        console.warn(
+          `[Routing: Ingestion] Format: PDF | Decision: OCR_FAILED_FALLBACK | Error: ${failureErr.message} | Action: Rejecting with honest failure`
+        );
+        throw new Error(
+          'This PDF document contains little or no selectable text. It may be a scanned image or bitmap document. OCR via the Python sidecar was attempted but is unavailable — please ensure the sidecar is running and retry.'
+        );
+      }
     }
 
     let docTitle = options.title || '';
