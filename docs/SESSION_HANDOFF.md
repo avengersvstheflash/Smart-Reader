@@ -8,13 +8,14 @@
 
 ## 1. Where we are
 
-**Phase 5.6.4 CLOSED 2026-09-29. Phase 5.5 and Phase 5.6 series FORMALLY CLOSED.** All 21 test suites green. Frontend build clean. Origin synced.
+**Phase 5.7.1 COMPLETE 2026-09-30.** All 22 test suites green. Frontend build clean. Origin synced.
 
-**Current HEAD:** `9341540` — feat(phase5.6.4): multi-source provenance popup cards and preview wiring.
+**Current HEAD:** `06abb3a` — cleanup: removed dead catch clause + added T9 for OCR_EMPTY_OUTPUT guard.
 
-**Test state:** 21/21 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
+**Test state:** 22/22 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
+- `phase5_7_ocr_test.js`: OCR integration: checkReady, ocrPdf error translation, parser OCR routing, OCR_EMPTY_OUTPUT guard. 9 tests.
 
-**Next phase:** Phase 5.7.1 — Python sidecar + OCR (fresh chat recommended given accumulated context).
+**Next phase:** Phase 5.7.2 — NLP migration (chunker/slicer/splitter) + hybrid parallelism + attribution refinement.
 
 ### What ships today (2026-09-29)
 
@@ -40,7 +41,7 @@
 4.24 → 4.25 → 5.1a → 5.1b → 5.1b.1 → 5.1b.2 → 5.2 → 5.2.1 → 5.2.2 →
 5.2.3 → 5.3a → 5.3b → 5.3b.1 → 5.3d → 5.3d.1 → 5.3e → 5.3f → 5.5a →
 5.5b → 5.5c.1 → 5.5c.2 → 5.5c.3 → 5.5d → 5.5d.1 → 5.5d.2 → 5.6.1 →
-5.6.2 → 5.6.3 → 5.5e → 5.5e.1 → 5.5e.2 → 5.5e.3 → 5.6.5 → 5.6.6 → 5.6.4
+5.6.2 → 5.6.3 → 5.5e → 5.5e.1 → 5.5e.2 → 5.5e.3 → 5.6.5 → 5.6.6 → 5.6.4 → 5.7.1
 
 ---
 
@@ -79,15 +80,16 @@
 
 ## 4. Next task
 
-### Phase 5.7.1 — Python sidecar + OCR (2 sessions)
+### Phase 5.7.2 — NLP migration (chunker/slicer/splitter) + hybrid parallelism + attribution refinement (3–4 sessions)
 
-**Goal:** Establish the Python sidecar process for local, CPU-heavy primitives starting with OCR for scanned/image-only PDFs.
+**Goal:** Migrate CPU-bound NLP segmentation and embedding primitives to Python sidecar, refactor chapter slicing heuristic, and refine attribution granularity.
 
 **Scope:**
-1. FastAPI process on `localhost:8765`.
-2. PaddleOCR engine integration.
-3. Node client integration with graceful fallback (if Python sidecar is down, non-OCR ingestion continues unharmed).
-4. Automated verification test suite.
+1. NLP pipeline migration to Python (chunker, slicer, sentence splitter to Python sidecar; pysbd/spaCy).
+2. Slicer refactor (segment by compressed-unit count ~5–8 chapters, not source-section count).
+3. BGE-M3 embedding migration to Python thread pool.
+4. Parallel synthesis primitives (Node-side promise pool for OpenRouter calls).
+5. Attribution algorithm refinement (clause-aware split, cross-encoder reranking, paragraph-centroid anchoring).
 
 ---
 
@@ -96,8 +98,9 @@
 ### Phase 5.6 & 5.6.4 (shipped 2026-09-28 & 2026-09-29) — Validation and refine loops
 ✅ **CLOSED**. Pre-LLM and post-LLM validation guards, centralized aiRetryGuard, auto-resynthesis on persistent violation, semantic chunker hardening (heading glue + post-pass merge), and PDF parser heading/math refinement. Reader chip stability (5.5e, 5.5e.1) and follow-up items 5.5e.2 (chip spacing), 5.5e.3 (chip animation), 5.6.5 (author extraction), 5.6.6 (synopsis markdown), and 5.6.4 (multi-source provenance granularity) all shipped and verified. Phase 5.5 and Phase 5.6 series formally closed.
 
-### Phase 5.7.1 (2 sessions) — Python sidecar + OCR
-Unchanged. FastAPI process on localhost:8765, PaddleOCR, Node integration, graceful fallback. Ships working OCR for image-only PDFs.
+### Phase 5.7.1 (shipped 2026-09-30) — Python sidecar + OCR
+✅ **COMPLETE**. Python sidecar established (FastAPI on 127.0.0.1:8765, PaddleOCR ch_PP-OCRv4, boot warm-up with /v1/ready probe). Node client wraps the sidecar; pdfjsParser.js routes image-only PDFs (< 20 chars selectable text) to OCR with honest-failure fallback. 22/22 suites green.
+- **Deferred to 5.7.2:** Nothing outstanding from 5.7.1 — the OCR_EMPTY_OUTPUT guard has a passing test (T9) and the redundant catch clause was removed in 06abb3a.
 
 ### Phase 5.7.2 (3–4 sessions, AMENDED SCOPE) — NLP migration (chunker/slicer/splitter) + hybrid parallelism + attribution refinement
 Bundles five concerns:
@@ -207,6 +210,12 @@ Two loops, building on top of Phase 5.1/5.5:
   **Rule:** any claim of test passage must include the actual suite filenames as they appear in backend/tests/. "All X passed" without filenames is unverifiable and will be rejected.
 
 - **Regex-based sentence splitting is fragile (2026-09-28).** The splitter required two hotfixes in a single session (5.5e and 5.5e.1) to handle English abbreviations, initials, and math notation correctly. Each fix introduced new edge cases. **Rule:** any future sentence-boundary work should target the Python NLP migration (5.7.2) rather than patching the regex further. pysbd/spaCy handle this natively.
+
+- **Sandbox persistence failure (variant 2) (2026-09-30).** Antigravity reported file sizes (main.py 6,304 B; requirements.txt 155 B) that did not match the real filesystem. Both files were 0 bytes on disk when git read them at stage time. Commit a674887 contained empty blobs and was amended to 7f009db. **Rule:** after any Antigravity session that claims to create or modify files, run `Get-Item <file> | Select-Object Length` on each claimed file BEFORE `git add`. Any 0-byte file indicates sandbox persistence failure. Do not stage 0-byte files. Recreate manually and re-verify.
+
+- **.gitignore encoding hazard (UTF-16) (2026-09-30).** A UTF-16-encoded `.gitignore` silently fails to parse in git (every line treated as garbage) while still reading correctly in PowerShell `Select-String`. The venv at `sidecars/python/.venv/` appeared as untracked files in VSCode despite the pattern being present in the file. Detection: `git check-ignore -v <path>` returns empty despite the pattern being visible in the file. **Rule:** `.gitignore` must be UTF-8 without BOM. If `git check-ignore` returns empty for a pattern that is visibly present, suspect encoding before suspecting the pattern.
+
+- **Buffer drift incident #5 (2026-09-30).** `docs/RIGHTS.md` reverted to HEAD between the Antigravity session end and the git status check. Recovery: manual re-application of the fixture entry. **Rule:** existing rule (`git status --short` after every commit) still applies. This is the 5th occurrence; it is not rare.
 
 - **License-check any fixture before git add.** See `docs/RIGHTS.md`.
 
