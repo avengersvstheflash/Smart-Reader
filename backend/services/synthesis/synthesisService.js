@@ -9,6 +9,7 @@ const aiNormalizer = require('../ai/aiNormalizer');
 const aiService = require('../ai/aiService');
 const aiRetryGuard = require('../ai/aiRetryGuard');
 const config = require('../../config');
+const nlpClient = require('../ai/nlpClient');
 
 class PreLLMValidationError extends Error {
   constructor(message, details = {}) {
@@ -716,6 +717,78 @@ OUTPUT:`;
    * any whose contributing source chunks no longer exist in semantic_chunks.
    * Returns count of invalidated representations.
    */
+/**
+   * Reranks candidate chunks for a synthesized paragraph using the BGE reranker
+   * with staged fallback (Decision Record §2.8).
+   *
+   * @param {string} paragraph - Synthesized paragraph text
+   * @param {Array<{ id: string, text: string }>} candidates - Candidate chunks
+   * @param {object} [options]
+   * @returns {Promise<{ rankedChunks: Array<object>, scores: Array<object>, fellBack: boolean, latencyMs: number, reranker_unavailable: boolean }>}
+   */
+  async rerankParagraphCandidates(paragraph, candidates = [], options = {}) {
+    if (!candidates || candidates.length === 0) {
+      return { rankedChunks: [], scores: [], fellBack: false, latencyMs: 0, reranker_unavailable: false };
+    }
+
+    // Default: rerank with top-10 candidates
+    const topCandidates = candidates.slice(0, 10);
+    const startMs = Date.now();
+
+    try {
+      const client = options.nlpClient || nlpClient;
+      const timeoutMs = options.timeoutMs || 1500;
+      const res = await client.rerankCandidates(paragraph, topCandidates, { timeoutMs });
+      const latencyMs = Date.now() - startMs;
+
+      if (latencyMs > 1000) {
+        console.warn(`[SynthesisService] Reranker latency exceeded 1.0s: ${latencyMs}ms`);
+      }
+
+      if (latencyMs > 1500) {
+        console.warn('[SynthesisService] RERANKER_FALLBACK: call exceeded 1.5s threshold');
+        return {
+          rankedChunks: candidates,
+          scores: [],
+          fellBack: true,
+          latencyMs,
+          reranker_unavailable: true,
+        };
+      }
+
+      const scoreMap = new Map();
+      if (res && Array.isArray(res.scores)) {
+        for (const s of res.scores) {
+          scoreMap.set(s.id, s.score);
+        }
+      }
+
+      const reordered = [...candidates].sort((a, b) => {
+        const sa = scoreMap.get(a.id) ?? -Infinity;
+        const sb = scoreMap.get(b.id) ?? -Infinity;
+        return sb - sa;
+      });
+
+      return {
+        rankedChunks: reordered,
+        scores: res.scores || [],
+        fellBack: false,
+        latencyMs,
+        reranker_unavailable: false,
+      };
+    } catch (err) {
+      const latencyMs = Date.now() - startMs;
+      console.warn(`[SynthesisService] RERANKER_FALLBACK: ${err.message}`);
+      return {
+        rankedChunks: candidates,
+        scores: [],
+        fellBack: true,
+        latencyMs,
+        reranker_unavailable: true,
+      };
+    }
+  }
+
   invalidateOutdatedRepresentations() {
     const db = getDatabase();
     const rows = db.prepare("SELECT * FROM smart_chapters WHERE synthesis_type IN ('multi_source', 'cross_source')").all();

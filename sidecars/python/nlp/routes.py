@@ -1,4 +1,5 @@
 import sys
+import threading
 from typing import List, Optional
 
 from fastapi import APIRouter, status
@@ -7,6 +8,32 @@ from pydantic import BaseModel
 import pysbd
 
 router = APIRouter(prefix="", tags=["nlp"])
+
+_reranker = None
+_reranker_lock = threading.Lock()
+_is_warming = False
+
+def _load_reranker_worker():
+    global _reranker, _is_warming
+    try:
+        from sentence_transformers import CrossEncoder
+        model = CrossEncoder("BAAI/bge-reranker-v2-m3")
+        with _reranker_lock:
+            _reranker = model
+            _is_warming = False
+    except Exception as e:
+        print(f"[NLP Error] Reranker warmup failed: {e}", file=sys.stderr)
+        with _reranker_lock:
+            _is_warming = False
+
+class RerankCandidate(BaseModel):
+    id: str
+    text: str
+
+class RerankRequest(BaseModel):
+    query: str
+    candidates: List[RerankCandidate]
+
 
 class SplitRequest(BaseModel):
     text: str
@@ -324,6 +351,74 @@ async def nlp_slice(req: SliceRequest):
                 "status": "error",
                 "code": "NLP_PROCESSING_FAILED",
                 "message": f"Slicing failed: {str(err)}"
+            }
+        )
+
+@router.post("/v1/nlp/rerank")
+async def nlp_rerank(req: RerankRequest):
+    global _reranker, _is_warming
+
+    candidates = req.candidates
+    n = len(candidates) if candidates else 0
+    print(f"[Routing: NLP] Endpoint: /v1/nlp/rerank | Candidates: {n} | Warmed: {_reranker is not None}")
+
+    if not candidates or n == 0:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "status": "error",
+                "code": "EMPTY_CANDIDATES",
+                "message": "No candidates provided"
+            }
+        )
+
+    with _reranker_lock:
+        if _reranker is None:
+            if not _is_warming:
+                _is_warming = True
+                threading.Thread(target=_load_reranker_worker, daemon=True).start()
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "status": "error",
+                    "code": "RERANKER_WARMING",
+                    "message": "Reranker is loading"
+                }
+            )
+        model = _reranker
+
+    try:
+        query = req.query
+        pairs = [(query, c.text) for c in candidates]
+        raw_scores = model.predict(pairs)
+        if hasattr(raw_scores, "tolist"):
+            scores_list = raw_scores.tolist()
+        elif isinstance(raw_scores, (list, tuple)):
+            scores_list = [float(s) for s in raw_scores]
+        else:
+            scores_list = [float(raw_scores)]
+
+        scores_out = []
+        for i, c in enumerate(candidates):
+            score_val = float(scores_list[i]) if i < len(scores_list) else 0.0
+            scores_out.append({
+                "id": c.id,
+                "score": score_val
+            })
+
+        return {
+            "status": "success",
+            "scores": scores_out,
+            "model": "bge-reranker-v2-m3"
+        }
+    except Exception as err:
+        print(f"[NLP Error] Reranking failed: {err}", file=sys.stderr)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "status": "error",
+                "code": "RERANKER_FAILED",
+                "message": str(err)
             }
         )
 

@@ -138,8 +138,70 @@ async function sliceSections(sections, options = {}) {
   throw err;
 }
 
+
+/**
+ * Reranks candidate chunks for a query using the Python sidecar (BGE reranker).
+ *
+ * @param {string} query
+ * @param {Array<{ id: string, text: string }>} candidates
+ * @param {string|{ baseUrl?: string, timeoutMs?: number }} [options]
+ * @returns {Promise<{ scores: Array<{ id: string, score: number }>, model: string }>}
+ */
+async function rerankCandidates(query, candidates, options = {}) {
+  const baseUrl = typeof options === 'string' ? options : options?.baseUrl;
+  const targetUrl = resolveBaseUrl(baseUrl);
+  const timeoutMs = (typeof options === 'object' && options?.timeoutMs)
+    ? options.timeoutMs
+    : (config.PYTHON_SIDECAR_TIMEOUT_MS || 60000);
+
+  let res;
+  try {
+    const signal = AbortSignal.timeout(timeoutMs);
+    res = await fetch(`${targetUrl}/v1/nlp/rerank`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, candidates }),
+      signal,
+    });
+  } catch (err) {
+    const unavailableErr = new Error(
+      'NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.'
+    );
+    unavailableErr.code = 'NLP_SIDECAR_UNAVAILABLE';
+    unavailableErr.cause = err;
+    throw unavailableErr;
+  }
+
+  if (res.ok) {
+    return await res.json();
+  }
+
+  if (res.status === 503) {
+    let body = {};
+    try {
+      body = await res.json();
+    } catch (_) {}
+    if (body.code === 'RERANKER_WARMING') {
+      const warmingErr = new Error('Reranker model is still warming up');
+      warmingErr.code = 'RERANKER_WARMING';
+      throw warmingErr;
+    }
+  }
+
+  if (res.status >= 500) {
+    const err = new Error('NLP reranker failed in sidecar');
+    err.code = 'NLP_PROCESSING_FAILED';
+    throw err;
+  }
+
+  const err = new Error(`NLP reranker failed with status ${res.status}`);
+  err.code = 'NLP_PROCESSING_FAILED';
+  throw err;
+}
+
 module.exports = {
   sliceSections,
   splitSentences,
   chunkBlocks,
+  rerankCandidates,
 };

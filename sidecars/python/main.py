@@ -1,5 +1,6 @@
 import os
 import sys
+import torch  # noqa: F401 — load before PaddleOCR to avoid WinError 127
 
 # Ensure sidecars/python directory is in sys.path
 sys_path_dir = os.path.dirname(os.path.abspath(__file__))

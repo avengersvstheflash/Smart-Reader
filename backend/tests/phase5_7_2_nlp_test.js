@@ -359,7 +359,112 @@ async function runTests() {
     const t9Units = await editorialPlanner.sliceIntoSourceUnitsAsync([{ id: 'b-1', wordCount: 3 }], { nlpClient: { sliceSections: async () => { throw new Error('fail'); } }});
     assert.strictEqual(t9Units.length, 1);
     console.log('  ✓ T9 passed');
-    console.log('\n🎉 ALL 9 NLP INTEGRATION & MOCK TESTS PASSED');
+
+    // -------------------------------------------------------------------------
+    // T10: nlpClient.rerankCandidates() returns scores with correct shape
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 10] nlpClient.rerankCandidates() returns scores with correct shape on 200');
+    activeMockHandler = (req, res) => {
+      if (req.url === '/v1/nlp/rerank' && req.method === 'POST') {
+        let body = '';
+        req.on('data', (c) => { body += c; });
+        req.on('end', () => {
+          const payload = JSON.parse(body);
+          assert.strictEqual(payload.query, 'test paragraph query');
+          assert.strictEqual(payload.candidates.length, 2);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              status: 'success',
+              scores: [
+                { id: 'c-1', score: 0.88 },
+                { id: 'c-2', score: 0.42 },
+              ],
+              model: 'bge-reranker-v2-m3',
+            })
+          );
+        });
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    };
+
+    const t10Res = await nlpClient.rerankCandidates('test paragraph query', [
+      { id: 'c-1', text: 'Candidate text 1' },
+      { id: 'c-2', text: 'Candidate text 2' },
+    ]);
+    assert.strictEqual(t10Res.status, 'success');
+    assert.strictEqual(t10Res.model, 'bge-reranker-v2-m3');
+    assert.strictEqual(t10Res.scores.length, 2);
+    assert.strictEqual(t10Res.scores[0].id, 'c-1');
+    assert.strictEqual(t10Res.scores[0].score, 0.88);
+    assert.strictEqual(t10Res.scores[1].id, 'c-2');
+    assert.strictEqual(t10Res.scores[1].score, 0.42);
+    console.log('  ✓ T10 passed: rerankCandidates returns scores with expected shape');
+
+    // -------------------------------------------------------------------------
+    // T11: nlpClient.rerankCandidates() throws code RERANKER_WARMING on mock 503
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 11] nlpClient.rerankCandidates() throws code RERANKER_WARMING on mock 503');
+    activeMockHandler = (req, res) => {
+      if (req.url === '/v1/nlp/rerank' && req.method === 'POST') {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            status: 'error',
+            code: 'RERANKER_WARMING',
+            message: 'Reranker is loading',
+          })
+        );
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    };
+
+    let t11Err = null;
+    try {
+      await nlpClient.rerankCandidates('query', [{ id: 'c-1', text: 'txt' }]);
+    } catch (err) {
+      t11Err = err;
+    }
+    assert.ok(t11Err, 'Expected rerankCandidates to throw on 503');
+    assert.strictEqual(t11Err.code, 'RERANKER_WARMING');
+    console.log('  ✓ T11 passed: throws RERANKER_WARMING on 503 response');
+
+    // -------------------------------------------------------------------------
+    // T12: nlpClient.rerankCandidates() throws code NLP_PROCESSING_FAILED on mock 500
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 12] nlpClient.rerankCandidates() throws code NLP_PROCESSING_FAILED on mock 500');
+    activeMockHandler = (req, res) => {
+      if (req.url === '/v1/nlp/rerank' && req.method === 'POST') {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            status: 'error',
+            code: 'RERANKER_FAILED',
+            message: 'Internal model inference failure',
+          })
+        );
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    };
+
+    let t12Err = null;
+    try {
+      await nlpClient.rerankCandidates('query', [{ id: 'c-1', text: 'txt' }]);
+    } catch (err) {
+      t12Err = err;
+    }
+    assert.ok(t12Err, 'Expected rerankCandidates to throw on 500');
+    assert.strictEqual(t12Err.code, 'NLP_PROCESSING_FAILED');
+    console.log('  ✓ T12 passed: throws NLP_PROCESSING_FAILED on 500 response');
+
+    console.log('\n🎉 ALL 12 NLP INTEGRATION & MOCK TESTS PASSED');
+
   } finally {
     process.env.PYTHON_SIDECAR_URL = originalEnvUrl;
     await new Promise((resolve) => server.close(resolve));
