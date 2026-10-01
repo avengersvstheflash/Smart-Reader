@@ -333,9 +333,33 @@ async function runTests() {
     );
     console.log('  ✓ T6 passed: offline sidecar consistently throws code="NLP_SIDECAR_UNAVAILABLE"');
 
-    console.log('\n================================================================');
-    console.log('🎉 ALL 6 NLP INTEGRATION & MOCK TESTS PASSED');
-    console.log('================================================================\n');
+    
+    console.log('\n[Test 7] Node nlpClient.sliceSections() returns structured chunks matching contract');
+    activeMockHandler = (req, res) => {
+      if (req.url === '/v1/nlp/slice' && req.method === 'POST') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ units: [{ sections: [{ id: 'b-1', text: 'Block 1', wordCount: 4 }], wordCount: 4 }] }));
+        return;
+      }
+      res.writeHead(404); res.end();
+    };
+    const t7Modular = await nlpClient.sliceSections([{ id: 'b-1', text: 'Block 1', wordCount: 4 }]);
+    assert.strictEqual(t7Modular.units.length, 1);
+    console.log('  ✓ T7 passed');
+
+    console.log('\n[Test 8] Node nlpClient.sliceSections throws NLP_SIDECAR_UNAVAILABLE when sidecar is down');
+    let t8SliceError = null;
+    try { await nlpClient.sliceSections([{ id: 'b-1' }], { baseUrl: offlineUrl, timeoutMs: 500 }); } catch (err) { t8SliceError = err; }
+    assert.ok(t8SliceError);
+    assert.strictEqual(t8SliceError.code, 'NLP_SIDECAR_UNAVAILABLE');
+    console.log('  ✓ T8 passed');
+
+    console.log('\n[Test 9] editorialPlanner.sliceIntoSourceUnitsAsync uses JS fallback when sidecar is down');
+    const editorialPlanner = require('../services/synthesis/editorialPlanner');
+    const t9Units = await editorialPlanner.sliceIntoSourceUnitsAsync([{ id: 'b-1', wordCount: 3 }], { nlpClient: { sliceSections: async () => { throw new Error('fail'); } }});
+    assert.strictEqual(t9Units.length, 1);
+    console.log('  ✓ T9 passed');
+    console.log('\n🎉 ALL 9 NLP INTEGRATION & MOCK TESTS PASSED');
   } finally {
     process.env.PYTHON_SIDECAR_URL = originalEnvUrl;
     await new Promise((resolve) => server.close(resolve));

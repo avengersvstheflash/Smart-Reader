@@ -127,3 +127,203 @@ async def nlp_chunk(req: ChunkRequest):
                 "message": f"Chunking failed: {str(err)}"
             }
         )
+
+import math
+import re
+
+class SliceRequest(BaseModel):
+    sections: List[dict]
+
+@router.post("/v1/nlp/slice")
+async def nlp_slice(req: SliceRequest):
+    """
+    Slices candidate sections into evenly distributed source units of ~7,000-10,000 words.
+    """
+    try:
+        sections = req.sections
+        if not sections:
+            return {"units": []}
+
+        def get_word_count(sec: dict) -> int:
+            wc = sec.get("wordCount")
+            if isinstance(wc, (int, float)) and wc > 0:
+                return int(wc)
+            text = sec.get("content") or sec.get("textContent")
+            if text:
+                return len([w for w in str(text).strip().split() if w])
+            return 250
+
+        # Phase 4.24 Flatten
+        flattened_sections = []
+        for s_idx, sec in enumerate(sections):
+            sec_words = get_word_count(sec)
+            if sec_words <= 2500:
+                flattened_sections.append(sec)
+                continue
+
+            original_section_id = sec.get("sectionId") or sec.get("id") or f"section-{s_idx}"
+            text = str(sec.get("content") or sec.get("textContent") or "").strip()
+
+            if not text:
+                target_count = math.ceil(sec_words / 2000.0)
+                piece_size = math.floor(sec_words / target_count)
+                remaining = sec_words
+                for p_idx in range(target_count):
+                    piece_words = remaining if p_idx == target_count - 1 else piece_size
+                    remaining -= piece_words
+                    piece = dict(sec)
+                    piece["sectionId"] = f"{original_section_id}-p{p_idx}"
+                    if "id" in sec:
+                        piece["id"] = f"{original_section_id}-p{p_idx}"
+                    piece["wordCount"] = piece_words
+                    flattened_sections.append(piece)
+                continue
+
+            paragraphs = [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip()]
+            if not paragraphs:
+                paragraphs = [text]
+
+            blocks = []
+            for para in paragraphs:
+                para_words = len([w for w in para.split() if w])
+                if para_words <= 2500:
+                    blocks.append({"text": para, "words": para_words})
+                else:
+                    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', para) if s.strip()]
+                    for sentence in sentences:
+                        sent_words = len([w for w in sentence.split() if w])
+                        if sent_words <= 2500:
+                            blocks.append({"text": sentence, "words": sent_words})
+                        else:
+                            words = [w for w in sentence.split() if w]
+                            for w_idx in range(0, len(words), 2000):
+                                sub_words = words[w_idx:w_idx+2000]
+                                blocks.append({"text": " ".join(sub_words), "words": len(sub_words)})
+
+            current_piece_blocks = []
+            current_piece_words = 0
+            piece_index = 0
+
+            def emit_piece(blocks_to_emit, words_count):
+                nonlocal piece_index
+                piece_text = "\n\n".join(b["text"] for b in blocks_to_emit)
+                piece = dict(sec)
+                piece["sectionId"] = f"{original_section_id}-p{piece_index}"
+                if "id" in sec:
+                    piece["id"] = f"{original_section_id}-p{piece_index}"
+                piece["wordCount"] = words_count
+                if "content" in sec:
+                    piece["content"] = piece_text
+                if "textContent" in sec:
+                    piece["textContent"] = piece_text
+                if "content" not in sec and "textContent" not in sec:
+                    piece["content"] = piece_text
+                    piece["textContent"] = piece_text
+                flattened_sections.append(piece)
+                piece_index += 1
+
+            for block in blocks:
+                if current_piece_words > 0 and (current_piece_words + block["words"]) > 2500:
+                    emit_piece(current_piece_blocks, current_piece_words)
+                    current_piece_blocks = [block]
+                    current_piece_words = block["words"]
+                else:
+                    current_piece_blocks.append(block)
+                    current_piece_words += block["words"]
+
+            if current_piece_blocks:
+                emit_piece(current_piece_blocks, current_piece_words)
+
+        sections = flattened_sections
+        section_words = [get_word_count(s) for s in sections]
+        W = sum(section_words)
+
+        if W < 3000 or len(sections) <= 1:
+            return {"units": [{"sections": sections, "wordCount": W}]}
+
+        if W < 12000:
+            N = max(1, min(len(sections), round(W / 2000.0)))
+        else:
+            target_words_per_unit = 8500
+            N = max(5, min(8, min(len(sections), round(W / target_words_per_unit))))
+
+        if N <= 1:
+            return {"units": [{"sections": sections, "wordCount": W}]}
+
+        S = W / N
+        cum_words = [0] * (len(sections) + 1)
+        for i in range(len(sections)):
+            cum_words[i+1] = cum_words[i] + section_words[i]
+
+        min_unit_words = min(1500, round(S * 0.45))
+        splits = [0]
+
+        for i in range(1, N):
+            target = i * S
+            prev_split = splits[i - 1]
+
+            best_k = prev_split + 1
+            best_score = float('inf')
+
+            for k in range(prev_split + 1, len(sections)):
+                words_in_unit = cum_words[k] - cum_words[prev_split]
+                words_remaining = W - cum_words[k]
+                remaining_units = N - i
+
+                if words_in_unit < min_unit_words:
+                    continue
+                if words_remaining < remaining_units * min_unit_words:
+                    break
+
+                word_diff = abs(cum_words[k] - target)
+                sec_title = str(sections[k].get("sectionTitle") or sections[k].get("title") or "").strip()
+                prev_sec_title = str(sections[k-1].get("sectionTitle") or sections[k-1].get("title") or "").strip()
+
+                priority_bonus = 0.0
+                is_chapter_break = bool(re.match(r'^(?i)(?:chapter|part)\s+\d+', sec_title))
+                is_major_section = bool(re.match(r'^\d+\.\d+\b', sec_title)) and not bool(re.match(r'^\d+\.\d+\.\d+', sec_title))
+                is_heading_change = sec_title != prev_sec_title
+
+                if is_chapter_break:
+                    priority_bonus = S * 0.35
+                elif is_major_section:
+                    priority_bonus = S * 0.15
+                elif is_heading_change:
+                    priority_bonus = S * 0.05
+
+                score = word_diff - priority_bonus
+                if score < best_score:
+                    best_score = score
+                    best_k = k
+
+            splits.append(best_k)
+
+        splits.append(len(sections))
+
+        units = []
+        for i in range(len(splits) - 1):
+            unit_sections = sections[splits[i]:splits[i+1]]
+            unit_words = sum(section_words[splits[i]:splits[i+1]])
+            units.append({
+                "sections": unit_sections,
+                "wordCount": unit_words
+            })
+
+        if len(units) > 1 and units[-1]["wordCount"] < min_unit_words:
+            last = units.pop()
+            units[-1]["sections"].extend(last["sections"])
+            units[-1]["wordCount"] += last["wordCount"]
+
+        return {"units": units}
+
+    except Exception as err:
+        print(f"[NLP Error] Slicing failed: {err}", file=sys.stderr)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "status": "error",
+                "code": "NLP_PROCESSING_FAILED",
+                "message": f"Slicing failed: {str(err)}"
+            }
+        )
+

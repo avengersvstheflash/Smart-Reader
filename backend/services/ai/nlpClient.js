@@ -112,7 +112,34 @@ async function chunkBlocks(blocks, options = {}) {
   throw err;
 }
 
+
+async function sliceSections(sections, options = {}) {
+  const baseUrl = typeof options === 'string' ? options : options?.baseUrl;
+  const targetUrl = resolveBaseUrl(baseUrl);
+  const timeoutMs = (typeof options === 'object' && options?.timeoutMs) ? options.timeoutMs : 30000;
+  let res;
+  try {
+    const signal = AbortSignal.timeout(timeoutMs);
+    res = await fetch(targetUrl + '/v1/nlp/slice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sections }),
+      signal,
+    });
+  } catch (err) {
+    const unavailableErr = new Error('NLP via the Python sidecar is unavailable.');
+    unavailableErr.code = 'NLP_SIDECAR_UNAVAILABLE';
+    unavailableErr.cause = err;
+    throw unavailableErr;
+  }
+  if (res.ok) return await res.json();
+  const err = new Error('NLP slicing failed');
+  err.code = 'NLP_PROCESSING_FAILED';
+  throw err;
+}
+
 module.exports = {
+  sliceSections,
   splitSentences,
   chunkBlocks,
 };

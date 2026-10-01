@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Content-Aware Editorial Planner (Build 4.2a)
  *
  * Content-Feeding Strategy: Option A (Candidate section content excerpting)
@@ -80,7 +80,7 @@ class EditorialPlanner {
 
     if (!text || typeof text !== 'string') return '';
 
-    // Clean whitespace and isolate approximately 200 words (~1,000–1,200 chars)
+    // Clean whitespace and isolate approximately 200 words (~1,000â€“1,200 chars)
     const words = text.trim().split(/\s+/).filter(Boolean);
     if (words.length <= 200) {
       return words.join(' ');
@@ -89,17 +89,17 @@ class EditorialPlanner {
   }
 
   /**
-   * Slices candidate sections/chunks into evenly distributed source units of ~1,500–2,500 words.
+   * Slices candidate sections/chunks into evenly distributed source units of ~1,500â€“2,500 words.
    * Algorithm (Phase 4.8.3):
    *  a. Computes totalBodyWords W = sum of all section/chunk word counts
    *  b. Computes N = max(1, round(W / 2000))
    *  c. Computes ideal unit size S = W / N
    *  d. Walks sections tracking cumulative words
-   *  e. For each boundary i (1 to N-1), snaps to nearest chapter break within ±10% of S,
+   *  e. For each boundary i (1 to N-1), snaps to nearest chapter break within Â±10% of S,
    *     or closest section boundary if none
    *  f. Produces exactly N units
    */
-  sliceIntoSourceUnits(sections = []) {
+  sliceIntoSourceUnitsFallback(sections = []) {
     if (!Array.isArray(sections) || sections.length === 0) {
       return [];
     }
@@ -217,7 +217,20 @@ class EditorialPlanner {
     const W = sectionWords.reduce((sum, w) => sum + w, 0);
 
     // For thin content (W < 3000 words), single section, or small source: produce 1 unit
-    const N = Math.min(sections.length, Math.max(1, Math.round(W / 2000)));
+    if (W < 3000 || sections.length <= 1) {
+      return [{
+        sections: [...sections],
+        wordCount: W,
+      }];
+    }
+
+    let N;
+    if (W < 12000) {
+      N = Math.min(sections.length, Math.max(1, Math.round(W / 2000)));
+    } else {
+      const targetWordsPerUnit = 8500;
+      N = Math.min(sections.length, Math.max(5, Math.min(8, Math.round(W / targetWordsPerUnit))));
+    }
     if (N <= 1) {
       return [{
         sections: [...sections],
@@ -234,40 +247,54 @@ class EditorialPlanner {
       cumWords[i + 1] = cumWords[i] + sectionWords[i];
     }
 
+    const minUnitWords = Math.min(1500, Math.round(S * 0.45));
     const splits = [0];
+
     for (let i = 1; i < N; i++) {
       const target = i * S;
-      const minIdx = splits[i - 1] + 1;
-      const maxIdx = sections.length - (N - i);
+      const prevSplit = splits[i - 1];
 
-      let bestK = minIdx;
-      let bestDist = Math.abs(cumWords[minIdx] - target);
-      let chapterBreakK = null;
-      let chapterBreakDist = Infinity;
+      let bestK = prevSplit + 1;
+      let bestScore = Infinity;
 
-      for (let k = minIdx; k <= maxIdx; k++) {
-        const dist = Math.abs(cumWords[k] - target);
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestK = k;
+      for (let k = prevSplit + 1; k < sections.length; k++) {
+        const wordsInUnit = cumWords[k] - cumWords[prevSplit];
+        const wordsRemaining = W - cumWords[k];
+        const remainingUnits = N - i;
+
+        if (wordsInUnit < minUnitWords) continue;
+        if (wordsRemaining < remainingUnits * minUnitWords) break;
+
+        const wordDiff = Math.abs(cumWords[k] - target);
+        const secTitle = (sections[k]?.sectionTitle || sections[k]?.title || '').trim();
+        const prevSecTitle = (sections[k - 1]?.sectionTitle || sections[k - 1]?.title || '').trim();
+
+        let priorityBonus = 0;
+        const isChapterBreak = /^(?:chapter|part)\s+\d+/i.test(secTitle);
+        const isMajorSection = /^\d+\.\d+\b/i.test(secTitle) && !/^\d+\.\d+\.\d+/i.test(secTitle);
+        const isHeadingChange = secTitle !== prevSecTitle;
+
+        if (isChapterBreak) {
+          priorityBonus = S * 0.35;
+        } else if (isMajorSection) {
+          priorityBonus = S * 0.15;
+        } else if (isHeadingChange) {
+          priorityBonus = S * 0.05;
         }
 
-        const secTitle = (sections[k]?.sectionTitle || sections[k]?.title || '').trim();
-        const isChapterBreak = /^(?:chapter|part)\s+\d+/i.test(secTitle);
-        if (isChapterBreak && dist <= 0.10 * S) {
-          if (dist < chapterBreakDist) {
-            chapterBreakDist = dist;
-            chapterBreakK = k;
-          }
+        const score = wordDiff - priorityBonus;
+        if (score < bestScore) {
+          bestScore = score;
+          bestK = k;
         }
       }
 
-      splits.push(chapterBreakK !== null ? chapterBreakK : bestK);
+      splits.push(bestK);
     }
     splits.push(sections.length);
 
-    const units = [];
-    for (let i = 0; i < N; i++) {
+    let units = [];
+    for (let i = 0; i < splits.length - 1; i++) {
       const unitSections = sections.slice(splits[i], splits[i + 1]);
       const unitWords = unitSections.reduce((sum, s, idx) => sum + sectionWords[splits[i] + idx], 0);
       units.push({
@@ -276,13 +303,19 @@ class EditorialPlanner {
       });
     }
 
+    if (units.length > 1 && units[units.length - 1].wordCount < minUnitWords) {
+      const last = units.pop();
+      units[units.length - 1].sections.push(...last.sections);
+      units[units.length - 1].wordCount += last.wordCount;
+    }
+
     return units;
   }
 
   /**
    * Calculate targetWordCount for a planned chapter based on mapped source sections
    * Task 4 Rules:
-   * - Target ~1,500–3,000 words per chapter
+   * - Target ~1,500â€“3,000 words per chapter
    * - Sum of wordCounts of mapped source sections divided by compression ratio (0.4)
    * - Clamp to [1500, 3000]. If material is thin, allow shorter down to minimum 400 words.
    * - Do NOT pad to reach target.
@@ -309,15 +342,23 @@ class EditorialPlanner {
       }
     }
 
-    const compressionRatio = 0.15;
-    const estimatedWords = Math.round(rawSourceWordCount * compressionRatio);
-    if (rawSourceWordCount < 1200) {
+    const MIN_THIN_SOURCE_WORDS = 1200;
+    const MIN_SUBSTANTIAL_SOURCE_WORDS = 5000;
+    const MIN_CHAPTER_WORDS = 1500;
+    const MAX_CHAPTER_WORDS = 2500;
+    const SUBSTANTIAL_RATIO = 0.22;
+    const THIN_RATIO = 0.15;
+
+    if (rawSourceWordCount < MIN_THIN_SOURCE_WORDS) {
       return 180;
     }
-    if (rawSourceWordCount > 2800) {
-      this.logger.error(`[EditorialPlanner] Source unit exceeds 2800 words (${rawSourceWordCount})`);
+
+    if (rawSourceWordCount >= MIN_SUBSTANTIAL_SOURCE_WORDS) {
+      const estimated = Math.round(rawSourceWordCount * SUBSTANTIAL_RATIO);
+      return Math.max(MIN_CHAPTER_WORDS, Math.min(MAX_CHAPTER_WORDS, estimated));
     }
 
+    const estimatedWords = Math.round(rawSourceWordCount * THIN_RATIO);
     if (estimatedWords < 250) {
       // Thin material: allow shorter, down to minimum 180 words
       return Math.max(180, estimatedWords);
@@ -459,9 +500,10 @@ class EditorialPlanner {
           ? Math.round(ch.targetWordCount)
           : this.computeChapterWordBudget(validIds, sectionLookup);
 
-        // Clamp according to specification rules
-        if (targetWordCount > 450) {
-          targetWordCount = 450;
+        // Clamp according to specification rules (Phase 5.7.2 Session 2b:
+        // ceiling raised from 450 to 2500 to match the new dynamic budget).
+        if (targetWordCount > 2500) {
+          targetWordCount = 2500;
         }
 
         sanitizedChapters.push({
@@ -509,6 +551,137 @@ class EditorialPlanner {
   /**
    * Deterministic planning fallback (when AI is not requested or for predictable testing)
    */
+    async sliceIntoSourceUnitsAsync(sections = [], options = {}) {
+    const nlpClient = options.nlpClient;
+    if (nlpClient && typeof nlpClient.sliceSections === 'function') {
+      try {
+        const result = await nlpClient.sliceSections(sections);
+        if (result && Array.isArray(result.units) && result.units.length > 0) return result.units;
+      } catch (err) {}
+    }
+    return this.sliceIntoSourceUnitsFallback(sections);
+  }
+
+  async planDeterministicAsync(input = {}, options = {}) {
+    let candidateSections = input.candidateSections || [];
+    if (candidateSections.length === 0 && Array.isArray(input.sections)) {
+      const filteredResult = sectionFilter.filter(input.sections);
+      candidateSections = filteredResult.candidates;
+    }
+
+    const clusters = redundancyDetector.detect(candidateSections);
+    const isMultiSource = input.isMultiSource !== undefined
+      ? input.isMultiSource
+      : (candidateSections.length > 0 && new Set(candidateSections.map((s) => s.sourceId || s.bookId)).size > 1);
+
+    const organizationStrategy = this.selectStrategy(input.contentType, isMultiSource);
+    const totalSections = candidateSections.length;
+
+    const sectionLookup = new Map();
+    candidateSections.forEach((sec) => {
+      const id = sec.sectionId || sec.id;
+      if (id) sectionLookup.set(id, sec);
+    });
+
+    const chapters = [];
+    let order = 1;
+
+    // For single-source books or chronological content: slice into source units of ~1,500â€“2,500 words
+    if (!isMultiSource || organizationStrategy === 'chronological') {
+      const units = await this.sliceIntoSourceUnitsAsync(candidateSections, options);
+
+      for (const unit of units) {
+        const sectionIds = unit.sections.map((s) => s.sectionId || s.id);
+        const firstSec = unit.sections[0] || {};
+        const firstTitle = firstSec.sectionTitle || firstSec.title || `Part ${order}`;
+        const targetWordCount = this.computeChapterWordBudget(sectionIds, sectionLookup);
+
+        chapters.push({
+          chapterId: `ch-plan-${order}`,
+          title: `Part ${order}: ${firstTitle}`,
+          purpose: `Compressed representation covering ${sectionIds.length} source section(s)`,
+          sourceSectionIds: sectionIds,
+          sourceSections: sectionIds.map((id) => {
+            const sec = sectionLookup.get(id);
+            return {
+              sectionId: id,
+              sourceTitle: sec ? (sec.sourceTitle || sec.bookTitle || 'Source') : 'Source',
+              sectionTitle: sec ? (sec.sectionTitle || sec.title || id) : id,
+            };
+          }),
+          topics: unit.sections.map((s) => s.sectionTitle || s.title).filter(Boolean).slice(0, 3),
+          targetWordCount,
+          order: order++,
+        });
+      }
+    } else {
+      // For thematic or multi-source dossier: synthesize clusters
+      const multiClusters = clusters.filter((c) => c.sectionIds.length > 1);
+      const singleClusters = clusters.filter((c) => c.sectionIds.length === 1);
+
+      // Create chapters for each major semantic cluster
+      for (const cl of multiClusters) {
+        const targetWordCount = this.computeChapterWordBudget(cl.sectionIds, sectionLookup);
+        chapters.push({
+          chapterId: `ch-plan-${order}`,
+          title: cl.label,
+          purpose: `Synthesizes evidence and viewpoints across ${cl.sectionIds.length} sources for ${cl.label}`,
+          sourceSectionIds: cl.sectionIds,
+          sourceSections: cl.sectionIds.map((id) => {
+            const sec = sectionLookup.get(id);
+            return {
+              sectionId: id,
+              sourceTitle: sec ? (sec.sourceTitle || sec.bookTitle || 'Source') : 'Source',
+              sectionTitle: sec ? (sec.sectionTitle || sec.title || id) : id,
+            };
+          }),
+          topics: cl.keywords || [],
+          targetWordCount,
+          order: order++,
+        });
+      }
+
+      // If standalone sections remain, bundle them into cohesive topic chapters
+      if (singleClusters.length > 0) {
+        const remainingSectionIds = singleClusters.flatMap((c) => c.sectionIds);
+        const bundleSize = Math.max(1, Math.ceil(remainingSectionIds.length / 3));
+
+        for (let i = 0; i < remainingSectionIds.length; i += bundleSize) {
+          const sliceIds = remainingSectionIds.slice(i, i + bundleSize);
+          const sampleTitles = sliceIds.map((id) => {
+            const sec = sectionLookup.get(id);
+            return sec ? (sec.sectionTitle || sec.title) : id;
+          });
+          const targetWordCount = this.computeChapterWordBudget(sliceIds, sectionLookup);
+
+          chapters.push({
+            chapterId: `ch-plan-${order}`,
+            title: sampleTitles[0] ? `Specialized Insights: ${sampleTitles[0]}` : `Specialized Perspectives`,
+            purpose: `Synthesizes specialized topics across original source investigations`,
+            sourceSectionIds: sliceIds,
+            sourceSections: sliceIds.map((id) => {
+              const sec = sectionLookup.get(id);
+              return {
+                sectionId: id,
+                sourceTitle: sec ? (sec.sourceTitle || sec.bookTitle || 'Source') : 'Source',
+                sectionTitle: sec ? (sec.sectionTitle || sec.title || id) : id,
+              };
+            }),
+            topics: sampleTitles.slice(0, 3),
+            targetWordCount,
+            order: order++,
+          });
+        }
+      }
+    }
+
+    return {
+      status: 'success',
+      organizationStrategy,
+      chapters,
+    };
+  }
+
   planDeterministic(input = {}) {
     let candidateSections = input.candidateSections || [];
     if (candidateSections.length === 0 && Array.isArray(input.sections)) {
@@ -533,9 +706,9 @@ class EditorialPlanner {
     const chapters = [];
     let order = 1;
 
-    // For single-source books or chronological content: slice into source units of ~1,500–2,500 words
+    // For single-source books or chronological content: slice into source units of ~1,500â€“2,500 words
     if (!isMultiSource || organizationStrategy === 'chronological') {
-      const units = this.sliceIntoSourceUnits(candidateSections);
+      const units = this.sliceIntoSourceUnitsFallback(candidateSections);
 
       for (const unit of units) {
         const sectionIds = unit.sections.map((s) => s.sectionId || s.id);
@@ -647,7 +820,7 @@ RULES:
 1. You are an editorial planner, not a writer. Do NOT write chapter text.
 2. Carefully read the supplied content excerpts to determine how ideas, themes, and evidence connect across sections.
 3. Organize for human reading comprehension: group related material across source sections and eliminate redundancy.
-4. Each planned chapter must target approximately 250–360 words based on the depth of mapped material (or fewer, down to 180 words, if the material is thin).
+4. Each planned chapter must target approximately 250â€“360 words based on the depth of mapped material (or fewer, down to 180 words, if the material is thin).
 4. Each planned chapter must be a compressed representation of ~1,500-2,500 source words, producing 250-360 output words. Chapters are compression units, not thematic containers.
 5. Every sourceSectionId in your chapters MUST come directly from the supplied sectionIds. NEVER invent or hallucinate section IDs.
 6. Every chapter must have at least one valid sourceSectionId. Do not produce empty chapters.
@@ -680,3 +853,4 @@ Return JSON only:`;
 }
 
 module.exports = new EditorialPlanner();
+

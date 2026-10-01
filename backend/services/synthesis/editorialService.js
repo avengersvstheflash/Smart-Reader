@@ -9,6 +9,7 @@ const aiService = require('../ai/aiService');
 const sectionFilter = require('./sectionFilter');
 const redundancyDetector = require('./redundancyDetector');
 const editorialPlanner = require('./editorialPlanner');
+const nlpClient = require('../ai/nlpClient');
 const { getDatabase } = require('../../db/database');
 
 const progressByBook = new Map();
@@ -168,12 +169,12 @@ class EditorialService {
 
     // If AI was skipped, failed, or produced no valid chapters, use deterministic reader-oriented planning
     if (!chapters || chapters.length === 0) {
-      const detPlan = editorialPlanner.planDeterministic({
+      const detPlan = await editorialPlanner.planDeterministicAsync({
         contentType,
         isMultiSource,
         totalSections: activeCandidates.length,
         candidateSections: activeCandidates,
-      });
+      }, { nlpClient });
       chapters = detPlan.chapters;
     }
 
