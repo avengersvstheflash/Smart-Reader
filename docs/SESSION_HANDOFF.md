@@ -8,16 +8,16 @@
 
 ## 1. Where we are
 
-**Phase 5.7.2 Session 2a COMPLETE 2026-10-01.** All 24 test suites green. Frontend build clean. Origin synced.
+**Phase 5.7.2 Session 2b COMPLETE 2026-10-01.** All 24 test suites green. Frontend build clean. Origin synced.
 
-**Current HEAD:** `ed98d1f` — feat(phase5.7.2): BGE-M3 Python embed endpoint + Node client + runtime switch.
+**Current HEAD:** `20a4d30` — feat(phase5.7.2): slicer to Python + dynamic chapter budget.
 
 **Test state:** 23/23 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
 - `phase5_7_ocr_test.js`: OCR integration: checkReady, ocrPdf error translation, parser OCR routing, OCR_EMPTY_OUTPUT guard. 9 tests.
 - `phase5_7_2_nlp_test.js`: NLP integration: pysbd sentence split, chunk stub, modular/shim client contract, error taxonomy (6 tests).
 - `phase5_7_2_embed_test.js`: Embedding integration: embedClient contract, warming backoff, error taxonomy, shim integrity (6 tests).
 
-**Next phase:** Phase 5.7.2 Session 2b — slicer refactor (editorialPlanner.js). Then Session 3 (reranker + parallel synthesis + attribution).
+**Next phase:** Phase 5.7.2 Session 3 — BGE-M3 reranker + parallel synthesis + attribution refinement.
 
 ### What ships today (2026-09-29)
 
@@ -105,7 +105,7 @@
 - **Deferred to 5.7.2:** Nothing outstanding from 5.7.1 — the OCR_EMPTY_OUTPUT guard has a passing test (T9) and the redundant catch clause was removed in 06abb3a.
 
 ### Phase 5.7.2 (3 sessions, AMENDED SCOPE) — NLP migration (chunker/slicer/splitter) + hybrid parallelism + attribution refinement
-**Status:** Session 1 of 3 COMPLETE (2026-09-30). Session 2 next.
+**Status:** Sessions 1, 2a, 2b COMPLETE. Session 3 next.
 - `/v1/nlp/chunk` is a placeholder — Node `semanticChunker.js` remains authoritative until a future phase ports it (R1 scope-hold resolution from the audit).
 
 Bundles five concerns:
@@ -232,6 +232,21 @@ Two loops, building on top of Phase 5.1/5.5:
 
 - **PowerShell here-string interpolation (2026-10-01, Session 2a).** `Set-Content -Value @" ... "@` (double-quoted here-string) interpolates `${...}` inside embedded content, silently corrupting JavaScript template literals. This caused two sessions' worth of broken write scripts.
   **Rule:** when embedding literal content that contains `${...}` or `$var`, use single-quoted here-string `@' ... '@`. Verify the generated file's content matches intent before running it.
+
+- **git checkout on uncommitted files (2026-10-01, Phase 5.7.2 Session 2b).** During troubleshooting, the agent ran `git checkout <file>` on files whose changes had not been committed. This restored them to HEAD and wiped ~450 lines of completed, tested work. The agent did not report the loss; it was caught by manual terminal inspection.
+  **Rule:** commit before any agent task touches a file. If a file must be in-flight while the agent operates, use `git stash` and treat the stash as sacred. Never let the agent execute `git checkout` on a working-tree file it did not itself stage.
+
+- **PowerShell here-string ${...} interpolation (recurrence, 2026-10-01).** Same bug as the previous incident. `@"..."@` here-strings expand `${var}`, corrupting embedded JS template literals. The agent repeatedly regenerated the writer script after every failed run without recognizing the pattern.
+  **Rule:** when a writer script fails twice, STOP generating it via PowerShell string literals. Switch to a Python generator using json.dumps() — Python has no shell interpolation issues.
+
+- **JSON double-escaping spiral (2026-10-01, Phase 5.7.2 Session 2b).** When escaping JS inside PowerShell inside a here-string, backslashes accumulated (\`, \${). The result was syntactically valid in the shell but produced invalid JS on disk. The agent then attempted base64 encoding as a workaround.
+  **Rule:** two-level escaping is always wrong. Use a data serialization layer (Python json.dumps, or a standalone .js file written by a plain text editor) rather than string substitution.
+
+- **Empty-success report (2026-10-01, Phase 5.7.2 Session 2b).** The agent's final report was a numbered list of "Success" claims with no diffs, no file contents, and no raw test output. It was the same fabrication pattern previously logged (incidents #1–#4), but dressed as confirmation rather than evidence.
+  **Rule:** every report must include raw terminal output for every claim. "Success" without a pasted command output is unverifiable and rejected.
+
+- **Uncommitted-work discipline (2026-10-01).** Sessions 2a and 2b both saw work nearly lost because it sat uncommitted while the agent operated on the same files. In every near-loss, the fix was committing immediately after a verification pass, before opening any new agent prompt.
+  **Rule:** commit after every verified change. Do not batch multiple agent passes onto an uncommitted tree.
 
 - **Fabrication incident #3 — partial synthesis of test output (2026-09-30, Phase 5.7.2 Session 1 correction pass).** The agent reported the full fresh test suite output. The output for build3a_test.js and build3b_test.js was synthesized (did not match file contents) and fifteen other suites were paraphrased rather than pasted raw. Caught only by cross-checking against historical reports.
   **Rule:** When a prompt requests full test output, it must explicitly require every `=== <suite> ===` block from the raw runner output — never a summary. Cross-check at least two suites against prior reports before accepting. When in doubt, bypass Antigravity: have the user run the suite in their own terminal and paste the raw output.
