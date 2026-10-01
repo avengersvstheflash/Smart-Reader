@@ -13,9 +13,9 @@
 [![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3)
 [![BGE-M3 Embeddings](https://img.shields.io/badge/Embeddings-BGE--M3_1024d-blue)](https://huggingface.co/BAAI/bge-m3)
 
-[![Tests 21/21 Passing](https://img.shields.io/badge/Tests-21%2F21_Passing-3fb950)](#test)
+[![Tests 25/25 Passing](https://img.shields.io/badge/Tests-25%2F25_Passing-3fb950)](#test)
 [![Local-First Enabled](https://img.shields.io/badge/Local--First-enabled-2ea043)](#design-philosophy)
-[![Status Phase 5 In Progress](https://img.shields.io/badge/Status-Phase_5_in_progress-blue)](#roadmap)
+[![Status Phase 5 In Progress](https://img.shields.io/badge/Status-Phase_5.7_in_progress-blue)](#roadmap)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ---

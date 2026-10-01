@@ -8,14 +8,15 @@
 
 ## 1. Where we are
 
-**Phase 5.7.2 Session 2b COMPLETE 2026-10-01.** All 24 test suites green. Frontend build clean. Origin synced.
+**Phase 5.7.2 Session 3b-1 COMPLETE 2026-10-02.** All 24 test suites green. Frontend build clean. Origin synced.
 
-**Current HEAD:** `20a4d30` — feat(phase5.7.2): slicer to Python + dynamic chapter budget.
+**Current HEAD:** `Uncommitted` — feat(phase5.7.2): slicer to Python + dynamic chapter budget.
 
-**Test state:** 23/23 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
+**Test state:** 25/25 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
 - `phase5_7_ocr_test.js`: OCR integration: checkReady, ocrPdf error translation, parser OCR routing, OCR_EMPTY_OUTPUT guard. 9 tests.
-- `phase5_7_2_nlp_test.js`: NLP integration: pysbd sentence split, chunk stub, modular/shim client contract, error taxonomy (6 tests).
+- `phase5_7_2_nlp_test.js`: NLP integration: pysbd sentence split, chunk stub, modular/shim client contract, error taxonomy (12 tests).
 - `phase5_7_2_embed_test.js`: Embedding integration: embedClient contract, warming backoff, error taxonomy, shim integrity (6 tests).
+- `phase5_7_2_parallel_test.js`: Parallel synthesis infrastructure, promise pool concurrency bounds, atomic status claims, rate-limit backoff (6 tests).
 
 **Next phase:** Phase 5.7.2 Session 3 — BGE-M3 reranker + parallel synthesis + attribution refinement.
 
