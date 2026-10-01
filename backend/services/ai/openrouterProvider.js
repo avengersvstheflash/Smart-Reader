@@ -172,5 +172,38 @@ Instructions:
   }
 }
 
+/**
+   * Calls `fn` with exponential backoff + jitter on retryable HTTP
+   * errors (429, 5xx). Non-retryable errors propagate immediately.
+   *
+   * Wait times: base * 2^attempt + random(0, 500) ms.
+   * Default: 3 attempts (initial + 2 retries).
+   *
+   * Phase 5.7.2 Session 3b-1.
+   *
+   * @param {() => Promise<any>} fn
+   * @param {number} [maxAttempts=3]
+   * @returns {Promise<any>}
+   */
+  async function callOpenRouterWithBackoff(fn, maxAttempts = 3) {
+    const config = require('../../config');
+    const baseMs = config.SYNTHESIS_BACKOFF_BASE_MS || 2000;
+    let lastErr;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return await fn();
+      } catch (err) {
+        lastErr = err;
+        const status = err?.status || err?.response?.status;
+        const retryable = status === 429 || (status >= 500 && status < 600);
+        if (!retryable || attempt === maxAttempts - 1) throw err;
+        const waitMs = baseMs * Math.pow(2, attempt) + Math.random() * 500;
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
+    }
+    throw lastErr;
+  }
+
 module.exports = OpenRouterProvider;
+module.exports.callOpenRouterWithBackoff = callOpenRouterWithBackoff;
 

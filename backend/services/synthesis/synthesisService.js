@@ -1,3 +1,4 @@
+const { callOpenRouterWithBackoff } = require('../ai/openrouterProvider');
 const outlineRepository = require('../../repositories/outlineRepository');
 const chapterRepository = require('../../repositories/chapterRepository');
 const smartChapterRepository = require('../../repositories/smartChapterRepository');
@@ -48,9 +49,11 @@ class SynthesisService {
     }
 
     const targetSmartId = chapter.chapterId || chapter.id || chapterId;
-    if (smartChapterRepository.getById(targetSmartId)) {
-      smartChapterRepository.update(targetSmartId, { status: 'generating' });
-    }
+    const claimed = smartChapterRepository.claimForSynthesis(targetSmartId);
+      if (!claimed) {
+        console.log(`[SynthesisService] Chapter ${targetSmartId} not pending or already claimed; skipping`);
+        return { skipped: true };
+      }
 
     try {
       return await this._executeSynthesizeChapter(outline, chapter, targetSmartId, options);
@@ -149,11 +152,11 @@ SOURCE MATERIAL:
 ${sourceMaterial}`;
 
       try {
-        const assessResponse = await aiService.generateText(assessmentPrompt, {
+        const assessResponse = await callOpenRouterWithBackoff(() => aiService.generateText(assessmentPrompt, {
           temperature: 0.2,
           maxTokens: 250,
           reasoning: { enabled: false },
-        });
+        }));
 
         if (assessResponse && assessResponse.text) {
           let text = assessResponse.text.trim();
@@ -243,11 +246,11 @@ OUTPUT:`;
       try {
         const guardResult = await aiRetryGuard.executeWithWordCountGuard({
           generateFn: async (promptToRun) => {
-            return await aiService.generateText(promptToRun, {
+            return await callOpenRouterWithBackoff(() => aiService.generateText(promptToRun, {
               temperature: 0.25,
               maxTokens: Math.ceil(assessedTargetWords * 2.5),
               reasoning: { enabled: false },
-            });
+            }));
           },
           prompt: compressionPrompt,
           tightenedPrompt: (wordCount, bounds, vType) => {
@@ -683,7 +686,7 @@ OUTPUT:`;
     let answerText = '';
     if (!options.fast && aiService.isAvailable && aiService.isAvailable()) {
       try {
-        const response = await aiService.generateText(context.contextText, { temperature: 0.2 });
+        const response = await callOpenRouterWithBackoff(() => aiService.generateText(context.contextText, { temperature: 0.2 }));
         if (response && response.text) {
           answerText = response.text;
         }

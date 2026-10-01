@@ -1,6 +1,25 @@
 const { getDatabase } = require('../db/database');
 
 class SmartChapterRepository {
+  /**
+   * Atomically claim a chapter for synthesis. Returns true if this
+   * caller succeeded in transitioning the chapter from 'pending' to
+   * 'generating'. Returns false if the chapter is in any other state
+   * or was already claimed by another worker.
+   *
+   * Phase 5.7.2 Session 3b-1: replaces read-then-write status update
+   * to make parallel synthesis idempotent.
+   *
+   * @param {string} id
+   * @returns {boolean}
+   */
+  claimForSynthesis(id) {
+    const info = getDatabase()
+      .prepare("UPDATE smart_chapters SET status = 'generating' WHERE id = ? AND status = 'pending'")
+      .run(id);
+    return info.changes > 0;
+  }
+
   create(chapter) {
     const db = getDatabase();
     const now = new Date().toISOString();

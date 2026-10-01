@@ -68,5 +68,15 @@ module.exports = {
   // Python Sidecar Embedding Configuration (Phase 5.7.2)
   // Default false: Node Xenova path remains authoritative until
   // the migration is run and verified.
-  USE_PYTHON_EMBEDDER: process.env.USE_PYTHON_EMBEDDER === 'true'
+  USE_PYTHON_EMBEDDER: process.env.USE_PYTHON_EMBEDDER === 'true',
+
+  // Parallel synthesis concurrency (Phase 5.7.2)
+  // Conservative default of 2. Empirical diagnostic (Session 3b-2)
+  // may justify raising it. Raise via env for higher tiers.
+  OPENROUTER_CONCURRENCY: parseInt(process.env.OPENROUTER_CONCURRENCY, 10) || 2,
+
+  // Exponential backoff base for synthesis retries (Phase 5.7.2).
+  // Derived from Phase-5.7.2-Decision-Record.md §2.2's 2s/4s/8s
+  // heuristic. Actual wait = base * 2^attempt + jitter.
+  SYNTHESIS_BACKOFF_BASE_MS: parseInt(process.env.SYNTHESIS_BACKOFF_BASE_MS, 10) || 2000
 };

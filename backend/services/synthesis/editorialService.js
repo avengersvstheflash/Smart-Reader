@@ -1,3 +1,5 @@
+const { runWithConcurrency } = require('./promisePool');
+const config = require('../../config');
 const outlineRepository = require('../../repositories/outlineRepository');
 const bookRepository = require('../../repositories/bookRepository');
 const semanticChunkRepository = require('../../repositories/semanticChunkRepository');
@@ -429,7 +431,7 @@ class EditorialService {
     // Track progress in-memory
     progressByBook.set(bookId, {
       bookId,
-      currentChapterId: toSynthesize[0] ? toSynthesize[0].chapterId : null,
+      chaptersInFlight: [],
       status: 'generating',
       startedAt: Date.now(),
       targetCount: toSynthesize.length,
@@ -441,46 +443,70 @@ class EditorialService {
     let failedCount = 0;
 
     try {
-      for (let i = 0; i < toSynthesize.length; i++) {
-        const targetChapter = toSynthesize[i];
-        const progress = progressByBook.get(bookId);
-        if (progress) {
-          progress.currentChapterId = targetChapter.chapterId;
-        }
+        let completedCount = 0;
+        const total = toSynthesize.length;
+        const concurrency = config.OPENROUTER_CONCURRENCY || 2;
 
-        console.log(`[Synthesis] Generating chapter ${i + 1}/${toSynthesize.length}: ${targetChapter.title}`);
-
-        try {
-          await synthesisService.synthesizeChapter(outline.outlineId, targetChapter.chapterId, {
-            ...options,
-            fast: options.fast !== undefined ? options.fast : false,
-          });
-
-          synthesizedCount++;
-          if (progress) progress.completedCount++;
-          if (options.jobId) {
-            const jobRepository = require('../../repositories/jobRepository');
-            const pct = Math.round(((i + 1) / toSynthesize.length) * 100);
-            jobRepository.update(options.jobId, { progress: Math.min(pct, 95) });
+        const workerFn = async (targetChapter) => {
+          const progress = progressByBook.get(bookId);
+          if (progress) {
+            progress.chaptersInFlight = progress.chaptersInFlight || [];
+            if (!progress.chaptersInFlight.includes(targetChapter.chapterId)) {
+              progress.chaptersInFlight.push(targetChapter.chapterId);
+            }
           }
 
-          chapterResults.push({
-            chapterId: targetChapter.chapterId,
-            title: targetChapter.title,
-            status: 'completed',
-          });
-        } catch (err) {
-          failedCount++;
-          console.error(`[Synthesis] Failed chapter ${targetChapter.chapterId} (${targetChapter.title}): ${err.message}`);
-          chapterResults.push({
-            chapterId: targetChapter.chapterId,
-            title: targetChapter.title,
-            status: 'failed',
-            error: err.message,
-          });
-        }
-      }
-    } finally {
+          console.log(`[Synthesis] Generating chapter: ${targetChapter.title}`);
+
+          try {
+            const result = await synthesisService.synthesizeChapter(outline.outlineId, targetChapter.chapterId, {
+              ...options,
+              fast: options.fast !== undefined ? options.fast : false,
+            });
+
+            if (result && result.skipped) {
+              chapterResults.push({
+                chapterId: targetChapter.chapterId,
+                title: targetChapter.title,
+                status: 'skipped',
+              });
+              return;
+            }
+
+            synthesizedCount++;
+            completedCount++;
+            if (progress) progress.completedCount = (progress.completedCount || 0) + 1;
+            if (options.jobId) {
+              const jobRepository = require('../../repositories/jobRepository');
+              const pct = Math.round((completedCount / total) * 100);
+              jobRepository.update(options.jobId, { progress: Math.min(pct, 95) });
+            }
+
+            chapterResults.push({
+              chapterId: targetChapter.chapterId,
+              title: targetChapter.title,
+              status: 'completed',
+            });
+          } catch (err) {
+            failedCount++;
+            console.error(`[Synthesis] Failed chapter ${targetChapter.chapterId} (${targetChapter.title}): ${err.message}`);
+            chapterResults.push({
+              chapterId: targetChapter.chapterId,
+              title: targetChapter.title,
+              status: 'failed',
+              error: err.message,
+            });
+          } finally {
+            if (progress && progress.chaptersInFlight) {
+              progress.chaptersInFlight = progress.chaptersInFlight.filter(
+                (cid) => cid !== targetChapter.chapterId
+              );
+            }
+          }
+        };
+
+        await runWithConcurrency(toSynthesize, concurrency, workerFn);
+      } finally {
       progressByBook.delete(bookId);
     }
 
