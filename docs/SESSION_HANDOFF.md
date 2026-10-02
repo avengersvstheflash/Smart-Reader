@@ -9,9 +9,9 @@
 
 ## 1. Where we are
 
-**Phase 5.7.2 Session 3b-2 COMPLETE 2026-10-02.** All 25 test suites green. Frontend build clean. Origin synced.
+**Phase 5.7.2 CLOSED 2026-10-02.** All 25 test suites green. Frontend build clean. Origin synced. Tagged v0.6.0.
 
-**Current HEAD:** `aec81c8` — feat(phase5.7.2): OpenRouter concurrency diagnostic (empirical).
+**Current HEAD:** `4165935` — Phase 5.7.2 Session 3c: Add reranker/centroid attribution fallback stages.
 
 **Test state:** 25/25 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
 
@@ -20,7 +20,7 @@
 - `phase5_7_2_embed_test.js`: Embedding integration: embedClient contract, warming backoff, error taxonomy, shim integrity. 6 tests.
 - `phase5_7_2_parallel_test.js`: Parallel synthesis infrastructure: promise pool concurrency bounds, atomic status claims, rate-limit backoff, skipped-chapter handler. 6 tests.
 
-**Next phase:** Phase 5.7.2 Session 3c — attribution refinement + reranker wiring into synthesis write path + clause-aware splitting + paragraph-centroid anchoring.
+**Next phase:** Phase 5.7.3 — capability router + DOCX/RTF ingestion. Then Phase 6 Tauri packaging.
 
 ### Previously shipped
 
@@ -120,7 +120,7 @@
 
 ### Phase 5.7.2 (AMENDED SCOPE, ~6 sessions) — NLP migration + hybrid parallelism + attribution refinement
 
-**Status:** Sessions 1, 2a, 2b, 3a, 3b-1, 3b-2 COMPLETE. Session 3c next.
+**Status:** Phase 5.7.2 CLOSED 2026-10-02. Sessions 1, 2a, 2b, 3a, 3b-1, 3b-2, 3c COMPLETE. Tagged v0.6.0.
 
 - `/v1/nlp/chunk` is a placeholder — Node `semanticChunker.js` remains authoritative until a future phase ports it (R1 scope-hold resolution from the audit).
 
@@ -260,6 +260,16 @@ Two loops, building on top of Phase 5.1/5.5:
 
 - **Uncommitted-work discipline (2026-10-01).** Sessions 2a and 2b both saw work nearly lost because it sat uncommitted while the agent operated on the same files. **Rule:** commit after every verified change. Do not batch multiple agent passes onto an uncommitted tree.
 
+- **Agent committed without approval (2026-10-02, Session 3c).** Prompt said "Do NOT commit." Agent ran `git add . && git commit` anyway, then `git commit --amend --no-edit`. Commit was local-only; recovery clean. **Rule:** a commit from the agent when the prompt says no invalidates the session and forces re-audit from HEAD.
+
+- **`git checkout` on working tree (3rd occurrence, 2026-10-02).** Agent ran `git checkout HEAD -- provenanceResolver.js` during its own troubleshooting. **Rule:** never let the agent run checkout/restore/reset on working-tree files.
+
+- **Parallel replace_file_content clobbering (2026-10-02).** Two simultaneous edits to provenanceResolver.js; one overwrote the other. **Rule:** serialize multi-edit passes on a single file.
+
+- **"Phase closed" claim before verification (2026-10-02).** Agent declared phase closure after committing an incomplete change. **Rule:** agents never declare phase closure; the user does after docs-close and tag.
+
+- **Session passed tests for the wrong reason (2026-10-02).** Plan deliverable was resolver consuming reranker_scores; commit had 1 supporting line. T13 passed via the legacy path. **Rule:** verify the diff shows the actual new branch; consider disabling the new branch and re-running — if the test still passes, it isn't exercising the new code.
+
 - **Test FK bypass to silence schema (2026-10-02, Session 3b-1).** The agent wrote a test that inserted a `smart_chapters` row without a parent `books` row and disabled foreign keys (`PRAGMA foreign_keys = OFF`) to make it pass. This bypasses production schema semantics. Caught during terminal verification. Fixed manually by inserting a real parent row. **Rule:** test schema must match production schema semantics. Disabling constraints to make a test pass is a rejection, not a fix. Test fixtures should provision real parent records.
 
 - **Writer-script iteration spiral (2026-10-02, Session 3b-1).** The agent consumed 6+ write-script iterations during Session 3b-1 before succeeding — PowerShell here-string escaping, base64 detour, `git restore` usage. Same failure modes as Session 2a. The two-layer Python generator pattern works reliably but must be explicitly required in the prompt. **Rule:** every multi-file Antigravity prompt requires the Python-generator + Node-writer two-layer pattern by name. Do not let the agent improvise a writer.
@@ -325,6 +335,7 @@ Transcript spelunking incidents stopped mid-Phase 5.5. Prompts now re-paste cont
 - **Timestamp format consistency** — repository normalizes to ISO 8601 UTC. Check any future timestamp fields for the same pattern before shipping.
 - **`formatRelativeTime` scope drift** — spec only asked for `just now / Nm / Nh / Nd / Mon D`. Verify `Xmo` / `Xy` variants on next touch.
 - **Empty chapter handling** in synthesis (pre-existing).
+- ✅ **Attribution algorithm refinement (completed 2026-10-02, Session 3c).** Resolver consumes weights_json.attribution_stage and reranker_scores, applies MULTI_CHUNK_DELTA_THRESHOLD paragraph-level inclusion, falls through to legacy when stage is legacy.
 - **Adaptive concurrency controller (target Phase 5.8+, provisional).** Today the shipped `OPENROUTER_CONCURRENCY` default is 2 (static, per Decision Record §2.7). The Session 3b-2 diagnostic (2026-10-02) proved this account supports N=5 with zero 429s and 100% success — but that is one snapshot of one tier on one provider. A dynamic controller that adapts N to observed 429 rate would benefit users on higher OpenRouter tiers. **Not before Phase 5.8**, for these reasons:
   - **Insufficient data.** One account, one provider, one time-of-day window, ~40 calls. OpenRouter's effective limits vary by tier, provider (DeepSeek vs Claude vs Gemini), time of day, and token-rate vs request-rate. A controller designed from one snapshot overfits to that snapshot.
   - **Control-loop failure modes.** AIMD (additive increase, multiplicative decrease) sounds simple but has known traps: oscillation between ramp and throttle states, stale 429 observations counting against the current window, and interaction with the existing `callOpenRouterWithBackoff` retry logic (a successful retry — does that count as a real 429 for the controller?).
