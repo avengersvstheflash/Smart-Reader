@@ -9,9 +9,9 @@
 
 ## 1. Where we are
 
-**Phase 5.7.2 Session 3b-1 COMPLETE 2026-10-02.** All 25 test suites green. Frontend build clean. Origin synced.
+**Phase 5.7.2 Session 3b-2 COMPLETE 2026-10-02.** All 25 test suites green. Frontend build clean. Origin synced.
 
-**Current HEAD:** `96a1696` — docs: upgrade README with architecture, sidecar, and test coverage.
+**Current HEAD:** `aec81c8` — feat(phase5.7.2): OpenRouter concurrency diagnostic (empirical).
 
 **Test state:** 25/25 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
 
@@ -20,7 +20,7 @@
 - `phase5_7_2_embed_test.js`: Embedding integration: embedClient contract, warming backoff, error taxonomy, shim integrity. 6 tests.
 - `phase5_7_2_parallel_test.js`: Parallel synthesis infrastructure: promise pool concurrency bounds, atomic status claims, rate-limit backoff, skipped-chapter handler. 6 tests.
 
-**Next phase:** Phase 5.7.2 Session 3b-2 — empirical OpenRouter concurrency diagnostic. Then 3c — attribution refinement + reranker wiring into synthesis write path.
+**Next phase:** Phase 5.7.2 Session 3c — attribution refinement + reranker wiring into synthesis write path + clause-aware splitting + paragraph-centroid anchoring.
 
 ### Previously shipped
 
@@ -120,7 +120,7 @@
 
 ### Phase 5.7.2 (AMENDED SCOPE, ~6 sessions) — NLP migration + hybrid parallelism + attribution refinement
 
-**Status:** Sessions 1, 2a, 2b, 3a, 3b-1 COMPLETE. Session 3b-2 next. Then 3c.
+**Status:** Sessions 1, 2a, 2b, 3a, 3b-1, 3b-2 COMPLETE. Session 3c next.
 
 - `/v1/nlp/chunk` is a placeholder — Node `semanticChunker.js` remains authoritative until a future phase ports it (R1 scope-hold resolution from the audit).
 
@@ -325,6 +325,14 @@ Transcript spelunking incidents stopped mid-Phase 5.5. Prompts now re-paste cont
 - **Timestamp format consistency** — repository normalizes to ISO 8601 UTC. Check any future timestamp fields for the same pattern before shipping.
 - **`formatRelativeTime` scope drift** — spec only asked for `just now / Nm / Nh / Nd / Mon D`. Verify `Xmo` / `Xy` variants on next touch.
 - **Empty chapter handling** in synthesis (pre-existing).
+- **Adaptive concurrency controller (target Phase 5.8+, provisional).** Today the shipped `OPENROUTER_CONCURRENCY` default is 2 (static, per Decision Record §2.7). The Session 3b-2 diagnostic (2026-10-02) proved this account supports N=5 with zero 429s and 100% success — but that is one snapshot of one tier on one provider. A dynamic controller that adapts N to observed 429 rate would benefit users on higher OpenRouter tiers. **Not before Phase 5.8**, for these reasons:
+  - **Insufficient data.** One account, one provider, one time-of-day window, ~40 calls. OpenRouter's effective limits vary by tier, provider (DeepSeek vs Claude vs Gemini), time of day, and token-rate vs request-rate. A controller designed from one snapshot overfits to that snapshot.
+  - **Control-loop failure modes.** AIMD (additive increase, multiplicative decrease) sounds simple but has known traps: oscillation between ramp and throttle states, stale 429 observations counting against the current window, and interaction with the existing `callOpenRouterWithBackoff` retry logic (a successful retry — does that count as a real 429 for the controller?).
+  - **Testability.** Mocking 429s is easy. Testing a controller that correctly ramps 2 to 5 over 200 realistic calls with one transient 429 near the end requires a new class of temporal test infrastructure.
+  **Three-step path:**
+  1. **Now (static + manual override).** Keep default 2. Ship the diagnostic artifact as evidence this account supports 5. Document that power users can run `scripts/diagnostic-concurrency.js` once, then set `OPENROUTER_CONCURRENCY=<measured safe N>` in `.env`.
+  2. **Phase 5.8 (data collection).** Add status logging to every OpenRouter call to `storage/or-calls.log` or a new DB table capturing timestamp, status, latencyMs, concurrencyAtCallTime. Surface a "concurrency health" panel in Settings showing observed N and 429 rate. Still static; users set their own ceiling based on their own data.
+  3. **Phase 6.x or later (adaptive, contingent).** Only build the controller if Phase 5.8 data shows users with the same tier converging to wildly different optimal N. If they converge, static remains the honest default. Same discipline as the multi-source provenance threshold in 5.6.4: measure first, then decide.
 
 ### Ideas (not scheduled, recorded for context)
 
