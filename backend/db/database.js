@@ -27,11 +27,11 @@ function getDatabase() {
 }
 
 function runPendingMigrations(db) {
-  const version = db.pragma('user_version', { simple: true });
-  if (version >= 1) return;
+  let version = db.pragma('user_version', { simple: true });
 
-  // Migration 1: smart_chapters + paragraph_attributions rebuild
-  db.exec(`
+  if (version < 1) {
+    // Migration 1: smart_chapters + paragraph_attributions rebuild
+    db.exec(`
     CREATE TABLE IF NOT EXISTS smart_chapters (
       id TEXT PRIMARY KEY,
       book_id TEXT NOT NULL,
@@ -77,6 +77,17 @@ function runPendingMigrations(db) {
   `);
 
   db.pragma('user_version = 1');
+  version = 1;
+}
+
+if (version < 2) {
+  db.exec(`
+    ALTER TABLE paragraph_attributions
+    ADD COLUMN reranker_scores_json TEXT DEFAULT '{}';
+  `);
+  db.pragma('user_version = 2');
+  version = 2;
+}
 }
 
 function initSchema(db) {
@@ -214,6 +225,7 @@ function initSchema(db) {
       verified_at       TEXT NOT NULL,
       fell_back         BOOLEAN NOT NULL DEFAULT 0,
       fallback_reason   TEXT,
+      reranker_scores_json TEXT DEFAULT '{}',
       FOREIGN KEY (smart_chapter_id) REFERENCES smart_chapters(id) ON DELETE CASCADE
     );
 

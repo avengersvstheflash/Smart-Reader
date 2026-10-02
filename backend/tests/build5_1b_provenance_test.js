@@ -759,6 +759,72 @@ async function runTests() {
     console.log('  ✓ Legacy attribution fallback verified: formatRow normalizes missing chunk_ids to [chunk_id].');
   }
 
+  
+  // -------------------------------------------------------------------------
+  // T13: Multi-source paragraph with reranker scores attributes to >1 source
+  // -------------------------------------------------------------------------
+  {
+    console.log('\n[Test 13] Multi-source paragraph with reranker scores attributes to >1 source');
+    const bookId = `bk-t13-${Date.now()}`;
+    const smartId = `smart-t13-${Date.now()}`;
+    
+    bookRepository.create({ id: bookId, title: 'T13 Test' });
+    
+    const chunkA = semanticChunkRepository.create({
+      book_id: bookId,
+      chapter_id: 'ch-1',
+      sequence: 1,
+      text_content: 'Text A',
+      token_count: 2,
+    });
+    
+    const chunkB = semanticChunkRepository.create({
+      book_id: bookId,
+      chapter_id: 'ch-1',
+      sequence: 2,
+      text_content: 'Text B',
+      token_count: 2,
+    });
+
+    smartChapterRepository.create({
+      id: smartId,
+      book_id: bookId,
+      sequence: 1,
+      status: 'generated',
+      content: 'This paragraph blends A and B.',
+      synthesis_type: 'single_book',
+      metadata_json: {
+        outlineId: `outline-${bookId}`,
+        chapterId: smartId,
+        title: 'T13 Multi-source',
+        provenance: [chunkA.id, chunkB.id],
+        claimed_attributions: [
+          { 
+            paragraph_index: 0, 
+            weights: { [chunkA.id]: 0.5, [chunkB.id]: 0.5 },
+            weights_json: { attribution_stage: 'reranker' },
+            reranker_scores: { [chunkA.id]: 0.95, [chunkB.id]: 0.89 } // Delta 0.06 < 0.08 MULTI_CHUNK_DELTA_THRESHOLD
+          }
+        ],
+      },
+    });
+
+    const result = await provenanceResolver.verifyRepresentation(smartId, { fast: true, force: true });
+    
+    assert.strictEqual(result.paragraphs.length, 1, 'Must resolve exactly 1 paragraph');
+    const p0 = result.paragraphs[0];
+    
+    assert.strictEqual(p0.weights?.attribution_stage, 'reranker', 'Method should be recorded as reranker in weights.attribution_stage');
+    assert(p0.source_chunk_ids.includes(chunkA.id), 'Must include chunk A');
+    assert(p0.source_chunk_ids.includes(chunkB.id), 'Must include chunk B');
+    assert.strictEqual(p0.source_chunk_ids.length, 2, 'Should have exactly 2 chunks attributed');
+
+    // Cleanup
+    smartChapterRepository.delete(smartId);
+    bookRepository.delete(bookId);
+    console.log('  \u2705 T13 passed: Reranker multi-source attribution resolves correctly.');
+  }
+
   console.log('\n================================================================');
   console.log('🎉 ALL BUILD 5.1b PROVENANCE CONTRACT TESTS PASSED!');
   console.log('================================================================\n');

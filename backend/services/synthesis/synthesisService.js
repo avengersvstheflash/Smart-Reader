@@ -373,9 +373,45 @@ OUTPUT:`;
         weights[cid] = Number((count / totalSentences).toFixed(4));
       }
 
+      let attribution_stage = 'legacy';
+      let reranker_scores = {};
+
+      const rerankRes = await this.rerankParagraphCandidates(para, chunks, { timeoutMs: 1500 });
+      if (!rerankRes.fellBack) {
+        attribution_stage = 'reranker';
+        for (const r of rerankRes.scores) {
+          reranker_scores[r.id] = r.score;
+        }
+      } else {
+        try {
+          const embeddingService = require('../semantic/embeddingService');
+          const paraVec = await embeddingService.embedText(para, { timeoutMs: 3000 });
+          if (paraVec && Array.isArray(paraVec)) {
+            for (const chunk of chunks) {
+              const chunkVecStr = chunk.embedding_json || chunk.embedding;
+              if (chunkVecStr) {
+                const chunkVec = typeof chunkVecStr === 'string' ? JSON.parse(chunkVecStr) : chunkVecStr;
+                const sim = embeddingService.cosineSimilarity(paraVec, chunkVec);
+                reranker_scores[chunk.id] = sim;
+              } else {
+                reranker_scores[chunk.id] = 0;
+              }
+            }
+            attribution_stage = 'centroid';
+            console.warn('[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.');
+          } else {
+            console.warn('[SynthesisService] ATTRIBUTION_LEGACY_FALLBACK: centroid returned invalid embeddings');
+          }
+        } catch (embErr) {
+          console.warn(`[SynthesisService] ATTRIBUTION_LEGACY_FALLBACK: centroid fallback failed: ${embErr.message}`);
+        }
+      }
+
       claimedAttributions.push({
         paragraph_index: pIdx,
-        weights,
+        weights: weights,
+        weights_json: { attribution_stage },
+        reranker_scores,
       });
     }
 
@@ -748,16 +784,7 @@ OUTPUT:`;
         console.warn(`[SynthesisService] Reranker latency exceeded 1.0s: ${latencyMs}ms`);
       }
 
-      if (latencyMs > 1500) {
-        console.warn('[SynthesisService] RERANKER_FALLBACK: call exceeded 1.5s threshold');
-        return {
-          rankedChunks: candidates,
-          scores: [],
-          fellBack: true,
-          latencyMs,
-          reranker_unavailable: true,
-        };
-      }
+
 
       const scoreMap = new Map();
       if (res && Array.isArray(res.scores)) {

@@ -255,7 +255,42 @@ class ProvenanceResolver {
         const resolvedChunkIds = arbiterResult.chunk_ids || [];
         let segments = [];
 
-        if (sentences.length > 0 && resolvedChunkIds.length > 0) {
+        // 3c-bis. Reranker/centroid stage: consume write-time reranker_scores
+        // and replace the resolved chunk set with the anchor + delta-included
+        // chunks. Emits a single paragraph-level segment.
+        const attributionStage = A_claim?.weights_json?.attribution_stage || 'legacy';
+        const rerankerScores = A_claim?.reranker_scores || {};
+        const hasRerankerSignal =
+          (attributionStage === 'reranker' || attributionStage === 'centroid') &&
+          Object.keys(rerankerScores).length > 0;
+
+        if (hasRerankerSignal) {
+          let anchorId = null;
+          let anchorScore = -Infinity;
+          for (const [cid, score] of Object.entries(rerankerScores)) {
+            if (score > anchorScore) {
+              anchorScore = score;
+              anchorId = cid;
+            }
+          }
+          const deltaIncluded = Object.entries(rerankerScores)
+            .filter(([_cid, score]) => (anchorScore - score) <= MULTI_CHUNK_DELTA_THRESHOLD)
+            .map(([cid]) => cid);
+          const finalChunkIds = deltaIncluded.length > 0
+            ? deltaIncluded
+            : (anchorId ? [anchorId] : resolvedChunkIds);
+          arbiterResult.chunk_ids = finalChunkIds;
+          const paraConfidence = anchorScore !== -Infinity
+            ? Number(anchorScore.toFixed(4))
+            : Number((C_signal.top1 || 0.9).toFixed(4));
+          segments.push({
+            sentence_start: 0,
+            sentence_end: Math.max(0, sentences.length - 1),
+            chunk_id: anchorId || finalChunkIds[0],
+            chunk_ids: finalChunkIds,
+            confidence: paraConfidence,
+          });
+        } else if (sentences.length > 0 && resolvedChunkIds.length > 0) {
           if (resolvedChunkIds.length === 1) {
             // Entire paragraph maps to single chunk
             segments.push({
@@ -347,12 +382,14 @@ class ProvenanceResolver {
           segments,
           source_chunk_ids: arbiterResult.chunk_ids,
           weights: arbiterResult.weights,
+          weights_json: A_claim?.weights_json || { attribution_stage: 'legacy' },
           method: arbiterResult.method,
           confidence: arbiterResult.confidence,
           grounded: arbiterResult.grounded,
           verified_at: new Date().toISOString(),
           fell_back: arbiterResult.fell_back,
           fallback_reason: arbiterResult.fallback_reason,
+          reranker_scores: A_claim?.reranker_scores || {},
         });
 
         if (jobId) {
@@ -470,5 +507,3 @@ instance.splitIntoSentences = splitIntoSentences;
 instance.MULTI_CHUNK_DELTA_THRESHOLD = MULTI_CHUNK_DELTA_THRESHOLD;
 instance.SINGLE_SENTENCE_WEIGHT_FLOOR = SINGLE_SENTENCE_WEIGHT_FLOOR;
 module.exports = instance;
-
-

@@ -9,10 +9,10 @@ class AttributionRepository {
     const stmt = db.prepare(`
       INSERT INTO paragraph_attributions (
         id, smart_chapter_id, paragraph_index, segments_json, source_chunk_ids,
-        weights_json, method, confidence, grounded, verified_at, fell_back, fallback_reason
+        weights_json, method, confidence, grounded, verified_at, fell_back, fallback_reason, reranker_scores_json
       ) VALUES (
         @id, @smart_chapter_id, @paragraph_index, @segments_json, @source_chunk_ids,
-        @weights_json, @method, @confidence, @grounded, @verified_at, @fell_back, @fallback_reason
+        @weights_json, @method, @confidence, @grounded, @verified_at, @fell_back, @fallback_reason, @reranker_scores_json
       )
     `);
 
@@ -22,13 +22,14 @@ class AttributionRepository {
       paragraph_index: attr.paragraph_index,
       segments_json: typeof attr.segments_json === 'string' ? attr.segments_json : JSON.stringify(attr.segments || []),
       source_chunk_ids: typeof attr.source_chunk_ids === 'string' ? attr.source_chunk_ids : JSON.stringify(attr.source_chunk_ids || []),
-      weights_json: typeof attr.weights_json === 'string' ? attr.weights_json : JSON.stringify(attr.weights || {}),
+      weights_json: typeof attr.weights_json === 'string' ? attr.weights_json : JSON.stringify(attr.weights_json || attr.weights || {}),
       method: attr.method,
       confidence: attr.confidence,
       grounded: attr.grounded ? 1 : 0,
       verified_at: attr.verified_at || new Date().toISOString(),
       fell_back: attr.fell_back ? 1 : 0,
       fallback_reason: attr.fallback_reason || null,
+      reranker_scores_json: typeof attr.reranker_scores === 'object' && attr.reranker_scores !== null ? JSON.stringify(attr.reranker_scores) : '{}',
     });
 
     return this.getById(attr.id);
@@ -43,10 +44,10 @@ class AttributionRepository {
     const insert = db.prepare(`
       INSERT INTO paragraph_attributions (
         id, smart_chapter_id, paragraph_index, segments_json, source_chunk_ids,
-        weights_json, method, confidence, grounded, verified_at, fell_back, fallback_reason
+        weights_json, method, confidence, grounded, verified_at, fell_back, fallback_reason, reranker_scores_json
       ) VALUES (
         @id, @smart_chapter_id, @paragraph_index, @segments_json, @source_chunk_ids,
-        @weights_json, @method, @confidence, @grounded, @verified_at, @fell_back, @fallback_reason
+        @weights_json, @method, @confidence, @grounded, @verified_at, @fell_back, @fallback_reason, @reranker_scores_json
       )
     `);
 
@@ -58,13 +59,14 @@ class AttributionRepository {
           paragraph_index: attr.paragraph_index,
           segments_json: typeof attr.segments_json === 'string' ? attr.segments_json : JSON.stringify(attr.segments || []),
           source_chunk_ids: typeof attr.source_chunk_ids === 'string' ? attr.source_chunk_ids : JSON.stringify(attr.source_chunk_ids || []),
-          weights_json: typeof attr.weights_json === 'string' ? attr.weights_json : JSON.stringify(attr.weights || {}),
+          weights_json: typeof attr.weights_json === 'string' ? attr.weights_json : JSON.stringify(attr.weights_json || attr.weights || {}),
           method: attr.method,
           confidence: attr.confidence,
           grounded: attr.grounded ? 1 : 0,
           verified_at: attr.verified_at || new Date().toISOString(),
           fell_back: attr.fell_back ? 1 : 0,
           fallback_reason: attr.fallback_reason || null,
+          reranker_scores_json: typeof attr.reranker_scores === 'object' && attr.reranker_scores !== null ? JSON.stringify(attr.reranker_scores) : '{}',
         });
       }
     });
@@ -153,6 +155,13 @@ class AttributionRepository {
       weights = {};
     }
 
+    let reranker_scores = {};
+    try {
+      reranker_scores = typeof row.reranker_scores_json === 'string' ? JSON.parse(row.reranker_scores_json) : (row.reranker_scores_json || {});
+    } catch {
+      reranker_scores = {};
+    }
+
     return {
       id: row.id,
       smart_chapter_id: row.smart_chapter_id,
@@ -166,6 +175,7 @@ class AttributionRepository {
       verified_at: row.verified_at,
       fell_back: Boolean(row.fell_back),
       fallback_reason: row.fallback_reason || null,
+      reranker_scores,
     };
   }
 }
