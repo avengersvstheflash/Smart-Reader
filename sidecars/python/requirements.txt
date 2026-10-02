@@ -8,3 +8,5 @@ numpy<2.0.0
 pysbd==0.3.4
 opencv-python-headless<=4.6.0.66
 sentence-transformers==3.0.1
+python-docx==1.1.2
+striprtf==0.0.26

@@ -22,6 +22,7 @@ process.env.DB_PATH = path.join(ROOT, 'storage', 'test-data.db');
 const TIMEOUT_MS = 300_000;
 
 const SUITES = [
+  'phase5_7_3_parse_test.js',
   'build3a_test.js',
   'build3b_test.js',
   'build3b_finalization_test.js',
@@ -85,3 +86,4 @@ for (const name of SUITES) {
 
 process.stdout.write(`\nALL ${passed} SUITES PASS\n`);
 process.exit(0);
+

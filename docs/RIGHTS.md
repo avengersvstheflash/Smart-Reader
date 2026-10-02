@@ -116,3 +116,5 @@ resolvable commit IDs.
 
 **Rule:** license-check any fixture before `git add`. CC-BY-NC and CC-BY-NC-ND
 fixtures must never be committed to a public repository.
+- `backend/tests/fixtures/sample.docx`: Sample DOCX file, generated locally for tests. MIT License. Author: Project.
+- `backend/tests/fixtures/sample.rtf`: Sample RTF file, hand-authored for tests. MIT License. Author: Project.

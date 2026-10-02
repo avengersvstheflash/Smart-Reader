@@ -70,6 +70,9 @@ module.exports = {
   // the migration is run and verified.
   USE_PYTHON_EMBEDDER: process.env.USE_PYTHON_EMBEDDER === 'true',
 
+  // Python Sidecar Parse Configuration (Phase 5.7.3)
+  USE_PYTHON_PARSER: process.env.USE_PYTHON_PARSER !== 'false',
+
   // Parallel synthesis concurrency (Phase 5.7.2)
   // Conservative default of 2. Empirical diagnostic (Session 3b-2)
   // may justify raising it. Raise via env for higher tiers.

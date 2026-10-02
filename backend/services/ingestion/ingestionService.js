@@ -4,6 +4,9 @@ const textParser = require('./parsers/textParser');
 const markdownParser = require('./parsers/markdownParser');
 const pdfjsParser = require('./parsers/pdfjsParser');
 const epubParser = require('./parsers/epubParser');
+const docxParser = require('./parsers/docxParser');
+const rtfParser = require('./parsers/rtfParser');
+const config = require('../../config');
 const chapterDetector = require('./structure/chapterDetector');
 const documentStructureEngine = require('../structure/documentStructureEngine');
 const { CanonicalDocument } = require('./models/canonicalContent');
@@ -130,6 +133,41 @@ class IngestionService {
       };
     }
 
+    // 3. DOCX Pipeline
+    if (format === 'unsupported_zip') {
+      const err = new Error('Unsupported ZIP-based file. Supported archives: DOCX, EPUB.');
+      err.code = 'UNSUPPORTED_FORMAT';
+      throw err;
+    }
+
+    if (format === 'docx') {
+      if (!config.USE_PYTHON_PARSER) {
+        const err = new Error('Python parser is disabled. DOCX and RTF files are not currently supported.');
+        err.code = 'UNSUPPORTED_FORMAT';
+        throw err;
+      }
+      if (!fileBuffer || fileBuffer.length === 0) {
+        throw new Error('DOCX ingestion requires a valid file buffer.');
+      }
+      console.log('[Routing: Ingestion] Format: DOCX | Decision: PYTHON_PARSER | Bytes: ' + fileBuffer.length + ' | Reason: Recognized DOCX extension and magic bytes');
+      const docxResult = await docxParser.parse(fileBuffer, { title, author, originalFilename });
+      return { format: 'docx', ...docxResult };
+    }
+
+    if (format === 'rtf') {
+      if (!config.USE_PYTHON_PARSER) {
+        const err = new Error('Python parser is disabled. DOCX and RTF files are not currently supported.');
+        err.code = 'UNSUPPORTED_FORMAT';
+        throw err;
+      }
+      if (!fileBuffer || fileBuffer.length === 0) {
+        throw new Error('RTF ingestion requires a valid file buffer.');
+      }
+      console.log('[Routing: Ingestion] Format: RTF | Decision: PYTHON_PARSER | Bytes: ' + fileBuffer.length + ' | Reason: Recognized RTF extension and magic bytes');
+      const rtfResult = await rtfParser.parse(fileBuffer, { title, author, originalFilename });
+      return { format: 'rtf', ...rtfResult };
+    }
+
     // 3. Text & Markdown Pipeline (buffer or text string)
     let text = rawText;
     if (!text && fileBuffer) {
@@ -230,9 +268,16 @@ class IngestionService {
       if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
         return 'pdf';
       }
-      // Zip magic bytes: PK\x03\x04 (0x50, 0x4B, 0x03, 0x04) for EPUB
+      // Zip magic bytes: PK\x03\x04 (0x50, 0x4B, 0x03, 0x04)
       if (buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04) {
-        return 'epub';
+        const ext = filename ? path.extname(filename).toLowerCase() : '';
+        if (ext === '.docx') return 'docx';
+        if (ext === '.epub') return 'epub'; // EPUB is supported
+        return 'unsupported_zip';           // reject .odt, .xlsx, .zip, etc.
+      }
+      // RTF magic bytes: {\rtf (0x7B, 0x5C, 0x72, 0x74, 0x66)
+      if (buffer.length >= 5 && buffer[0] === 0x7b && buffer[1] === 0x5c && buffer[2] === 0x72 && buffer[3] === 0x74 && buffer[4] === 0x66) {
+        return 'rtf';
       }
     }
 

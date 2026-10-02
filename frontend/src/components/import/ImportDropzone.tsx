@@ -1,4 +1,4 @@
-import { useState, useRef, DragEvent, KeyboardEvent, ChangeEvent } from 'react';
+﻿import { useState, useRef, DragEvent, KeyboardEvent, ChangeEvent } from 'react';
 import { Upload } from 'lucide-react';
 
 export interface ImportDropzoneProps {
@@ -12,11 +12,11 @@ export interface ImportDropzoneProps {
 
 export const ImportDropzone: React.FC<ImportDropzoneProps> = ({
   onFiles,
-  accept = '.txt,.epub,.pdf,.html,.htm,.md',
+  accept = '.txt,.epub,.pdf,.html,.htm,.md,.docx,.rtf',
   multiple = false,
   disabled = false,
   compact = false,
-  hint = 'TXT · EPUB · PDF · HTML · Markdown',
+  hint = 'TXT Â· EPUB Â· PDF Â· HTML Â· Markdown',
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -135,3 +135,4 @@ export const ImportDropzone: React.FC<ImportDropzoneProps> = ({
 };
 
 export default ImportDropzone;
+
