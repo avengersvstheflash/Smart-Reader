@@ -135,7 +135,7 @@ flowchart LR
 | **Backend** | Express 4.19, `better-sqlite3` (WAL mode) |
 | **Frontend** | React 18.3, Vite 5.4, TypeScript 5.3, Tailwind 3.4, Zustand |
 | **Embeddings** | BGE-M3 1024d, INT8 quantized, local |
-| **AI (Compression)**| OpenRouter → DeepSeek V4 Flash (Ollama supported) |
+| **AI (Compression)**| OpenRouter (cloud) · Local OpenAI-compatible (Ollama, LM Studio, llama.cpp) |
 | **Testing** | 26 regression suites, 100% green |
 
 ---
@@ -208,9 +208,26 @@ Smart Reader is developed in strict phases. Each phase closes cleanly (100% test
 | **5.7.2** | ✅ | NLP migration + BGE-M3 to Python + Node parallel synthesis |
 | **5.7.3** | ✅ | Capability router + DOCX/RTF ingestion |
 
-### Later Phases
-*   **Phase 6:** Tauri packaging (native desktop app installers) — *in progress*
-*   **Build 5:** Audio mode (local Kokoro-82M TTS)
+### Phase 5.8 — Pre-Tauri Product Close-Out (Planned)
+*   **5.8a** — Rebrand Smart Reader → Omnitome
+*   **5.8b** — Omni feature naming (Smart Reading → Omni Reading)
+*   **5.8c** — Violet lens identity
+*   **5.8d** — Background import tracking + notifications
+*   **5.8e** — Paste tab → attach to Research item
+*   **5.8f** — Research → Synthesize Omni Chapters action
+*   **5.8g** — Research ↔ Library cross-linking
+*   **5.8h** — Compressor terminology refactor
+*   **5.8i** — Frontend verification + polish
+*   **5.8j** — Settings page
+*   **5.8k** — Help / guide page
+
+### Phase 5.9 — Kokoro TTS (Planned)
+*   Local Kokoro-82M text-to-speech via Python sidecar
+*   Sentence-level playback in the Omni Reader
+
+### Phase 6 — Tauri Packaging (Planned)
+*   Native desktop installers (Windows / macOS / Linux)
+*   Rust shell + Node + Python sidecars bundled
 
 > Full roadmap: [`docs/ROADMAP_2026-09.md`](./docs/ROADMAP_2026-09.md).
 

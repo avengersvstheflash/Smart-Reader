@@ -76,7 +76,85 @@ Snapshot was transient/phantom.
 5.1a, 5.1b, 5.2, 5.3, 5.5, 5.6, 5.7.1, 5.7.2, 5.7.3.
 
 ### Next
-Phase 6 — Tauri packaging (native desktop app installers).
+Phase 5.8 — Pre-Tauri Product Close-Out (see plan below).
+
+---
+
+## Phase 5.8 — Pre-Tauri Product Close-Out — PLANNED
+
+**Status:** Not started
+**Goal:** Close all remaining pre-packaging UX, branding, and refactor work
+before Tauri. No new external features enter Build 1 beyond this.
+
+### Sub-phases
+| ID | Scope |
+|---|---|
+| 5.8a | Rebrand Smart Reader → Omnitome (product name, README, docs) |
+| 5.8b | Omni feature naming (Smart Reading → Omni Reading, Smart Chapter → Omni Chapter on user-visible strings) |
+| 5.8c | Violet lens identity (color tokens, themes, art) |
+| 5.8d | Background import tracking + notification system |
+| 5.8e | Paste tab → "add source to existing Research item" |
+| 5.8f | Research → "Synthesize Omni Chapters" action |
+| 5.8g | Cross-linking + bidirectional Research ↔ Library indicators |
+| 5.8h | Compressor terminology refactor (files + code identifiers only; DB strings unchanged) |
+| 5.8i | Frontend verification + polish (from manual walkthrough) |
+| 5.8j | Settings page (provider config, theme, storage, privacy) |
+| 5.8k | Help / guide page (PlanRight-style tabs, local JSON, no LLM) |
+
+### Dependencies
+- 5.8d must precede 5.8f (notification system needed for background synthesis)
+- 5.8j should follow 5.9 (Settings includes TTS controls)
+
+---
+
+## Phase 5.9 — Kokoro TTS — PLANNED
+
+**Status:** Not started
+**Goal:** Local text-to-speech integrated into the Omni Reader.
+
+- Kokoro-82M runs in the Python sidecar (`/v1/tts/synthesize`)
+- Node client + Reader integration with sentence-level playback
+- `data-tts-active` DOM hook already exists from Phase 5.2
+- No cloud TTS fallback planned for v1.0
+
+**Estimated:** 2–3 sessions
+
+---
+
+## Provider decision — LOCKED 2026-10-03
+
+**v1.0 supports two provider shapes:**
+
+1. **OpenRouter** (cloud) — existing path
+2. **Local (OpenAI-compatible)** — single adapter, works with Ollama,
+   LM Studio, llama.cpp server, vLLM, LocalAI, and any other tool
+   serving the OpenAI-compatible `/v1/chat/completions` API
+
+Ollama is the pre-filled default for the local path
+(`http://localhost:11434/v1`), but is not the only supported tool.
+
+Settings page (5.8j) exposes:
+- Provider dropdown (OpenRouter | Local)
+- Base URL, model name, optional API key for local
+- "Test connection" probe against `/v1/models`
+
+**Rationale:** One adapter covers the entire local LLM ecosystem. No
+tool-specific coupling. Ollama-first UX without Ollama-only lock-in.
+
+---
+
+## Phase 6 — Tauri Packaging — PLANNED
+
+**Status:** Not started
+**Goal:** Native desktop app (Windows / macOS / Linux installers).
+
+- Rust shell + Node sidecar + Python sidecar + BGE-M3 + Kokoro bundling
+- Signing / notarization
+- GitHub Releases
+- Open question at Phase 6 kickoff: bundle reranker (~2.3 GB) or defer
+  to on-first-use download
+
+**Estimated:** 3–5 sessions
 
 ---
 
