@@ -9,11 +9,13 @@
 
 ## 1. Where we are
 
-**Phase 5.7.2 CLOSED 2026-10-02.** All 25 test suites green. Frontend build clean. Origin synced. Tagged v0.6.0.
+**Phase 5.7.3 CLOSED 2026-10-03. Phase 5 COMPLETE.** All 26 test suites green. Frontend build clean. Origin synced. Tagged v0.6.0.
 
-**Current HEAD:** `4165935` — Phase 5.7.2 Session 3c: Add reranker/centroid attribution fallback stages.
+**Current HEAD:** `9cc37c1` — docs(phase5.7.3): session log + handoff close + README status sync.
 
-**Test state:** 25/25 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
+**Test state:** 26/26 root suites green. Frontend `tsc --noEmit` / `npm run build` clean. Origin synced.
+
+**Next phase:** Phase 5.8 — Pre-Tauri Product Close-Out. Then Phase 5.9 (Kokoro TTS), then Phase 6 (Tauri packaging).
 
 - `phase5_7_ocr_test.js`: OCR integration: checkReady, ocrPdf error translation, parser OCR routing, OCR_EMPTY_OUTPUT guard. 9 tests.
 - `phase5_7_2_nlp_test.js`: NLP integration: pysbd sentence split, chunk stub, modular/shim client contract, error taxonomy, rerank client contract. 12 tests.
