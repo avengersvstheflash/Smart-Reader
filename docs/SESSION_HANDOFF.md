@@ -22,6 +22,64 @@
 
 **Next phase:** Phase 5.7.3 — capability router + DOCX/RTF ingestion. Then Phase 6 Tauri packaging.
 
+---
+
+## Phase 5.7.3 — Capability Router + DOCX/RTF Ingestion — CLOSED 2026-10-03
+
+**Commit:** `6ec8e6d`
+**Tests:** 26/26 green (was 25/25)
+**Tree:** clean at HEAD; post-commit `git status --short` empty
+
+### Shipped
+- Python parse router at `/v1/parse/{docx,rtf}` (python-docx + striprtf)
+- `parseClient.js` — bounded 30s `AbortSignal.timeout`; error codes
+  `PARSE_SIDECAR_UNAVAILABLE` / `INVALID_FORMAT` / `PARSE_SIDECAR_FAILED`
+- `docxParser.js` / `rtfParser.js` — emit canonical-block shape
+- `detectFormat` extended: RTF magic-byte (`{\rtf`) and `unsupported_zip`
+  branch (ZIP that is not DOCX/EPUB)
+- Routing gated on `config.USE_PYTHON_PARSER`
+- New suite `phase5_7_3_parse_test.js` — 9 cases (T1–T9)
+- Frontend dropzone accepts `.pdf/.docx/.rtf`
+- `RIGHTS.md` updated for `sample.docx` / `sample.rtf` fixtures
+
+### Verification trail
+- `py_compile sidecars/python/parse/routes.py` — exit 0, no output
+- Router import + prefix check: `/v1/parse` with paths
+  `['/v1/parse/docx', '/v1/parse/rtf']`
+- URL alignment verified end-to-end:
+  `routes.py` ↔ `main.py` (no extra prefix) ↔ `parseClient.js`
+- `node --check` clean on `parseClient.js`, `docxParser.js`,
+  `rtfParser.js`, `ingestionService.js`
+- Isolated suite `phase5_7_3_parse_test.js` — 9/9 pass
+- Full suite: **ALL 26 SUITES PASS** (raw output reviewed)
+- Paranoid FAIL scan on full output — no real failures
+- Public surface reconciliation vs HEAD: `detectFormat` signature
+  unchanged; `IngestionService` methods preserved; only additive
+  control-flow branches; `module.exports` unchanged
+
+### Non-blocking flags (future work)
+- `checkReady` imported but unused in `parseClient.js` — cosmetic
+- `AbortSignal.timeout` branch not exercised by any test — T4 exits on
+  `ECONNREFUSED`, not timeout. Consider a future T10 against a hanging
+  mock server
+- 5.7.3 close is not tagged; v0.6.0 remains the last release tag at
+  `55d0855`
+
+### Historical note (no action required)
+Chat 7 recorded `sidecars/python/parse/routes.py:62` with an
+unterminated string literal. Disk state at verification was clean
+(`text.split('\n\n')` correctly escaped). `py_compile` passed twice.
+Snapshot was transient/phantom.
+
+### Phase 5 status
+**Phase 5 is now COMPLETE.** All planned 5.x items closed:
+5.1a, 5.1b, 5.2, 5.3, 5.5, 5.6, 5.7.1, 5.7.2, 5.7.3.
+
+### Next
+Phase 6 — Tauri packaging (native desktop app installers).
+
+---
+
 ### Previously shipped
 
 **Phase 5.7.2 arc (in progress):**

@@ -4,16 +4,16 @@
 
 **Local-First Neural Reading Library & Loss-Bounded Semantic Compression**
 
-*Ingests PDFs, EPUBs, web articles, and raw text. Enforces a clean architectural split: **Import** is the entry point, **Library** holds curated Smart Readings only, and **Research** holds immutable original sources where every compressed sentence traces deterministically to its source passage.*
+*Ingests PDFs, EPUBs, DOCX, RTF, web articles, and raw text. Enforces a clean architectural split: **Import** is the entry point, **Library** holds curated Smart Readings only, and **Research** holds immutable original sources where every compressed sentence traces deterministically to its source passage.*
 
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![React 18.3](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![SQLite](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3)
 <br>
-[![Tests 25/25 Passing](https://img.shields.io/badge/Tests-25%2F25_Passing-3fb950)](#test)
+[![Tests 26/26 Passing](https://img.shields.io/badge/Tests-26%2F26_Passing-3fb950)](#test)
 [![Local-First Enabled](https://img.shields.io/badge/Local--First-enabled-2ea043)](#design-philosophy)
-[![Status Phase 5.7 In Progress](https://img.shields.io/badge/Status-Phase_5.7_in_progress-blue)](#roadmap)
+[![Status Phase 5 Complete](https://img.shields.io/badge/Status-Phase_5_Complete-blue)](#roadmap)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 </div>
@@ -61,7 +61,7 @@ Smart Reader leverages a **Hybrid Node + Python** architecture. Node.js owns orc
 flowchart LR
     subgraph INGESTION ["1. Ingestion (Import)"]
         RawDoc["Source Material
-(PDF, EPUB, Web)"]
+(PDF, EPUB, DOCX, RTF, Web)"]
         Parser["Layout-Aware Parser"]
         RawDoc --> Parser
     end
@@ -116,7 +116,7 @@ flowchart LR
 *   **Auto-classification & Bibliography:** LLM-based content type, reading level, target audience, and metadata extraction with deterministic regex fallbacks.
 
 ### ⚡ Performance & Parallelism (Phase 5.7+)
-*   **Python Sidecar:** FastAPI-driven local Python server handling PaddleOCR (for image-heavy PDFs), abbreviation-aware NLP sentence splitting (`pysbd`), and fast BGE-M3 embedding vectorization.
+*   **Python Sidecar:** FastAPI-driven local Python server handling PaddleOCR (for image-heavy PDFs), abbreviation-aware NLP sentence splitting (`pysbd`), and fast BGE-M3 embedding vectorization, and document parsing (python-docx, striprtf).
 *   **Parallel Synthesis:** Node-side bounded concurrency promise pool for lightning-fast OpenRouter LLM generation, equipped with jittered exponential backoff and 429/5xx retry handling.
 *   **Validation Guards:** Pre-LLM source validation and post-LLM output structure validation. Features semantic chunker hardening and automatic auto-resynthesis on persistent AI hallucinations.
 
@@ -136,7 +136,7 @@ flowchart LR
 | **Frontend** | React 18.3, Vite 5.4, TypeScript 5.3, Tailwind 3.4, Zustand |
 | **Embeddings** | BGE-M3 1024d, INT8 quantized, local |
 | **AI (Compression)**| OpenRouter → DeepSeek V4 Flash (Ollama supported) |
-| **Testing** | 25 regression suites, 100% green |
+| **Testing** | 26 regression suites, 100% green |
 
 ---
 
@@ -184,7 +184,7 @@ Open `http://localhost:5173/` and import a document!
 
 ### Testing
 ```bash
-npm test # Runs all 25 regression suites
+npm test # Runs all 26 regression suites
 ```
 *(Tests execute against an isolated `storage/test-data.db` and do not touch your local library)*
 
@@ -194,7 +194,7 @@ npm test # Runs all 25 regression suites
 
 Smart Reader is developed in strict phases. Each phase closes cleanly (100% test pass, verified at HEAD) before the next opens.
 
-### Phase 5 — In Progress
+### Phase 5 — Complete ✅
 
 | Phase | Status | Description |
 |:---:|:---:|---|
@@ -205,11 +205,11 @@ Smart Reader is developed in strict phases. Each phase closes cleanly (100% test
 | **5.5** | ✅ | Library polish + Smart Chapters as first-class entities |
 | **5.6** | ✅ | Validation and refine loops (AI guards, Chunk hardening) |
 | **5.7.1** | ✅ | Python sidecar + OCR integration (PaddleOCR) |
-| **5.7.2** | ⏳ | NLP migration + BGE-M3 to Python + Node parallel synthesis |
-| **5.7.3** | ⏳ | Capability router + DOCX/RTF ingestion |
+| **5.7.2** | ✅ | NLP migration + BGE-M3 to Python + Node parallel synthesis |
+| **5.7.3** | ✅ | Capability router + DOCX/RTF ingestion |
 
 ### Later Phases
-*   **Phase 6:** Tauri packaging (native desktop app installers)
+*   **Phase 6:** Tauri packaging (native desktop app installers) — *in progress*
 *   **Build 5:** Audio mode (local Kokoro-82M TTS)
 
 > Full roadmap: [`docs/ROADMAP_2026-09.md`](./docs/ROADMAP_2026-09.md).
@@ -232,7 +232,7 @@ Solo development, active. Issues and discussion via the GitHub issue tracker.
 **Commit conventions:**
 `feat(scope)`, `fix(scope)`, `docs`, `chore(scope)`, `phase<N>.<M>`
 
-*Test suite must stay green (`npm test` → 25/25 passing) through every commit.*
+*Test suite must stay green (`npm test` → 26/26 passing) through every commit.*
 
 ---
 
