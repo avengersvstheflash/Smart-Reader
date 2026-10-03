@@ -1,5 +1,13 @@
 const { getDatabase } = require('../db/database');
 
+
+function countWords(text) {
+  if (!text || typeof text !== 'string') return 0;
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).length;
+}
+
 class SmartChapterRepository {
   /**
    * Atomically claim a chapter for synthesis. Returns true if this
@@ -270,6 +278,7 @@ class SmartChapterRepository {
       metadata_json: metadata,
       sourceSectionIds: planned_source_section_ids,
       plannedWordCount: row.planned_word_count,
+      wordCount: countWords(row.content),
       synthesisType: row.synthesis_type,
       bookId: row.book_id,
       openedAt,

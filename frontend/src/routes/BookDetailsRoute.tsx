@@ -179,12 +179,17 @@ export default function BookDetailsRoute() {
   const wordCount = book.wordCount && book.wordCount > 0 ? book.wordCount : chapters.reduce((acc, c) => acc + (c.wordCount || 0), 0);
   const chapterCount = book.chapterCount > 0 ? book.chapterCount : chapters.length;
 
-  // Reading time calculation: show minutes if < 1h, else ~Xh
-  const totalMinutes = Math.max(1, Math.round(wordCount / 200));
-  const readingTimeCaption =
-    totalMinutes < 60
-      ? `~${totalMinutes}m`
-      : `~${Math.max(1, Math.round(wordCount / 12000))}h`;
+  // Omni reading time: sum of generated smart chapter word counts
+   const omniWordCount = smartChapters
+    .filter((sc) => sc.status === 'generated')
+    .reduce((acc, sc) => acc + (sc.wordCount || 0), 0);
+   const omniMinutes = Math.max(1, Math.round(omniWordCount / 200));
+   const omniReadingCaption =
+    omniWordCount > 0
+     ? omniMinutes < 60
+       ? `~${omniMinutes} min Omni read`
+       : `~${(omniMinutes / 60).toFixed(1)}h Omni read`
+      : null;  
 
 
   // Navigate to first generated Smart chapter or resume target
@@ -303,9 +308,10 @@ export default function BookDetailsRoute() {
             </div>
           )}
 
-          <p className="text-caption text-ink-faint pt-1">
-            {chapterCount} {chapterCount === 1 ? 'chapter' : 'chapters'} · {wordCount.toLocaleString()} words · {readingTimeCaption}
-          </p>
+           <p className="text-caption text-ink-faint pt-1">
+             {chapterCount} {chapterCount === 1 ? 'chapter' : 'chapters'} · {wordCount.toLocaleString()} source words
+             {omniReadingCaption ? ` · ${omniReadingCaption}` : ''}
+           </p>
 
           {/* Action Buttons Row */}
           <div className="flex flex-wrap items-center gap-3 pt-4">
