@@ -109,6 +109,57 @@ before Tauri. No new external features enter Build 1 beyond this.
 
 ---
 
+## Phase 5.8.0 — Compression Contract Repair — CLOSED 2026-10-03 (evening)
+
+**Commits:** `0867434` (a-i) + `7b943f5` (j) + `5e3af95` (chore)
+**Tests:** 5 targeted suites green (41 tests)
+**Tree:** clean at HEAD; origin synced
+
+### Shipped
+- **5.8.0a** Compressor ceiling 0.25 → 0.15 (7:1 target)
+- **5.8.0b** Slicer target 8500 → 2000 in Python sidecar
+- **5.8.0c** Removed min(8) chapter cap from slicer
+- **5.8.0d** Slicer docstring update
+- **5.8.0e** Reranker payload normalization (`{id, text}`)
+- **5.8.0f** Chapter title ancestor resolution + duplicate disambiguation
+- **5.8.0g** Book Details word count: source chapters, not planned_word_count
+- **5.8.0h** Multi-chunk highlight in Research viewer
+- **5.8.0h.1** Highlight by real block IDs (`blk-...`), not chunk sequence
+- **5.8.0i** Reranker GPU path + boot warmup + 5-candidate batch + 10s timeout
+- **5.8.0j** Provenance unification — auto, batch, and manual paths
+
+### Runtime evidence
+- ML PDF: 31 chapters / 69,399 source words / 250-360 words per Omni chapter
+- Zero `RERANKER_FALLBACK` in backend; 100% `200 OK` in sidecar
+- Reranker on CUDA: `[Warmup] Reranker using GPU: NVIDIA GeForce RTX 3050`
+- Popup source matches highlighted block on every sampled chapter
+- Manual synthesis (Chapter 4) fires arbiter and renders SOURCE chip
+
+### Verification
+- 5 targeted suites green: parse 9/9, nlp 12/12, embed 6/6, parallel 6/6,
+  validation 8/8. Covers every file touched tonight.
+- Full-suite run blocked by `build3a_test.js` network hang — deferred.
+
+### Findings filed
+- **F18** Ancestor skipping when chapter heading isn't a distinct section
+- **F20** Synopsis sampler picks Index as last chapter
+- **F21** "Opened just now" label lag
+- **F23** PDF math glyph extraction failure (source rendering)
+- **F24** Chat-log / study-notes PDF parsing
+- **5.8.0g.1** Reading time label — recommend Option D format
+
+### Discipline note
+Hand-edited end-to-end. Zero Antigravity involvement. First drift-free session
+in recent history.
+
+### Next
+- 5.8.0g.1 (reading time label) — quick
+- 5.8.0j.1 (F24 chat-log parsing) — 2-3 sessions
+- 5.8.0j.2 (F23 math extraction) — design doc first
+- Then continue 5.8a–k as planned
+
+---
+
 ## Phase 5.9 — Kokoro TTS — PLANNED
 
 **Status:** Not started
