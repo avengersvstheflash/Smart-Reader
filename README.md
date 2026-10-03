@@ -207,6 +207,7 @@ Smart Reader is developed in strict phases. Each phase closes cleanly (100% test
 | **5.7.1** | ✅ | Python sidecar + OCR integration (PaddleOCR) |
 | **5.7.2** | ✅ | NLP migration + BGE-M3 to Python + Node parallel synthesis |
 | **5.7.3** | ✅ | Capability router + DOCX/RTF ingestion |
+| **5.8.0** | ✅ | Compression Contract Repair (F3-F15, F22) |
 | **5.8a** | ⏳ | Rebrand Smart Reader → Omnitome |
 | **5.8b** | ⏳ | Omni feature naming (Smart Reading → Omni Reading) |
 | **5.8c** | ⏳ | Violet lens identity |
@@ -217,8 +218,11 @@ Smart Reader is developed in strict phases. Each phase closes cleanly (100% test
 | **5.8h** | ⏳ | Compressor terminology refactor |
 | **5.8i** | ⏳ | Frontend verification + polish |
 | **5.8j** | ⏳ | Settings page |
+| **5.8j.1**| ⏳ | Chat-log / study-notes PDF parsing (F24) |
+| **5.8j.2**| ⏳ | Math glyph extraction (F23) |
 | **5.8k** | ⏳ | Help / guide page |
-| **5.9** | ⏳ | Kokoro TTS (Local audio mode + Python sidecar) |
+| **5.9** | ⏳ | Dossier Foundation (First-class catalog entity) |
+| **5.10** | ⏳ | Kokoro TTS (Local audio mode + Python sidecar) |
 | **6.0** | ⏳ | Tauri Packaging (Native desktop installers + bundled sidecars) |
 
 > Full roadmap: [`docs/ROADMAP_2026-09.md`](./docs/ROADMAP_2026-09.md).
