@@ -164,6 +164,26 @@ async function rerankCandidates(query, candidates, options = {}) {
       signal,
     });
   } catch (err) {
+    // 5.8.0i: distinguish a timeout from an unreachable sidecar.
+    // AbortSignal.timeout throws a DOMException named 'TimeoutError' on
+    // modern Node, or an AbortError depending on the fetch implementation.
+    // Wrapping with a cause chain means the inner error may also carry
+    // the signal. Check all three surfaces.
+    const isTimeout = Boolean(
+      err && (
+        err.name === 'TimeoutError' ||
+        err.name === 'AbortError' ||
+        (err.cause && err.cause.name === 'TimeoutError')
+      )
+    );
+    if (isTimeout) {
+      const timeoutErr = new Error(
+        `NLP reranker timed out after ${timeoutMs}ms (sidecar may be warming or slow)`
+      );
+      timeoutErr.code = 'NLP_SIDECAR_TIMEOUT';
+      timeoutErr.cause = err;
+      throw timeoutErr;
+    }
     const unavailableErr = new Error(
       'NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.'
     );

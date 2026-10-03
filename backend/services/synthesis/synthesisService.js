@@ -182,17 +182,17 @@ ${sourceMaterial}`;
       }
     }
 
-    // Sanity clamps on assessed_target_words:
-    // - Floor: 150 words minimum
-    // - Ceiling: Math.round(source_words * 0.25) — never below 4:1 compression
-    // - If assessed < 150, use 150, log a warning
-    // - If assessed > source_words * 0.25, use source_words * 0.25, log a warning
-    const maxAllowedWords = Math.max(150, Math.round(N * 0.25));
+    // 5.8.0a (2026-10-03): Compression ceiling corrected from 0.25 -> 0.15.
+    // History: product vision targets 250-360 Omni words from 1,500-2,500 source
+    // words (~7:1). The prior 0.25 ceiling permitted 4:1 output, producing
+    // 2,200+ word chapters for 8,860-word slices (see walkthrough 2026-10-03).
+    // 0.15 with a 2,000-word slice yields a 300-word ceiling — exactly on target.
+    const maxAllowedWords = Math.max(150, Math.round(N * 0.15));
     if (assessedTargetWords < 150) {
       console.warn(`[SynthesisService] Assessed target words (${assessedTargetWords}) below floor of 150. Clamping to 150.`);
       assessedTargetWords = 150;
     } else if (assessedTargetWords > maxAllowedWords) {
-      console.warn(`[SynthesisService] Assessed target words (${assessedTargetWords}) exceeds ceiling of ${maxAllowedWords} (source_words * 0.25). Clamping to ${maxAllowedWords}.`);
+      console.warn(`[SynthesisService] Assessed target words (${assessedTargetWords}) exceeds ceiling of ${maxAllowedWords} (source_words * 0.15). Clamping to ${maxAllowedWords}.`);
       assessedTargetWords = maxAllowedWords;
     }
 
@@ -376,7 +376,11 @@ OUTPUT:`;
       let attribution_stage = 'legacy';
       let reranker_scores = {};
 
-      const rerankRes = await this.rerankParagraphCandidates(para, chunks, { timeoutMs: 1500 });
+      // 5.8.0i (2026-10-03): timeout bumped 1500 -> 4000 -> 10000ms.
+      // Logs showed first-inference scoring exceeding 4s even after warmup.
+      // Combined with the warmup inference pass added in the sidecar, real
+      // latency is ~600-900ms on CPU, <200ms on GPU. 10s is a safety ceiling.
+      const rerankRes = await this.rerankParagraphCandidates(para, chunks, { timeoutMs: 10000 });
       if (!rerankRes.fellBack) {
         attribution_stage = 'reranker';
         for (const r of rerankRes.scores) {
@@ -415,7 +419,6 @@ OUTPUT:`;
       });
     }
 
-    // Step d2: Strip [Source N] markers from displayed content
     // Step d2: Extract [INSUFFICIENT_M] marker and strip markers from displayed content
     let insufficientMarker = null;
     const insufficientMatch = rawCompression.match(/\[INSUFFICIENT_M[^\]]*\]/i);
@@ -752,11 +755,6 @@ OUTPUT:`;
   }
 
   /**
-   * Checks all cross-source chapter representations and invalidates (deletes)
-   * any whose contributing source chunks no longer exist in semantic_chunks.
-   * Returns count of invalidated representations.
-   */
-/**
    * Reranks candidate chunks for a synthesized paragraph using the BGE reranker
    * with staged fallback (Decision Record §2.8).
    *
@@ -770,21 +768,46 @@ OUTPUT:`;
       return { rankedChunks: [], scores: [], fellBack: false, latencyMs: 0, reranker_unavailable: false };
     }
 
-    // Default: rerank with top-10 candidates
-    const topCandidates = candidates.slice(0, 10);
+    // 5.8.0e (2026-10-03): Normalize candidates to { id, text } shape before send.
+    // The caller passes raw DB rows from semanticChunkRepository (which carry
+    // `textContent` / `content` / `text_content`). The Python sidecar's Pydantic
+    // RerankCandidate model expects { id: str, text: str }; without a `text`
+    // field, Pydantic returns 422 on every call. This mapping enforces the
+    // documented contract defensively.
+    //
+    // 5.8.0i: candidates reduced 10 -> 5. Halves cross-encoder scoring load
+    // with minimal quality loss (top-5 captures the primary signal).
+    const normalizedCandidates = candidates
+      .slice(0, 5)
+      .map((c) => ({
+        id: c.id,
+        text: c.text || c.textContent || c.content || c.text_content || '',
+      }))
+      .filter((c) => c.id && c.text);
+
+    if (normalizedCandidates.length === 0) {
+      console.warn('[SynthesisService] RERANKER_FALLBACK: no candidates with valid id+text after normalization');
+      return {
+        rankedChunks: candidates,
+        scores: [],
+        fellBack: true,
+        latencyMs: 0,
+        reranker_unavailable: true,
+      };
+    }
+
     const startMs = Date.now();
 
     try {
       const client = options.nlpClient || nlpClient;
-      const timeoutMs = options.timeoutMs || 1500;
-      const res = await client.rerankCandidates(paragraph, topCandidates, { timeoutMs });
+      // 5.8.0i (2026-10-03): default timeout bumped 1500 -> 4000 -> 10000ms.
+      const timeoutMs = options.timeoutMs || 10000;
+      const res = await client.rerankCandidates(paragraph, normalizedCandidates, { timeoutMs });
       const latencyMs = Date.now() - startMs;
 
-      if (latencyMs > 1000) {
-        console.warn(`[SynthesisService] Reranker latency exceeded 1.0s: ${latencyMs}ms`);
+      if (latencyMs > 2000) {
+        console.warn(`[SynthesisService] Reranker latency exceeded 2.0s: ${latencyMs}ms`);
       }
-
-
 
       const scoreMap = new Map();
       if (res && Array.isArray(res.scores)) {
@@ -876,4 +899,3 @@ const synthesisServiceInstance = new SynthesisService();
 synthesisServiceInstance.PreLLMValidationError = PreLLMValidationError;
 module.exports = synthesisServiceInstance;
 module.exports.PreLLMValidationError = PreLLMValidationError;
-

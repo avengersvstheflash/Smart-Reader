@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Content-Aware Editorial Planner (Build 4.2a)
  *
  * Content-Feeding Strategy: Option A (Candidate section content excerpting)
@@ -80,7 +80,7 @@ class EditorialPlanner {
 
     if (!text || typeof text !== 'string') return '';
 
-    // Clean whitespace and isolate approximately 200 words (~1,000â€“1,200 chars)
+    // Clean whitespace and isolate approximately 200 words (~1,000–1,200 chars)
     const words = text.trim().split(/\s+/).filter(Boolean);
     if (words.length <= 200) {
       return words.join(' ');
@@ -89,13 +89,13 @@ class EditorialPlanner {
   }
 
   /**
-   * Slices candidate sections/chunks into evenly distributed source units of ~1,500â€“2,500 words.
+   * Slices candidate sections/chunks into evenly distributed source units of ~1,500–2,500 words.
    * Algorithm (Phase 4.8.3):
    *  a. Computes totalBodyWords W = sum of all section/chunk word counts
    *  b. Computes N = max(1, round(W / 2000))
    *  c. Computes ideal unit size S = W / N
    *  d. Walks sections tracking cumulative words
-   *  e. For each boundary i (1 to N-1), snaps to nearest chapter break within Â±10% of S,
+   *  e. For each boundary i (1 to N-1), snaps to nearest chapter break within ±10% of S,
    *     or closest section boundary if none
    *  f. Produces exactly N units
    */
@@ -224,13 +224,11 @@ class EditorialPlanner {
       }];
     }
 
-    let N;
-    if (W < 12000) {
-      N = Math.min(sections.length, Math.max(1, Math.round(W / 2000)));
-    } else {
-      const targetWordsPerUnit = 8500;
-      N = Math.min(sections.length, Math.max(5, Math.min(8, Math.round(W / targetWordsPerUnit))));
-    }
+    // 5.8.0b/c (2026-10-03): unified target of 2,000 words per unit.
+    // Prior behavior: W < 12000 used 2000, W >= 12000 used 8500 with min(8, ...) cap.
+    // That produced 8,500-word slices for large books. Now consistent across all sizes.
+    const targetWordsPerUnit = 2000;
+    const N = Math.min(sections.length, Math.max(1, Math.round(W / targetWordsPerUnit)));
     if (N <= 1) {
       return [{
         sections: [...sections],
@@ -315,7 +313,7 @@ class EditorialPlanner {
   /**
    * Calculate targetWordCount for a planned chapter based on mapped source sections
    * Task 4 Rules:
-   * - Target ~1,500â€“3,000 words per chapter
+   * - Target ~1,500–3,000 words per chapter
    * - Sum of wordCounts of mapped source sections divided by compression ratio (0.4)
    * - Clamp to [1500, 3000]. If material is thin, allow shorter down to minimum 400 words.
    * - Do NOT pad to reach target.
@@ -365,8 +363,35 @@ class EditorialPlanner {
     }
     // Substantial material: clamp to [250, 360]
     return Math.min(360, estimatedWords);
-    const target = Math.round(rawSourceWordCount / 7);
-    return Math.max(250, Math.min(360, target));
+  }
+
+  /**
+   * Build a chapter title that surfaces the enclosing top-level chapter heading,
+   * preferring "Chapter N: ..." ancestors over sub-sections like "2.1.3 Matrix".
+   * Duplicate base titles are disambiguated with a "(2)", "(3)" suffix.
+   *
+   * 5.8.0f (2026-10-03): walkthrough revealed titles like "Part 4: 2.1.3 Matrix"
+   * and duplicate titles for adjacent slices. Fix: prefer top-level ancestor
+   * chapter heading; append sub-heading as "· <sub>"; disambiguate duplicates.
+   */
+  buildChapterTitle(order, unit, chapterAncestorMap, titleUsage) {
+    const firstSec = (unit && unit.sections && unit.sections[0]) || {};
+    const firstSecId = firstSec.sectionId || firstSec.id;
+    const ancestorTitle = firstSecId ? chapterAncestorMap.get(firstSecId) : null;
+    const rawFirstTitle = String(firstSec.sectionTitle || firstSec.title || '').trim();
+
+    let baseTitle;
+    if (ancestorTitle && rawFirstTitle && ancestorTitle !== rawFirstTitle) {
+      baseTitle = `${ancestorTitle} · ${rawFirstTitle}`;
+    } else {
+      baseTitle = ancestorTitle || rawFirstTitle || `Section ${order}`;
+    }
+
+    const priorUses = titleUsage.get(baseTitle) || 0;
+    titleUsage.set(baseTitle, priorUses + 1);
+    const suffix = priorUses > 0 ? ` (${priorUses + 1})` : '';
+
+    return `Part ${order}: ${baseTitle}${suffix}`;
   }
 
   /**
@@ -551,7 +576,7 @@ class EditorialPlanner {
   /**
    * Deterministic planning fallback (when AI is not requested or for predictable testing)
    */
-    async sliceIntoSourceUnitsAsync(sections = [], options = {}) {
+  async sliceIntoSourceUnitsAsync(sections = [], options = {}) {
     const nlpClient = options.nlpClient;
     if (nlpClient && typeof nlpClient.sliceSections === 'function') {
       try {
@@ -583,22 +608,37 @@ class EditorialPlanner {
       if (id) sectionLookup.set(id, sec);
     });
 
+    // 5.8.0f: Walk sections in source order tracking the nearest top-level
+    // chapter heading. Used to build informative titles instead of raw
+    // sub-section headings.
+    const chapterAncestorMap = new Map();
+    let currentChapterTitle = null;
+    for (const sec of candidateSections) {
+      const t = String(sec.sectionTitle || sec.title || '').trim();
+      const id = sec.sectionId || sec.id;
+      if (!id) continue;
+      if (/^(?:chapter|part)\s+\d+/i.test(t)) {
+        currentChapterTitle = t;
+      }
+      chapterAncestorMap.set(id, currentChapterTitle);
+    }
+    const titleUsage = new Map();
+
     const chapters = [];
     let order = 1;
 
-    // For single-source books or chronological content: slice into source units of ~1,500â€“2,500 words
+    // For single-source books or chronological content: slice into source units of ~1,500–2,500 words
     if (!isMultiSource || organizationStrategy === 'chronological') {
       const units = await this.sliceIntoSourceUnitsAsync(candidateSections, options);
 
       for (const unit of units) {
         const sectionIds = unit.sections.map((s) => s.sectionId || s.id);
-        const firstSec = unit.sections[0] || {};
-        const firstTitle = firstSec.sectionTitle || firstSec.title || `Part ${order}`;
         const targetWordCount = this.computeChapterWordBudget(sectionIds, sectionLookup);
+        const title = this.buildChapterTitle(order, unit, chapterAncestorMap, titleUsage);
 
         chapters.push({
           chapterId: `ch-plan-${order}`,
-          title: `Part ${order}: ${firstTitle}`,
+          title,
           purpose: `Compressed representation covering ${sectionIds.length} source section(s)`,
           sourceSectionIds: sectionIds,
           sourceSections: sectionIds.map((id) => {
@@ -703,22 +743,35 @@ class EditorialPlanner {
       if (id) sectionLookup.set(id, sec);
     });
 
+    // 5.8.0f: ancestor tracking (mirrors planDeterministicAsync)
+    const chapterAncestorMap = new Map();
+    let currentChapterTitle = null;
+    for (const sec of candidateSections) {
+      const t = String(sec.sectionTitle || sec.title || '').trim();
+      const id = sec.sectionId || sec.id;
+      if (!id) continue;
+      if (/^(?:chapter|part)\s+\d+/i.test(t)) {
+        currentChapterTitle = t;
+      }
+      chapterAncestorMap.set(id, currentChapterTitle);
+    }
+    const titleUsage = new Map();
+
     const chapters = [];
     let order = 1;
 
-    // For single-source books or chronological content: slice into source units of ~1,500â€“2,500 words
+    // For single-source books or chronological content: slice into source units of ~1,500–2,500 words
     if (!isMultiSource || organizationStrategy === 'chronological') {
       const units = this.sliceIntoSourceUnitsFallback(candidateSections);
 
       for (const unit of units) {
         const sectionIds = unit.sections.map((s) => s.sectionId || s.id);
-        const firstSec = unit.sections[0] || {};
-        const firstTitle = firstSec.sectionTitle || firstSec.title || `Part ${order}`;
         const targetWordCount = this.computeChapterWordBudget(sectionIds, sectionLookup);
+        const title = this.buildChapterTitle(order, unit, chapterAncestorMap, titleUsage);
 
         chapters.push({
           chapterId: `ch-plan-${order}`,
-          title: `Part ${order}: ${firstTitle}`,
+          title,
           purpose: `Compressed representation covering ${sectionIds.length} source section(s)`,
           sourceSectionIds: sectionIds,
           sourceSections: sectionIds.map((id) => {
@@ -820,11 +873,12 @@ RULES:
 1. You are an editorial planner, not a writer. Do NOT write chapter text.
 2. Carefully read the supplied content excerpts to determine how ideas, themes, and evidence connect across sections.
 3. Organize for human reading comprehension: group related material across source sections and eliminate redundancy.
-4. Each planned chapter must target approximately 250â€“360 words based on the depth of mapped material (or fewer, down to 180 words, if the material is thin).
-4. Each planned chapter must be a compressed representation of ~1,500-2,500 source words, producing 250-360 output words. Chapters are compression units, not thematic containers.
+4. Each planned chapter must target approximately 250–360 words based on the depth of mapped material (or fewer, down to 180 words, if the material is thin).
+4. Each planned chapter must be a compressed representation of ~1,500–2,500 source words, producing 250–360 output words. Chapters are compression units, not thematic containers.
 5. Every sourceSectionId in your chapters MUST come directly from the supplied sectionIds. NEVER invent or hallucinate section IDs.
 6. Every chapter must have at least one valid sourceSectionId. Do not produce empty chapters.
 7. Return strict JSON matching the schema below. No conversational prose or markdown surrounding text.
+8. When a source section heading is a sub-section (e.g. "2.1.3 Matrix"), prefer the enclosing top-level chapter heading (e.g. "Chapter 2: Mathematics for Machine Learning") as the chapter title, with the sub-section as context appended after " · ". Duplicate base titles are not allowed — disambiguate with a "(2)", "(3)" suffix if necessary.
 
 CONTENT TYPE: ${contentType || 'research'}
 TOPIC / COLLECTION TITLE: ${topic || 'Multi-Source Synthesis'}
@@ -853,4 +907,3 @@ Return JSON only:`;
 }
 
 module.exports = new EditorialPlanner();
-

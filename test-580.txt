@@ -1,0 +1,1290 @@
+﻿
+=== phase5_7_3_parse_test.js ===
+[PASS] T1 detectFormat magic bytes
+[PASS] T2 unsupported_zip
+[PASS] T3 parseClient 200
+[PASS] T4 sidecar down
+[PASS] T5 mocked 400
+[PASS] T6 docxParser.parse
+[PASS] T7 rtfParser.parse
+[PASS] T8 USE_PYTHON_PARSER=false throws
+[PASS] T9 unsupported_zip throws
+=== phase5_7_3_parse_test.js ===
+Passed: 9
+Failed: 0
+
+=== build3a_test.js ===
+≡ƒº¬ Starting Build 3A Verification Tests...
+
+Test 1: Web search works
+  Γ£ô Search returned 5 results. Top: "Quantum computing" (Wikipedia)
+Test 2: Search results provide selectable metadata
+  Γ£ô Selectable result with id=wiki-25220, type=technical
+Tests 5, 6, 7: Chrome removal, headings, lists, quotes, tables
+  Γ£ô Extracted all canonical blocks cleanly; stripped all ad and nav chrome
+Test 4: Structure detection creates meaningful chapters
+  Γ£ô Detected 3 structured chapters: "Introduction & Overview", "Consensus Protocols", "Comparison of Algorithms"
+Tests 3, 4, 8, 9: Web import into Library with provenance
+  Γ£ô Successfully imported "Ada Lovelace: Computing Pioneer" with 7 chapters and full provenance
+Test 10: Book Main Page displays useful provenance metadata
+  Γ£ô Provenance displayed: URL=https://en.wikipedia.org/wiki/Ada_Lovelace, Site=Wikipedia
+Tests 6, 11: "Find Supporting Material" attaches reference without altering original content
+  Γ£ô Attached supporting material "The Analytical Engine Hardware Reference" without touching original book content
+Test 12: Multiple sources retain source boundaries
+  Γ£ô Multi-source imported with 2 sources and preserved boundaries
+Test 13: Inaccessible sources fail gracefully
+  Γ£ô Inaccessible sources and private IPs fail with clean, informative errors
+Test 14: Existing user-uploaded books still work
+[Import] Indexing book-1791041434188-5hwxx...
+  Γ£ô Standard manual book ingestion fully functional
+Test 15: AI provider status and services intact
+[Import] Indexed book-1791041434188-5hwxx
+[Import] Classifying book-1791041434188-5hwxx...
+[SectionFilter] Filtered "Chapter 2: Conclusion" (chk-book-179-1791041434223-pbym-1): insufficient_content
+[SectionFilter] Filtered "Chapter 2: Conclusion" (chk-book-179-1791041434223-pbym-1): insufficient_content
+  Γ£ô AI service active: openrouter (mode: cloud)
+
+Cleaning up test artifacts...
+
+Γ£à All Build 3A Verification Tests Passed Successfully!
+
+=== build3b_test.js ===
+≡ƒº¬ Starting Build 3B: Semantic Memory & Intelligent Summarization Tests...
+
+Test 1: Preprocessor preserves headings, tables, quotes, callouts, lists
+  Γ£ô Preprocessor correctly structured headings, tables, callouts, lists, and quotes.
+Test 2: Semantic Chunker creates cohesive chunks with full provenance
+  Γ£ô Semantic Chunker generated 5 provenance-bearing chunks with atomic table preservation.
+Test 3: LocalEmbeddingProvider produces deterministic 256d vectors with cosine similarity
+  Related similarity (Quantum & Wave function): 0.8144
+  Unrelated similarity (Quantum & Sourdough): 0.0982
+  Γ£ô LocalEmbeddingProvider passed semantic vector discrimination test.
+Test 4: SemanticIndex storage and retrieval across chapter, book, library scopes
+  Γ£ô SemanticIndex retrieved top match: "Principles of Wave Collapse" (Score: 0.5744)
+Test 5: RetrievalService & ContextBuilder with grounding instructions
+  Γ£ô ContextBuilder generated 167 tokens with strict grounding directive.
+Test 6: Intelligent Summarizer generates distinct Synopsis and Book Summary representations
+[Synopsis Compression] Building abstract from preface + TOC + samples...
+[SectionFilter] Filtered "Principles of Wave Collapse" (chk-test-boo-1791041437671-xeif-0): insufficient_content
+[SectionFilter] Filtered "Principles of Wave Collapse" (chk-test-boo-1791041437671-xeif-0): insufficient_content
+[SectionFilter] Filtered "Principles of Wave Collapse" (chk-test-boo-1791041437671-4ji0-1): insufficient_content
+[SectionFilter] Filtered "Principles of Wave Collapse" (chk-test-boo-1791041437671-4ji0-1): insufficient_content
+[SectionFilter] Filtered "Principles of Wave Collapse" (chk-test-boo-1791041437671-xzjx-2): insufficient_content
+[SectionFilter] Filtered "Principles of Wave Collapse" (chk-test-boo-1791041437671-xzjx-2): insufficient_content
+[SectionFilter] Filtered "Principles of Wave Collapse" (chk-test-boo-1791041437671-f4sz-3): insufficient_content
+[SectionFilter] Filtered "Principles of Wave Collapse" (chk-test-boo-1791041437671-f4sz-3): insufficient_content
+[SectionFilter] Filtered "Principles of Wave Collapse" (chk-test-boo-1791041437671-9ium-4): insufficient_content
+[SectionFilter] Filtered "Principles of Wave Collapse" (chk-test-boo-1791041437671-9ium-4): insufficient_content
+[Synopsis Compression] Ready in 8ms
+--- SYNOPSIS COMPRESSION PROMPT ---
+You are preparing a synopsis for a book ΓÇö a concise, high-quality abstract that gives a reader an accurate sense of what the book is about, how it's structured, and what reading it feels like.
+
+INPUTS PROVIDED:
+
+Author's preface (their own framing of the book)
+
+Table of contents
+
+Opening paragraphs of the first body chapter
+
+Opening paragraphs of the last body chapter
+
+OUTPUT: 200ΓÇô300 words. Hard bounds: 180 minimum, 320 maximum.
+
+Structure:
+
+Core subject ΓÇö one or two sentences stating what the book is about.
+
+Scope and approach ΓÇö what the book covers, how it treats its subject, who it is for.
+
+Content landscape ΓÇö one or two sentences on what the interior is like: dense or accessible, exercises or arguments, case studies or theory, structure of the chapters.
+
+What reading it feels like ΓÇö one sentence, like a short review. e.g. "Reads like a working engineer's notebook ΓÇö terse, technical, and confident."
+
+Rules:
+
+Compress. Do not pad. Every sentence must carry information.
+
+Do not invent details not present in the inputs.
+
+Do not open with narrative framing ("This book representsΓÇª").
+
+Do not list chapters or restate the TOC as a list.
+
+Do not summarize the preface ΓÇö describe the book.
+
+If the inputs are insufficient for a full synopsis, close with one honest line: "[PARTIAL: inputs insufficient for full synopsis]".
+
+INPUTS:
+(None provided)
+
+TOC:
+(None provided)
+
+CHAPTER 1 OPENING:
+Linear attractor networks represent continuous variables along low-dimensional manifolds in neural firing space. The network topology dictates the stability of steady states under external perturbation, allowing neural circuits to preserve analog state values against ambient thermal and synaptic noise. Recurrent connections within these manifolds distribute internal representations across large neural populations, ensuring that localized lesions or noise perturbations do not catastrophically disrupt stored information. The precise geometry of the manifold encodes the range of representable states, with the intrinsic curvature reflecting the computational capacity of the underlying circuit architecture.
+
+LAST CHAPTER OPENING:
+Gradient vector fields govern the trajectories of recurrent neural states toward localized minimum-energy attractors. Symmetric synaptic connectivity ensures quadratic energy dissipation, preventing chaotic oscillations in asynchronous updating schemes. The Lyapunov energy function decreases monotonically during asynchronous neuron updates, guaranteeing convergence to a fixed point rather than a limit cycle or chaotic attractor. This convergence property makes symmetric Hopfield networks analytically tractable, enabling closed-form calculation of storage capacity and retrieval error rates as functions of network size and connection density.
+
+OUTPUT:
+-----------------------------------
+node : [aiRetryGuard] [Synopsis] | attempt 1 | words: 168 (bounds [180, 320]) | violation: word_count | retried: false
+At line:1 char:1
++ node scripts/run-all-tests.js 2>&1 | Out-File test-580.txt -Encoding  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([aiRetryGuard] ... retried: false:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[aiRetryGuard] [Synopsis] | attempt 2 | words: 241 (bounds [180, 320]) | violation: none | retried: true
+--- BOOK SUMMARY COMPRESSION PROMPT ---
+You are preparing a comprehensive book summary from the aggregated chapter-level representations already produced for this book. This is a compressed structural overview, not a narrative retelling.
+
+INPUTS PROVIDED:
+
+Chapter-level summaries for all chapters of the book
+
+Book metadata (title, author, format)
+
+OUTPUT: 600ΓÇô900 words. Hard bounds: 500 minimum, 1000 maximum.
+
+Structure:
+
+Central thesis or argument (2ΓÇô3 sentences)
+
+Structural overview ΓÇö the book's arc, in 3ΓÇô5 short paragraphs, one per major movement or section
+
+Key concepts and frameworks introduced (bullet list, 5ΓÇô10 items)
+
+Who this is for and what it demands of the reader
+
+What stays with you after closing it ΓÇö one closing paragraph
+
+Rules:
+
+Compress aggressively. No filler sentences.
+
+No chapter-by-chapter walkthrough ΓÇö group by movement, not order.
+
+No invented claims not present in the chapter summaries.
+
+No bullet-list dumping ΓÇö mix prose and structure.
+
+Cite [Chapter N] where a specific claim comes from.
+
+INPUTS:
+[Smart Chapter 1: Linear Dynamics and Phase Space]
+Continuous attractor neural networks maintain internal representations of analog variables by stabilizing continuous manifolds of fixed points. When symmetric recurrent connections balance feedforward sensory signals, state trajectories flow smoothly along flat directions corresponding to preserved analog coordinates.
+
+Synaptic noise and thermal fluctuations produce diffusive drift along neutral manifold directions unless counteracted by localized negative feedback loops. The geometry of the energy landscape determines whether the system retains absolute coordinate values or decays toward baseline firing rates.
+
+Decision thresholds and working memory retention reflect deep parabolic basins of attraction across multidimensional neural firing spaces. By tuning excitation-inhibition ratios, neuromodulatory signals adjust landscape curvature dynamically to match task demands.
+
+[Smart Chapter 2: Gradient Convergence in Neural Manifolds]
+State trajectories in symmetric recurrent networks follow deterministic gradient descents across Lyapunov energy surfaces. Because energy strictly decreases during state updates, chaotic fluctuations and divergent cycles are mathematically precluded from occurring under asynchronous update schedules.
+
+Introducing asymmetric coupling matrices breaks energy conservation and permits stable limit cycles to emerge within the state space. Such limit cycle dynamics provide robust biological pacemakers capable of sustaining rhythmic motor patterns and temporal coordination.
+
+Supercritical Hopf bifurcations govern the continuous transition between static point attractors and periodic rhythmic orbits. Experimental observations confirm that tonic neuromodulatory depolarization shifts the operating regime seamlessly between memory storage and oscillatory motor output.
+
+BOOK METADATA:
+Title: Foundations of Neural Dynamics
+Author: Dr. Aris Thorne
+Format: textbook
+
+OUTPUT:
+---------------------------------------
+[aiRetryGuard] [Book Summary] | attempt 1 | words: 686 (bounds [500, 1000]) | violation: none | retried: false
+  Γ£ô Generated and verified distinct SYNOPSIS and BOOK_SUMMARY representations.
+Test 7: Contextual query grounded in retrieved semantic units
+  Γ£ô Contextual query returned answer grounded in 6 source units.
+Test 8: Semantic Lifecycle cleans up chunks and representations on book delete
+  Γ£ô Book deletion cleanly removed all semantic chunks and representations with 0 orphans.
+
+≡ƒÄë ALL BUILD 3B TESTS PASSED SUCCESSFULLY!
+
+
+=== build3b_finalization_test.js ===
+≡ƒº¬ Starting Build 3B Finalization Quality & Grounding Verification...
+
+Test 1: ContextBuilder grounding directives enforce strict formatting and content-type adaptation
+  Γ£ô Grounding instructions properly adapt to content-type and ban raw markup.
+Test 2: AINormalizer cleanly strips raw HTML and stray markdown tokens
+  Γ£ô AINormalizer eliminated all raw HTML and stray tokens.
+Test 3: Editorial Synopsis has complete provenance, grounding, and honest metadata
+[Synopsis Compression] Building abstract from preface + TOC + samples...
+[Synopsis Compression] Ready in 5ms
+--- SYNOPSIS COMPRESSION PROMPT ---
+You are preparing a synopsis for a book ΓÇö a concise, high-quality abstract that gives a reader an accurate sense of what the book is about, how it's structured, and what reading it feels like.
+
+INPUTS PROVIDED:
+
+Author's preface (their own framing of the book)
+
+Table of contents
+
+Opening paragraphs of the first body chapter
+
+Opening paragraphs of the last body chapter
+
+OUTPUT: 200ΓÇô300 words. Hard bounds: 180 minimum, 320 maximum.
+
+Structure:
+
+Core subject ΓÇö one or two sentences stating what the book is about.
+
+Scope and approach ΓÇö what the book covers, how it treats its subject, who it is for.
+
+Content landscape ΓÇö one or two sentences on what the interior is like: dense or accessible, exercises or arguments, case studies or theory, structure of the chapters.
+
+What reading it feels like ΓÇö one sentence, like a short review. e.g. "Reads like a working engineer's notebook ΓÇö terse, technical, and confident."
+
+Rules:
+
+Compress. Do not pad. Every sentence must carry information.
+
+Do not invent details not present in the inputs.
+
+Do not open with narrative framing ("This book representsΓÇª").
+
+Do not list chapters or restate the TOC as a list.
+
+Do not summarize the preface ΓÇö describe the book.
+
+If the inputs are insufficient for a full synopsis, close with one honest line: "[PARTIAL: inputs insufficient for full synopsis]".
+
+INPUTS:
+(None provided)
+
+TOC:
+(None provided)
+
+CHAPTER 1 OPENING:
+Linear attractor networks represent continuous variables along low-dimensional manifolds in neural firing space. The network topology dictates the stability of steady states under external perturbation, allowing neural circuits to preserve analog state values against ambient thermal and synaptic noise. Recurrent connections within these manifolds distribute internal representations across large neural populations, ensuring that localized lesions or noise perturbations do not catastrophically disrupt stored information. The precise geometry of the manifold encodes the range of representable states, with the intrinsic curvature reflecting the computational capacity of the underlying circuit architecture.
+
+LAST CHAPTER OPENING:
+Gradient vector fields govern the trajectories of recurrent neural states toward localized minimum-energy attractors. Symmetric synaptic connectivity ensures quadratic energy dissipation, preventing chaotic oscillations in asynchronous updating schemes. The Lyapunov energy function decreases monotonically during asynchronous neuron updates, guaranteeing convergence to a fixed point rather than a limit cycle or chaotic attractor. This convergence property makes symmetric Hopfield networks analytically tractable, enabling closed-form calculation of storage capacity and retrieval error rates as functions of network size and connection density.
+
+OUTPUT:
+-----------------------------------
+[aiRetryGuard] [Synopsis] | attempt 1 | words: 0 (bounds [180, 320]) | violation: word_count | retried: false
+[aiRetryGuard] [Synopsis] | attempt 2 | words: 0 (bounds [180, 320]) | violation: word_count | retried: true
+  Γ£ô Synopsis generated with 2 grounded source chunks. Provider: "local-semantic-fallback", Model: "deterministic-semantic-v1"
+Test 4: Book Summary aggregation across chapters with valid provenance
+--- BOOK SUMMARY COMPRESSION PROMPT ---
+You are preparing a comprehensive book summary from the aggregated chapter-level representations already produced for this book. This is a compressed structural overview, not a narrative retelling.
+
+INPUTS PROVIDED:
+
+Chapter-level summaries for all chapters of the book
+
+Book metadata (title, author, format)
+
+OUTPUT: 600ΓÇô900 words. Hard bounds: 500 minimum, 1000 maximum.
+
+Structure:
+
+Central thesis or argument (2ΓÇô3 sentences)
+
+Structural overview ΓÇö the book's arc, in 3ΓÇô5 short paragraphs, one per major movement or section
+
+Key concepts and frameworks introduced (bullet list, 5ΓÇô10 items)
+
+Who this is for and what it demands of the reader
+
+What stays with you after closing it ΓÇö one closing paragraph
+
+Rules:
+
+Compress aggressively. No filler sentences.
+
+No chapter-by-chapter walkthrough ΓÇö group by movement, not order.
+
+No invented claims not present in the chapter summaries.
+
+No bullet-list dumping ΓÇö mix prose and structure.
+
+Cite [Chapter N] where a specific claim comes from.
+
+INPUTS:
+[Smart Chapter 1: Linear Dynamics and Phase Space]
+Continuous attractor neural networks maintain internal representations of analog variables by stabilizing continuous manifolds of fixed points. When symmetric recurrent connections balance feedforward sensory signals, state trajectories flow smoothly along flat directions corresponding to preserved analog coordinates.
+
+Synaptic noise and thermal fluctuations produce diffusive drift along neutral manifold directions unless counteracted by localized negative feedback loops. The geometry of the energy landscape determines whether the system retains absolute coordinate values or decays toward baseline firing rates.
+
+Decision thresholds and working memory retention reflect deep parabolic basins of attraction across multidimensional neural firing spaces. By tuning excitation-inhibition ratios, neuromodulatory signals adjust landscape curvature dynamically to match task demands.
+
+[Smart Chapter 2: Gradient Convergence in Neural Manifolds]
+State trajectories in symmetric recurrent networks follow deterministic gradient descents across Lyapunov energy surfaces. Because energy strictly decreases during state updates, chaotic fluctuations and divergent cycles are mathematically precluded from occurring under asynchronous update schedules.
+
+Introducing asymmetric coupling matrices breaks energy conservation and permits stable limit cycles to emerge within the state space. Such limit cycle dynamics provide robust biological pacemakers capable of sustaining rhythmic motor patterns and temporal coordination.
+
+Supercritical Hopf bifurcations govern the continuous transition between static point attractors and periodic rhythmic orbits. Experimental observations confirm that tonic neuromodulatory depolarization shifts the operating regime seamlessly between memory storage and oscillatory motor output.
+
+BOOK METADATA:
+Title: Foundations of Neural Dynamics
+Author: Dr. Aris Thorne
+Format: textbook
+
+OUTPUT:
+---------------------------------------
+[aiRetryGuard] [Book Summary] | attempt 1 | words: 0 (bounds [500, 1000]) | violation: word_count | retried: false
+[aiRetryGuard] [Book Summary] | attempt 2 | words: 0 (bounds [500, 1000]) | violation: word_count | retried: true
+  Γ£ô Book Summary generated with 4 chunks. Provider: "local-semantic-fallback"
+Test 5: Contextual Q&A answers with grounded chunk references
+  Γ£ô Q&A completed with 4 grounded citations.
+
+≡ƒÄë ALL BUILD 3B FINALIZATION QUALITY TESTS PASSED!
+
+
+=== build3b_hardening_test.js ===
+[Boot] Marked 0 stale jobs as INTERRUPTED.
+--- STARTING BUILD 3B.1.5 HARDENING & RELIABILITY TEST SUITE ---
+
+[Test 1] Verifying that section headings (1.1, 1.2, etc.) are kept as sections, not chapters
+Γ£ô Section headings (1.1, 1.2) successfully preserved as sections inside parent chapters!
+
+[Test 2] Verifying Web Structure Analyzer sub-section handling
+Γ£ô Web ingestion accurately groups sections inside chapters without creating splinter chapters!
+
+[Test 3] Verifying Empty Content & Scanned Document Warning Detection
+Γ£ô Empty content correctly flagged: status="empty_content", warning="Content extraction incomplete: no selectable text found in the document."
+
+[Test 4] Verifying that unhandled /api/* routes return valid JSON (no HTML leakage)
+Smart Reader backend running on http://0.0.0.0:3000
+Γ£ô Unhandled /api routes guaranteed to return clean JSON errors, preventing "<!doctype" JSON syntax errors!
+
+[Test 5] Ingesting book via BookService with structural validation
+[Import] Indexing book-1791041490471-bb6qo...
+Γ£ô Book created with id=book-1791041490471-bb6qo, chapters=2, sections=2, integrity=valid
+
+======================================================
+≡ƒÄë ALL BUILD 3B.1.5 HARDENING TESTS PASSED WITH 100% SUCCESS!
+======================================================
+
+=== build3b16_structure_test.js ===
+================================================================
+≡ƒÜÇ RUNNING BUILD 3B.1.6 DOCUMENT STRUCTURE ENGINE TEST SUITE
+================================================================
+
+[Test 1] Verifying Real Textbook Decomposition (CRC Press 2025 case)...
+  Γ£ô Successfully partitioned textbook into 11 structures (8 chapters, front matter, appendix, index)!
+
+[Test 2] Verifying TOC-Anchored Chapter Detection...
+  Γ£ô TOC anchor resolved physical page gap (pages 12, 56, 101) without treating TOC page 3 as chapters!
+
+[Test 3] Verifying Multi-Signal Numbered Chapter Headings...
+  Γ£ô Successfully recognized explicit, dash-separated, and standalone numbered chapter openers!
+
+[Test 4] Verifying Deep Nested Section Hierarchy (4.1.2.1)...
+  Γ£ô Nested hierarchy (4.1 -> 4.1.2 -> 4.1.2.1) correctly formed with recursive parent-child tree!
+
+[Test 5] Verifying Front Matter Classification...
+  Γ£ô Foreword, Preface, and Dedication accurately classified as front_matter!
+
+[Test 6] Verifying Back Matter Classification...
+  Γ£ô Appendices, Bibliography, and Index assigned accurate structural roles!
+
+[Test 7] Verifying Repeated Header and Footer Suppression...
+  Γ£ô Filtered 10 repeated running artifacts while preserving body content!
+
+[Test 8] Verifying Source Location & Provenance Tracking...
+  Γ£ô Start and end pages and byte offsets preserved across all chapters!
+
+[Test 9] Verifying Word and Character Count Integrity...
+  Γ£ô Accurate word counts (51 words) and characters (420 chars) verified!
+
+[Test 10] Verifying Low-Confidence Fallback on Unstructured Text...
+  Γ£ô Flat unstructured text gracefully handled as 1 cohesive chapter (confidence: 0.4)!
+
+================================================================
+≡ƒÄë ALL 10/10 BUILD 3B.1.6 DOCUMENT STRUCTURE ENGINE TESTS PASSED!
+================================================================
+
+
+=== build3b17_real_pdf_test.js ===
+================================================================
+≡ƒÜÇ RUNNING BUILD 3B.1.7 REAL PDF STRUCTURAL RECOVERY TEST SUITE
+================================================================
+
+[Source] Reading actual binary PDF fixture: C:\My Personal Folders\Projects to work on\Antigravity Projects\Smart-Reader\backend\tests\fixtures\practical_machine_learning.pdf
+[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: 434801 | Reason: Text extraction threshold met (>= 20 chars)
+Decomposed document into 15 structures:
+  - [FRONT_MATTER] "Practical Machine Learning" (678 words, 4 sections)
+  - [FRONT_MATTER] "About the authors" (997 words, 0 sections)
+  - [FRONT_MATTER] "Preface" (415 words, 0 sections)
+  - [FRONT_MATTER] "Acknowledgments" (182 words, 0 sections)
+  - [BACK_MATTER] "Glossary" (433 words, 0 sections)
+  - [CHAPTER] "Chapter 1: Fundamentals of machine learning" (4948 words, 25 sections)
+  - [CHAPTER] "Chapter 2: Mathematics for machine learning" (19724 words, 35 sections)
+  - [CHAPTER] "Chapter 3: Data preparation" (5764 words, 17 sections)
+  - [CHAPTER] "Chapter 4: Machine learning operations" (5305 words, 10 sections)
+  - [CHAPTER] "Chapter 5: Machine learning software and hardware requirements" (9550 words, 28 sections)
+  - [CHAPTER] "Chapter 6: Responsible AI and explainable AI" (5207 words, 14 sections)
+  - [CHAPTER] "Chapter 7: Artificial general intelligence" (3765 words, 9 sections)
+  - [CHAPTER] "Chapter 8: Machine learning step-by-step practical examples" (8684 words, 25 sections)
+  - [APPENDIX] "Appendix: Machine Learning R esources" (876 words, 0 sections)
+  - [INDEX] "Index" (2871 words, 0 sections)
+
+[Check 1] Verifying 8 top-level chapters + front matter + appendix + index...
+  Γ£ô Verified: exactly 8 body chapters + front matter + appendix + index detected!
+
+[Check 2] Verifying no bloated chapter exceeding 20,000 words...
+  Γ£ô Verified: no single chapter has > 20,000 words!
+
+[Check 3] Verifying "FURTHER READING" does NOT swallow chapters 2-8...
+  Γ£ô Verified: "FURTHER READING" remains scoped inside Chapter 1 and did not swallow chapters 2-8!
+
+[Check 4] Verifying Acknowledgments word count is < 1,500...
+  Γ£ô Verified: Acknowledgments word count is 182 words (< 1,500)!
+
+[Check 5] Verifying nested section hierarchy scoped to chapters...
+  Γ£ô Verified: section hierarchy accurately scoped within individual chapters!
+
+================================================================
+≡ƒÄë ALL BUILD 3B.1.7 REAL PDF RECOVERY REGRESSION TESTS PASSED!
+================================================================
+
+=== build3b19_pdfjs_parser_test.js ===
+================================================================
+≡ƒÜÇ RUNNING BUILD 3B.1.9 PDFJS PARSER TEST SUITE
+================================================================
+
+[Source] Reading real binary textbook: C:\My Personal Folders\Projects to work on\Antigravity Projects\Smart-Reader\backend\tests\fixtures\practical_machine_learning.pdf
+[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: 434801 | Reason: Text extraction threshold met (>= 20 chars)
+[Success] Parsing completed in 1.88s.
+
+Decomposed document into 15 structures:
+  - [FRONT_MATTER] "Practical Machine Learning" (678 words, 4 sections, pages 2ΓÇô6)
+  - [FRONT_MATTER] "About the authors" (997 words, 0 sections, pages 7ΓÇô9)
+  - [FRONT_MATTER] "Preface" (415 words, 0 sections, pages 10ΓÇô10)
+  - [FRONT_MATTER] "Acknowledgments" (182 words, 0 sections, pages 11ΓÇô11)
+  - [BACK_MATTER] "Glossary" (433 words, 0 sections, pages 12ΓÇô13)
+  - [CHAPTER] "Chapter 1: Fundamentals of machine learning" (4948 words, 25 sections, pages 14ΓÇô30)
+  - [CHAPTER] "Chapter 2: Mathematics for machine learning" (19724 words, 35 sections, pages 31ΓÇô88)
+  - [CHAPTER] "Chapter 3: Data preparation" (5764 words, 17 sections, pages 89ΓÇô107)
+  - [CHAPTER] "Chapter 4: Machine learning operations" (5305 words, 10 sections, pages 108ΓÇô122)
+  - [CHAPTER] "Chapter 5: Machine learning software and hardware requirements" (9550 words, 28 sections, pages 123ΓÇô150)
+  - [CHAPTER] "Chapter 6: Responsible AI and explainable AI" (5207 words, 14 sections, pages 151ΓÇô164)
+  - [CHAPTER] "Chapter 7: Artificial general intelligence" (3765 words, 9 sections, pages 165ΓÇô174)
+  - [CHAPTER] "Chapter 8: Machine learning step-by-step practical examples" (8684 words, 25 sections, pages 175ΓÇô219)
+  - [APPENDIX] "Appendix: Machine Learning R esources" (876 words, 0 sections, pages 220ΓÇô222)
+  - [INDEX] "Index" (2871 words, 0 sections, pages 223ΓÇô226)
+
+----------------------------------------------------------------
+Total structures: 15
+Body Chapters:    8
+Front Matter:     4
+Appendices:       1
+Indices:          1
+----------------------------------------------------------------
+
+[Check 1] Verifying exactly 8 body chapters...
+  Γ£ô Verified: exactly 8 body chapters detected!
+
+[Check 2] Verifying Chapter 1 & 2 full titles (no interleaved numbers)...
+  Found Chapter 1 title: "Chapter 1: Fundamentals of machine learning"
+  Found Chapter 2 title: "Chapter 2: Mathematics for machine learning"
+  Γ£ô Verified: Chapter 1 and Chapter 2 titles are cleanly reconstructed without interleaving!
+
+[Check 3] Verifying front matter, appendix, and index...
+  Γ£ô Verified: front matter, appendix, and index all detected!
+
+[Check 4] Verifying no bloated chapter exceeding 20,000 words...
+  Chapter "Chapter 1: Fundamentals of machine learning": 4948 words
+  Chapter "Chapter 2: Mathematics for machine learning": 19724 words
+  Chapter "Chapter 3: Data preparation": 5764 words
+  Chapter "Chapter 4: Machine learning operations": 5305 words
+  Chapter "Chapter 5: Machine learning software and hardware requirements": 9550 words
+  Chapter "Chapter 6: Responsible AI and explainable AI": 5207 words
+  Chapter "Chapter 7: Artificial general intelligence": 3765 words
+  Chapter "Chapter 8: Machine learning step-by-step practical examples": 8684 words
+  Γ£ô Verified: all body chapters have reasonable word counts!
+
+================================================================
+Γ£¿ ALL BUILD 3B.1.9 PDFJS PARSER TESTS PASSED!
+================================================================
+
+=== build4_1_editorial_intelligence_test.js ===
+====================================================
+BUILD 4.1: EDITORIAL INTELLIGENCE VERIFICATION SUITE
+====================================================
+
+[SectionFilter] Filtered "Byline: Written by John Doe" (s1): author_metadata
+[SectionFilter] Filtered "Byline: Written by John Doe" (s1): author_metadata
+[SectionFilter] Filtered "Published Date" (s2): date_metadata
+[SectionFilter] Filtered "Published Date" (s2): date_metadata
+[SectionFilter] Filtered "Bibliography and Works Cited" (s3): bibliography
+[SectionFilter] Filtered "Bibliography and Works Cited" (s3): bibliography
+[SectionFilter] Filtered "Navigation Menu" (s4): insufficient_content
+[SectionFilter] Filtered "Navigation Menu" (s4): insufficient_content
+[SectionFilter] Filtered "Subscribe to Newsletter" (s5): insufficient_content
+[SectionFilter] Filtered "Subscribe to Newsletter" (s5): insufficient_content
+[SectionFilter] Filtered "Sign In / Register" (s6): insufficient_content
+[SectionFilter] Filtered "Sign In / Register" (s6): insufficient_content
+[SectionFilter] Filtered "---" (s7): separator
+[SectionFilter] Filtered "---" (s7): separator
+[SectionFilter] Filtered "Tiny Stub" (s8): insufficient_content
+[SectionFilter] Filtered "Tiny Stub" (s8): insufficient_content
+├ó┼ôΓÇ£ Test 1: sectionFilter excludes author/date/bibliography/navigation/etc.
+├ó┼ôΓÇ£ Test 2: sectionFilter preserves academic/content sections even with academic-sounding titles
+├ó┼ôΓÇ£ Test 3: redundancyDetector groups 'Introduction' + 'Introduction' + 'Overview' into one cluster
+├ó┼ôΓÇ£ Test 4: redundancyDetector does NOT force unrelated sections into clusters
+├ó┼ôΓÇ£ Test 5: editorialPlanner output schema is valid
+[EditorialPlanner] Discarded invalid/invented sourceSectionId: "fake-hallucinated-id-999"
+├ó┼ôΓÇ£ Test 6: every sourceSectionId in planner output exists in input. Invalid IDs are discarded.
+├ó┼ôΓÇ£ Test 7: planner selects organizationStrategy='thematic' for multi-source dossier
+├ó┼ôΓÇ£ Test 8: planner selects organizationStrategy='chronological' for narrative content
+├ó┼ôΓÇ£ Test 9: planner produces 5├óΓé¼ΓÇ£10 chapters for a synthetic 40-section dossier
+├ó┼ôΓÇ£ Test 10: planner does NOT produce one chapter per source section
+├ó┼ôΓÇ£ Test 11: planner fails honestly (status='failed') when AI returns invalid JSON
+[SynthesisService] Assessed target words (180) exceeds ceiling of 150 (source_words * 0.15). Clamping to 150.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+├ó┼ôΓÇ£ Test 12: regeneration invalidates stale representations
+├ó┼ôΓÇ£ Test 13: regeneration preserves original source material
+
+====================================================
+RESULTS: 13 passed, 0 failed
+====================================================
+
+=== build4_2a_planner_test.js ===
+≡ƒº¬ Running Build 4.2a Content-Aware Editorial Planner Tests...
+
+Test 1: Planner receives actual content excerpts (not just metadata)
+  Γ£ô Test 1 passed: candidate sections contain substantive prose excerpts (388 and 286 chars).
+
+Test 2: Planner assigns targetWordCount between 1500 and 3000 for a substantial chapter
+  Substantial chapter budget computed: 360 words (from 4200 raw words)
+  Γ£ô Test 2 passed: Substantial chapter assigned appropriate targetWordCount.
+
+Test 3: Planner assigns a shorter targetWordCount for a thin chapter (< 500 words available)
+  Thin chapter budget computed: 180 words (from 200 raw words)
+  Medium-thin budget computed: 300 words (from 2000 raw words)
+  Γ£ô Test 3 passed: Thin chapter assigned shorter targetWordCount down to minimum 180 words.
+
+Test 4: Invalid sourceSectionIds in LLM output are discarded and logged
+  Γ£ô Test 4 passed: Hallucinated section IDs discarded and logged.
+
+Test 5: LLM failure returns { status: "failed" } ΓÇö no deterministic fallback
+  Γ£ô Test 5 passed: AI failure and invalid JSON return { status: "failed" } without silent fallback.
+
+Test 6: Empty chapters (no valid sourceSectionIds) are discarded
+  Γ£ô Test 6 passed: Empty chapters with zero valid source sections discarded.
+
+Test 7: Existing multi-source dossier produces a coherent outline (smoke test)
+  Smoke test generated 5 chapters with target word counts: 180, 180, 180, 180, 180
+  Γ£ô Test 7 passed: Multi-source outline smoke test succeeded.
+
+≡ƒÄë ALL BUILD 4.2a PLANNER TESTS PASSED!
+
+
+=== build4_2bc_single_book_test.js ===
+≡ƒº¬ Running Build 4.2b/c Single-Book Smart Reading Tests...
+
+Created test book: book-1791041503905-6dgoi
+Test 1: Single-book outline generation
+  Γ£ô Test 1 passed: Generated outline with 1 chapters, type: single_book
+
+Test 2: Single-book outline retrieval
+  Γ£ô Test 2 passed: Retrieved outline by bookId successfully.
+
+Test 3: Idempotency of outline generation
+  Γ£ô Test 3 passed: Generation is idempotent.
+
+Test 4: Single-book chapter synthesis
+[SynthesisService] Assessed target words (180) exceeds ceiling of 150 (source_words * 0.15). Clamping to 150.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+  Γ£ô Test 4 passed: Synthesized chapter with synthesis_type=single_book and book_id set.
+
+Test 5: Provenance mapping preserved in representation
+  Γ£ô Test 5 passed: Provenance has 6 grounded chunk IDs.
+
+Test 6: Outline and representation deletion cleanup
+  Γ£ô Test 6 passed: Deleted outline and all associated smart chapters cleanly.
+
+Test 7: Multi-source outline isolation
+  Γ£ô Test 7 passed: Multi-source outline retains type multi_source.
+
+≡ƒÄë ALL BUILD 4.2b/c SINGLE-BOOK SMART READING TESTS PASSED!
+
+
+=== build4_editorial_synthesis_test.js ===
+≡ƒº¬ Starting Build 4: Cross-Source Intelligence & Editorial Synthesis Verification...
+
+Using sources for cross-source testing:
+  Book 1: "Cross-Source Test Book 1 1791041515186" (book-1791041515186-nqxfa)
+  Book 2: "Cross-Source Test Book 2 1791041515187" (book-1791041515187-3gxa2)
+
+Test 1: Cross-source retrieval returns relevant chunks from >= 2 different books
+  Retrieved 2 chunks spanning books: book-1791041515186-nqxfa, book-1791041515187-3gxa2
+  Γ£ô Test 1 passed: Cross-source retrieval returned chunks from multiple sources.
+
+Test 2: Editorial outline maps chapters to source sections from >= 2 books
+  Outline mapped 4 source sections across books: book-1791041515186-nqxfa, book-1791041515187-3gxa2
+  Γ£ô Test 2 passed: Editorial outline successfully mapped sections across multiple books.
+
+Test 3 & 4: Synthesized chapter contains grounded content and provable provenance
+[SynthesisService] Assessed target words (180) exceeds ceiling of 150 (source_words * 0.15). Clamping to 150.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+  Verified 4 provable source chunk IDs in database
+  Γ£ô Test 3 & 4 passed: Synthesized chapter has grounded content and valid, provable provenance.
+
+Test 5: Deletion cascade: deleting an outline cleans up associated smart chapters
+  Γ£ô Test 5 passed: Outline deletion cascade successfully cleaned up outline and all associated smart chapters.
+
+≡ƒÄë ALL BUILD 4 CROSS-SOURCE INTELLIGENCE & EDITORIAL SYNTHESIS TESTS PASSED!
+
+
+=== build4_4_progressive_synthesis_test.js ===
+================================================================
+├░┼╕┼íΓé¼ RUNNING BUILD 4.4 PROGRESSIVE SMART CHAPTER SYNTHESIS TESTS
+================================================================
+
+Test 1: synthesizeNextChapters validation
+  ├ó┼ôΓÇ£ Verified: Invalid counts (0, 2, 7, 11, "three", null, -1) correctly rejected.
+Test 2: synthesizeNextChapters on book with no outline
+  ├ó┼ôΓÇ£ Verified: Throws clear error when no outline exists for book.
+Test 3: Auto-synthesis on import
+[Import] Indexing book-1791041519405-3dwzb...
+  Imported test book: book-1791041519405-3dwzb (6 chapters, 10062 words)
+[Import] Indexed book-1791041519405-3dwzb
+[Import] Classifying book-1791041519405-3dwzb...
+[Import] Generating outline for book-1791041519405-3dwzb...
+[Import] Generating synopsis for book-1791041519405-3dwzb...
+[Synopsis Compression] Building abstract from preface + TOC + samples...
+[Synopsis Compression] Ready in 15ms
+--- SYNOPSIS COMPRESSION PROMPT ---
+You are preparing a synopsis for a book ΓÇö a concise, high-quality abstract that gives a reader an accurate sense of what the book is about, how it's structured, and what reading it feels like.
+
+INPUTS PROVIDED:
+
+Author's preface (their own framing of the book)
+
+Table of contents
+
+Opening paragraphs of the first body chapter
+
+Opening paragraphs of the last body chapter
+
+OUTPUT: 200ΓÇô300 words. Hard bounds: 180 minimum, 320 maximum.
+
+Structure:
+
+Core subject ΓÇö one or two sentences stating what the book is about.
+
+Scope and approach ΓÇö what the book covers, how it treats its subject, who it is for.
+
+Content landscape ΓÇö one or two sentences on what the interior is like: dense or accessible, exercises or arguments, case studies or theory, structure of the chapters.
+
+What reading it feels like ΓÇö one sentence, like a short review. e.g. "Reads like a working engineer's notebook ΓÇö terse, technical, and confident."
+
+Rules:
+
+Compress. Do not pad. Every sentence must carry information.
+
+Do not invent details not present in the inputs.
+
+Do not open with narrative framing ("This book representsΓÇª").
+
+Do not list chapters or restate the TOC as a list.
+
+Do not summarize the preface ΓÇö describe the book.
+
+If the inputs are insufficient for a full synopsis, close with one honest line: "[PARTIAL: inputs insufficient for full synopsis]".
+
+INPUTS:
+(None provided)
+
+TOC:
+(None provided)
+
+CHAPTER 1 OPENING:
+(None provided)
+
+LAST CHAPTER OPENING:
+[Section: Chapter 5: Evaluation Metrics and Production Monitoring]
+
+OUTPUT:
+-----------------------------------
+[aiRetryGuard] [Synopsis] | attempt 1 | words: 78 (bounds [180, 320]) | violation: word_count | retried: false
+[aiRetryGuard] [Synopsis] | attempt 2 | words: 245 (bounds [180, 320]) | violation: none | retried: true
+[Import] Auto-synthesizing initial chapters for book-1791041519405-3dwzb...
+[Synthesis] Generating chapter: Part 1: Chapter 1: Introduction to Scalable Intelligence
+[Synthesis] Generating chapter: Part 2: Chapter 2: Mathematics for Large-Scale Optimization
+[SynthesisService] Assessed target words (350) exceeds ceiling of 303 (source_words * 0.15). Clamping to 303.
+[SynthesisService] Assessed target words (350) exceeds ceiling of 302 (source_words * 0.15). Clamping to 302.
+[aiRetryGuard] [Smart Chapter smart-book-1791041519405-3dwzb-ch-2] | attempt 1 | words: 271 (bounds [242, 362]) | violation: none | retried: false
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[Synthesis] Generating chapter: Part 3: Chapter 3: Data Preparation and Cleansing Pipelines
+[aiRetryGuard] [Smart Chapter smart-book-1791041519405-3dwzb-ch-1] | attempt 1 | words: 416 (bounds [242, 364]) | violation: word_count | 
+retried: false
+[SynthesisService] AI generation fallback: OpenRouter summarization failed: OpenRouter model returned an empty response.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] Assessed target words (350) exceeds ceiling of 302 (source_words * 0.15). Clamping to 302.
+[aiRetryGuard] [Smart Chapter smart-book-1791041519405-3dwzb-ch-3] | attempt 1 | words: 309 (bounds [242, 362]) | violation: none | retried: false
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[Import] Auto-synthesized 3/3 chapters for book-1791041519405-3dwzb
+  ├ó┼ôΓÇ£ Verified: Outline auto-created and first 3 chapters auto-synthesized in background (3/5).
+  ├ó┼ôΓÇ£ Verified: Outline auto-created and first 3 chapters auto-synthesized in background (3/5) in 77.3s.
+Test 4: Progress tracking reflects idle -> generating -> idle
+  ├ó┼ôΓÇ£ Verified: Progress idle state confirmed with total=5, synthesized=3, remaining=2.
+Test 5: synthesizeNextChapters generates next chapters sequentially
+[Synthesis] Generating chapter: Part 4: Chapter 4: Distributed Training and Model Parallelism
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+  ├ó┼ôΓÇ£ Verified: Synthesized next chapter "Part 4: Chapter 4: Distributed Training and Model Parallelism" (Total synthesized: 4/5).
+Test 6: Idempotency and duplicate prevention
+[Synthesis] Generating chapter: Part 5: Chapter 5: Evaluation Metrics and Production Monitoring
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+  ├ó┼ôΓÇ£ Verified: Idempotent progression without duplicate representation generation.
+Test 7: Count exceeding remaining chapters
+  ├ó┼ôΓÇ£ Verified: Requesting count beyond remaining chapters terminates gracefully without error.
+Test 8: Real AI / fast:false path test
+[SynthesisService] Chapter smart-book-1791041519405-3dwzb-ch-1 not pending or already claimed; skipping
+  [Notice] AI provider execution warning: Representation must be saved. (safe fallback preserved).
+
+================================================================
+├░┼╕┼╜ΓÇ░ ALL BUILD 4.4 PROGRESSIVE SYNTHESIS TESTS PASSED!
+================================================================
+
+[AttributionArbiter] C.top1: 0.6606, C.margin: 0.0426, resolved method: b_arbitrated
+[AttributionArbiter] C.top1: 0.5688, C.margin: 0.0179, resolved method: c_verified_by_a
+[AttributionArbiter] C.top1: 0.6269, C.margin: 0.0465, resolved method: b_arbitrated
+[AttributionArbiter] C.top1: 0.6228, C.margin: 0.0177, resolved method: c_verified_by_a
+[AttributionArbiter] C.top1: 0.7053, C.margin: 0.0000, resolved method: c_verified_by_a
+[AttributionArbiter] C.top1: 0.5191, C.margin: 0.0000, resolved method: c_verified_by_a
+[AttributionArbiter] C.top1: 0.5518, C.margin: 0.0000, resolved method: b_arbitrated
+[AttributionArbiter] C.top1: 0.8904, C.margin: 0.0000, resolved method: b_arbitrated
+[AttributionArbiter] C.top1: 0.9175, C.margin: 0.0000, resolved method: c_verified_by_a
+[AttributionArbiter] C.top1: 0.8864, C.margin: 0.0000, resolved method: c_verified_by_a
+[AttributionArbiter] C.top1: 0.8978, C.margin: 0.0000, resolved method: b_arbitrated
+[AttributionArbiter] C.top1: 0.9194, C.margin: 0.0000, resolved method: b_arbitrated
+[AttributionArbiter] C.top1: 0.8761, C.margin: 0.0000, resolved method: b_arbitrated
+[Import] Provenance verified for book-1791041519405-3dwzb: 3 chapter(s)
+
+=== build4_5_bge_migration_test.js ===
+================================================================
+≡ƒÜÇ RUNNING BUILD 4.5 BGE-M3 (1024d) EMBEDDINGS & MIGRATION TESTS
+================================================================
+
+[Test 1] Verifying embed("hello world") produces 1024 dimensions
+  Γ£ô embed("hello world") returned 1024d vector (dims: 1024, length: 1024).
+
+[Test 2] Verifying embed(["a","b","c"]) produces shape [3, 1024]
+  Γ£ô Batch shape verified: [3, 1024].
+
+[Test 3] Verifying passage retrieval: relevant > unrelated
+  sim(query, relevant passage):   0.7249
+  sim(query, unrelated passage):  0.3154
+  separation gap:                 0.4095
+  Γ£ô Passage retrieval separation verified.
+
+[Test 4] Verifying cross-lingual retrieval: sim("neural network", "πâïπâÑπâ╝πâ⌐πâ½πâìπââπâêπâ»πâ╝πé»") > 0.5
+  sim("neural network", "πâïπâÑπâ╝πâ⌐πâ½πâìπââπâêπâ»πâ╝πé»"): 0.6636
+  Γ£ô Cross-lingual test passed.
+
+[Test 5] Verifying stale 256d vectors are rejected / not silently used
+  Γ£ô Stale 256d vectors are rejected during search and re-embedded during indexing.
+
+[Test 6] Verifying warmup() resolves cleanly without throwing
+  Γ£ô warmup() resolved successfully in 0ms.
+
+================================================================
+≡ƒÄë ALL BUILD 4.5 BGE-M3 EMBEDDING & MIGRATION TESTS PASSED!
+================================================================
+
+=== build4_14_eval_harness_test.js ===
+================================================================
+≡ƒÜÇ RUNNING BUILD 4.14: COMPRESSION EVALUATION HARNESS
+================================================================
+
+[Target] Evaluating book: book-fixture-b ("Practical Machine Learning and Distributed Systems")
+[Found] 5 generated smart chapter(s).
+
+  [Ch 1] "Consensus Architectures in Modern Distributed Clusters": 97 words, 679 source words (ratio: 7:1, 2 source chunks)
+    ΓÜá∩╕Å  Outlier: Word count 97 outside hard bounds [180, 450]
+  [Ch 2] "Leader Election and Replicated Log State Machines": 87 words, 609 source words (ratio: 7:1, 2 source chunks)
+    ΓÜá∩╕Å  Outlier: Word count 87 outside hard bounds [180, 450]
+  [Ch 3] "Partitioning Topologies and Hash-Ring Sharding": 87 words, 609 source words (ratio: 7:1, 2 source chunks)
+    ΓÜá∩╕Å  Outlier: Word count 87 outside hard bounds [180, 450]
+  [Ch 4] "Vector Clocks and Temporal Ordering in Partitioned Networks": 83 words, 581 source words (ratio: 7:1, 2 source chunks)
+    ΓÜá∩╕Å  Outlier: Word count 83 outside hard bounds [180, 450]
+  [Ch 5] "Byzantine Fault Tolerance and Quorum Protocols": 74 words, 518 source words (ratio: 7:1, 2 source chunks)
+    ΓÜá∩╕Å  Outlier: Word count 74 outside hard bounds [180, 450]
+
+[Report] Evaluation written to C:\My Personal Folders\Projects to work on\Antigravity Projects\Smart-Reader\tmp\eval-report.json
+[Report Summary]: {
+  "minRatio": 7,
+  "maxRatio": 7,
+  "meanRatio": 7,
+  "minWords": 74,
+  "maxWords": 97
+}
+
+================================================================
+≡ƒÄë COMPRESSION EVALUATION HARNESS PASSED
+================================================================
+
+
+=== build4_19_contract_test.js ===
+================================================================
+≡ƒÜÇ RUNNING BUILD 4.19: PRE-HYDRATION CONTRACT TEST
+================================================================
+
+[1/3] Validating Books schema contract...
+  Γ£ô Checked 8 book(s).
+[2/3] Validating Chapters schema contract & referential integrity...
+  Γ£ô Checked 18 chapter(s).
+[3/3] Validating Smart Chapters contract...
+  Γ£ô Checked 12 generated smart chapter(s).
+
+[Report] Contract evaluation written to C:\My Personal Folders\Projects to work on\Antigravity Projects\Smart-Reader\tmp\contract-report.json
+[Report Summary]: {
+  "counts": {
+    "books": 8,
+    "chapters": 18,
+    "representations": 12
+  },
+  "issuesCount": 0,
+  "warningsCount": 1,
+  "pass": true
+}
+
+ΓÜá∩╕Å  1 warning(s):
+  1. [book:book-fixture-b] Non-standard content_type: "technical" (expected one of novel, textbook, essay, paper, reference, memo, 
+article, other)
+
+================================================================
+≡ƒÄë PRE-HYDRATION CONTRACT TEST PASSED (0 ISSUES)
+================================================================
+
+
+=== build4_15_parser_stress_test.js ===
+================================================================
+≡ƒÜÇ RUNNING BUILD 4.15a: PDF PARSER STRESS TEST
+================================================================
+
+[Control] Verifying canonical baseline fixture: practical_machine_learning.pdf
+[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: 434801 | Reason: Text extraction threshold met (>= 20 chars)
+  Γ£ô Control parsed in 1826ms: 15 chapters, 69399 words, integrityStatus: valid
+
+[Stress] Testing fixture: two-column.pdf ("Deep Residual Learning (ResNet)")
+[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: 52532 | Reason: Text extraction threshold met (>= 20 chars)
+  Γ£ô Parsed cleanly in 237ms (800.2 KB)
+    Pages: 12, Chapters: 2, Words: 8877, Status: valid
+[Stress] Testing fixture: math-heavy.pdf ("NIST AES FIPS 197")
+[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: 68641 | Reason: Text extraction threshold met (>= 20 chars)
+  Γ£ô Parsed cleanly in 505ms (1156.7 KB)
+    Pages: 46, Chapters: 11, Words: 14288, Status: valid
+[Stress] Testing fixture: table-heavy.pdf ("Apple Inc. 10-K FY23")
+[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: 207309 | Reason: Text extraction threshold met (>= 20 chars)
+  Γ£ô Parsed cleanly in 701ms (697.4 KB)
+    Pages: 80, Chapters: 3, Words: 31893, Status: valid
+[Stress] Testing fixture: code-heavy.pdf ("Think Python 2e")
+[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: 380908 | Reason: Text extraction threshold met (>= 20 chars)
+  Γ£ô Parsed cleanly in 1434ms (899.8 KB)
+    Pages: 244, Chapters: 28, Words: 70145, Status: valid
+
+[Report] Stress test report written to C:\My Personal Folders\Projects to work on\Antigravity Projects\Smart-Reader\tmp\parser-stress-report.json
+[Report Summary]: {
+  "total": 4,
+  "passed": 4,
+  "failed": 0
+}
+
+================================================================
+≡ƒÄë PDF PARSER STRESS TEST PASSED (4/4 FIXTURES)
+================================================================
+
+
+=== build4_15b_front_matter_filter_test.js ===
+================================================================
+≡ƒÜÇ RUNNING BUILD 4.15b: FRONT/BACK MATTER FILTER TEST
+================================================================
+
+[Testing] Fixture: two-column.pdf ("Deep Residual Learning (ResNet)")
+[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: 52532 | Reason: Text extraction threshold met (>= 20 chars)
+  Γ£ô Processed in 587ms: 38 chunks, candidates: 38, filtered: 0
+    Role distribution: {"chapter":38}
+    Leaks: 0 (No excluded structural roles in candidates)
+
+[Testing] Fixture: math-heavy.pdf ("NIST AES FIPS 197")
+[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: 68641 | Reason: Text extraction threshold met (>= 20 chars)
+  Γ£ô Processed in 554ms: 54 chunks, candidates: 4, filtered: 0
+    Role distribution: {"front_matter":5,"chapter":4,"appendix":45}
+    Leaks: 0 (No excluded structural roles in candidates)
+
+[Testing] Fixture: table-heavy.pdf ("Apple Inc. 10-K FY23")
+[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: 207309 | Reason: Text extraction threshold met (>= 20 chars)
+  Γ£ô Processed in 667ms: 172 chunks, candidates: 168, filtered: 0
+    Role distribution: {"front_matter":4,"chapter":168}
+    Leaks: 0 (No excluded structural roles in candidates)
+
+[Testing] Fixture: code-heavy.pdf ("Think Python 2e")
+[Routing: Ingestion] Format: PDF | Decision: NODE_PARSER | SelectableChars: 380908 | Reason: Text extraction threshold met (>= 20 chars)
+  Γ£ô Processed in 1208ms: 335 chunks, candidates: 278, filtered: 0
+    Role distribution: {"front_matter":15,"chapter":278,"appendix":31,"index":11}
+    Leaks: 0 (No excluded structural roles in candidates)
+
+[Report] Front matter filter report written to C:\My Personal Folders\Projects to work on\Antigravity Projects\Smart-Reader\tmp\front-matter-report.json
+[Report Summary]: {
+  "total": 4,
+  "passed": 4,
+  "failed": 0
+}
+
+================================================================
+≡ƒÄë FRONT/BACK MATTER FILTER TEST PASSED (0 LEAKS)
+================================================================
+
+
+=== build5_1a_bibliographic_test.js ===
+=== build5_1a_bibliographic_test.js ===
+Test 1: Normalization of structured bibliographic JSON
+  Γ£ô Normalization handles types, trim, and ISO language mapping
+Test 2: Heuristic fallback on sample copyright text
+  Γ£ô Heuristic fallback correctly extracts publisher, year, ISBN, edition
+Test 3: Honest absence on 10-K document text
+  Γ£ô Heuristic fallback returns null for missing publisher, isbn, edition
+Test 4: Metadata merge into books.metadata_json
+  Γ£ô books.metadata_json.bibliographic merged without overwriting classification
+Test 5: bookClassifier.classifyBibliographic delegation
+  Γ£ô bookClassifier.classifyBibliographic delegates cleanly
+Test 6: Multi-author extraction updates books.author if Unknown Author
+  Γ£ô Multi-author formatting correctly populates books.author
+Test 7: Plural author rendering format invariants
+  Γ£ô Singular, two-author, and Oxford-comma plural formats verified
+
+All build5_1a bibliographic tests passed!
+
+
+=== build5_1b_provenance_test.js ===
+================================================================
+≡ƒÜÇ RUNNING BUILD 5.1b: PROVENANCE RESOLUTION CONTRACT TESTS
+================================================================
+
+Test 1: C.top1 >= 0.65, margin >= 0.10 -> "c_primary"
+[AttributionArbiter] C.top1: 0.8800, C.margin: 0.4300, resolved method: c_primary
+  Γ£ô Test 1: High C with decisive margin resolves to c_primary accepting C top-3.
+Test 2: C.top1 in [0.45, 0.65), A matches C -> "c_verified_by_a"
+[AttributionArbiter] C.top1: 0.5800, C.margin: 0.0600, resolved method: c_verified_by_a
+  Γ£ô Test 2: Medium C corroborated by Signal A resolves to c_verified_by_a.
+Test 3: C.top1 in [0.45, 0.65), A doesn't match C -> "b_arbitrated"
+[AttributionArbiter] C.top1: 0.5800, C.margin: 0.0800, resolved method: b_arbitrated
+  Γ£ô Test 3: Medium C with conflicting Signal A triggers Signal B arbitration.
+Test 4: C.top1 in [0.30, 0.45) -> "b_weak_c"
+[AttributionArbiter] C.top1: 0.3800, C.margin: 0.1000, resolved method: b_weak_c
+  Γ£ô Test 4: Low C similarity triggers b_weak_c with low confidence.
+Test 5: C.top1 < 0.30 -> "ungrounded"
+[AttributionArbiter] C.top1: 0.2200, C.margin: 0.0700, resolved method: ungrounded
+  Γ£ô Test 5: C.top1 < 0.30 marked ungrounded without firing B.
+Test 6: Database Persistence & AttributionRepository
+  Γ£ô AttributionRepository batch insert, retrieval, delete, and FK ON DELETE CASCADE confirmed.
+Test 7: End-to-End ProvenanceResolver Contract
+[AttributionArbiter] C.top1: 0.7683, C.margin: 0.2170, resolved method: c_primary
+[AttributionArbiter] C.top1: 0.6789, C.margin: 0.1632, resolved method: c_primary
+  Γ£ô End-to-end ProvenanceResolver verification and API contract passed cleanly.
+Test 8: Multi-chunk inclusion at ╬ö Γëñ 0.08
+[AttributionArbiter] C.top1: 0.8500, C.margin: 0.0500, resolved method: b_arbitrated
+  Γ£ô Multi-chunk inclusion at ╬ö Γëñ 0.08 verified: both chunks included in segment.chunk_ids.
+Test 9: Threshold exclusion at ╬ö > 0.08
+[AttributionArbiter] C.top1: 0.8500, C.margin: 0.1000, resolved method: c_primary
+  Γ£ô Threshold exclusion at ╬ö > 0.08 verified: secondary chunk excluded.
+Test 10: Single-sentence paragraph override (weights ΓëÑ 0.25)
+[AttributionArbiter] C.top1: 0.8000, C.margin: 0.1000, resolved method: c_primary
+  Γ£ô Single-sentence paragraph override verified: all 3 qualifying chunks populated in chunk_ids.
+Test 11: Single-sentence paragraph with a sub-threshold chunk
+[AttributionArbiter] C.top1: 0.8000, C.margin: 0.2000, resolved method: c_primary
+  Γ£ô Sub-threshold chunk exclusion verified: only weights >= 0.25 populated in chunk_ids.
+Test 12: Legacy attribution fallback in formatRow
+  Γ£ô Legacy attribution fallback verified: formatRow normalizes missing chunk_ids to [chunk_id].
+
+[Test 13] Multi-source paragraph with reranker scores attributes to >1 source
+[AttributionArbiter] C.top1: 0.6165, C.margin: 0.0046, resolved method: c_verified_by_a
+  Γ£à T13 passed: Reranker multi-source attribution resolves correctly.
+
+================================================================
+≡ƒÄë ALL BUILD 5.1b PROVENANCE CONTRACT TESTS PASSED!
+================================================================
+
+
+=== build5_3_library_split_test.js ===
+=== build5_3_library_split_test.js ===
+--- Phase 5.3 Library/Research Split Tests ---
+  ? Test 1: Library filter excludes books with no generated smart chapters
+  ? Test 2: getAllSources() includes the raw book
+  ? Test 3: A book WITH generated smart chapters appears in getAll(), while source-only book is excluded
+  ? Test 4: A book with a generated smart chapter appears in getAll()
+  ? Test 5: Regression guard -- a book with no generated smart chapters still does not appear in getAll()
+
+Split test summary: 5 passed, 0 failed.
+
+=== phase5_6_validation_test.js ===
+================================================================
+≡ƒÜÇ RUNNING PHASE 5.6 VALIDATION GUARDS & RETRY TESTS
+================================================================
+
+Test 1: Pre-LLM guard aborts when section IDs do not exist in semantic_chunks
+  Γ£ô Verified: Pre-LLM guard marked smart chapter failed with pre_llm_source_missing.
+
+Test 2: Pre-LLM guard aborts when chunk word count < MIN_SOURCE_CHUNK_WORDS
+  Γ£ô Verified: Pre-LLM guard marked smart chapter failed on insufficient chunk word count.
+
+Test 3: aiRetryGuard retries on word-count breach and succeeds when attempt 2 is in band
+[aiRetryGuard] [Test 3] | attempt 1 | words: 44 (bounds [180, 360]) | violation: word_count | retried: false
+[aiRetryGuard] [Test 3] | attempt 2 | words: 206 (bounds [180, 360]) | violation: none | retried: true
+  Γ£ô Verified: aiRetryGuard retried (attempt count: 2) and cleared violation.
+
+Test 4: aiRetryGuard catches structural placeholder text without sentence terminators
+[aiRetryGuard] [Test 4] | attempt 1 | words: 250 (bounds [180, 360]) | violation: structural_placeholder | retried: false
+[aiRetryGuard] [Test 4] | attempt 2 | words: 250 (bounds [180, 360]) | violation: structural_placeholder | retried: true
+  Γ£ô Verified: aiRetryGuard correctly identified structural_placeholder violation.
+
+Test 5: Auto-resynthesize on persistent violation exhausts attempts and marks chapter failed
+[SynthesisService] Phase A JSON parse failed: Unexpected token 'C', "Continuous"... is not valid JSON
+[SynthesisService] Assessed target words (250) exceeds ceiling of 150 (source_words * 0.15). Clamping to 150.
+[aiRetryGuard] [Smart Chapter smart-book-1791041644811-6mcan-ch-1] | attempt 1 | words: 450 (bounds [120, 180]) | violation: 
+structural_placeholder | retried: false
+[aiRetryGuard] [Smart Chapter smart-book-1791041644811-6mcan-ch-1] | attempt 2 | words: 450 (bounds [120, 180]) | violation: 
+structural_placeholder | retried: true
+[synthesisService] violation content preview: "Continuous distributed synchronization demands persistent verification of replication 
+state. Continu..."
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] Compression violation detected (structural_placeholder). Auto-resynthesizing chapter 
+smart-book-1791041644811-6mcan-ch-1 (attempt 1/2)...
+[SynthesisService] Phase A JSON parse failed: Unexpected token 'C', "Continuous"... is not valid JSON
+[SynthesisService] Assessed target words (250) exceeds ceiling of 150 (source_words * 0.15). Clamping to 150.
+[aiRetryGuard] [Smart Chapter smart-book-1791041644811-6mcan-ch-1] | attempt 1 | words: 450 (bounds [120, 180]) | violation: 
+structural_placeholder | retried: false
+[aiRetryGuard] [Smart Chapter smart-book-1791041644811-6mcan-ch-1] | attempt 2 | words: 450 (bounds [120, 180]) | violation: 
+structural_placeholder | retried: true
+[synthesisService] violation content preview: "Continuous distributed synchronization demands persistent verification of replication 
+state. Continu..."
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] Compression violation detected (structural_placeholder). Auto-resynthesizing chapter 
+smart-book-1791041644811-6mcan-ch-1 (attempt 2/2)...
+[SynthesisService] Phase A JSON parse failed: Unexpected token 'C', "Continuous"... is not valid JSON
+[SynthesisService] Assessed target words (250) exceeds ceiling of 150 (source_words * 0.15). Clamping to 150.
+[aiRetryGuard] [Smart Chapter smart-book-1791041644811-6mcan-ch-1] | attempt 1 | words: 450 (bounds [120, 180]) | violation: 
+structural_placeholder | retried: false
+[aiRetryGuard] [Smart Chapter smart-book-1791041644811-6mcan-ch-1] | attempt 2 | words: 450 (bounds [120, 180]) | violation: 
+structural_placeholder | retried: true
+[synthesisService] violation content preview: "Continuous distributed synchronization demands persistent verification of replication 
+state. Continu..."
+[SynthesisService] RERANKER_FALLBACK: NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.
+[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.
+[SynthesisService] Auto-resynthesis exhausted (2 attempts) on chapter smart-book-1791041644811-6mcan-ch-1. Marking status='failed'.
+  Γ£ô Verified: Auto-resynthesize made attempts and transitioned to status="failed" with fallback_reason="auto_resynthesis_exhausted" (AI calls: 9).
+
+Test 6: Chunker ΓÇö heading followed by large paragraph, no standalone heading chunk
+  Γ£ô Verified: Heading glued to content ΓÇö 1 chunk(s) produced, none standalone.
+
+Test 7: Post-pass merge combines a 40-word chunk with the next chunk
+  Γ£ô Verified: Post-pass merge produced 1 chunk(s), all >= 75 words.
+
+Test 8: Heading at chapter end merges backward into previous chunk
+  Γ£ô Verified: Trailing heading merged backward ΓÇö 1 chunk(s) produced.
+
+================================================================
+≡ƒÄë ALL PHASE 5.6 VALIDATION TESTS PASSED (8 tests)
+================================================================
+
+
+=== phase5_7_ocr_test.js ===
+================================================================
+≡ƒÜÇ RUNNING PHASE 5.7.1 OCR INTEGRATION & MOCK TEST SUITE
+================================================================
+
+[Setup] Ephemeral mock sidecar server listening on http://127.0.0.1:52933
+[Test 1] checkReady() returns { ready: true } on HTTP 200
+  Γ£ô T1 passed: checkReady() correctly returned { ready: true }
+
+[Test 2] checkReady() returns { ready: false, reason: "warming" } on HTTP 503
+  Γ£ô T2 passed: checkReady() correctly identified warming status on 503
+
+[Test 3] checkReady() returns { ready: false, reason: "down" } on connection failure
+  Γ£ô T3 passed: checkReady() cleanly returned { ready: false, reason: "down" }
+
+[Test 4] ocrPdf() sends multipart/form-data and receives parsed pages
+  Γ£ô T4 passed: ocrPdf() uploaded multipart payload and returned parsed pages
+
+[Test 5] ocrPdf() throws .code === "OCR_LANGUAGE_UNSUPPORTED" on 422 response
+  Γ£ô T5 passed: 422 response threw Error with code="OCR_LANGUAGE_UNSUPPORTED"
+
+[Test 6] ocrPdf() throws .code === "OCR_SIDECAR_UNAVAILABLE" when server is offline
+  Γ£ô T6 passed: offline server threw Error with code="OCR_SIDECAR_UNAVAILABLE"
+
+[Test 7] Parser integration: image-only PDF routes to OCR and returns pages
+Warning: Indexing all PDF objects
+[Routing: Ingestion] Format: PDF | Decision: PYTHON_OCR | SelectableChars: 0 | Reason: Scanned/image-only PDF (< 20 chars) | SidecarUrl: http://127.0.0.1:52933
+  Γ£ô T7 passed: parser invoked OCR sidecar, pageCount=2, chapters=2
+
+[Test 8] Parser integration: image-only PDF with sidecar down rejects honestly
+Warning: Indexing all PDF objects
+[Routing: Ingestion] Format: PDF | Decision: PYTHON_OCR | SelectableChars: 0 | Reason: Scanned/image-only PDF (< 20 chars) | SidecarUrl: http://127.0.0.1:59998
+[Routing: Ingestion] Format: PDF | Decision: OCR_FAILED_FALLBACK | Error: Sidecar service is not running or ready | Action: Rejecting 
+with honest failure
+  Γ£ô T8 passed: parser correctly rejected with honest-failure error message
+
+[Test 9] Parser integration: image-only PDF with empty OCR output rejects honestly
+Warning: Indexing all PDF objects
+[Routing: Ingestion] Format: PDF | Decision: PYTHON_OCR | SelectableChars: 0 | Reason: Scanned/image-only PDF (< 20 chars) | SidecarUrl: http://127.0.0.1:52933
+[Routing: Ingestion] Format: PDF | Decision: OCR_EMPTY_OUTPUT | SelectableChars: 0 | Action: Rejecting with honest failure
+  Γ£ô T9 passed: parser correctly rejected empty OCR output with honest failure and logged OCR_EMPTY_OUTPUT
+
+================================================================
+≡ƒÄë ALL 9 OCR INTEGRATION & MOCK TESTS PASSED
+================================================================
+
+
+=== phase5_7_2_nlp_test.js ===
+================================================================
+≡ƒÜÇ RUNNING PHASE 5.7.2 NLP INTEGRATION & MOCK TEST SUITE
+================================================================
+
+[Setup] Ephemeral mock sidecar server listening on http://127.0.0.1:52939
+[Test 1] /v1/nlp/split returns correct sentence spans with exact offset matching
+  Γ£ô T1 passed: sentence spans cleanly returned with exact offset matching
+
+[Test 2] /v1/nlp/split handles abbreviation-heavy text without erroneous fragmentation
+  Γ£ô T2 passed: abbreviations (Dr., D.C., p.m., Prof., e.g., etc.) preserved atomically
+
+[Test 3] /v1/nlp/chunk produces chunks respecting target_tokens bound
+  Γ£ô T3 passed: chunks adhere to target token bounds and carry chk-v2-* IDs
+
+[Test 4] Node nlpClient.splitSentences() returns structured output matching contract
+  Γ£ô T4 passed: modular and backward-compatible shim return contract-compliant sentences
+
+[Test 5] Node nlpClient.chunkBlocks() returns structured chunks matching contract
+  Γ£ô T5 passed: modular and backward-compatible shim return contract-compliant chunks
+
+[Test 6] Node nlpClient throws NLP_SIDECAR_UNAVAILABLE when sidecar is down
+  Γ£ô T6 passed: offline sidecar consistently throws code="NLP_SIDECAR_UNAVAILABLE"
+
+[Test 7] Node nlpClient.sliceSections() returns structured chunks matching contract
+  Γ£ô T7 passed
+
+[Test 8] Node nlpClient.sliceSections throws NLP_SIDECAR_UNAVAILABLE when sidecar is down
+  Γ£ô T8 passed
+
+[Test 9] editorialPlanner.sliceIntoSourceUnitsAsync uses JS fallback when sidecar is down
+  Γ£ô T9 passed
+
+[Test 10] nlpClient.rerankCandidates() returns scores with correct shape on 200
+  Γ£ô T10 passed: rerankCandidates returns scores with expected shape
+
+[Test 11] nlpClient.rerankCandidates() throws code RERANKER_WARMING on mock 503
+  Γ£ô T11 passed: throws RERANKER_WARMING on 503 response
+
+[Test 12] nlpClient.rerankCandidates() throws code NLP_PROCESSING_FAILED on mock 500
+  Γ£ô T12 passed: throws NLP_PROCESSING_FAILED on 500 response
+
+≡ƒÄë ALL 12 NLP INTEGRATION & MOCK TESTS PASSED
+
+=== phase5_7_2_embed_test.js ===
+================================================================
+≡ƒÜÇ RUNNING PHASE 5.7.2 EMBED INTEGRATION & MOCK TEST SUITE
+================================================================
+
+[Setup] Ephemeral mock sidecar server listening on http://127.0.0.1:52945
+[Test 1] embedClient.embedBatch returns correctly shaped response on 200
+  Γ£ô T1 passed: embedClient.embedBatch correct behavior
+
+[Test 2] embedClient retries on first 503 EMBED_MODEL_WARMING, then succeeds
+  Γ£ô T2 passed: retry on warming works
+
+[Test 3] embedClient throws .code === EMBED_MODEL_UNAVAILABLE when sidecar is down
+  Γ£ô T3 passed: offline throws EMBED_MODEL_UNAVAILABLE
+
+[Test 4] embedClient throws .code === EMBED_PROCESSING_FAILED on mock 500
+  Γ£ô T4 passed: 500 throws EMBED_PROCESSING_FAILED
+
+[Test 5] bgeEmbeddingProvider.getName() returns Node Xenova string when flag is false
+  Γ£ô T5 passed: getName() responds correctly based on config
+
+[Test 6] pythonSidecarClient.embedBatch is identical to embedClient.embedBatch
+  Γ£ô T6 passed: shim integrity verified
+
+================================================================
+≡ƒÄë ALL 6 EMBED INTEGRATION & MOCK TESTS PASSED
+================================================================
+
+
+=== phase5_7_2_parallel_test.js ===
+=== phase5_7_2_parallel_test.js ===
+PASSED 6/6 cases
+
+ALL 26 SUITES PASS

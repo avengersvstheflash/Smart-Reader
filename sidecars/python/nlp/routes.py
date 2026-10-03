@@ -16,15 +16,53 @@ _is_warming = False
 def _load_reranker_worker():
     global _reranker, _is_warming
     try:
+        import torch
         from sentence_transformers import CrossEncoder
-        model = CrossEncoder("BAAI/bge-reranker-v2-m3")
+
+        # 5.8.0i: prefer GPU when available. Cross-encoder on CPU is 20-50x
+        # slower than GPU. Auto-detect so the same sidecar works on both.
+        if torch.cuda.is_available():
+            device = "cuda"
+            gpu_name = torch.cuda.get_device_name(0)
+            print(f"[Warmup] Reranker using GPU: {gpu_name}")
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            device = "mps"
+            print("[Warmup] Reranker using Apple Metal (MPS)")
+        else:
+            device = "cpu"
+            print("[Warmup] Reranker using CPU (no GPU detected — expect slower inference)")
+
+        model = CrossEncoder("BAAI/bge-reranker-v2-m3", device=device)
+
+        # 5.8.0i: run a dummy scoring pass to trigger JIT/kernel compilation
+        # and lazy memory allocation. Without this, the FIRST real call is
+        # slow on both CPU and GPU (cuda kernel JIT, memory arena setup).
+        _ = model.predict([("warmup query", "warmup passage")])
+
         with _reranker_lock:
             _reranker = model
             _is_warming = False
+        print(f"[Warmup] BGE reranker ready on {device} (warmup inference complete)")
     except Exception as e:
         print(f"[NLP Error] Reranker warmup failed: {e}", file=sys.stderr)
         with _reranker_lock:
             _is_warming = False
+
+
+def start_reranker_warmup():
+    """
+    5.8.0i: Kick off reranker model loading in a background thread at sidecar boot.
+    Prevents the 503 RERANKER_WARMING window during early synthesis calls.
+    Safe to call multiple times — no-op if the model is already loaded or loading.
+    """
+    global _is_warming
+    with _reranker_lock:
+        if _reranker is not None or _is_warming:
+            return
+        _is_warming = True
+    print("[Warmup] Starting BGE reranker (bge-reranker-v2-m3) background warm-up...")
+    threading.Thread(target=_load_reranker_worker, daemon=True).start()
+
 
 class RerankCandidate(BaseModel):
     id: str
@@ -164,7 +202,15 @@ class SliceRequest(BaseModel):
 @router.post("/v1/nlp/slice")
 async def nlp_slice(req: SliceRequest):
     """
-    Slices candidate sections into evenly distributed source units of ~7,000-10,000 words.
+    Slices candidate sections into evenly distributed source units of ~1,500-2,500 words.
+
+    Product vision: source processing unit = 1,500-2,500 words. Omni Chapter output
+    target = 250-360 words, giving ~7:1 compression.
+
+    History: Phase 5.7.2 Session 2b (2026-10-01) introduced a dynamic chapter budget
+    for sources >=5000 words but mis-set the target to 8,500 words with a hard cap of
+    8 units, producing 8,500-word source units and thus 4-6:1 effective ratios.
+    5.8.0b/c (2026-10-03) corrects this to a unified 2,000-word target.
     """
     try:
         sections = req.sections
@@ -268,11 +314,10 @@ async def nlp_slice(req: SliceRequest):
         if W < 3000 or len(sections) <= 1:
             return {"units": [{"sections": sections, "wordCount": W}]}
 
-        if W < 12000:
-            N = max(1, min(len(sections), round(W / 2000.0)))
-        else:
-            target_words_per_unit = 8500
-            N = max(5, min(8, min(len(sections), round(W / target_words_per_unit))))
+        # 5.8.0b/c: product vision targets 1,500-2,500-word source units.
+        # Unified target of 2,000 words; upper bound is naturally len(sections).
+        target_words_per_unit = 2000
+        N = max(1, min(len(sections), round(W / target_words_per_unit)))
 
         if N <= 1:
             return {"units": [{"sections": sections, "wordCount": W}]}
@@ -421,4 +466,3 @@ async def nlp_rerank(req: RerankRequest):
                 "message": str(err)
             }
         )
-

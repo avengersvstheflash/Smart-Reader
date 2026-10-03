@@ -7,7 +7,7 @@ class BookRepository {
       SELECT b.*, 
         (SELECT COUNT(*) FROM smart_chapters sc WHERE sc.book_id = b.id) as chapter_count,
         (SELECT COUNT(*) FROM smart_chapters sc WHERE sc.book_id = b.id AND sc.read_at IS NOT NULL) as read_chapter_count,
-        (SELECT COALESCE(SUM(sc.planned_word_count), 0) FROM smart_chapters sc WHERE sc.book_id = b.id) as total_words
+        (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
       FROM books b
       WHERE b.status != 'failed'
         AND EXISTS (
@@ -40,7 +40,7 @@ class BookRepository {
         SELECT b.*, 
           (SELECT COUNT(*) FROM smart_chapters sc WHERE sc.book_id = b.id) as chapter_count,
           (SELECT COUNT(*) FROM smart_chapters sc WHERE sc.book_id = b.id AND sc.read_at IS NOT NULL) as read_chapter_count,
-          (SELECT COALESCE(SUM(sc.planned_word_count), 0) FROM smart_chapters sc WHERE sc.book_id = b.id) as total_words
+          (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
         FROM books b
         WHERE b.id = ?
       `).get(id);
@@ -129,32 +129,21 @@ class BookRepository {
   delete(id) {
     const db = getDatabase();
     const deleteTransaction = db.transaction((bookId) => {
-      // 1. Delete associated semantic chunks
       db.prepare('DELETE FROM semantic_chunks WHERE book_id = ?').run(bookId);
-
-      // 2. Delete associated supporting materials
       db.prepare('DELETE FROM book_supporting_materials WHERE book_id = ?').run(bookId);
-
-      // 3. Delete associated smart chapters and chapter representations
       db.prepare('DELETE FROM smart_chapters WHERE book_id = ?').run(bookId);
       db.prepare(`
         DELETE FROM chapter_representations 
         WHERE book_id = ? OR chapter_id IN (SELECT id FROM chapters WHERE book_id = ?)
       `).run(bookId, bookId);
 
-      // Invalidate cross-source representations with orphaned chunk provenance
       try {
         const synthesisService = require('../services/synthesis/synthesisService');
         synthesisService.invalidateOutdatedRepresentations();
       } catch {}
 
-      // 4. Delete associated processing jobs
       db.prepare('DELETE FROM processing_jobs WHERE book_id = ?').run(bookId);
-
-      // 5. Delete associated chapters
       db.prepare('DELETE FROM chapters WHERE book_id = ?').run(bookId);
-
-      // 6. Delete the book record
       const result = db.prepare('DELETE FROM books WHERE id = ?').run(bookId);
       return result.changes > 0;
     });

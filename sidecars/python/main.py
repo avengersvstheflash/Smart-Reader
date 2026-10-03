@@ -14,7 +14,7 @@ from fastapi import FastAPI
 import uvicorn
 
 from ocr.routes import router as ocr_router, start_ocr_warmup, is_ocr_ready
-from nlp.routes import router as nlp_router
+from nlp.routes import router as nlp_router, start_reranker_warmup
 from embed.routes import router as embed_router
 from parse.routes import router as parse_router
 
@@ -28,6 +28,9 @@ app.include_router(parse_router)
 @app.on_event("startup")
 def on_startup():
     start_ocr_warmup()
+    # 5.8.0i: warm the BGE reranker at boot so early synthesis calls
+    # don't pay the 503 RERANKER_WARMING penalty during import.
+    start_reranker_warmup()
 
 @app.get("/v1/health")
 def health_check():

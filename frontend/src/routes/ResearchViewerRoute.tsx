@@ -9,41 +9,92 @@ import { apiClient } from '../api/client';
 import type { Chapter, CanonicalBlock as CanonicalBlockType } from '../types/domain';
 
 // ---------------------------------------------------------------------------
-// ResearchViewerRoute ? Phase 5.3b.1
+// ResearchViewerRoute — Phase 5.3b.1 / 5.8.0h.1
 // Paper-style source viewer. Shows raw canonical blocks (no Smart content).
-// Receives optional ?highlight=chk-X, resolves chunk to chapter + sequence.
-// Return arrow reads location.state?.returnTo, falls back to /research.
+// Receives ?highlight=chk-A[,chk-B,chk-C], resolves each chunk to its real
+// canonical block IDs (blk-...), and highlights every matching block.
+//
+// History: pre-5.8.0h this used `chunk.sequence` — which is a semantic-chunk
+// counter, NOT a canonical-block render index. Chunk sequence 47 pointed at
+// `block-47` which either didn't exist or mapped to unrelated content. The
+// fix is to resolve via the chunk's canonical_json block IDs.
 // ---------------------------------------------------------------------------
+
+type CanonicalBlockShape = {
+  id?: string;
+  type?: string;
+  blocks?: CanonicalBlockShape[];
+};
+
+type ChunkApiResponse = {
+  id: string;
+  bookId: string;
+  chapterId: string | null;
+  sequence: number | null;
+  textContent: string;
+  canonicalBlock?: CanonicalBlockShape | null;
+  sourcePage?: number | null;
+};
+
+/**
+ * 5.8.0h.1: a chunk's canonical_json is polymorphic — either a single block
+ * ({ id, type, text }) or a composite ({ type: 'composite', blocks: [...] }).
+ * Flatten to a list of block IDs that the Research viewer can match against
+ * rendered `data-block-id` attributes.
+ */
+function extractBlockIds(canonicalBlock?: CanonicalBlockShape | null): string[] {
+  if (!canonicalBlock) return [];
+  if (canonicalBlock.type === 'composite' && Array.isArray(canonicalBlock.blocks)) {
+    return canonicalBlock.blocks
+      .map((b) => b?.id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+  }
+  if (typeof canonicalBlock.id === 'string' && canonicalBlock.id.length > 0) {
+    return [canonicalBlock.id];
+  }
+  return [];
+}
 
 interface ChapterPanelProps {
   chapterId: string;
-  highlightSequence: number | null;
+  // 5.8.0h.1: real canonical block IDs (blk-...), not chunk sequences.
+  highlightBlockIds: string[];
   reducedMotion: boolean;
 }
 
-function ChapterPanel({ chapterId, highlightSequence, reducedMotion }: ChapterPanelProps) {
+function ChapterPanel({ chapterId, highlightBlockIds, reducedMotion }: ChapterPanelProps) {
   const { chapter, isLoading, isError } = useChapter(chapterId);
   const didScrollRef = useRef(false);
 
-  // Highlight scroll effect ? fires once per chapter load.
+  // Highlight scroll effect — fires once per chapter mount.
   useEffect(() => {
-    if (highlightSequence === null || highlightSequence === undefined || isLoading || isError || !chapter) return;
+    if (!highlightBlockIds || highlightBlockIds.length === 0) return;
+    if (isLoading || isError || !chapter) return;
     if (didScrollRef.current) return;
 
-    // Give the DOM a tick to render, then find the block element.
     const raf = requestAnimationFrame(() => {
-      const el = document.getElementById(`block-${highlightSequence}`);
+      let firstEl: HTMLElement | null = null;
 
-      if (el) {
-        el.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
-        el.classList.add('research-block-highlighted');
+      for (const bid of highlightBlockIds) {
+        const el = document.querySelector(`[data-block-id="${bid}"]`) as HTMLElement | null;
+        if (el) {
+          el.classList.add('research-block-highlighted');
+          if (!firstEl) firstEl = el;
+        }
+      }
+
+      if (firstEl) {
+        firstEl.scrollIntoView({
+          behavior: reducedMotion ? 'auto' : 'smooth',
+          block: 'center',
+        });
         didScrollRef.current = true;
       }
-      // If not found: no scroll, no throw ? silent per spec.
+      // If nothing matched: silent per spec.
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [highlightSequence, isLoading, isError, chapter, reducedMotion]);
+  }, [highlightBlockIds, isLoading, isError, chapter, reducedMotion]);
 
   if (isLoading) {
     return (
@@ -73,10 +124,14 @@ function ChapterPanel({ chapterId, highlightSequence, reducedMotion }: ChapterPa
     <article className="prose prose-reader max-w-none research-prose text-ink">
       {blocks.map((block, idx) => {
         const blockId = `block-${idx}`;
+        const realBlockId = (block as { id?: string }).id;
         return (
           <div
             key={blockId}
             id={blockId}
+            // 5.8.0h.1: expose the block's real ID so highlight resolution
+            // can match on it. Falls back to nothing when the block has no id.
+            data-block-id={realBlockId || undefined}
             className="research-block"
           >
             <CanonicalBlock block={block} />
@@ -122,18 +177,19 @@ export default function ResearchViewerRoute() {
   const [searchParams] = useSearchParams();
   const reducedMotion = useReducedMotion();
 
-  // Return destination: router state first, then /research fallback.
   const returnTo = (location.state as { returnTo?: string } | null)?.returnTo ?? '/research';
 
-  // Highlight param: ?highlight=chk-X (a chunk id).
+  // Highlight param: ?highlight=chk-A or ?highlight=chk-A,chk-B,chk-C
   const highlightParam = searchParams.get('highlight');
 
   const { book, isLoading: bookLoading, isError: bookError } = useBook(bookId || '');
   const { chapters, isLoading: chaptersLoading } = useChapters(bookId || '');
 
-  // Active chapter state ? default to first chapter once list loads if no highlight
   const [activeChapterId, setActiveChapterId] = React.useState<string | null>(null);
-  const [highlightSequence, setHighlightSequence] = React.useState<number | null>(null);
+
+  // 5.8.0h.1: real canonical block IDs (blk-...) collected from every
+  // matching chunk's canonical_json. Empty array = no highlight.
+  const [highlightBlockIds, setHighlightBlockIds] = React.useState<string[]>([]);
 
   useEffect(() => {
     if (chapters.length > 0 && !activeChapterId && !highlightParam) {
@@ -141,36 +197,76 @@ export default function ResearchViewerRoute() {
     }
   }, [chapters, activeChapterId, highlightParam]);
 
-  // If ?highlight is present, fetch /api/chunks/:highlight via apiClient
+  // 5.8.0h.1: resolve chunk IDs → canonical block IDs.
   useEffect(() => {
     if (!highlightParam) {
-      setHighlightSequence(null);
+      setHighlightBlockIds([]);
+      return;
+    }
+
+    const chunkIds = highlightParam
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (chunkIds.length === 0) {
+      setHighlightBlockIds([]);
       return;
     }
 
     let isMounted = true;
-    apiClient<{
-      id: string;
-      bookId: string;
-      chapterId: string | null;
-      sequence: number | null;
-      textContent: string;
-    }>(`/api/chunks/${highlightParam}`)
-      .then((chunk) => {
+
+    Promise.all(
+      chunkIds.map((cid) =>
+        apiClient<ChunkApiResponse>(`/api/chunks/${cid}`).catch(() => null)
+      )
+    )
+      .then((results) => {
         if (!isMounted) return;
-        if (chunk.chapterId) {
-          setActiveChapterId(chunk.chapterId);
+
+        const valid: ChunkApiResponse[] = results.filter(
+          (r): r is ChunkApiResponse => r !== null
+        );
+
+        if (valid.length === 0) {
+          setHighlightBlockIds([]);
+          if (chapters.length > 0 && !activeChapterId) {
+            setActiveChapterId(chapters[0].id);
+          }
+          return;
+        }
+
+        const firstWithChapter = valid.find((r) => r.chapterId !== null);
+        const firstChapterId = firstWithChapter?.chapterId ?? null;
+
+        if (firstChapterId) {
+          setActiveChapterId(firstChapterId);
         } else if (chapters.length > 0 && !activeChapterId) {
           setActiveChapterId(chapters[0].id);
         }
-        if (chunk.sequence !== null && chunk.sequence !== undefined) {
-          setHighlightSequence(chunk.sequence);
+
+        const targetChapter: string | null = firstChapterId ?? activeChapterId;
+
+        // Collect block IDs from every valid chunk belonging to the target
+        // chapter. Chunks without a canonical_json contribute nothing.
+        const blockIds: string[] = [];
+        const seen = new Set<string>();
+
+        for (const r of valid) {
+          if (targetChapter !== null && r.chapterId !== targetChapter) continue;
+          for (const bid of extractBlockIds(r.canonicalBlock)) {
+            if (!seen.has(bid)) {
+              seen.add(bid);
+              blockIds.push(bid);
+            }
+          }
         }
+
+        setHighlightBlockIds(blockIds);
       })
       .catch(() => {
-        // If 404 or fails: no highlight, no scroll. Do not throw. Do not scroll to top.
         if (!isMounted) return;
-        setHighlightSequence(null);
+        setHighlightBlockIds([]);
         if (chapters.length > 0 && !activeChapterId) {
           setActiveChapterId(chapters[0].id);
         }
@@ -185,20 +281,14 @@ export default function ResearchViewerRoute() {
     navigate(returnTo);
   }, [navigate, returnTo]);
 
-  // -------------------------------------------------------------------------
-  // Loading state
-  // -------------------------------------------------------------------------
   if (bookLoading) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-10 animate-pulse text-ink-muted text-sm">
-        Loading source material?
+        Loading source material…
       </div>
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Error / not found
-  // -------------------------------------------------------------------------
   if (bookError || !book) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-10 space-y-4">
@@ -212,11 +302,7 @@ export default function ResearchViewerRoute() {
         </button>
         <p className="text-sm text-err">
           Failed to load source item.{' '}
-          <button
-            type="button"
-            onClick={handleReturn}
-            className="underline hover:no-underline"
-          >
+          <button type="button" onClick={handleReturn} className="underline hover:no-underline">
             Return
           </button>
         </p>
@@ -224,20 +310,11 @@ export default function ResearchViewerRoute() {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Word / chapter counts for metadata panel
-  // -------------------------------------------------------------------------
   const totalWords = book.wordCount ?? 0;
   const chapterCount = chapters.length || book.chapterCount || 0;
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-surface text-ink">
-      {/* ----------------------------------------------------------------
-          Sticky return bar
-      ---------------------------------------------------------------- */}
       <div className="sticky top-0 z-10 bg-surface backdrop-blur-sm border-b border-line">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2">
           <button
@@ -252,14 +329,9 @@ export default function ResearchViewerRoute() {
         </div>
       </div>
 
-      {/* ----------------------------------------------------------------
-          Main layout: metadata + chapter nav | content
-      ---------------------------------------------------------------- */}
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex gap-8">
-          {/* ---- Left sidebar: metadata + chapter list ---- */}
           <aside className="w-56 shrink-0 hidden md:block">
-            {/* Metadata panel */}
             <div className="sticky top-16 space-y-4">
               <div className="space-y-1">
                 <h1 className="text-base font-semibold text-ink leading-snug line-clamp-4">
@@ -279,7 +351,6 @@ export default function ResearchViewerRoute() {
                 </p>
               </div>
 
-              {/* Chapter navigation */}
               {chaptersLoading ? (
                 <div className="space-y-1 animate-pulse">
                   {[...Array(4)].map((_, i) => (
@@ -301,9 +372,7 @@ export default function ResearchViewerRoute() {
             </div>
           </aside>
 
-          {/* ---- Main content area (paper) ---- */}
           <main className="flex-1 min-w-0">
-            {/* Mobile metadata strip */}
             <div className="md:hidden mb-6 pb-4 border-b border-line space-y-1">
               <h1 className="text-lg font-semibold text-ink leading-snug">{book.title}</h1>
               {book.author && <p className="text-sm text-ink-muted">{book.author}</p>}
@@ -311,7 +380,6 @@ export default function ResearchViewerRoute() {
                 {chapterCount} {chapterCount === 1 ? 'chapter' : 'chapters'}
                 {totalWords > 0 && ` \u00b7 ${totalWords.toLocaleString()} words`}
               </p>
-              {/* Mobile chapter select */}
               {!chaptersLoading && chapters.length > 0 && (
                 <select
                   value={activeChapterId ?? ''}
@@ -328,9 +396,7 @@ export default function ResearchViewerRoute() {
               )}
             </div>
 
-            {/* Paper content */}
             <div className="max-w-prose">
-              {/* Active chapter title */}
               {activeChapterId && chapters.length > 0 && (() => {
                 const active = chapters.find((c) => c.id === activeChapterId);
                 return active?.title ? (
@@ -340,12 +406,11 @@ export default function ResearchViewerRoute() {
                 ) : null;
               })()}
 
-              {/* Chapter blocks */}
               {activeChapterId ? (
                 <ChapterPanel
                   key={activeChapterId}
                   chapterId={activeChapterId}
-                  highlightSequence={highlightSequence}
+                  highlightBlockIds={highlightBlockIds}
                   reducedMotion={reducedMotion}
                 />
               ) : chaptersLoading ? (

@@ -18,7 +18,9 @@ export interface ReaderViewProps {
   fontSize: number;
   align: 'left' | 'justify';
   highlightChunkId?: string | null;
-  onNavigateToSource?: (chunkId: string, targetChapterId?: string | null) => void;
+  // 5.8.0h: array of chunk IDs so multi-source paragraphs highlight every
+  // contributing block in the Research viewer, not just the primary one.
+  onNavigateToSource?: (chunkIds: string[], targetChapterId?: string | null) => void;
   provenanceRepId?: string | null;
   smartState?: {
     hasOutline: boolean;
@@ -342,7 +344,15 @@ export function ReaderView({
                 setActivePreview(null);
                 setAnchorEl(null);
                 if (onNavigateToSource) {
-                  onNavigateToSource(chunkId, targetChapterId || chapter.id);
+                  // 5.8.0h: pass every chunk ID for this paragraph so the
+                  // Research viewer highlights all contributing blocks, not
+                  // just the primary one. Falls back to the single chunkId
+                  // when the active preview has no array (defensive).
+                  const idsToHighlight =
+                    activePreview?.chunkIds && activePreview.chunkIds.length > 0
+                      ? activePreview.chunkIds
+                      : (chunkId ? [chunkId] : []);
+                  onNavigateToSource(idsToHighlight, targetChapterId || chapter.id);
                 }
               }}
               onClose={() => {
