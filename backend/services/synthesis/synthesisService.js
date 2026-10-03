@@ -560,6 +560,33 @@ OUTPUT:`;
         metadata_json: metadata,
         updated_at: new Date().toISOString(),
       });
+
+      // 5.8.0j (2026-10-03): fire-and-forget provenance verification after
+      // successful synthesis. Without this, chapters synthesized via the
+      // manual /api/books/:id/editorial/synthesize route (or any caller that
+      // isn't the auto-import chain) never populate paragraph_attributions,
+      // and therefore render with no source chips. The in-flight guard added
+      // to provenanceResolver.verifyRepresentation prevents this from racing
+      // the book-wide trigger fired by the auto-import path.
+      //
+      // Non-blocking: we do NOT await. Verification failure must never fail
+      // synthesis. Errors are logged and swallowed.
+      try {
+        const provenanceResolver = require('../semantic/provenanceResolver');
+        provenanceResolver
+          .verifyRepresentation(targetSmartId)
+          .catch((pvErr) => {
+            console.warn(
+              `[SynthesisService] Post-synthesis provenance trigger failed for ${targetSmartId}:`,
+              pvErr.message
+            );
+          });
+      } catch (pvErr) {
+        console.warn(
+          `[SynthesisService] Could not load provenanceResolver for ${targetSmartId}:`,
+          pvErr.message
+        );
+      }
     }
 
     return {
@@ -580,7 +607,7 @@ OUTPUT:`;
   splitSentences(paragraph) {
     const text = (paragraph || '').trim();
     if (!text) return [];
-    const regex = /.*?(?:[.!?]+(?:\s*\[Source\s+\d+\]+)*|\s*\[Source\s+\d+\]+[.!?]*)(?=\s+|$)/gi;
+    const regex = /.*?(?:[.!?]+(?:\s*\[Source\s+\d+\]+)*|\s*\[Source\s+\d+\]+\.[!?]*)(?=\s+|$)/gi;
     const matches = text.match(regex);
     if (!matches || matches.length === 0) return [text];
     const sents = matches.map((s) => s.trim()).filter(Boolean);

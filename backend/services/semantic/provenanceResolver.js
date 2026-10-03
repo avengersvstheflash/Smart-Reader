@@ -77,6 +77,16 @@ function splitIntoSentences(text) {
 const MULTI_CHUNK_DELTA_THRESHOLD = 0.08;
 const SINGLE_SENTENCE_WEIGHT_FLOOR = 0.25;
 
+// 5.8.0j: in-flight guard. Auto-path (post-batch triggerVerificationForBook)
+// and per-synthesis hook (from synthesisService.synthesizeChapter) can both
+// call verifyRepresentation for the same chapter within milliseconds of
+// each other. Without this guard, both would run the full resolve + write
+// pass, racing on attributionRepository.createBatch and potentially
+// double-writing or conflicting. The guard makes the second call a
+// no-op; the first call populates attributions that the second would have
+// written anyway.
+const _inFlight = new Set();
+
 function haveSameChunks(arr1, arr2) {
   if (!arr1 || !arr2) return false;
   if (arr1.length !== arr2.length) return false;
@@ -94,6 +104,23 @@ class ProvenanceResolver {
    * @returns {Promise<object>}
    */
   async verifyRepresentation(representationId, options = {}) {
+    // 5.8.0j: in-flight guard. See _inFlight declaration above.
+    if (_inFlight.has(representationId)) {
+      return {
+        representation_id: representationId,
+        skipped: true,
+        reason: 'in_flight',
+      };
+    }
+    _inFlight.add(representationId);
+    try {
+      return await this._verifyRepresentationInner(representationId, options);
+    } finally {
+      _inFlight.delete(representationId);
+    }
+  }
+
+  async _verifyRepresentationInner(representationId, options = {}) {
     let rep = smartChapterRepository.getById(representationId);
     if (!rep) {
       rep = chapterRepository.getRepresentationById(representationId);
