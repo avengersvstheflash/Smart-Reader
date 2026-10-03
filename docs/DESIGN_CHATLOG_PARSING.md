@@ -42,7 +42,24 @@ Approximately 2-3 sessions in total:
 * 1 session for implementing the detection heuristics and conditional routing logic.
 * 1-2 sessions for building the custom parser branch, testing with various chat-log fixtures, and refining the code-fence merging logic.
 
-## DECISIONS NEEDED FROM USER
+## Locked Decisions (2026-10-04)
 
-1. Should we rely entirely on silent auto-detection, or expose an explicit "Import as Chat Log" override option in the UI dropzone?
-2. How should the slicer handle long, multi-page AI responses that exceed the standard 2,500-word limit? Should they be forcefully split, or should the budget be dynamically increased for this specific document type?
+### D1 — Detection mechanism: Option C (auto-detect + flag + manual re-parse)
+
+- Classifier runs automatically during ingestion. No mandatory UI step at import time.
+- `books.metadata_json` gains `parse_mode` (`book` | `chat_log`) and `parse_confidence` (0–1).
+- Book Details shows a badge when `parse_confidence` is below threshold: `Parsed as: Book (auto) · looks unusual? Re-parse as Chat Log`.
+- Manual "Re-parse as X" action triggers the alternate parser branch and re-runs the pipeline.
+- Marginal-confidence detection defaults to standard book parsing (safe fallback per the original heuristic), flagged in metadata.
+- **Rationale:** preserves honest failure states, avoids import-time friction, small blast radius (one DB field, one badge, one action).
+
+### D2 — Overlong AI response handling: dynamic budget, soft ceiling
+
+- Target chapter size remains the existing dynamic 1,500–2,500 words.
+- Single turns up to **~4,000 words** become one chapter (soft ceiling).
+- Above 4,000 words, split with a continuation marker; chapter N+1 title reads `Chapter N (continued)`.
+- **Rationale:** the whole point of the chat-log parser is turn → chapter mapping. Force-splitting at 2,500 fragments coherent AI answers. Matches precedent from 4.8.3 (even-distribution slicing) and 5.8.0b (dynamic chapter budget).
+
+### Real-world fixture evidence
+
+The `kaggle and code dojo 1.pdf` currently in the Library is the F24 artifact: it was parsed as a book and produced 2 chapters titled `Part 1: Check your answer` / `Part 2: Check your answer (2)`. Use it for manual verification of the chat-log parser branch. Build a small synthetic chat-log fixture for the committed test suite (no license risk).
