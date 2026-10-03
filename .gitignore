@@ -62,3 +62,4 @@ backend/tests/fixtures/stress/*.pdf
 venv/
 __pycache__/
 *.pyc
+test-*.txt
