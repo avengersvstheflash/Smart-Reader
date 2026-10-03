@@ -247,7 +247,7 @@ Stale editor buffer flushes post-commit, corrupting the working tree while HEAD 
 
 **Prevention:** `git status --short` after every commit. Unexpected `M` → investigate before staging anything.
 
-VS Code Git extension auto-revert (confirmed root cause 2026-10-04). The VS Code Git extension can silently revert working-tree changes to files with active editor buffers, causing partial commits where git add accepts paths that are no longer modified. This is now understood as a primary cause of the recurring "buffer drift" incidents attributed across chats. Rule: disable auto-stash / auto-revert in the VS Code Git extension. After every multi-file edit, verify each target file with Select-String on a unique string from the edit BEFORE running git add. After commit, run Select-String again to confirm changes are still on disk.
+- **VS Code Git extension auto-revert (confirmed root cause 2026-10-04).** The VS Code Git extension can silently revert working-tree changes to files with active editor buffers, causing partial commits where `git add` accepts paths that are no longer modified. This is now understood as a primary cause of the recurring "buffer drift" incidents attributed across chats. **Rule:** disable auto-stash / auto-revert in the VS Code Git extension. After every multi-file edit, verify each target file with `Select-String` on a unique string from the edit BEFORE running `git add`. After commit, run `Select-String` again to confirm changes are still on disk.
 
 ### Agent Git on Working Tree (3+ incidents)
 
