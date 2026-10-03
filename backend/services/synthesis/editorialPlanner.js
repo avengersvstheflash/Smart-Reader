@@ -611,17 +611,35 @@ class EditorialPlanner {
     // 5.8.0f: Walk sections in source order tracking the nearest top-level
     // chapter heading. Used to build informative titles instead of raw
     // sub-section headings.
+    // F18 (2026-10-04): also promote on numeric-prefix headings ("3.1 Foo")
+    // when the leading number differs from the current chapter number.
+    // Source PDFs sometimes omit an explicit "Chapter 3" heading while
+    // continuing to use 3.x subsection numbering.
     const chapterAncestorMap = new Map();
     let currentChapterTitle = null;
+    let currentChapterNum = null;
     for (const sec of candidateSections) {
       const t = String(sec.sectionTitle || sec.title || '').trim();
       const id = sec.sectionId || sec.id;
       if (!id) continue;
-      if (/^(?:chapter|part)\s+\d+/i.test(t)) {
+
+      const explicit = t.match(/^(?:chapter|part)\s+(\d+)/i);
+      if (explicit) {
         currentChapterTitle = t;
+        currentChapterNum = parseInt(explicit[1], 10);
+      } else {
+        const numPrefix = t.match(/^(\d+)\.\d/);
+        if (numPrefix) {
+          const n = parseInt(numPrefix[1], 10);
+          if (currentChapterNum !== n) {
+            currentChapterNum = n;
+            currentChapterTitle = `Chapter ${n}`;
+          }
+        }
       }
       chapterAncestorMap.set(id, currentChapterTitle);
     }
+
     const titleUsage = new Map();
 
     const chapters = [];
@@ -743,15 +761,34 @@ class EditorialPlanner {
       if (id) sectionLookup.set(id, sec);
     });
 
-    // 5.8.0f: ancestor tracking (mirrors planDeterministicAsync)
+    // 5.8.0f: Walk sections in source order tracking the nearest top-level
+    // chapter heading. Used to build informative titles instead of raw
+    // sub-section headings.
+    // F18 (2026-10-04): also promote on numeric-prefix headings ("3.1 Foo")
+    // when the leading number differs from the current chapter number.
+    // Source PDFs sometimes omit an explicit "Chapter 3" heading while
+    // continuing to use 3.x subsection numbering.
     const chapterAncestorMap = new Map();
     let currentChapterTitle = null;
+    let currentChapterNum = null;
     for (const sec of candidateSections) {
       const t = String(sec.sectionTitle || sec.title || '').trim();
       const id = sec.sectionId || sec.id;
       if (!id) continue;
-      if (/^(?:chapter|part)\s+\d+/i.test(t)) {
+
+      const explicit = t.match(/^(?:chapter|part)\s+(\d+)/i);
+      if (explicit) {
         currentChapterTitle = t;
+        currentChapterNum = parseInt(explicit[1], 10);
+      } else {
+        const numPrefix = t.match(/^(\d+)\.\d/);
+        if (numPrefix) {
+          const n = parseInt(numPrefix[1], 10);
+          if (currentChapterNum !== n) {
+            currentChapterNum = n;
+            currentChapterTitle = `Chapter ${n}`;
+          }
+        }
       }
       chapterAncestorMap.set(id, currentChapterTitle);
     }
