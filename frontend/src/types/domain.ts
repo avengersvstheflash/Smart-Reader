@@ -565,6 +565,7 @@ export interface SmartChapter {
   title: string | null;
   status: 'pending' | 'generating' | 'generated' | 'failed';
   plannedWordCount: number | null;
+  wordCount: number | null;
   content: string | null;
   synthesisType: string | null;
   metadata: Record<string, unknown> | null;

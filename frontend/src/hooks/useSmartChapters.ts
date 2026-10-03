@@ -43,6 +43,7 @@ export function normalizeSmartChapter(raw: any): SmartChapter {
     title: raw.title ?? null,
     status: raw.status || 'pending',
     plannedWordCount: raw.plannedWordCount ?? raw.planned_word_count ?? null,
+    wordCount: raw.wordCount ?? raw.word_count ?? 0,
     content: raw.content ?? null,
     synthesisType: raw.synthesisType ?? raw.synthesis_type ?? null,
     metadata:
