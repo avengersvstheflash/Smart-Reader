@@ -48,6 +48,7 @@ const SUITES = [
   'phase5_7_2_nlp_test.js',
   'phase5_7_2_embed_test.js',
   'phase5_7_2_parallel_test.js',
+  'phase5_8_0j_chatlog_detect_test.js',
 ];
 
 let passed = 0;

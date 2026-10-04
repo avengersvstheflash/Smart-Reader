@@ -1,0 +1,68 @@
+User: How do I train a Random Forest classifier in scikit-learn?
+Model: You can use the RandomForestClassifier class from sklearn.ensemble. Here is an example:
+
+```python
+from sklearn.ensemble import RandomForestClassifier
+clf = RandomForestClassifier(n_estimators=100, random_state=42)
+clf.fit(X_train, y_train)
+```
+
+Make sure your feature matrix X is properly preprocessed and normalized before fitting the estimator.
+Check your answer
+
+Page 1 of 4
+
+User: How do I evaluate the trained model using k-fold cross-validation?
+Model: Use the cross_val_score helper from sklearn.model_selection to compute accuracy across multiple folds:
+
+```python
+from sklearn.model_selection import cross_val_score
+scores = cross_val_score(clf, X, y, cv=5)
+print("Mean accuracy:", scores.mean())
+```
+
+This provides a reliable metric of generalization performance without introducing data leakage.
+Check your answer
+
+User: What hyperparameters should I tune first when optimizing performance?
+Model: The most critical hyperparameters for random forests are n_estimators, max_depth, min_samples_split, and max_features. We recommend tuning max_depth first to prevent individual decision trees from expanding indefinitely and overfitting on noisy training samples.
+Check your answer
+
+User: Can I use GridSearchCV to automate this hyperparameter tuning process?
+Model: Yes, GridSearchCV performs an exhaustive search over a specified parameter dictionary:
+
+```python
+from sklearn.model_selection import GridSearchCV
+param_grid = {'max_depth': [5, 10, 20], 'min_samples_split': [2, 5, 10]}
+grid = GridSearchCV(clf, param_grid, cv=3)
+grid.fit(X_train, y_train)
+```
+
+The best estimator and corresponding score can be accessed via the best_estimator_ and best_score_ attributes.
+Check your answer
+
+Page 2 of 4
+
+User: How does a Random Forest handle missing values in the feature matrix?
+Model: Scikit-learn's standard RandomForestClassifier requires complete numerical input and does not handle NaN values natively. You must impute missing values first using SimpleImputer or KNNImputer before passing the array to fit().
+Check your answer
+
+User: What is feature importance and how do I extract it from the fitted model?
+Model: Feature importances measure the total mean decrease in impurity brought by splits on that specific feature. You can access the normalized values through the feature_importances_ attribute on your fitted estimator object.
+Check your answer
+
+User: Is Random Forest prone to overfitting when increasing the number of trees?
+Model: Adding more trees generally does not cause overfitting in random forests because bagging reduces model variance without increasing bias. However, very deep individual trees can still overfit if min_samples_leaf is set too small.
+Check your answer
+
+Page 3 of 4
+
+User: How does Random Forest compare to Gradient Boosted decision trees?
+Model: Random Forest builds each tree independently in parallel using bootstrap aggregation. Gradient Boosting builds trees sequentially, where each consecutive tree attempts to correct the residual errors of the prior ensemble. Gradient boosting often yields higher predictive accuracy on tabular benchmarks but requires careful learning rate regularization.
+Check your answer
+
+User: Can I use Random Forest for continuous regression targets as well?
+Model: Yes, use RandomForestRegressor from sklearn.ensemble. Instead of taking a majority classification vote among tree leaves, it averages the continuous numerical predictions across all ensemble trees.
+Check your answer
+
+Page 4 of 4
