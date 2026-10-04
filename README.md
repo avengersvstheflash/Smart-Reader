@@ -216,6 +216,8 @@ Smart Reader is developed in strict phases. Each phase closes cleanly (100% test
 | **5.8.0g.1** | ✅ | Reading-time label (source words + Omni read time) |
 | **5.8.0h.2** | ✅ | F18 — ancestor resolution on numeric-prefix headings |
 | **5.8.0j.1** | ✅ | F24 — chat-log PDF parsing (routing + parser + persistence) |
+| **5.8.0g.2** | ✅ | Label honesty — hide Omni time when book partially generated |
+| **5.8.0j.2** | ✅ | F23 — legacy PUA font normalizer (math glyphs) |
 | **5.8a** | ⏳ | Rebrand Smart Reader → Omnitome |
 | **5.8b** | ⏳ | Omni feature naming (Smart Reading → Omni Reading) |
 | **5.8c** | ⏳ | Violet lens identity |
@@ -254,7 +256,7 @@ Solo development, active. Issues and discussion via the GitHub issue tracker.
 **Commit conventions:**
 `feat(scope)`, `fix(scope)`, `docs`, `chore(scope)`, `phase<N>.<M>`
 
-*Test suite must stay green through every commit. Currently 27 registered suites; targeted verification: `5.8.0j` suite 14/14 green. Full-suite run still blocked by `build3a_test.js` network hang.*
+*Test suite must stay green through every commit. Currently 28 registered suites; targeted verification: `5.8.0j` 14/14 + `5.8.0j_legacy_font` 20/20 green. Full-suite run still blocked by `build3a_test.js` network hang.*
 
 ---
 

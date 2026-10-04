@@ -12,17 +12,17 @@
 
 | | |
 |---|---|
-| **HEAD** | `5a4451c` — 5.8.0j.1 session 2: chat-log parser end-to-end |
+| **HEAD** | `f390a14` — 5.8.0j.2 legacy PUA font normalizer (F23) |
 | **Origin** | synced (`origin/main`) |
 | **Working tree** | clean |
-| **Tests** | 27 registered suites. Targeted: `5.8.0j` suite 14/14 green. Full suite still blocked by `build3a_test.js` network hang. |
+| **Tests** | 28 registered suites. Targeted: `5.8.0j` 14/14 + `5.8.0j_legacy_font` 20/20 green. Full suite still blocked by `build3a_test.js` network hang. |
 | **Frontend** | `tsc --noEmit` / `npm run build` clean |
 | **Last release tag** | `v0.6.0` @ `55d0855` (Phase 5.7.2 close) |
 | **Phase 5** | **CLOSED** |
 | **Phase 5.8.0** | **CLOSED** (repair + F18 + F24 all fixed) |
 | **Phase 5.8** | **IN PROGRESS** |
 
-**Immediate next task:** `5.8.0g.2` — label honesty (only show Omni time when generated === total). Then `5.8.0j.2` (F23 math glyphs, design doc ready), then F18 end-to-end verify (reimport ML PDF, confirm Parts 13–15 read "Chapter 3").
+**Immediate next task:** `5.8a` — Omnitome rebrand (user-visible strings only). Then `5.8b` + `5.8c`, then the dossier foundation.
 
 ---
 
@@ -73,6 +73,8 @@ The reader defaults to Omni. Original is reached contextually, via provenance �
 | **5.8.0g.1 (reading-time label)** | ✅ CLOSED | 2026-10-04 |
 | **5.8.0h.2 (F18)** | ✅ CLOSED | 2026-10-04 |
 | **5.8.0j.1 (F24 — chat-log parser)** | ✅ CLOSED | 2026-10-04 |
+| **5.8.0g.2 (label honesty)** | ✅ CLOSED | 2026-10-04 |
+| **5.8.0j.2 (F23 — math glyphs)** | ✅ CLOSED | 2026-10-04 |
 | **5.8 (pre-Tauri close-out)** | 🔄 **IN PROGRESS** | — |
 | 5.9 (Kokoro TTS) | ⏸ PLANNED | — |
 | 6 (Tauri packaging) | ⏸ PLANNED | — |
@@ -91,8 +93,9 @@ The reader defaults to Omni. Original is reached contextually, via provenance �
 | 5.8.0g.1 | Reading-time label (source words vs Omni words) | ✅ CLOSED (g.2 follow-up pending) |
 | 5.8.0h.2 | F18 — ancestor resolution when chapter heading isn't distinct | ✅ CLOSED |
 | 5.8.0j.1 | F24 — chat-log parser branch (verified on Kaggle OCR PDF) | ✅ CLOSED |
-| **5.8.0g.2** | Label honesty: only show Omni time when `generated === total` | **NEXT** |
-| 5.8.0j.2 | F23 — math glyph handling (Option D per design doc) | Pending |
+| 5.8.0g.2 | Label honesty: only show Omni time when `generated === total` | ✅ CLOSED |
+| 5.8.0j.2 | F23 — math glyph handling (legacy PUA normalizer) | ✅ CLOSED |
+| **5.8a** | Rebrand Smart Reader → Omnitome (user-visible strings) | **NEXT** |
 | 5.8a | Rebrand Smart Reader → Omnitome (user-visible strings) | Pending |
 | 5.8b | Omni feature naming (Smart Reading → Omni Reading, etc.) | Pending |
 | 5.8c | Violet lens identity (color tokens, themes) | Pending |
@@ -163,31 +166,37 @@ Hand-edited end-to-end. **Zero Antigravity involvement. First drift-free session
 
 ## 6. Findings Ledger
 
-Last reconciled: **2026-10-04 evening** (post F24 session 2).
+Last reconciled: **2026-10-04 late evening** (post F23 + F18 end-to-end verify).
 
-### Closed this session
+### Closed 2026-10-04
 
 | ID | Description | Closed |
 |---|---|---|
-| **F18** | Ancestor skipping — `Part N` numeric-prefix headings now promote as chapter ancestors | `3f80e93` |
-| **F24** | Chat-log PDFs — extended detector + parser branch + post-OCR routing gate; verified on Kaggle at confidence 1.000 | `5a4451c` |
-| **5.8.0g.1** | Reading-time label — source words + Omni read time | `39dcb09` + `077e557` |
+| **F18** | Ancestor skipping — numeric-prefix headings (3.1 Foo) now promote as chapter ancestors | 3f80e93 |
+| **F23** | PDF math glyph extraction — legacy PUA normalizer maps F8EB–F8F8 to real brackets, honest placeholder for unmapped | f390a14 |
+| **F24** | Chat-log PDFs — extended detector + parser + post-OCR gate; verified on Kaggle at confidence 1.000 | 5a4451c |
+| **5.8.0g.1** | Reading-time label — source words + Omni read time | 39dcb09 + 077e557 |
+| **5.8.0g.2** | Hide Omni reading time unless book fully generated | 448ca25 |
 
 ### Open — near term
 
 | ID | Description | Severity | Next task |
 |---|---|---|---|
-| **5.8.0g.2** | g.1 label reads "31 chapters · 6 min Omni read" even when only 5/31 generated — show Omni time only when generated === total | 🟢 Low | NEXT |
-| **F23** | PDF math glyph extraction (Type3/CMap → tofu boxes) — Option D per `DESIGN_MATH_EXTRACTION.md` | 🟡 Medium | 5.8.0j.2 |
-| **F26** | First-turn fallback title reads `Turn 1` when OCR preamble precedes first user prompt | 🟢 Low | Small |
-| **F27** | Editorial planner picks up `Chapter N` ancestors from chat-log body text | 🟢 Low | Defer / small |
+| **F20** | Synopsis sampler picks Index as last chapter | Low | Small fix in intelligentSummarizer.js |
+| **F21** | "Opened just now" label lag | Low | Cosmetic |
+| **F26** | First-turn fallback title reads Turn 1 when OCR preamble precedes first user prompt | Low | Small |
+| **F27** | Editorial planner picks up Chapter N ancestors from chat-log body text | Low | Defer / small |
 
-### Open — low priority
+### Open — deferred features
 
 | ID | Description | Severity | Next task |
 |---|---|---|---|
-| **F20** | Synopsis sampler picks `Index` as last chapter | 🟢 Low | Small fix in `intelligentSummarizer.js` |
-| **F21** | "Opened just now" label lag | 🟢 Low | Cosmetic |
+| **F29** | Math typesetting — extracted math renders as flat text (a11, x^2) rather than typographic (a₁₁, x²). Needs KaTeX/MathML rendering or sub/superscript heuristics | Medium | v1.x feature |
+| **F30** | Duplicate [SectionFilter] Filtered "Preface" logs in synopsis chain — cosmetic dedupe | Low | Small |
+
+### Honest limitation (F18)
+
+Parts 13–15 now correctly read `Chapter 3` — but without the real title `Data preparation`, because the source PDF has no explicit `Chapter 3: …` heading, only numeric-prefixed `3.1`/`3.5` sections. Fixing that requires TOC lookup — out of F18 scope.
 
 **F23 and F24 are distinct.** F23 = character-level extraction. F24 = document-level structural classification. Do not conflate.
 
@@ -195,21 +204,32 @@ Last reconciled: **2026-10-04 evening** (post F24 session 2).
 
 ## 7. Next Tasks
 
-### 5.8.0g.2 — Label honesty (quick)
+### 5.8a — Omnitome rebrand (NEXT)
 
-**Problem:** Book Details reads `31 chapters · 69,399 source words · ~6 min Omni read` even when only 5/31 Omni chapters are generated. Reads as if the whole book compresses to 6 minutes.
+**Scope:** user-visible strings only.
+- Smart Reader → Omnitome
+- Smart Reading → Omni Reading
+- Smart Chapter(s) → Omni Chapter(s)
+- Smart Reading: … (synthesis titles) → Omni Reading: …
+- README, UI copy, page titles, index.html
 
-**Fix:** show Omni segment only when `smartGenerated === smartTotal`. Otherwise source-only caption, or an honest qualifier like `5 of 31 Omni · ~6 min`.
+**NOT touched:** schema, smart_chapters table, /api/smart-chapters/*, EDITORIAL_SYNTHESIS, synthesis_type columns.
 
-**Likely file:** `frontend/src/routes/BookDetailsRoute.tsx` (~line 183 omniReadingCaption block).
+### 5.8b — Omni feature naming
 
-### 5.8.0j.2 — F23 math glyph handling
+Continued terminology pass — feature labels, badges, hero copy.
 
-Per `docs/DESIGN_MATH_EXTRACTION.md` — Option D (detect Type3/CMap unmappable glyph clusters, emit a distinct block, render an honest placeholder).
+### 5.8c — Violet lens identity
 
-### F18 end-to-end verify (quick)
+Color tokens, themes. Omni surfaces get violet tint; source stays neutral.
 
-Reimport `practical_machine_learning.pdf` and confirm Parts 13–15 now read `Chapter 3`.
+### 5.8d — Background import tracking + notifications
+
+Prerequisite for 5.8f.
+
+### 5.8j.2 — F29 math typesetting (deferred, v1.x)
+
+Flat text → KaTeX rendering for detected equation regions.
 
 ---
 
