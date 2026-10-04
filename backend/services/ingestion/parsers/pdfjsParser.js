@@ -4,6 +4,7 @@ const { CanonicalDocument } = require('../models/canonicalContent');
 const contentNormalizer = require('../normalizers/contentNormalizer');
 const documentStructureAnalyzer = require('../structure/documentStructureAnalyzer');
 const pythonSidecarClient = require('../../ai/pythonSidecarClient');
+const { normalizeLegacyGlyphs } = require('../legacyFontNormalizer');
 const config = require('../../../config');
 
 /**
@@ -52,7 +53,7 @@ class PDFJSParser {
       for (const item of items) {
         if (!item.str || item.str.trim() === '') continue;
         spans.push({
-          text: item.str,
+          text: normalizeLegacyGlyphs(item.str),
           fontSize: Math.round(item.transform[0] || item.height || 10),
           height: Math.round(item.height || 10),
           x: Math.round(item.transform[4] || 0),
