@@ -185,7 +185,102 @@ async function runTests() {
     fail('T10 mixed input: paragraph with "User:" in the middle of a sentence (not line-start) should NOT count as a userMarker', err);
   }
 
-  console.log(`\nTests passed: ${passed}, failed: ${failed}`);
+  
+// T19 — Extended user marker "User prompt:" counts as a user marker
+(function test19() {
+  const blocks = [];
+  for (let i = 0; i < 5; i++) {
+    blocks.push('User prompt: turn ' + i);
+    blocks.push('Response: reply ' + i);
+    blocks.push('Some response body text here.');
+    blocks.push('Check your answer');
+  }
+  const { detectChatLog } = require('../services/ingestion/chatLogDetector');
+  const r = detectChatLog(blocks);
+  if (r.parseMode === 'chat_log' && r.signals.userCount >= 5 && r.signals.modelCount >= 5) {
+    console.log('[PASS] T19 extended "User prompt:" / "Response:" markers route to chat_log');
+    passed++;
+  } else {
+    console.log('[FAIL] T19 expected chat_log with userCount>=5 & modelCount>=5, got', JSON.stringify(r.signals));
+    failed++;
+  }
+})();
+
+// T20 — Notebook artifact lines alone (with one side of conversation present)
+(function test20() {
+  const blocks = [
+    'User prompt: help',
+    'Check your answer',
+    'Save Version',
+    'Check your answer',
+    'Check your answer',
+    'plain body text',
+  ];
+  const { detectChatLog } = require('../services/ingestion/chatLogDetector');
+  const r = detectChatLog(blocks);
+  if (r.signals.notebookArtifactCount >= 2) {
+    console.log('[PASS] T20 notebook artifacts counted (count=' + r.signals.notebookArtifactCount + ')');
+    passed++;
+  } else {
+    console.log('[FAIL] T20 expected notebookArtifactCount>=2, got', r.signals.notebookArtifactCount);
+    failed++;
+  }
+})();
+
+// T21 — parseChatLog strips "User prompt:" from chapter titles
+(function test21() {
+  const { parseChatLog } = require('../services/ingestion/parsers/chatLogParser');
+  const blocks = [
+    'User prompt: how do I train a random forest?',
+    'Response: Use sklearn.',
+    'Body text.',
+    'Check your answer',
+    '',
+    'User prompt: what about hyperparameters?',
+    'Response: Tune max_depth.',
+    'Body text.',
+    'Check your answer',
+  ];
+  const out = parseChatLog(blocks);
+  const badTitles = out.chapters.filter((c) => /^(user|prompt|response|model|assistant)/i.test(c.title || ''));
+  if (out.chapters.length >= 2 && badTitles.length === 0) {
+    console.log('[PASS] T21 parseChatLog strips User prompt:/Response: markers from titles (' + out.chapters.length + ' chapters)');
+    passed++;
+  } else {
+    console.log('[FAIL] T21 titles contain markers or wrong chapter count:', JSON.stringify(out.chapters.map(c => c.title)));
+    failed++;
+  }
+})();
+
+// T22 — notebook artifacts do NOT become chapter titles
+(function test22() {
+  const { parseChatLog } = require('../services/ingestion/parsers/chatLogParser');
+  const blocks = [
+    'User prompt: first question',
+    'Check your answer',
+    'Response: the answer',
+    'Save Version',
+    'Check your answer',
+    '',
+    'User prompt: second question',
+    'Check your answer',
+    'Response: another answer',
+    'Check your answer',
+  ];
+  const out = parseChatLog(blocks);
+  const artifactTitles = out.chapters.filter((c) =>
+    /^(check your answer|save version|open in viewer|run all)$/i.test((c.title || '').trim())
+  );
+  if (artifactTitles.length === 0) {
+    console.log('[PASS] T22 no notebook-artifact titles leaked (' + out.chapters.length + ' chapters)');
+    passed++;
+  } else {
+    console.log('[FAIL] T22 artifact leaked as title:', JSON.stringify(artifactTitles.map(c => c.title)));
+    failed++;
+  }
+})();
+
+console.log(`\nTests passed: ${passed}, failed: ${failed}`);
   if (failed > 0) {
     process.exit(1);
   }

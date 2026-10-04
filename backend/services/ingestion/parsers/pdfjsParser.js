@@ -162,6 +162,56 @@ class PDFJSParser {
       }
     }
 
+    // 5.8.0j.1: chat-log routing gate — runs AFTER native extraction and
+    // after OCR, so it sees whatever text the pipeline actually produced.
+    const { detectChatLog } = require('../chatLogDetector');
+    const { parseChatLog } = require('./chatLogParser');
+
+    const gateBlocks = allBlocks.length > 0
+      ? allBlocks
+      : pages.flatMap((p) =>
+          String(p.text || '')
+            .split('\n')
+            .filter((l) => l.trim())
+            .map((line) => ({ text: line }))
+        );
+
+    const detection = detectChatLog(gateBlocks);
+
+    console.log(
+      '[Routing: Ingestion] Format: PDF | Decision: ' +
+      (detection.parseMode === 'chat_log' ? 'CHAT_LOG_PARSER' : 'BOOK_PARSER') +
+      ' | Confidence: ' + detection.confidence.toFixed(3) +
+      ' | NativeBlocks: ' + allBlocks.length +
+      ' | GateBlocks: ' + gateBlocks.length
+    );
+
+    if (detection.parseMode === 'chat_log') {
+      const parsed = parseChatLog(gateBlocks, {
+        parse_confidence: detection.confidence,
+        signals: detection.signals,
+      });
+      return {
+        title: docTitle || options.originalFilename || 'Imported Chat Log',
+        author: docAuthor || 'Unknown Author',
+        pageCount,
+        chapterCount: parsed.chapters.length,
+        sectionCount: parsed.chapters.length,
+        tablesCount: 0,
+        chapters: parsed.chapters,
+        totalWordCount: parsed.chapters.reduce(
+          (sum, c) => sum + (c.wordCount || 0),
+          0,
+        ),
+        fullText: combinedRawText,
+        integrityStatus: 'valid',
+        integrityWarning: '',
+        parse_mode: 'chat_log',
+        parse_confidence: detection.confidence,
+        signals: detection.signals,
+      };
+    }
+
     // Perform structural analysis via DocumentStructureAnalyzer
     const analysis = documentStructureAnalyzer.analyze({
       format: 'pdf',
@@ -188,6 +238,8 @@ class PDFJSParser {
       fullText: combinedRawText,
       integrityStatus: analysis.integrityStatus,
       integrityWarning: analysis.integrityWarning,
+      parse_mode: 'book',
+      parse_confidence: detection.confidence,
     };
   }
 

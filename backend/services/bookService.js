@@ -305,6 +305,11 @@ class BookService {
           sectionCount: ingestionResult.sectionCount || 0,
           sourceFormat: ingestionResult.format,
           importedAt: new Date().toISOString(),
+          parse_mode: ingestionResult.parse_mode || 'book',
+          parse_confidence:
+            typeof ingestionResult.parse_confidence === 'number'
+              ? ingestionResult.parse_confidence
+              : 1.0,
         },
       });
 

@@ -88,6 +88,8 @@ class IngestionService {
         totalWordCount: totalWords,
         integrityStatus: pdfResult.integrityStatus || (totalWords === 0 ? 'empty_content' : 'valid'),
         integrityWarning: pdfResult.integrityWarning || (totalWords === 0 ? 'Content extraction incomplete: no selectable text found in the PDF source.' : ''),
+        parse_mode: pdfResult.parse_mode,
+        parse_confidence: pdfResult.parse_confidence,
       };
     }
 
