@@ -618,7 +618,7 @@ function seedSampleBooks(db) {
   insertOutline.run({
     outlineId: `book-editorial-${bookAId}`,
     collectionId: bookAId,
-    title: 'Smart Reading: Foundations of Neural Dynamics',
+    title: 'Omni Reading: Foundations of Neural Dynamics',
     type: 'single_book',
     chapters: JSON.stringify([
       { id: `smart-${bookAId}-ch-1`, chapterId: `smart-${bookAId}-ch-1`, sequence: 1, title: 'Linear Dynamics and Phase Space', targetWordCount: 210, sourceSectionIds: ['chunk-fa-1-1', 'chunk-fa-1-2'] },
@@ -833,7 +833,7 @@ function seedSampleBooks(db) {
   insertOutline.run({
     outlineId: `book-editorial-${bookBId}`,
     collectionId: bookBId,
-    title: 'Smart Reading: Practical Machine Learning and Distributed Systems',
+    title: 'Omni Reading: Practical Machine Learning and Distributed Systems',
     type: 'single_book',
     chapters: JSON.stringify(fbSmartPlan.map((p) => ({
       id: `smart-${bookBId}-ch-${p.seq}`,

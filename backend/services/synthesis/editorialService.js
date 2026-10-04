@@ -377,7 +377,7 @@ class EditorialService {
     }
 
     const outlineId = `book-editorial-${bookId}`;
-    const outlineTitle = options.title || `Smart Reading: ${book.title}`;
+    const outlineTitle = options.title || `Omni Reading: ${book.title}`;
 
     return this.generateOutline({
       ...options,
