@@ -11,7 +11,7 @@
 
 ![Tests 26/26 Passing](https://img.shields.io/badge/Tests-26%2F26_Passing-3fb950)
 ![Local-First Enabled](https://img.shields.io/badge/Local--First-enabled-2ea043)
-![Status Phase 5 Complete](https://img.shields.io/badge/Status-Phase_5_Complete-blue)
+![Status Phase 5.8 In Progress](https://img.shields.io/badge/Status-Phase_5.8_In_Progress-blue)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ---
@@ -213,6 +213,9 @@ Smart Reader is developed in strict phases. Each phase closes cleanly (100% test
 | **5.7.2** | ✅ | NLP migration + BGE-M3 to Python + Node parallel synthesis |
 | **5.7.3** | ✅ | Capability router + DOCX/RTF ingestion |
 | **5.8.0** | ✅ | Compression Contract Repair (F3-F15, F22) |
+| **5.8.0g.1** | ✅ | Reading-time label (source words + Omni read time) |
+| **5.8.0h.2** | ✅ | F18 — ancestor resolution on numeric-prefix headings |
+| **5.8.0j.1** | ✅ | F24 — chat-log PDF parsing (routing + parser + persistence) |
 | **5.8a** | ⏳ | Rebrand Smart Reader → Omnitome |
 | **5.8b** | ⏳ | Omni feature naming (Smart Reading → Omni Reading) |
 | **5.8c** | ⏳ | Violet lens identity |
@@ -223,7 +226,7 @@ Smart Reader is developed in strict phases. Each phase closes cleanly (100% test
 | **5.8h** | ⏳ | Compressor terminology refactor |
 | **5.8i** | ⏳ | Frontend verification + polish |
 | **5.8j** | ⏳ | Settings page |
-| **5.8j.1** | ⏳ | Chat-log / study-notes PDF parsing (F24) |
+| **5.8j.1** | ✅ | Chat-log / study-notes PDF parsing (F24) |
 | **5.8j.2** | ⏳ | Math glyph extraction (F23) |
 | **5.8k** | ⏳ | Help / guide page |
 | **5.9** | ⏳ | Dossier Foundation (First-class catalog entity) |
@@ -251,7 +254,7 @@ Solo development, active. Issues and discussion via the GitHub issue tracker.
 **Commit conventions:**
 `feat(scope)`, `fix(scope)`, `docs`, `chore(scope)`, `phase<N>.<M>`
 
-*Test suite must stay green (`npm test` → 26/26 passing) through every commit.*
+*Test suite must stay green through every commit. Currently 27 registered suites; targeted verification: `5.8.0j` suite 14/14 green. Full-suite run still blocked by `build3a_test.js` network hang.*
 
 ---
 
