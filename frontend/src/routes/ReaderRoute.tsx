@@ -74,7 +74,7 @@ function SmartChapterStatus({
           {title || `Chapter ${sequence}`}
         </h2>
         <p className="text-body text-ink-muted">
-          Synthesizing Smart chapter content with citations and provenance…
+          Synthesizing Omni chapter content with citations and provenance…
         </p>
         <Link
           to={`/book/${bookId}`}
@@ -127,7 +127,7 @@ function SmartChapterStatus({
         {title || `Chapter ${sequence}`}
       </h2>
       <p className="text-body text-ink-muted">
-        This Smart chapter is queued and has not been synthesized yet.
+        This Omni chapter is queued and has not been synthesized yet.
       </p>
       <div className="flex items-center justify-center gap-3 pt-2">
         <button
@@ -415,8 +415,8 @@ export default function ReaderRoute() {
     return (
       <EmptyState
         icon={BookOpen}
-        title="No smart chapters available"
-        body="This book has no Smart chapters generated yet."
+        title="No Omni chapters available"
+        body="This book has no Omni chapters generated yet."
         action={{
           label: 'Back to Book Details',
           onClick: () => navigate(`/book/${bookId}`),

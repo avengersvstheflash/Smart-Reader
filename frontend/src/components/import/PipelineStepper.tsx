@@ -18,7 +18,7 @@ const STEPS: StepConfig[] = [
   { key: 'index', label: 'Semantic index', jobType: 'SEMANTIC_INDEX' },
   { key: 'classification', label: 'Classification', jobType: 'CLASSIFICATION' },
   { key: 'synopsis', label: 'Synopsis', jobType: 'SYNOPSIS' },
-  { key: 'synthesis', label: 'Smart chapters', jobType: 'SYNTHESIS' },
+  { key: 'synthesis', label: 'Omni chapters', jobType: 'SYNTHESIS' },
 ];
 
 export function PipelineStepper({ jobs, activeJob }: PipelineStepperProps) {

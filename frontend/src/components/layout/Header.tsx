@@ -59,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
               ◆
             </span>
             <span className="font-display font-semibold tracking-wide text-base md:text-lg select-none whitespace-nowrap">
-              Smart Reader
+              Omnitome
             </span>
           </Link>
 

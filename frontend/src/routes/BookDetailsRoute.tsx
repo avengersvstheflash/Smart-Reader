@@ -322,7 +322,7 @@ export default function BookDetailsRoute() {
               disabled={!hasSmartChapters}
               title={
                 !hasSmartChapters
-                  ? 'No Smart chapters generated yet'
+                  ? 'No Omni chapters generated yet'
                   : isResuming
                   ? `Continue reading from Chapter ${resumeTarget?.sequence}`
                   : 'Start reading from Chapter 1'
@@ -486,7 +486,7 @@ export default function BookDetailsRoute() {
         {/* LEFT COLUMN: SMART CHAPTERS (65% / col-span-8) */}
         <div className="lg:col-span-8 space-y-4">
           <div className="flex items-center justify-between border-b border-line/60 pb-2">
-            <h2 className="text-h2 font-semibold text-ink">Smart Chapters</h2>
+            <h2 className="text-h2 font-semibold text-ink">Omni Chapters</h2>
             <span className="text-caption text-ink-faint">
               {smartGenerated} of {smartTotal} generated{readCount > 0 ? ` · ${readCount} read` : ''}
             </span>
@@ -500,7 +500,7 @@ export default function BookDetailsRoute() {
             </div>
           ) : smartChapters.length === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-caption text-ink-muted">No Smart chapters yet.</p>
+              <p className="text-caption text-ink-muted">No Omni chapters yet.</p>
               <p className="text-micro text-ink-faint mt-1">They will appear here once synthesis begins.</p>
             </div>
           ) : (

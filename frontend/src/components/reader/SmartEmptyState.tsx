@@ -21,7 +21,7 @@ export function SmartEmptyState({
       <div className="flex flex-col items-center justify-center text-center py-16 px-6">
         <Feather className="w-8 h-8 text-faint mb-4" aria-hidden="true" />
         <h2 className="text-h3 font-semibold text-ink mb-2">
-          Smart Reading
+          Omni Reading
         </h2>
         <p className="text-body text-ink-muted max-w-md mb-6">
           Chapters written from the source, every line traceable back to it.
@@ -33,7 +33,7 @@ export function SmartEmptyState({
           onClick={onBeginSmartReading}
           className="inline-flex items-center px-4 py-2 text-ui font-medium rounded-md bg-brand text-white hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50 disabled:cursor-not-allowed mb-3"
         >
-          {busy ? 'Generating…' : 'Begin Smart Reading'}
+          {busy ? 'Generating…' : 'Begin Omni Reading'}
         </button>
         <p className="text-caption text-ink-light max-w-sm m-0">
           Uses the configured AI provider. Deterministic fallback if unavailable.
@@ -50,7 +50,7 @@ export function SmartEmptyState({
     <div className="flex flex-col items-center justify-center text-center py-16 px-6">
       <Feather className="w-8 h-8 text-faint mb-4" aria-hidden="true" />
       <h2 className="text-h3 font-semibold text-ink mb-2">
-        No Smart chapter here yet
+        No Omni chapter here yet
       </h2>
       <p className="text-body text-ink-muted max-w-md mb-6">
         This chapter hasn't been generated. Generate the next chapters to

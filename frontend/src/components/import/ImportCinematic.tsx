@@ -22,7 +22,7 @@ const STAGES: StageConfig[] = [
   { key: 'index', label: 'Semantic index', jobType: 'SEMANTIC_INDEX', humanLabel: 'Building semantic memory…' },
   { key: 'classification', label: 'Classification', jobType: 'CLASSIFICATION', humanLabel: 'Classifying content…' },
   { key: 'synopsis', label: 'Synopsis', jobType: 'SYNOPSIS', humanLabel: 'Drawing out the thesis…' },
-  { key: 'synthesis', label: 'Smart chapters', jobType: 'SYNTHESIS', humanLabel: 'Writing Smart Chapters…' },
+  { key: 'synthesis', label: 'Omni chapters', jobType: 'SYNTHESIS', humanLabel: 'Writing Omni Chapters…' },
 ];
 
 const CLASSIFICATION_TAGS = [
