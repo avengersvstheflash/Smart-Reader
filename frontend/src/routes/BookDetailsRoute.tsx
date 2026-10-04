@@ -184,12 +184,14 @@ export default function BookDetailsRoute() {
     .filter((sc) => sc.status === 'generated')
     .reduce((acc, sc) => acc + (sc.wordCount || 0), 0);
    const omniMinutes = Math.max(1, Math.round(omniWordCount / 200));
-   const omniReadingCaption =
+  const omniReadingCaption =
+    smartTotal > 0 &&
+    smartGenerated === smartTotal &&
     omniWordCount > 0
-     ? omniMinutes < 60
-       ? `~${omniMinutes} min Omni read`
-       : `~${(omniMinutes / 60).toFixed(1)}h Omni read`
-      : null;  
+      ? omniMinutes < 60
+        ? `~${omniMinutes} min Omni read`
+        : `~${(omniMinutes / 60).toFixed(1)}h Omni read`
+      : null;
 
 
   // Navigate to first generated Smart chapter or resume target
