@@ -8,21 +8,26 @@
 
 ---
 
-## 1. Current State
+## Current State (2026-10-05)
+
+**HEAD:** bbcfd7e (5.8c commit hash pending)  
+**Tree:** clean (post-commit)  
+**Origin:** synced  
 
 | | |
 |---|---|
-| **HEAD** | `f390a14` — 5.8.0j.2 legacy PUA font normalizer (F23) |
+| **HEAD** | `bbcfd7e` (5.8c commit hash pending) |
 | **Origin** | synced (`origin/main`) |
-| **Working tree** | clean |
-| **Tests** | 28 registered suites. Targeted: `5.8.0j` 14/14 + `5.8.0j_legacy_font` 20/20 green. Full suite still blocked by `build3a_test.js` network hang. |
-| **Frontend** | `tsc --noEmit` / `npm run build` clean |
+| **Working tree** | clean (post-commit) |
+| **Tests** | Not re-run this session (5.8c is UI-only) |
+| **Frontend** | `tsc --noEmit` / `vite build` clean |
 | **Last release tag** | `v0.6.0` @ `55d0855` (Phase 5.7.2 close) |
 | **Phase 5** | **CLOSED** |
-| **Phase 5.8.0** | **CLOSED** (repair + F18 + F24 all fixed) |
+| **Phase 5.7.3** | **CLOSED** |
+| **Phase 5.8.0** | **CLOSED** |
 | **Phase 5.8** | **IN PROGRESS** |
 
-**Immediate next task:** `5.8a` — Omnitome rebrand (user-visible strings only). Then `5.8b` + `5.8c`, then the dossier foundation.
+**Immediate next task:** 5.8c.1 per-theme accent calibration, F29 LaTeX fix (KaTeX), then 5.8b.
 
 ---
 
@@ -30,7 +35,7 @@
 
 **One-line thesis:** A local-first neural reading library whose differentiator is **loss-bounded, provenance-aware semantic compression**.
 
-**Not this:** "AI summarizes your books."
+**Not this:** "AI summarizes your books."  
 **This:** Source → compressed reading layer → traceable back to source.
 
 ### The Two-Representation Invariant
@@ -56,7 +61,16 @@ The reader defaults to Omni. Original is reached contextually, via provenance �
 
 ---
 
-## 3. Phase Status
+## Phase Status
+
+- Phase 5: CLOSED
+- Phase 5.7.3: CLOSED
+- Phase 5.8.0: CLOSED
+- Phase 5.8: IN PROGRESS
+  - 5.8a Omnitome Rebrand: CLOSED (eb4f2c7, bbcfd7e)
+  - 5.8c Omni Theme Identity: CLOSED (theme renamed neon→omni)
+  - 5.8c.1 Per-Theme Accent Calibration: QUEUED (plan drafted)
+  - F29 LaTeX Rendering: ELEVATED to 5.8.x
 
 | Phase | Status | Closed |
 |---|---|---|
@@ -75,6 +89,9 @@ The reader defaults to Omni. Original is reached contextually, via provenance �
 | **5.8.0j.1 (F24 — chat-log parser)** | ✅ CLOSED | 2026-10-04 |
 | **5.8.0g.2 (label honesty)** | ✅ CLOSED | 2026-10-04 |
 | **5.8.0j.2 (F23 — math glyphs)** | ✅ CLOSED | 2026-10-04 |
+| **5.8a (Omnitome rebrand)** | ✅ CLOSED | 2026-10-05 |
+| **5.8c (Omni theme identity)** | ✅ CLOSED | 2026-10-05 |
+| **5.8c.1 (per-theme accent calibration)** | ⏳ QUEUED | — |
 | **5.8 (pre-Tauri close-out)** | 🔄 **IN PROGRESS** | — |
 | 5.9 (Kokoro TTS) | ⏸ PLANNED | — |
 | 6 (Tauri packaging) | ⏸ PLANNED | — |
@@ -90,15 +107,14 @@ The reader defaults to Omni. Original is reached contextually, via provenance �
 | ID | Scope | Status |
 |---|---|---|
 | 5.8.0 | Compression contract repair | ✅ CLOSED |
-| 5.8.0g.1 | Reading-time label (source words vs Omni words) | ✅ CLOSED (g.2 follow-up pending) |
+| 5.8.0g.1 | Reading-time label (source words vs Omni words) | ✅ CLOSED |
 | 5.8.0h.2 | F18 — ancestor resolution when chapter heading isn't distinct | ✅ CLOSED |
 | 5.8.0j.1 | F24 — chat-log parser branch (verified on Kaggle OCR PDF) | ✅ CLOSED |
 | 5.8.0g.2 | Label honesty: only show Omni time when `generated === total` | ✅ CLOSED |
 | 5.8.0j.2 | F23 — math glyph handling (legacy PUA normalizer) | ✅ CLOSED |
-| **5.8a** | Rebrand Smart Reader → Omnitome (user-visible strings) | **NEXT** |
-| 5.8a | Rebrand Smart Reader → Omnitome (user-visible strings) | Pending |
+| **5.8a** | Rebrand Smart Reader → Omnitome (user-visible strings) | ✅ CLOSED (`eb4f2c7`, `bbcfd7e`) |
+| **5.8c** | Omni Theme Identity (color tokens, themes) | 🔄 IN PROGRESS (uncommitted: useThemeStore.ts, index.css, domain.ts, DESIGN_NEON_THEME.md) |
 | 5.8b | Omni feature naming (Smart Reading → Omni Reading, etc.) | Pending |
-| 5.8c | Violet lens identity (color tokens, themes) | Pending |
 | 5.8d | Background import tracking + notification system | Pending |
 | 5.8e | Paste tab → attach source to existing Research item | Pending |
 | 5.8f | Research → Synthesize Omni Chapters action | Pending |
@@ -178,20 +194,16 @@ Last reconciled: **2026-10-04 late evening** (post F23 + F18 end-to-end verify).
 | **5.8.0g.1** | Reading-time label — source words + Omni read time | 39dcb09 + 077e557 |
 | **5.8.0g.2** | Hide Omni reading time unless book fully generated | 448ca25 |
 
-### Open — near term
+### Open — elevated / near term
 
 | ID | Description | Severity | Next task |
 |---|---|---|---|
+| **F29** | Math typesetting / LaTeX rendering — Omni Chapter reader renders raw LaTeX instead of typeset math ($$C_{ij} = (-1)^{i+j} \times \det(M_{ij})$$). Elevated from deferred to immediate. KaTeX is the right solution. | High | Immediate (5.8.x) |
+| **Theme calibration** | Research shows neon fails WCAG on light surfaces. Each theme should have its own calibrated accent (violet for light/dark, amber for warm, teal for glass). | Medium | 5.8c follow-up |
 | **F20** | Synopsis sampler picks Index as last chapter | Low | Small fix in intelligentSummarizer.js |
 | **F21** | "Opened just now" label lag | Low | Cosmetic |
 | **F26** | First-turn fallback title reads Turn 1 when OCR preamble precedes first user prompt | Low | Small |
 | **F27** | Editorial planner picks up Chapter N ancestors from chat-log body text | Low | Defer / small |
-
-### Open — deferred features
-
-| ID | Description | Severity | Next task |
-|---|---|---|---|
-| **F29** | Math typesetting — extracted math renders as flat text (a11, x^2) rather than typographic (a₁₁, x²). Needs KaTeX/MathML rendering or sub/superscript heuristics | Medium | v1.x feature |
 | **F30** | Duplicate [SectionFilter] Filtered "Preface" logs in synopsis chain — cosmetic dedupe | Low | Small |
 
 ### Honest limitation (F18)
@@ -202,34 +214,27 @@ Parts 13–15 now correctly read `Chapter 3` — but without the real title `Dat
 
 ---
 
-## 7. Next Tasks
+## Next Session Opener
+1. Verify HEAD, tree clean, origin synced
+2. Implement 5.8c.1 per docs/DESIGN_OMNI_ACCENT_SYSTEM.md
+3. F29 KaTeX integration
+4. Continue 5.8b (Omni feature naming)
 
-### 5.8a — Omnitome rebrand (NEXT)
+### 5.8a — Omnitome rebrand (CLOSED)
+Shipped in `eb4f2c7` (frontend) and `bbcfd7e` (backend synthesis titles).
 
-**Scope:** user-visible strings only.
-- Smart Reader → Omnitome
-- Smart Reading → Omni Reading
-- Smart Chapter(s) → Omni Chapter(s)
-- Smart Reading: … (synthesis titles) → Omni Reading: …
-- README, UI copy, page titles, index.html
+### 5.8c — Omni Theme Identity (CLOSED)
+Theme renamed `neon` → `omni` (flagship dark violet). Global polish, reader prose strictly neutral, reduced-motion compliance.
+Documented in `docs/DESIGN_OMNI_THEME.md`.
 
-**NOT touched:** schema, smart_chapters table, /api/smart-chapters/*, EDITORIAL_SYNTHESIS, synthesis_type columns.
+### 5.8c.1 — Per-Theme Accent Calibration (QUEUED)
+Design drafted in `docs/DESIGN_OMNI_ACCENT_SYSTEM.md`.
 
 ### 5.8b — Omni feature naming
-
 Continued terminology pass — feature labels, badges, hero copy.
 
-### 5.8c — Violet lens identity
-
-Color tokens, themes. Omni surfaces get violet tint; source stays neutral.
-
 ### 5.8d — Background import tracking + notifications
-
 Prerequisite for 5.8f.
-
-### 5.8j.2 — F29 math typesetting (deferred, v1.x)
-
-Flat text → KaTeX rendering for detected equation regions.
 
 ---
 
@@ -292,6 +297,14 @@ Stale editor buffer flushes post-commit, corrupting the working tree while HEAD 
 **Prevention:** `git status --short` after every commit. Unexpected `M` → investigate before staging anything.
 
 - **VS Code Git extension auto-revert (confirmed root cause 2026-10-04).** The VS Code Git extension can silently revert working-tree changes to files with active editor buffers, causing partial commits where `git add` accepts paths that are no longer modified. This is now understood as a primary cause of the recurring "buffer drift" incidents attributed across chats. **Rule:** disable auto-stash / auto-revert in the VS Code Git extension. After every multi-file edit, verify each target file with `Select-String` on a unique string from the edit BEFORE running `git add`. After commit, run `Select-String` again to confirm changes are still on disk.
+
+### Antigravity Task-Kill Pattern (new observation 2026-10-04/05)
+
+Commands run in PowerShell via Antigravity background tasks may keep log handles open or hang on child processes even after completion, causing timeouts on status checks. Killing the background task after verifying log output is often required. Additionally, Node/npx commands require unsandboxed execution on Windows host.
+
+### DeepSeek Account Suspension (volume management)
+
+High-volume automated test loops or uncontrolled API retry storms can trigger account suspension on DeepSeek/external LLM providers. Always enforce rate limits and static overrides during test runs.
 
 ### Agent Git on Working Tree (3+ incidents)
 

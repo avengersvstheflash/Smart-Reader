@@ -112,6 +112,34 @@
   --shadow-lg: 0 12px 40px rgb(28 31 36 / 0.16);
 }
 
+[data-theme='omni'] {
+  color-scheme: dark;
+  --bg: 10 12 20;
+  --surface: 18 22 34;
+  --panel: 14 17 28;
+  --subtle: 26 31 46;
+  --line: 38 45 66;
+  --line-strong: 62 72 102;
+  --ink: 245 247 251;
+  --ink-muted: 158 167 186;
+  --ink-light: 107 116 138;
+  --brand: 59 130 246;
+  --accent: 168 85 247;
+  --accent-ink: 192 132 252;
+  --accent-wash: 168 85 247;
+  --accent-wash-alpha: 0.15;
+  --ok: 52 211 153;
+  --warn: 251 191 36;
+  --err: 248 113 113;
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 14px rgb(0 0 0 / 0.6), 0 0 16px rgb(168 85 247 / 0.12);
+  --shadow-lg: 0 10px 30px rgb(0 0 0 / 0.7), 0 0 28px rgb(168 85 247 / 0.18);
+  /* Glow & gradient tokens */
+  --glow-brand: rgb(168 85 247 / 0.5);
+  --glow-accent: rgb(59 130 246 / 0.4);
+  --gradient-hero: linear-gradient(135deg, rgb(168 85 247 / 0.15), rgb(59 130 246 / 0.08));
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
@@ -130,6 +158,11 @@
 
   [data-theme='glass'] body {
     background-image: var(--glass-gradient);
+    background-attachment: fixed;
+  }
+
+  [data-theme='omni'] body {
+    background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgb(59 130 246 / 0.08), transparent 70%);
     background-attachment: fixed;
   }
 
@@ -171,7 +204,53 @@
       --glass-blur: none;
     }
     [data-theme='glass'] body { background-image: none; }
+    [data-theme='omni'] body { background-image: none; }
   }
+}
+
+/* ── Theme polish: subtle glow on brand buttons, header gradient, active nav accent border ── */
+header {
+  background-image: linear-gradient(180deg, rgb(var(--brand) / 0.05) 0%, transparent 100%);
+}
+
+.brand-button,
+button.bg-brand,
+a.bg-brand {
+  transition: box-shadow 180ms ease, opacity 180ms ease;
+}
+
+.brand-button:hover,
+button.bg-brand:hover,
+a.bg-brand:hover {
+  box-shadow: 0 0 16px rgb(var(--brand) / 0.35);
+}
+
+nav[aria-label="Primary"] a[aria-current="page"],
+nav a[aria-current="page"] {
+  border: 1px solid rgb(var(--accent));
+}
+
+/* ── Omni theme specific accents & controlled glows ── */
+[data-theme='omni'] header {
+  border-bottom: 1px solid rgb(var(--brand) / 0.3);
+}
+
+[data-theme='omni'] .brand-button,
+[data-theme='omni'] button.bg-brand,
+[data-theme='omni'] a.bg-brand {
+  box-shadow: 0 0 24px var(--glow-brand);
+}
+
+[data-theme='omni'] .brand-button:hover,
+[data-theme='omni'] button.bg-brand:hover,
+[data-theme='omni'] a.bg-brand:hover {
+  box-shadow: 0 0 32px var(--glow-brand);
+}
+
+/* ── Critical Invariant: Reader prose area strictly neutral (no glow / text-shadow) ── */
+article.prose.prose-reader,
+article.prose.prose-reader * {
+  text-shadow: none !important;
 }
 
 /* Semantic utility aliases mapping to Blueprint design tokens */

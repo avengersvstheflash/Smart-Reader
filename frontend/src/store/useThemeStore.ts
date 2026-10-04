@@ -7,16 +7,13 @@ interface ThemeState {
   cycleTheme: () => void;
 }
 
-const THEMES: Theme[] = ['default', 'warm', 'dark', 'glass'];
+const THEMES: Theme[] = ['default', 'warm', 'dark', 'glass', 'omni'];
 
 function getInitialTheme(): Theme {
-  const stored = localStorage.getItem('sr.theme') as Theme | null;
-  if (stored && THEMES.includes(stored)) {
-    return stored;
-  }
-  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
-  }
+  // Migration: 'neon' -> 'omni'
+  const stored = localStorage.getItem('sr.theme') as string | null;
+  if (stored === 'neon') return 'omni';
+  if (stored && (THEMES as string[]).includes(stored)) return stored as Theme;
   return 'default';
 }
 
