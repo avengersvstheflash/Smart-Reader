@@ -1,0 +1,22 @@
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: 21 23 28;
+  --surface: 28 31 38;
+  --panel: 25 28 34;
+  --subtle: 35 39 47;
+  --line: 44 49 58;
+  --line-strong: 58 65 76;
+  --ink: 231 229 223;
+  --ink-muted: 167 171 179;
+  --ink-light: 125 130 139;
+  --brand: 62 80 96;
+  --accent: 208 138 90;
+  --accent-ink: 224 160 117;
+  --accent-wash: 51 38 29;
+  --ok: 102 176 138;
+  --warn: 208 162 79;
+  --err: 212 112 122;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.40);
+  --shadow-md: 0 2px 10px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 8px 28px rgb(0 0 0 / 0.50);
+}

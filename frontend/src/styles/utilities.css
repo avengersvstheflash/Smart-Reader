@@ -1,0 +1,11 @@
+/* Semantic utility aliases mapping to Blueprint design tokens */
+@layer utilities {
+  .bg-app { background-color: rgb(var(--bg)); }
+  .text-muted { color: rgb(var(--ink-muted)); }
+  .text-faint { color: rgb(var(--ink-light)); }
+
+  .font-display { font-family: 'Cinzel', 'Lora', Georgia, serif; }
+  .font-reading { font-family: 'Lora', Georgia, 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif; }
+  .font-ui { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  .font-mono { font-family: 'JetBrains Mono', Consolas, monospace; }
+}

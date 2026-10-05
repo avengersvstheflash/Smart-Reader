@@ -1,0 +1,23 @@
+:root,
+[data-theme='default'] {
+  color-scheme: light;
+  --bg: 247 246 242;
+  --surface: 255 255 255;
+  --panel: 253 253 252;
+  --subtle: 240 238 233;
+  --line: 229 226 218;
+  --line-strong: 210 206 195;
+  --ink: 28 31 36;
+  --ink-muted: 94 100 110;
+  --ink-light: 137 143 153;
+  --brand: 41 56 69;
+  --accent: 196 109 59;
+  --accent-ink: 161 82 37;
+  --accent-wash: 244 233 223;
+  --ok: 47 125 92;
+  --warn: 176 122 46;
+  --err: 178 59 69;
+  --shadow-sm: 0 1px 2px rgb(28 31 36 / 0.05);
+  --shadow-md: 0 2px 8px rgb(28 31 36 / 0.08);
+  --shadow-lg: 0 8px 24px rgb(28 31 36 / 0.10);
+}

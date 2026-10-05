@@ -1,0 +1,22 @@
+[data-theme='warm'] {
+  color-scheme: light;
+  --bg: 243 234 217;
+  --surface: 250 244 230;
+  --panel: 247 240 223;
+  --subtle: 236 225 203;
+  --line: 224 211 184;
+  --line-strong: 203 185 149;
+  --ink: 59 47 34;
+  --ink-muted: 111 95 73;
+  --ink-light: 149 132 107;
+  --brand: 92 70 50;
+  --accent: 161 92 47;
+  --accent-ink: 143 77 36;
+  --accent-wash: 234 217 194;
+  --ok: 85 122 74;
+  --warn: 160 107 35;
+  --err: 168 64 63;
+  --shadow-sm: 0 1px 2px rgb(58 47 34 / 0.06);
+  --shadow-md: 0 2px 8px rgb(58 47 34 / 0.09);
+  --shadow-lg: 0 8px 24px rgb(58 47 34 / 0.12);
+}
