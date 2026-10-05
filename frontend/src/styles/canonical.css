@@ -53,12 +53,14 @@ article.prose.prose-reader :where(h1, h2, h3, h4, h5, h6) {
 
 .canonical-code {
   font-family: 'JetBrains Mono', Consolas, monospace;
-  background: rgb(var(--subtle));
+  background: rgb(var(--panel));
   border: 1px solid rgb(var(--line));
-  border-radius: 6px;
-  padding: 0.9em 1em;
+  border-radius: 8px;
+  padding: 1rem;
   overflow-x: auto;
-  font-size: 0.8em;
+  font-size: 0.875rem;
+  line-height: 1.625;
+  color: rgb(var(--ink));
 }
 
 /* Provenance flash — the one animation allowed inside the source pane. */

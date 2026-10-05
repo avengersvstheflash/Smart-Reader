@@ -502,8 +502,8 @@ export default function ReaderRoute() {
               }}
               className={
                 smartChapter.readAt
-                  ? 'inline-flex items-center gap-1 px-3 py-1 text-caption font-medium rounded-md border border-line/50 bg-subtle/50 text-ink-muted hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer'
-                  : 'inline-flex items-center gap-1.5 px-3 py-1 text-caption font-medium rounded-md border border-line bg-surface text-ink hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer'
+                  ? 'inline-flex items-center gap-1 px-3 py-1 text-caption font-medium rounded-md bg-[rgb(var(--accent-3)/0.15)] text-[rgb(var(--accent-3))] border border-[rgb(var(--accent-3)/0.5)] shadow-[0_0_12px_rgb(var(--accent-3)/0.3)] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer'
+                  : 'inline-flex items-center gap-1.5 px-3 py-1 text-caption font-medium rounded-md border border-[rgb(var(--line))] text-[rgb(var(--ink-muted))] hover:border-[rgb(var(--accent))] hover:text-[rgb(var(--accent))] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer'
               }
             >
               <span>{smartChapter.readAt ? '✓ Read' : 'Mark as read'}</span>

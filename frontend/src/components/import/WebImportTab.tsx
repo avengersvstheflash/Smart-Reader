@@ -43,6 +43,33 @@ const CATEGORIES = [
 
 type Category = (typeof CATEGORIES)[number]['key'];
 
+const CATEGORY_STYLES: Record<Category, { active: string; inactive: string }> = {
+  all: {
+    active: 'border-[rgb(var(--accent))] text-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.15)] shadow-[0_0_10px_rgb(var(--accent)/0.25)]',
+    inactive: 'border-line text-ink-muted hover:border-[rgb(var(--accent)/0.4)] hover:text-[rgb(var(--accent))] hover:bg-[rgb(var(--accent)/0.08)]',
+  },
+  books: {
+    active: 'border-[rgb(var(--accent-2))] text-[rgb(var(--accent-2))] bg-[rgb(var(--accent-2)/0.2)] shadow-[0_0_10px_rgb(var(--accent-2)/0.25)]',
+    inactive: 'border-[rgb(var(--accent-2)/0.4)] text-[rgb(var(--accent-2))] hover:bg-[rgb(var(--accent-2)/0.15)]',
+  },
+  research: {
+    active: 'border-[rgb(var(--accent-3))] text-[rgb(var(--accent-3))] bg-[rgb(var(--accent-3)/0.2)] shadow-[0_0_10px_rgb(var(--accent-3)/0.25)]',
+    inactive: 'border-[rgb(var(--accent-3)/0.4)] text-[rgb(var(--accent-3))] hover:bg-[rgb(var(--accent-3)/0.15)]',
+  },
+  reference: {
+    active: 'border-[rgb(var(--neon-red,var(--err)))] text-[rgb(var(--neon-red,var(--err)))] bg-[rgb(var(--neon-red,var(--err))/0.2)] shadow-[0_0_10px_rgb(var(--neon-red,var(--err))/0.25)]',
+    inactive: 'border-[rgb(var(--neon-red,var(--err))/0.4)] text-[rgb(var(--neon-red,var(--err)))] hover:bg-[rgb(var(--neon-red,var(--err))/0.15)]',
+  },
+  tech: {
+    active: 'border-[rgb(var(--accent))] text-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.2)] shadow-[0_0_10px_rgb(var(--accent)/0.25)]',
+    inactive: 'border-[rgb(var(--accent)/0.4)] text-[rgb(var(--accent))] hover:bg-[rgb(var(--accent)/0.15)]',
+  },
+  manga: {
+    active: 'border-[rgb(var(--accent-4))] text-[rgb(var(--accent-4))] bg-[rgb(var(--accent-4)/0.2)] shadow-[0_0_10px_rgb(var(--accent-4)/0.25)]',
+    inactive: 'border-[rgb(var(--accent-4)/0.4)] text-[rgb(var(--accent-4))] hover:bg-[rgb(var(--accent-4)/0.15)]',
+  },
+};
+
 function SourceTypeIcon({ type }: { type: string }) {
   switch (type) {
     case 'book':
@@ -183,7 +210,7 @@ export function WebImportTab({ onSuccess }: WebImportTabProps) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search books, papers, Wikipedia articles…"
           aria-label="Search the web"
-          className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-line bg-card text-ink text-ui-sm placeholder:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-shadow"
+          className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-[rgb(var(--line))] bg-[rgb(var(--panel))] text-ink text-ui-sm placeholder:text-ink-muted focus:outline-none focus:border-[rgb(var(--accent))] focus:shadow-[0_0_15px_rgb(var(--accent)/0.3)] transition-all"
         />
       </div>
 
@@ -193,21 +220,23 @@ export function WebImportTab({ onSuccess }: WebImportTabProps) {
         role="group"
         aria-label="Filter by category"
       >
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.key}
-            type="button"
-            onClick={() => handleCategoryChange(cat.key)}
-            aria-pressed={category === cat.key}
-            className={`px-3 py-1 rounded-full text-caption font-medium transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              category === cat.key
-                ? 'bg-brand text-white'
-                : 'bg-subtle text-ink-muted hover:bg-subtle/80 hover:text-ink border border-line'
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
+        {CATEGORIES.map((cat) => {
+          const isCurrent = category === cat.key;
+          const style = CATEGORY_STYLES[cat.key];
+          return (
+            <button
+              key={cat.key}
+              type="button"
+              onClick={() => handleCategoryChange(cat.key)}
+              aria-pressed={isCurrent}
+              className={`px-3 py-1 rounded-full text-caption font-medium transition-all select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                isCurrent ? style.active : style.inactive
+              }`}
+            >
+              {cat.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Results area */}
@@ -235,15 +264,15 @@ export function WebImportTab({ onSuccess }: WebImportTabProps) {
                 role="listitem"
                 className={`relative rounded-lg border p-4 flex flex-col gap-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-accent ${
                   isSelected
-                    ? 'border-brand bg-brand/5 shadow-sm'
-                    : 'border-line bg-card hover:border-line-strong hover:bg-subtle/40'
+                    ? 'border-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.1)] shadow-[0_0_16px_rgb(var(--accent)/0.2)]'
+                    : 'border-[rgb(var(--line))] bg-card hover:border-[rgb(var(--accent)/0.6)] hover:shadow-[0_0_16px_rgb(var(--accent)/0.15)] transition-all'
                 }`}
                 onClick={() => toggleSelect(item.id)}
               >
                 {/* Checkbox indicator */}
                 <div className="absolute top-3 right-3 text-brand">
                   {isSelected ? (
-                    <CheckSquare className="w-4 h-4" aria-hidden="true" />
+                    <CheckSquare className="w-4 h-4 text-[rgb(var(--accent))]" aria-hidden="true" />
                   ) : (
                     <Square className="w-4 h-4 text-ink-muted" aria-hidden="true" />
                   )}
@@ -282,7 +311,7 @@ export function WebImportTab({ onSuccess }: WebImportTabProps) {
                       e.stopPropagation();
                       setPreviewItem(item);
                     }}
-                    className="ml-auto text-caption text-accent-ink hover:underline inline-flex items-center gap-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                    className="ml-auto text-caption text-[rgb(var(--accent-ink))] hover:text-[rgb(var(--accent))] hover:underline inline-flex items-center gap-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent transition-colors"
                     aria-label={`Preview ${item.title}`}
                   >
                     <ExternalLink className="w-3 h-3" aria-hidden="true" />
@@ -326,7 +355,7 @@ export function WebImportTab({ onSuccess }: WebImportTabProps) {
               type="button"
               onClick={() => void handleImport()}
               disabled={importing}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-md bg-brand text-white font-medium text-ui-sm hover:opacity-90 transition-opacity disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none"
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-[rgb(var(--accent))] text-[rgb(var(--bg))] font-semibold hover:shadow-[0_0_20px_rgb(var(--accent)/0.5)] transition-all disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none"
             >
               {importing ? 'Importing…' : `Import ${selectedCount}`}
             </button>

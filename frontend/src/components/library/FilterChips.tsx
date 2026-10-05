@@ -14,6 +14,72 @@ export interface FilterChipsProps {
   size?: 'sm' | 'md';
 }
 
+function getChipStyle(label: string, value: string, active: boolean): string {
+  const l = label.toLowerCase();
+  const v = value.toLowerCase();
+
+  // PDF pill: hover:border-[rgb(var(--neon-red)/0.6)] text-[rgb(var(--neon-red))] (active: bg-[rgb(var(--neon-red)/0.2)])
+  if (v === 'pdf') {
+    return active
+      ? 'bg-[rgb(var(--neon-red)/0.2)] text-[rgb(var(--neon-red))] border-[rgb(var(--neon-red)/0.6)] shadow-xs'
+      : 'bg-card text-[rgb(var(--neon-red))] border-line hover:border-[rgb(var(--neon-red)/0.6)] hover:bg-subtle';
+  }
+
+  // EPUB pill: hover:border-[rgb(var(--accent-2)/0.6)] text-[rgb(var(--accent-2))] (active: bg-[rgb(var(--accent-2)/0.2)])
+  if (v === 'epub') {
+    return active
+      ? 'bg-[rgb(var(--accent-2)/0.2)] text-[rgb(var(--accent-2))] border-[rgb(var(--accent-2)/0.6)] shadow-xs'
+      : 'bg-card text-[rgb(var(--accent-2))] border-line hover:border-[rgb(var(--accent-2)/0.6)] hover:bg-subtle';
+  }
+
+  // Web pill: hover:border-[rgb(var(--accent)/0.6)] text-[rgb(var(--accent))] (active: bg-[rgb(var(--accent)/0.2)])
+  if (v === 'web' || l.includes('web')) {
+    return active
+      ? 'bg-[rgb(var(--accent)/0.2)] text-[rgb(var(--accent))] border-[rgb(var(--accent)/0.6)] shadow-xs'
+      : 'bg-card text-[rgb(var(--accent))] border-line hover:border-[rgb(var(--accent)/0.6)] hover:bg-subtle';
+  }
+
+  // Pasted/Text pill: hover:border-[rgb(var(--accent-3)/0.6)] text-[rgb(var(--accent-3))] (active: bg-[rgb(var(--accent-3)/0.2)])
+  if (v === 'paste' || v === 'text' || l.includes('paste')) {
+    return active
+      ? 'bg-[rgb(var(--accent-3)/0.2)] text-[rgb(var(--accent-3))] border-[rgb(var(--accent-3)/0.6)] shadow-xs'
+      : 'bg-card text-[rgb(var(--accent-3))] border-line hover:border-[rgb(var(--accent-3)/0.6)] hover:bg-subtle';
+  }
+
+  // Dossiers pill (Laser Magenta)
+  if (v === 'dossier') {
+    return active
+      ? 'bg-[rgb(var(--accent-2)/0.2)] text-[rgb(var(--accent-2))] border-[rgb(var(--accent-2)/0.6)] shadow-xs'
+      : 'bg-card text-[rgb(var(--accent-2))] border-line hover:border-[rgb(var(--accent-2)/0.6)] hover:bg-subtle';
+  }
+
+  // Single Items pill (Hyper Lime)
+  if (v === 'single') {
+    return active
+      ? 'bg-[rgb(var(--accent-3)/0.2)] text-[rgb(var(--accent-3))] border-[rgb(var(--accent-3)/0.6)] shadow-xs'
+      : 'bg-card text-[rgb(var(--accent-3))] border-line hover:border-[rgb(var(--accent-3)/0.6)] hover:bg-subtle';
+  }
+
+  // Novel pill
+  if (l.includes('novel') || v === 'novel') {
+    return active
+      ? 'bg-[rgb(var(--accent-2)/0.2)] text-[rgb(var(--accent-2))] border-[rgb(var(--accent-2)/0.6)] shadow-xs'
+      : 'bg-card text-[rgb(var(--accent-2))] border-line hover:border-[rgb(var(--accent-2)/0.6)] hover:bg-subtle';
+  }
+
+  // Doc pill
+  if (l.includes('doc') || v === 'document') {
+    return active
+      ? 'bg-[rgb(var(--accent-3)/0.2)] text-[rgb(var(--accent-3))] border-[rgb(var(--accent-3)/0.6)] shadow-xs'
+      : 'bg-card text-[rgb(var(--accent-3))] border-line hover:border-[rgb(var(--accent-3)/0.6)] hover:bg-subtle';
+  }
+
+  // "All" pills: electric cyan outline with soft wash rather than flat opaque fill
+  return active
+    ? 'border-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.15)] text-[rgb(var(--accent-ink))] shadow-xs'
+    : 'bg-card text-ink-muted border-line hover:bg-subtle hover:text-ink hover:border-line-strong';
+}
+
 export const FilterChips: React.FC<FilterChipsProps> = ({
   options,
   value,
@@ -60,17 +126,17 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
             type="button"
             aria-pressed={active}
             onClick={() => handleClick(opt.value)}
-            className={`inline-flex items-center rounded-full font-medium transition-all whitespace-nowrap select-none border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${sizeClasses} ${
+            className={`inline-flex items-center rounded-full font-medium transition-all whitespace-nowrap select-none border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${sizeClasses} ${getChipStyle(
+              opt.label,
+              opt.value,
               active
-                ? 'bg-brand text-white border-brand shadow-sm'
-                : 'bg-card text-ink-muted border-line hover:bg-subtle hover:text-ink hover:border-line-strong'
-            }`}
+            )}`}
           >
             <span>{opt.label}</span>
             {typeof opt.count === 'number' && (
               <span
                 className={`text-[11px] px-1.5 py-0.2 rounded-full ${
-                  active ? 'bg-white/20 text-white' : 'bg-subtle text-ink-light'
+                  active ? 'bg-current/15 text-current' : 'bg-subtle text-ink-light'
                 }`}
               >
                 {opt.count}

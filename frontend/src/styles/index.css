@@ -6,10 +6,10 @@
 
 @import './tailwind.css';
 @import './base.css';
-@import './themes/default.css';
-@import './themes/warm.css';
-@import './themes/dark.css';
-@import './themes/glass.css';
+@import './themes/spring.css';
+@import './themes/sakura.css';
+@import './themes/coffee.css';
+@import './themes/cyberpunk.css';
 @import './themes/omni.css';
 @import './polish.css';
 @import './utilities.css';

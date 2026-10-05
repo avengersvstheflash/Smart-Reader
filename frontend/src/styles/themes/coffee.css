@@ -1,4 +1,4 @@
-[data-theme='warm'] {
+[data-theme='coffee'] {
   color-scheme: light;
   --bg: 243 234 217;
   --surface: 250 244 230;
@@ -13,6 +13,9 @@
   --accent: 161 92 47;
   --accent-ink: 143 77 36;
   --accent-wash: 234 217 194;
+  --accent-2: 217 119 6;
+  --accent-3: 180 83 9;
+  --accent-4: 120 53 15;
   --ok: 85 122 74;
   --warn: 160 107 35;
   --err: 168 64 63;

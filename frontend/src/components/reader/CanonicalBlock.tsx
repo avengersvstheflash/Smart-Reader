@@ -354,7 +354,7 @@ export function CanonicalBlock({
 
     case 'code':
       return (
-        <pre className="canonical-code">
+        <pre className="canonical-code bg-[rgb(var(--panel))] border border-[rgb(var(--line))] rounded-lg p-4 font-mono text-sm leading-relaxed text-[rgb(var(--ink))] overflow-x-auto">
           <code className={block.language ? `language-${block.language}` : undefined}>
             {block.text}
           </code>

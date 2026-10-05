@@ -108,25 +108,25 @@ export function ChapterNav({
   return (
     <nav
       aria-label="Chapter navigation"
-      className="relative flex items-center justify-between border-t border-line bg-card px-4 py-2"
+      className="relative flex items-center justify-between border-t border-[rgb(var(--line))] bg-[#080b12]/90 backdrop-blur-md shadow-[0_-8px_20px_rgba(0,0,0,0.5)] px-4 py-2"
     >
       {/* Prev Button */}
       <button
         type="button"
         aria-label="Previous chapter"
         aria-disabled={!hasPrev}
-        className={`min-h-[44px] min-w-[44px] px-3 py-2 flex items-center justify-center rounded transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+        className={`min-h-[44px] min-w-[44px] px-3 py-1.5 flex items-center gap-1 rounded-md transition-all font-medium text-sm select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
           !hasPrev
             ? 'text-faint cursor-not-allowed opacity-50'
-            : 'text-ink hover:bg-subtle'
+            : 'text-[rgb(var(--ink))] hover:text-[rgb(var(--accent))] hover:shadow-[0_0_12px_rgb(var(--accent)/0.4)] hover:bg-subtle/30'
         }`}
         onClick={() => {
           if (!hasPrev || !prevId) return;
           onNavigate(prevId);
         }}
       >
-        <ChevronLeft className="w-4 h-4 mr-1" aria-hidden="true" />
-        <span className="hidden sm:inline text-ui-sm font-medium">Previous</span>
+        <ChevronLeft className="w-4 h-4 mr-0.5" aria-hidden="true" />
+        <span className="hidden sm:inline">Previous</span>
       </button>
 
       {/* Center Region: Trigger + Popover */}
@@ -136,7 +136,7 @@ export function ChapterNav({
           type="button"
           aria-haspopup="listbox"
           aria-expanded={isOpen}
-          className="min-h-[44px] px-3 py-2 text-ui-sm font-medium text-ink hover:bg-subtle rounded transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="min-h-[44px] px-3 py-2 font-mono text-xs tracking-wider text-[rgb(var(--ink-muted))] hover:text-ink hover:bg-subtle/40 rounded transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           onClick={() => {
             setIsOpen((prev) => !prev);
             if (!isOpen && currentIndex >= 0) {
@@ -213,18 +213,18 @@ export function ChapterNav({
         type="button"
         aria-label="Next chapter"
         aria-disabled={!hasNext}
-        className={`min-h-[44px] min-w-[44px] px-3 py-2 flex items-center justify-center rounded transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+        className={`min-h-[44px] min-w-[44px] px-3 py-1.5 flex items-center gap-1 rounded-md transition-all font-medium text-sm select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
           !hasNext
             ? 'text-faint cursor-not-allowed opacity-50'
-            : 'text-ink hover:bg-subtle'
+            : 'text-[rgb(var(--ink))] hover:text-[rgb(var(--accent))] hover:shadow-[0_0_12px_rgb(var(--accent)/0.4)] hover:bg-subtle/30'
         }`}
         onClick={() => {
           if (!hasNext || !nextId) return;
           onNavigate(nextId);
         }}
       >
-        <span className="hidden sm:inline text-ui-sm font-medium">Next</span>
-        <ChevronRight className="w-4 h-4 ml-1" aria-hidden="true" />
+        <span className="hidden sm:inline">Next</span>
+        <ChevronRight className="w-4 h-4 ml-0.5" aria-hidden="true" />
       </button>
     </nav>
   );

@@ -1,0 +1,262 @@
+[data-theme='cyberpunk'] {
+  color-scheme: dark;
+  
+  /* Void / Carbon Fiber Chassis */
+  --bg: 4 4 6;               /* Pure void obsidian */
+  --surface: 12 12 16;        /* Sleek instrument cluster surface */
+  --panel: 8 8 12;           /* Recessed HUD card wells */
+  --subtle: 24 24 32;        /* Dark graphite texture */
+  
+  /* Precision Telemetry Lines */
+  --line: 38 38 50;          /* Subtle metallic borders */
+  --line-strong: 0 255 255;  /* Electric neon cyan border for active states */
+  
+  /* Crisp Cockpit Readout (Ink) */
+  --ink: 240 250 255;        /* Arctic laser white */
+  --ink-muted: 150 170 190;  /* Secondary telemetry readout */
+  --ink-light: 90 110 130;   /* Muted metadata */
+  
+  /* Supercar Electric Neon Accents */
+  --brand: 0 216 230;
+  --accent: 0 216 230;
+  --accent-ink: 170 235 245;
+  --accent-wash: 0 255 255;
+  --accent-wash-alpha: 0.12; /* Faint holographic HUD wash */
+  
+  /* Semantic Auxiliary Tokens */
+  --accent-2: 255 0 255;     /* Hot Laser Magenta — Tag chips */
+  --accent-3: 57 255 20;     /* Hyper Lime — Read / Completed state */
+  --accent-4: 255 215 0;     /* Cyber Yellow/Amber — Queued / Pending state */
+  
+  /* Status / Warning */
+  --ok: 57 255 20;
+  --warn: 255 215 0;
+  --err: 255 0 80;           /* Tachometer Redline */
+  --neon-red: 255 35 85;
+  --accent-red: 255 35 85;
+  --badge-ref: 255 35 85;      /* Replaces muddy brown reference badge */
+  
+  /* Fiber-Optic Halo Glows (Optical-grade alphas to avoid blur) */
+  --shadow-sm: 0 0 8px rgb(0 255 255 / 0.18);
+  --shadow-md: 0 0 16px rgb(0 255 255 / 0.22);
+  --shadow-lg: 0 0 28px rgb(0 255 255 / 0.30);
+}
+
+[data-theme='cyberpunk'] body {
+  background-image: 
+    linear-gradient(rgba(0, 255, 255, 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.15) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-attachment: fixed;
+}
+
+/* 1. Synchronized Electric Plasma Wave for Logo */
+@keyframes logo-plasma-surge {
+  0%, 100% {
+    color: #00f0ff !important;
+    text-shadow:
+      0 0 6px rgb(0 240 255 / 0.85),
+      0 0 14px rgb(0 240 255 / 0.5),
+      0 0 28px rgb(255 0 212 / 0.35);
+  }
+  50% {
+    color: #ff00d4 !important;
+    text-shadow:
+      0 0 6px rgb(255 0 212 / 0.85),
+      0 0 14px rgb(255 0 212 / 0.5),
+      0 0 28px rgb(0 240 255 / 0.35);
+  }
+}
+
+/* 2. Micro-voltage energy crackle */
+@keyframes logo-voltage-hum {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgb(0 240 255 / 0.7));
+    opacity: 1;
+  }
+  20% {
+    filter: drop-shadow(0 0 4px rgb(255 255 255 / 0.9));
+    opacity: 0.96;
+  }
+  58% {
+    filter: drop-shadow(0 0 3px rgb(255 0 212 / 0.8));
+    opacity: 1;
+  }
+  82% {
+    filter: drop-shadow(0 0 5px rgb(0 240 255 / 0.9));
+    opacity: 0.94;
+  }
+}
+
+/* 1. Electric Voltage Jitter & Plasma Breathing */
+@keyframes electric-plasma-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgb(0 216 230 / 0.7),
+      0 0 22px rgb(0 216 230 / 0.4),
+      0 0 45px rgb(255 0 212 / 0.25),
+      inset 0 0 10px rgb(0 216 230 / 0.35);
+    border-color: rgb(0 216 230 / 0.85);
+  }
+  30% {
+    box-shadow:
+      0 0 15px rgb(0 216 230 / 0.85),
+      0 0 28px rgb(0 216 230 / 0.5),
+      0 0 55px rgb(255 0 212 / 0.4),
+      inset 0 0 12px rgb(0 216 230 / 0.45);
+    border-color: rgb(0 216 230 / 1);
+  }
+  32% {
+    box-shadow:
+      0 0 8px rgb(0 216 230 / 0.5),
+      0 0 16px rgb(0 216 230 / 0.3),
+      0 0 35px rgb(255 0 212 / 0.15),
+      inset 0 0 8px rgb(0 216 230 / 0.25);
+    border-color: rgb(0 216 230 / 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 12px rgb(255 0 212 / 0.65),
+      0 0 25px rgb(255 0 212 / 0.45),
+      0 0 48px rgb(0 216 230 / 0.3),
+      inset 0 0 10px rgb(255 0 212 / 0.35);
+    border-color: rgb(255 0 212 / 0.75);
+  }
+  70% {
+    box-shadow:
+      0 0 16px rgb(255 0 212 / 0.85),
+      0 0 32px rgb(255 0 212 / 0.55),
+      0 0 60px rgb(0 216 230 / 0.4),
+      inset 0 0 14px rgb(255 0 212 / 0.45);
+    border-color: rgb(255 0 212 / 0.95);
+  }
+  72% {
+    box-shadow:
+      0 0 8px rgb(255 0 212 / 0.5),
+      0 0 18px rgb(255 0 212 / 0.3),
+      0 0 40px rgb(0 216 230 / 0.2),
+      inset 0 0 8px rgb(255 0 212 / 0.25);
+    border-color: rgb(255 0 212 / 0.5);
+  }
+}
+
+/* 2. Micro-Arc Text Static */
+@keyframes voltage-crackle {
+  0%, 100% {
+    text-shadow: 0 0 8px rgb(0 216 230 / 0.8);
+    color: #00f0ff;
+  }
+  30% {
+    text-shadow: 0 0 12px rgb(0 216 230 / 1);
+    color: #ffffff;
+  }
+  32% {
+    text-shadow: 0 0 4px rgb(0 216 230 / 0.4);
+    color: #00f0ff;
+  }
+  50% {
+    text-shadow: 0 0 8px rgb(255 0 212 / 0.7);
+    color: #ff00d4;
+  }
+  70% {
+    text-shadow: 0 0 12px rgb(255 0 212 / 1);
+    color: #ffffff;
+  }
+  72% {
+    text-shadow: 0 0 4px rgb(255 0 212 / 0.4);
+    color: #ff00d4;
+  }
+}
+
+/* =========================================================
+   APPLY TO LOGO CONTAINER AND ALL DIRECT CHILDREN
+   ========================================================= */
+[data-theme='cyberpunk'] .cyber-animated-logo,
+[data-theme='cyberpunk'] .cyber-animated-logo * {
+  animation: 
+    logo-plasma-surge 3.2s ease-in-out infinite,
+    logo-voltage-hum 1.6s steps(2, start) infinite !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  letter-spacing: 0.05em !important;
+  transition: all 0.2s ease !important;
+}
+
+[data-theme='cyberpunk'] .cyber-animated-logo:hover,
+[data-theme='cyberpunk'] .cyber-animated-logo:hover * {
+  text-shadow:
+    0 0 8px rgb(255 255 255),
+    0 0 18px rgb(0 240 255),
+    0 0 35px rgb(255 0 212) !important;
+}
+
+/* =========================================================
+   CLEAN ELECTRIC PLASMA CONTINUE BUTTON
+   ========================================================= */
+/* 3. The Button Override */
+[data-theme='cyberpunk'] .cyber-animated-button {
+  background: linear-gradient(135deg, #060b12 0%, #0a111a 100%) !important;
+  border: 1.5px solid rgb(0 216 230 / 0.85) !important;
+  color: #00f0ff !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  animation: 
+    electric-plasma-glow 3s cubic-bezier(0.4, 0, 0.2, 1) infinite,
+    voltage-crackle 3s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease !important;
+  position: relative !important;
+  overflow: hidden !important; /* Contain internal elements, no bleeding */
+}
+
+/* Suppress all pseudo-elements generated previously */
+[data-theme='cyberpunk'] .cyber-animated-button::before,
+[data-theme='cyberpunk'] .cyber-animated-button::after {
+  display: none !important;
+}
+
+[data-theme='cyberpunk'] .cyber-animated-button:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  background: linear-gradient(135deg, #081018 0%, #0d1622 100%) !important;
+}
+
+/* =========================================================
+   READER HUD TELEMETRY & PASSAGE STYLES
+   ========================================================= */
+/* Fiber-optic left margin data conduit */
+[data-theme='cyberpunk'] .reader-telemetry-rail {
+  border-left: 2px solid rgb(0 216 230) !important;
+  box-shadow: -4px 0 16px rgb(0 216 230 / 0.4) !important;
+}
+
+/* Holographic selected passage wash */
+[data-theme='cyberpunk'] .reader-selected-passage {
+  background: rgba(0, 216, 230, 0.12) !important;
+  border-left: 3px solid rgb(0 216 230) !important;
+  box-shadow: 0 0 15px rgba(0, 216, 230, 0.15) !important;
+}
+
+/* "SOURCE" Badge Pill */
+[data-theme='cyberpunk'] .segment-source-chip {
+  background: rgb(var(--accent)) !important;
+  color: rgb(var(--bg)) !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-weight: 700 !important;
+  font-size: 10px !important;
+  padding: 2px 8px !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 0 10px rgb(var(--accent) / 0.6) !important;
+  border: none !important;
+  transition: all 0.15s ease !important;
+}
+
+[data-theme='cyberpunk'] .segment-source-chip:hover,
+[data-theme='cyberpunk'] .segment-source-chip.hovered,
+[data-theme='cyberpunk'] .segment-source-chip.active {
+  transform: scale(1.05) !important;
+  box-shadow: 0 0 14px rgb(var(--accent) / 0.8) !important;
+}
+
+
+
+
+

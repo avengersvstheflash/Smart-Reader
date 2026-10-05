@@ -21,6 +21,18 @@ const DEFAULT_ITEMS: NavItem[] = [
   { to: '/import', label: 'Import', icon: Upload },
 ];
 
+function getActiveBorderClass(label: string): string {
+  switch (label.toLowerCase()) {
+    case 'research':
+      return 'border-accent-2';
+    case 'import':
+      return 'border-accent-3';
+    case 'library':
+    default:
+      return 'border-accent';
+  }
+}
+
 export const Nav: React.FC<NavProps> = ({ items = DEFAULT_ITEMS }) => {
   return (
     <nav
@@ -38,7 +50,7 @@ export const Nav: React.FC<NavProps> = ({ items = DEFAULT_ITEMS }) => {
               className={({ isActive }) =>
                 `inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-ui-sm font-medium transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   isActive
-                    ? 'bg-subtle text-ink font-semibold border border-line-strong'
+                    ? `bg-subtle text-ink font-semibold border ${getActiveBorderClass(item.label)} neon-border`
                     : 'text-ink-muted hover:text-ink hover:bg-subtle/50'
                 }`
               }

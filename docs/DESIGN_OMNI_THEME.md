@@ -8,7 +8,7 @@
 
 ## 1. Direction: Controlled Accent-Glow
 
-Omnitome's visual language has to date offered four functional themes (`default`, `warm`, `dark`, `glass`). While reliable and calm, none captured the modern, high-focus atmosphere of contemporary neural software interfaces. 
+Omnitome's visual language has to date offered four functional themes (`default`, `warm`, `cyberpunk`, `glass`). While reliable and calm, none captured the modern, high-focus atmosphere of contemporary neural software interfaces. 
 
 The **omni** theme (originally drafted as `neon`) introduces an accent-glow direction:
 - **Not a garish 1980s rave or cyberpunk gimmick**: No vibrating cyan/magenta text shadows that fatigue reader eyes.
@@ -81,7 +81,7 @@ Defined exclusively for `omni` (originally `neon`):
 ### 4.1 Theme 5: 'omni'
 Full dark-field implementation according to the token mapping above. Complete set of tokens provided so all existing Tailwind utilities (`bg-app`, `bg-surface`, `bg-card`, `bg-panel`, `bg-subtle`, `text-ink`, `text-muted`, `border-line`, etc.) function seamlessly without any component code alterations.
 
-### 4.2 Light Polish for Existing Themes ('default', 'warm', 'dark', 'glass')
+### 4.2 Light Polish for Existing Themes ('default', 'warm', 'cyberpunk', 'glass')
 In accordance with Section 2B, existing themes receive a light, additive touch that harmonizes the app without rewriting core palettes:
 1. **Primary Brand Button Hover Glow**:
    - `button.bg-brand:hover, a.bg-brand:hover, .brand-button:hover`
@@ -146,9 +146,9 @@ Respects `prefers-reduced-motion: reduce`: all button glow transitions and heade
 
 Execution strictly constrained to three files:
 1. `frontend/src/types/domain.ts`:
-   - Extend `Theme` type union: `'default' | 'warm' | 'dark' | 'glass' | 'omni'`
+   - Extend `Theme` type union: `'default' | 'warm' | 'cyberpunk' | 'glass' | 'omni'`
 2. `frontend/src/store/useThemeStore.ts`:
-   - Extend `THEMES` array: `['default', 'warm', 'dark', 'glass', 'omni']`
+   - Extend `THEMES` array: `['default', 'warm', 'cyberpunk', 'glass', 'omni']`
 3. `frontend/src/styles/index.css`:
    - Define `[data-theme='omni']` CSS variable tokens.
    - Implement omni body backdrop, button glow, and header border rules.
@@ -156,14 +156,30 @@ Execution strictly constrained to three files:
 
 ## Multi-Accent Extension (5.8c.2)
 
-Themes 'default' and 'dark' extended with secondary tokens:
+Themes 'default' and 'cyberpunk' extended with secondary tokens:
 - --accent-2: tag chips
 - --accent-3: read/success state
 - --accent-4: queued/warning state
 
-'default' → girly diary (pink + lavender + mint + peach)
-'dark'    → synthwave (cyan + magenta + lime + amber)
+'default'   → girly diary (pink + lavender + mint + peach)
+'cyberpunk' → synthwave (cyan + magenta + lime + amber)
 
 warm/glass/omni remain single-accent. Utility classes fall back to
 --accent when --accent-2/3/4 are undefined.
 
+## Theme Identity Restructure (5.8c.3)
+
+Final theme lineup:
+- spring     — light greenish cyan, water/wind/leaves (FALLBACK)
+- sakura     — pink cherry blossoms
+- coffee     — amber coffee
+- cyberpunk  — synthwave multi-neon
+- omni       — violet flagship
+
+Renames: dark → cyberpunk, default → sakura, warm → coffee,
+glass → spring. Migration logic in useThemeStore preserves each
+user's stored preference across the rename.
+
+Multi-accent tokens (--accent-2/3/4) are scoped to [data-theme='sakura']
+and [data-theme='cyberpunk'] only. All other themes fall back to
+--accent (their primary color).

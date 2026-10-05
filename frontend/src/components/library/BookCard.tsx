@@ -53,6 +53,22 @@ export function getCoverTheme(seed: string): CoverTheme {
   return COVER_THEMES[index];
 }
 
+function getCategoryBadgeClass(contentType?: string): string {
+  const type = (contentType || '').toUpperCase();
+  switch (type) {
+    case 'TEXTBOOK':
+      return 'bg-accent-soft text-accent-ink';
+    case 'OTHER':
+      return 'bg-accent-2-soft text-accent-2';
+    case 'REFERENCE':
+      return 'bg-[rgb(var(--neon-red)/0.15)] text-[rgb(var(--neon-red))] border border-[rgb(var(--neon-red)/0.4)]';
+    case 'NOVEL':
+      return 'bg-accent-3-soft text-accent-3';
+    default:
+      return 'bg-black/25 backdrop-blur-sm';
+  }
+}
+
 export const BookCard: React.FC<BookCardProps> = ({
   book,
   selected = false,
@@ -118,6 +134,12 @@ export const BookCard: React.FC<BookCardProps> = ({
           className={`absolute inset-0 bg-gradient-to-br ${theme.gradient}`}
           aria-hidden="true"
         />
+        {/* Sleek smooth matte gradient */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(0,0,0,0.6) 100%)' }}
+          aria-hidden="true"
+        />
         <div
           className="absolute left-0 top-0 bottom-0 w-2.5 opacity-90 shadow"
           style={{ backgroundColor: theme.spine }}
@@ -132,7 +154,11 @@ export const BookCard: React.FC<BookCardProps> = ({
         <div className="relative z-10 flex items-center justify-between pl-2">
           <BookOpen className="w-4 h-4 opacity-80" aria-hidden="true" />
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-black/30 backdrop-blur-sm">
+            <span
+              className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded ${getCategoryBadgeClass(
+                book.contentType
+              )}`}
+            >
               {book.contentType}
             </span>
           </div>
@@ -172,7 +198,7 @@ export const BookCard: React.FC<BookCardProps> = ({
         <div>
           {/* Integrity Warning Badge (Non-color-only) */}
           {isEmptyContent && (
-            <div className="mb-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded text-micro font-medium bg-warn/15 text-warn border border-warn/30">
+            <div className="mb-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded text-micro font-medium bg-warn/20 text-warn border border-warn/40">
               <AlertTriangle className="w-3 h-3 text-warn shrink-0" aria-hidden="true" />
               <span>Empty Content</span>
             </div>
@@ -188,7 +214,7 @@ export const BookCard: React.FC<BookCardProps> = ({
             {displayAuthor}
           </p>
           {book.chapterCount > 0 && (book.readChapterCount ?? 0) > 0 && (
-            <p className="text-caption text-ink-muted mt-1">
+            <p className="text-caption text-accent-3 mt-1">
               {book.readChapterCount} of {book.chapterCount} read
             </p>
           )}
@@ -202,7 +228,7 @@ export const BookCard: React.FC<BookCardProps> = ({
             <>
               <span>{book.chapterCount} ch</span>
               <span>·</span>
-              <span>{readingTime}</span>
+              <span className="text-accent-4">{readingTime}</span>
             </>
           )}
         </div>

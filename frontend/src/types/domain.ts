@@ -1,4 +1,4 @@
-export type Theme = 'default' | 'warm' | 'dark' | 'glass' | 'omni';
+export type Theme = 'spring' | 'sakura' | 'coffee' | 'cyberpunk' | 'omni';
 export type RepMode = 'original' | 'smart';
 export type JobState = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 

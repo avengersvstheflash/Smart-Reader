@@ -9,11 +9,14 @@
   --ink: 245 247 251;
   --ink-muted: 158 167 186;
   --ink-light: 107 116 138;
-  --brand: 59 130 246;
+  --brand: 168 85 247;
   --accent: 168 85 247;
   --accent-ink: 192 132 252;
   --accent-wash: 168 85 247;
   --accent-wash-alpha: 0.15;
+  --accent-2: 167 139 250;   /* violet-400 */
+  --accent-3: 196 181 253;   /* violet-300 */
+  --accent-4: 221 214 254;   /* violet-200 */
   --ok: 52 211 153;
   --warn: 251 191 36;
   --err: 248 113 113;

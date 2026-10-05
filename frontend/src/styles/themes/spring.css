@@ -1,0 +1,27 @@
+:root,
+[data-theme='spring'] {
+  color-scheme: light;
+  --bg: 240 248 246;
+  --surface: 255 255 255;
+  --panel: 250 253 252;
+  --subtle: 232 244 242;
+  --line: 210 232 228;
+  --line-strong: 178 212 208;
+  --ink: 26 40 42;
+  --ink-muted: 80 105 108;
+  --ink-light: 130 155 158;
+  --brand: 20 90 90;
+  --accent: 45 168 152;
+  --accent-ink: 20 120 110;
+  --accent-wash: 200 235 230;
+  --accent-wash-alpha: 0.35;
+  --accent-2: 16 185 129;
+  --accent-3: 20 184 166;    /* teal-500 */
+  --accent-4: 34 197 94;     /* green-500 */
+  --ok: 47 125 92;
+  --warn: 176 122 46;
+  --err: 178 59 69;
+  --shadow-sm: 0 1px 2px rgb(26 40 42 / 0.05);
+  --shadow-md: 0 2px 8px rgb(26 40 42 / 0.08);
+  --shadow-lg: 0 8px 24px rgb(26 40 42 / 0.10);
+}

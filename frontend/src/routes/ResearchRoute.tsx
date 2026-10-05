@@ -171,7 +171,7 @@ export function ResearchRoute() {
         <button
           type="button"
           onClick={() => navigate('/import')}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none shadow-sm"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none shadow-sm animate-cyber-button"
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
           <span>Import Source</span>
@@ -312,6 +312,23 @@ interface SourceCardProps {
   onClick: () => void;
 }
 
+function getFormatBadgeClass(format?: string): string {
+  const f = (format || '').toLowerCase();
+  if (f === 'pdf') {
+    return 'bg-[rgb(var(--neon-red)/0.15)] text-[rgb(var(--neon-red))] border border-[rgb(var(--neon-red)/0.4)]';
+  }
+  if (f === 'paste' || f === 'text') {
+    return 'bg-[rgb(var(--accent-3)/0.15)] text-[rgb(var(--accent-3))] border border-[rgb(var(--accent-3)/0.4)]';
+  }
+  if (f === 'epub') {
+    return 'bg-[rgb(var(--accent-2)/0.15)] text-[rgb(var(--accent-2))] border border-[rgb(var(--accent-2)/0.4)]';
+  }
+  if (f === 'web') {
+    return 'bg-[rgb(var(--accent)/0.15)] text-[rgb(var(--accent))] border border-[rgb(var(--accent)/0.4)]';
+  }
+  return 'bg-subtle text-ink-muted border border-line';
+}
+
 function SourceCard({ book, isSynthesized, onClick }: SourceCardProps) {
   const isDossier =
     book.sourceSite === 'Multi-Source Dossier' || book.id.startsWith('book-dossier-');
@@ -319,13 +336,13 @@ function SourceCard({ book, isSynthesized, onClick }: SourceCardProps) {
   return (
     <article
       onClick={onClick}
-      className="group relative flex flex-col justify-between p-4 rounded-lg border border-line bg-card hover:bg-subtle hover:border-line-strong transition-all cursor-pointer shadow-xs"
+      className="group relative flex flex-col justify-between p-4 rounded-lg border border-[rgb(var(--line))] bg-[rgb(var(--surface))] transition-all duration-200 hover:border-[rgb(var(--accent)/0.5)] hover:shadow-[0_0_16px_rgb(var(--accent)/0.18)] cursor-pointer shadow-xs"
     >
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-1.5">
           {/* Dossier Badge */}
           {isDossier && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded bg-accent/15 text-accent-ink border border-accent/30">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded bg-[rgb(var(--accent-2)/0.15)] text-[rgb(var(--accent-2))] border border-[rgb(var(--accent-2)/0.4)]">
               <Layers className="w-3 h-3" />
               <span>Dossier</span>
             </span>
@@ -333,7 +350,7 @@ function SourceCard({ book, isSynthesized, onClick }: SourceCardProps) {
 
           {/* Format Badge */}
           {book.sourceFormat && (
-            <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-subtle text-ink-muted border border-line">
+            <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded ${getFormatBadgeClass(book.sourceFormat)}`}>
               {book.sourceFormat}
             </span>
           )}
@@ -348,7 +365,7 @@ function SourceCard({ book, isSynthesized, onClick }: SourceCardProps) {
 
           {/* Synthesis Status Badge */}
           {!isSynthesized && (
-            <span className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+            <span className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded bg-[rgb(var(--accent-4)/0.15)] text-[rgb(var(--accent-4))] border border-[rgb(var(--accent-4)/0.4)]">
               Imported, not yet synthesized
             </span>
           )}

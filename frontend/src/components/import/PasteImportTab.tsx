@@ -66,7 +66,7 @@ export function PasteImportTab({ onSuccess }: PasteImportTabProps) {
             placeholder="e.g. My Research Notes"
             required
             autoComplete="off"
-            className="w-full px-3 py-2 rounded-md border border-line bg-card text-ink text-ui-sm placeholder:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-shadow"
+            className="w-full px-3 py-2 rounded-md border border-[rgb(var(--line))] bg-[rgb(var(--panel))] text-ink text-ui-sm placeholder:text-ink-muted focus:outline-none focus:border-[rgb(var(--accent))] focus:shadow-[0_0_12px_rgb(var(--accent)/0.25)] transition-all"
           />
         </div>
 
@@ -82,7 +82,7 @@ export function PasteImportTab({ onSuccess }: PasteImportTabProps) {
             onChange={(e) => setAuthor(e.target.value)}
             placeholder="e.g. Jane Doe"
             autoComplete="off"
-            className="w-full px-3 py-2 rounded-md border border-line bg-card text-ink text-ui-sm placeholder:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-shadow"
+            className="w-full px-3 py-2 rounded-md border border-[rgb(var(--line))] bg-[rgb(var(--panel))] text-ink text-ui-sm placeholder:text-ink-muted focus:outline-none focus:border-[rgb(var(--accent))] focus:shadow-[0_0_12px_rgb(var(--accent)/0.25)] transition-all"
           />
         </div>
 
@@ -114,7 +114,7 @@ export function PasteImportTab({ onSuccess }: PasteImportTabProps) {
             onChange={(e) => setContent(e.target.value)}
             placeholder="Paste your text here — articles, notes, research, or any written content (minimum 200 characters)…"
             required
-            className="w-full px-3 py-2 rounded-md border border-line bg-card text-ink text-ui-sm placeholder:text-ink-muted resize-y focus:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-shadow font-sans leading-relaxed"
+            className="w-full px-3 py-2 rounded-md border border-[rgb(var(--line))] bg-[rgb(var(--panel))] text-ink text-ui-sm placeholder:text-ink-muted resize-y focus:outline-none focus:border-[rgb(var(--accent))] focus:shadow-[0_0_12px_rgb(var(--accent)/0.25)] transition-all font-sans leading-relaxed"
           />
         </div>
 
@@ -129,7 +129,7 @@ export function PasteImportTab({ onSuccess }: PasteImportTabProps) {
         <button
           type="submit"
           disabled={!isValid || submitting}
-          className="self-end inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-brand text-white font-medium text-ui-sm hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40 disabled:cursor-not-allowed select-none"
+          className="self-end inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[rgb(var(--accent))] text-[rgb(var(--bg))] font-semibold hover:shadow-[0_0_20px_rgb(var(--accent)/0.5)] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40 disabled:cursor-not-allowed select-none"
         >
           {submitting ? 'Adding…' : 'Add to library'}
         </button>

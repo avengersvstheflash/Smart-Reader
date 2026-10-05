@@ -223,8 +223,8 @@ export function ReaderView({
           )}
         </div>
       ) : representation && smartBlocks.length > 0 ? (
-        <div className="reader-smart border-l-2 border-accent pl-4 sm:pl-6">
-          <div className="text-micro tracking-wide uppercase text-accent-ink font-medium select-none">
+        <div className="reader-smart reader-telemetry-rail border-l-2 border-accent pl-4 sm:pl-6">
+          <div className="inline-block bg-[rgb(var(--accent)/0.15)] text-[rgb(var(--accent))] border border-[rgb(var(--accent)/0.5)] shadow-[0_0_10px_rgb(var(--accent)/0.25)] rounded px-2 py-0.5 font-mono text-xs tracking-wider select-none mb-2">
             DERIVED · TRACEABLE
           </div>
 
@@ -259,6 +259,10 @@ export function ReaderView({
                 data-last-canonical-block={i === smartBlocks.length - 1 ? 'true' : undefined}
                 className={`canonical-block relative group transition-colors rounded ${
                   isParagraph ? 'px-1 -mx-1' : ''
+                } ${
+                  isParagraph && activePreview?.paraIndex === currentParaIndex
+                    ? 'reader-selected-passage'
+                    : ''
                 }`}
               >
                 <CanonicalBlock

@@ -151,13 +151,13 @@ export function ProvenancePreview({
       style={anchorRef ? positionStyle : undefined}
       className={
         anchorRef
-          ? 'fixed z-50 bg-card [--surface-alpha:1] backdrop-blur-sm border border-line rounded-lg shadow-lg p-4 text-left animate-in fade-in zoom-in-95 duration-150'
-          : 'absolute right-0 top-full mt-2 z-30 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-card [--surface-alpha:1] backdrop-blur-sm border border-line rounded-lg shadow-lg p-4 text-left animate-in fade-in zoom-in-95 duration-150'
+          ? 'fixed z-50 bg-[#0a0d14] border border-[rgb(var(--accent)/0.5)] shadow-[0_0_25px_rgb(0_216_230/0.25)] rounded-xl backdrop-blur-md p-4 text-left animate-in fade-in zoom-in-95 duration-150'
+          : 'absolute right-0 top-full mt-2 z-30 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-[#0a0d14] border border-[rgb(var(--accent)/0.5)] shadow-[0_0_25px_rgb(0_216_230/0.25)] rounded-xl backdrop-blur-md p-4 text-left animate-in fade-in zoom-in-95 duration-150'
       }
     >
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-line/60">
-        <div className="flex items-center gap-1.5 text-micro uppercase tracking-wider font-semibold text-muted">
-          <BookOpen className="w-3.5 h-3.5 text-accent" />
+        <div className="flex items-center gap-1.5 text-micro uppercase tracking-wider font-semibold text-[rgb(var(--accent))] font-mono text-xs">
+          <BookOpen className="w-3.5 h-3.5 text-[rgb(var(--accent))]" />
           <span>{isMultiSource ? `Sources (${resolvedChunkIds.length})` : 'Source Provenance'}</span>
         </div>
         <button
@@ -220,7 +220,7 @@ export function ProvenancePreview({
                           <span className="text-[10px] uppercase text-muted">Source Excerpt</span>
                         )}
                         {cPage !== null && cPage !== undefined && (
-                          <span className="shrink-0 bg-subtle px-1.5 py-0.5 rounded text-[10px]">
+                          <span className="shrink-0 bg-[rgb(var(--subtle))] text-[rgb(var(--accent-4))] border border-[rgb(var(--accent-4)/0.4)] px-1.5 py-0.5 rounded font-mono text-xs">
                             p. {cPage}
                           </span>
                         )}
@@ -229,7 +229,7 @@ export function ProvenancePreview({
 
                     {/* Excerpt */}
                     {cExcerpt ? (
-                      <div className="text-xs text-ink/90 italic bg-subtle/50 border-l-2 border-accent/60 pl-2.5 py-1 leading-relaxed">
+                      <div className="bg-[#06080c] border-l-2 border-[rgb(var(--accent-2))] text-[rgb(var(--ink))] p-3 italic text-sm leading-relaxed rounded-r">
                         &ldquo;{cExcerpt}&rdquo;
                       </div>
                     ) : (
@@ -243,7 +243,7 @@ export function ProvenancePreview({
                       <button
                         type="button"
                         onClick={() => onNavigate(cid, c?.chapter_id)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-ink hover:text-accent-hover transition-colors group cursor-pointer"
+                        className="inline-flex items-center gap-1.5 text-[rgb(var(--accent-ink))] hover:text-[rgb(var(--accent))] hover:underline font-mono text-xs transition-colors group cursor-pointer"
                       >
                         <span>View full source</span>
                         <ExternalLink className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -277,7 +277,7 @@ export function ProvenancePreview({
                         <span className="text-[10px] uppercase text-muted">Source Excerpt</span>
                       )}
                       {sourcePage !== null && sourcePage !== undefined && (
-                        <span className="shrink-0 bg-subtle px-1.5 py-0.5 rounded text-[10px]">
+                        <span className="shrink-0 bg-[rgb(var(--subtle))] text-[rgb(var(--accent-4))] border border-[rgb(var(--accent-4)/0.4)] px-1.5 py-0.5 rounded font-mono text-xs">
                           p. {sourcePage}
                         </span>
                       )}
@@ -286,7 +286,7 @@ export function ProvenancePreview({
 
                   {/* Excerpt */}
                   {excerpt && (
-                    <div className="text-xs text-ink/90 italic bg-subtle/50 border-l-2 border-accent/60 pl-2.5 py-1 my-2 leading-relaxed">
+                    <div className="bg-[#06080c] border-l-2 border-[rgb(var(--accent-2))] text-[rgb(var(--ink))] p-3 italic text-sm my-2 leading-relaxed rounded-r">
                       &ldquo;{excerpt}&rdquo;
                     </div>
                   )}
@@ -297,7 +297,7 @@ export function ProvenancePreview({
                       <button
                         type="button"
                         onClick={() => onNavigate(singleCid, c?.chapter_id)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-ink hover:text-accent-hover transition-colors group cursor-pointer"
+                        className="inline-flex items-center gap-1.5 text-[rgb(var(--accent-ink))] hover:text-[rgb(var(--accent))] hover:underline font-mono text-xs transition-colors group cursor-pointer"
                       >
                         <span>View full source</span>
                         <ExternalLink className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />

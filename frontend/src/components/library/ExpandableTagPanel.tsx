@@ -18,6 +18,14 @@ export interface ExpandableTagPanelProps {
   collapsedLimit?: number;
 }
 
+const TAG_VARIANTS = [
+  'text-[rgb(var(--accent-2))] border-[rgb(var(--accent-2)/0.4)] bg-[rgb(var(--accent-2)/0.12)]',
+  'text-[rgb(var(--accent))] border-[rgb(var(--accent)/0.4)] bg-[rgb(var(--accent)/0.12)]',
+  'text-[rgb(var(--accent-3))] border-[rgb(var(--accent-3)/0.4)] bg-[rgb(var(--accent-3)/0.12)]',
+  'text-[rgb(var(--accent-4))] border-[rgb(var(--accent-4)/0.4)] bg-[rgb(var(--accent-4)/0.12)]',
+  'text-[rgb(var(--neon-red,var(--err)))] border-[rgb(var(--neon-red,var(--err))/0.4)] bg-[rgb(var(--neon-red,var(--err))/0.12)]',
+];
+
 export const ExpandableTagPanel: React.FC<ExpandableTagPanelProps> = ({
   tags,
   selectedTags = [],
@@ -73,14 +81,15 @@ export const ExpandableTagPanel: React.FC<ExpandableTagPanelProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-            {normalizedTags.map(({ tag, count }) => {
+            {normalizedTags.map(({ tag, count }, index) => {
               const active = isSelected(tag);
+              const colorStyle = TAG_VARIANTS[index % 5];
 
               if (!interactive) {
                 return (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-caption font-medium bg-accent-2-soft text-accent-2 border border-accent-2-soft select-none"
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-caption font-medium border select-none tag-chip ${colorStyle}`}
                   >
                     <span>{tag}</span>
                     {typeof count === 'number' && (
@@ -96,9 +105,9 @@ export const ExpandableTagPanel: React.FC<ExpandableTagPanelProps> = ({
                   type="button"
                   aria-pressed={active}
                   onClick={() => onToggle?.(tag)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-caption font-medium transition-all select-none border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-caption font-medium transition-all select-none border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent tag-chip ${
                     active
-                      ? 'bg-accent-2-soft text-accent-2 border-accent-2-soft shadow-xs'
+                      ? `${colorStyle} shadow-xs`
                       : 'bg-card text-ink-muted border-line hover:bg-subtle hover:text-ink hover:border-line-strong'
                   }`}
                 >
@@ -121,6 +130,7 @@ export const ExpandableTagPanel: React.FC<ExpandableTagPanelProps> = ({
 
           {normalizedTags.slice(0, collapsedLimit).map(({ tag, count }, idx) => {
             const active = isSelected(tag);
+            const colorStyle = TAG_VARIANTS[idx % 5];
             // Hide the last collapsed item on mobile if beyond mobileLimit
             const isDesktopOnly = idx >= mobileLimit;
             const visibilityClass = isDesktopOnly ? 'hidden sm:inline-flex' : 'inline-flex';
@@ -129,7 +139,7 @@ export const ExpandableTagPanel: React.FC<ExpandableTagPanelProps> = ({
               return (
                 <span
                   key={tag}
-                  className={`${visibilityClass} items-center gap-1 px-2 py-0.5 rounded text-caption font-medium bg-accent-2-soft text-accent-2 border border-accent-2-soft select-none`}
+                  className={`${visibilityClass} items-center gap-1 px-2 py-0.5 rounded text-caption font-medium border select-none tag-chip ${colorStyle}`}
                 >
                   <span>{tag}</span>
                   {typeof count === 'number' && (
@@ -145,9 +155,9 @@ export const ExpandableTagPanel: React.FC<ExpandableTagPanelProps> = ({
                 type="button"
                 aria-pressed={active}
                 onClick={() => onToggle?.(tag)}
-                className={`${visibilityClass} items-center gap-1 px-2.5 py-1 rounded-full text-caption font-medium transition-all select-none border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                className={`${visibilityClass} items-center gap-1 px-2.5 py-1 rounded-full text-caption font-medium transition-all select-none border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent tag-chip ${
                   active
-                    ? 'bg-accent-2-soft text-accent-2 border-accent-2-soft shadow-xs'
+                    ? `${colorStyle} shadow-xs`
                     : 'bg-card text-ink-muted border-line hover:bg-subtle hover:text-ink hover:border-line-strong'
                 }`}
               >

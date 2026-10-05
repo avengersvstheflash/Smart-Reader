@@ -53,7 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <Link
             to="/"
-            className="flex items-center gap-2 text-ink hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded py-0.5"
+            className="flex items-center gap-2 text-ink hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded py-0.5 cyber-animated-logo"
           >
             <span className="text-accent text-lg select-none" aria-hidden="true">
               ◆

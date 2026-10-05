@@ -7,14 +7,17 @@ interface ThemeState {
   cycleTheme: () => void;
 }
 
-const THEMES: Theme[] = ['default', 'warm', 'dark', 'glass', 'omni'];
+const THEMES: Theme[] = ['spring', 'sakura', 'coffee', 'cyberpunk', 'omni'];
 
 function getInitialTheme(): Theme {
-  // Migration: 'neon' -> 'omni'
-  const stored = localStorage.getItem('sr.theme') as string | null;
-  if (stored === 'neon') return 'omni';
+  const stored = localStorage.getItem('sr.theme');
+  if (stored === 'dark')    return 'cyberpunk';
+  if (stored === 'neon')    return 'omni';
+  if (stored === 'warm')    return 'coffee';
+  if (stored === 'glass')   return 'spring';
+  if (stored === 'default') return 'sakura';
   if (stored && (THEMES as string[]).includes(stored)) return stored as Theme;
-  return 'default';
+  return 'spring';
 }
 
 export const useThemeStore = create<ThemeState>((set) => {

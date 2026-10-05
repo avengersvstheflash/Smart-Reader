@@ -1,4 +1,4 @@
-﻿import { useState, useRef, DragEvent, KeyboardEvent, ChangeEvent } from 'react';
+import { useState, useRef, DragEvent, KeyboardEvent, ChangeEvent } from 'react';
 import { Upload } from 'lucide-react';
 
 export interface ImportDropzoneProps {
@@ -91,14 +91,14 @@ export const ImportDropzone: React.FC<ImportDropzoneProps> = ({
       onDrop={handleDrop}
       aria-disabled={disabled}
       aria-label="Upload document dropzone. Enter or Space to open file picker."
-      className={`relative w-full rounded-xl border-2 transition-all duration-150 flex flex-col items-center justify-center text-center select-none cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+      className={`relative w-full rounded-2xl border-2 transition-all duration-150 flex flex-col items-center justify-center text-center select-none cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         compact ? 'p-6 min-h-[160px] max-h-[180px]' : 'p-8 md:p-12 min-h-[220px] max-h-[260px]'
       } ${
         disabled
           ? 'border-line bg-subtle/50 opacity-50 cursor-not-allowed'
           : isDragOver
-          ? 'border-accent bg-accent-wash scale-[1.005]'
-          : 'border-dashed border-line-strong bg-panel hover:border-accent/60 hover:bg-subtle/30'
+          ? 'border-2 border-dashed border-[rgb(var(--accent))] shadow-[0_0_25px_rgb(var(--accent)/0.25)] bg-[rgb(var(--accent)/0.05)] scale-[1.005]'
+          : 'border-2 border-dashed border-[rgb(var(--accent)/0.4)] bg-[rgb(var(--surface)/0.5)] hover:border-[rgb(var(--accent))] hover:shadow-[0_0_25px_rgb(var(--accent)/0.25)] hover:bg-[rgb(var(--accent)/0.05)]'
       }`}
     >
       <input
@@ -114,18 +114,18 @@ export const ImportDropzone: React.FC<ImportDropzoneProps> = ({
       />
 
       <div
-        className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-150 ${
+        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-150 shadow-[0_0_15px_rgb(var(--accent)/0.2)] ${
           isDragOver
-            ? 'bg-accent/20 text-accent -translate-y-[2px]'
-            : 'bg-subtle text-ink-muted'
+            ? 'bg-accent/20 text-[rgb(var(--accent))] -translate-y-[2px] shadow-[0_0_20px_rgb(var(--accent)/0.4)]'
+            : 'bg-subtle text-[rgb(var(--accent))]'
         }`}
       >
-        <Upload className="w-6 h-6" aria-hidden="true" />
+        <Upload className="w-6 h-6 filter drop-shadow-[0_0_6px_rgb(var(--accent)/0.5)]" aria-hidden="true" />
       </div>
 
       <div className="mt-4 flex flex-col gap-1 items-center">
         <p className="font-ui font-medium text-ui text-ink">
-          <span className="text-accent hover:underline">Choose a file</span> or drag and drop
+          <span className="text-[rgb(var(--accent))] hover:underline">Choose a file</span> or drag and drop
         </p>
         <p className="text-caption text-ink-muted">{hint}</p>
         <p className="text-micro text-ink-light mt-0.5">Up to 50MB per file</p>

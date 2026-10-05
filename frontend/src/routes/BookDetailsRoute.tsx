@@ -301,6 +301,7 @@ export default function BookDetailsRoute() {
                   </span>
                 )}
               </div>
+              {/* Hero panel tag chips: rendered via ExpandableTagPanel (styled with accent-2: bg-accent-2-soft text-accent-2 border border-accent-2-soft) */}
               {Array.isArray(book.classification.tags) && book.classification.tags.length > 0 && (
                 <ExpandableTagPanel
                   tags={book.classification.tags}
@@ -328,7 +329,7 @@ export default function BookDetailsRoute() {
                   : 'Start reading from Chapter 1'
               }
               onClick={() => navigate(`/read/${book.id}/${targetChapterId}`)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cyber-animated-button"
             >
               <span>▶</span>
               <span>{readButtonLabel}</span>
@@ -505,18 +506,25 @@ export default function BookDetailsRoute() {
             </div>
           ) : (
             <ol role="list" className="divide-y divide-line/40">
-              {smartChapters.map((sc) => {
+              {smartChapters.map((sc, index) => {
                 const isGenerated = sc.status === 'generated';
                 const isGenerating = sc.status === 'generating';
                 const isPending = sc.status === 'pending';
                 const isFailed = sc.status === 'failed';
+
+                const queuedStyles = [
+                  'bg-[rgb(var(--accent-4)/0.15)] text-[rgb(var(--accent-4))]',
+                  'bg-[rgb(var(--accent-2)/0.15)] text-[rgb(var(--accent-2))]',
+                  'bg-[rgb(var(--neon-red,var(--err))/0.15)] text-[rgb(var(--neon-red,var(--err))]',
+                ];
+                const queuedStyle = queuedStyles[index % 3];
 
                 const badge = isGenerating ? (
                   <span className="text-micro font-semibold px-2 py-0.5 rounded-full bg-accent/10 text-accent-ink animate-pulse">
                     Generating…
                   </span>
                 ) : isPending ? (
-                  <span className="text-micro font-medium px-2 py-0.5 rounded-full bg-accent-4-soft text-accent-4">
+                  <span className={`text-micro font-medium px-2 py-0.5 rounded-full ${queuedStyle}`}>
                     Queued
                   </span>
                 ) : isFailed ? (
@@ -525,8 +533,12 @@ export default function BookDetailsRoute() {
                   </span>
                 ) : null;
 
+                const readStyle = index % 2 === 0
+                  ? 'bg-[rgb(var(--accent-3)/0.15)] text-[rgb(var(--accent-3))]'
+                  : 'bg-[rgb(var(--accent)/0.15)] text-[rgb(var(--accent))]';
+
                 const readIndicator = sc.readAt ? (
-                  <span className="text-micro text-accent-3 shrink-0">
+                  <span className={`text-micro font-medium px-2 py-0.5 rounded-full shrink-0 ${readStyle}`}>
                     Read {formatRelativeTime(sc.readAt)}
                   </span>
                 ) : sc.openedAt ? (

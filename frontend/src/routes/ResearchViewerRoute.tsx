@@ -158,8 +158,8 @@ function ChapterNavItem({ chapter, isActive, onClick }: ChapterNavItemProps) {
       onClick={onClick}
       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
         isActive
-          ? 'bg-subtle text-ink font-medium'
-          : 'text-ink-muted hover:text-ink hover:bg-subtle/60'
+          ? 'border-l-2 border-[rgb(var(--accent))] bg-[rgb(var(--accent)/0.12)] text-[rgb(var(--accent-ink))] font-medium'
+          : 'text-[rgb(var(--ink-muted))] hover:text-[rgb(var(--ink))] hover:bg-[rgb(var(--subtle)/0.5)]'
       }`}
     >
       <span className="line-clamp-2">{chapter.title || `Chapter ${chapter.number ?? ''}`}</span>
