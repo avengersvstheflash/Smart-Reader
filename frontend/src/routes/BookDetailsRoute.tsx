@@ -516,7 +516,7 @@ export default function BookDetailsRoute() {
                     Generating…
                   </span>
                 ) : isPending ? (
-                  <span className="text-micro font-medium px-2 py-0.5 rounded-full bg-subtle text-ink-muted">
+                  <span className="text-micro font-medium px-2 py-0.5 rounded-full bg-accent-4-soft text-accent-4">
                     Queued
                   </span>
                 ) : isFailed ? (
@@ -526,7 +526,7 @@ export default function BookDetailsRoute() {
                 ) : null;
 
                 const readIndicator = sc.readAt ? (
-                  <span className="text-micro text-ink-faint shrink-0">
+                  <span className="text-micro text-accent-3 shrink-0">
                     Read {formatRelativeTime(sc.readAt)}
                   </span>
                 ) : sc.openedAt ? (

@@ -8,4 +8,20 @@
   .font-reading { font-family: 'Lora', Georgia, 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif; }
   .font-ui { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; }
   .font-mono { font-family: 'JetBrains Mono', Consolas, monospace; }
+
+  .bg-accent-2          { background-color: rgb(var(--accent-2, var(--accent))); }
+  .bg-accent-3          { background-color: rgb(var(--accent-3, var(--accent))); }
+  .bg-accent-4          { background-color: rgb(var(--accent-4, var(--accent))); }
+  .bg-accent-2-soft     { background-color: rgb(var(--accent-2, var(--accent)) / 0.15); }
+  .bg-accent-3-soft     { background-color: rgb(var(--accent-3, var(--accent)) / 0.15); }
+  .bg-accent-4-soft     { background-color: rgb(var(--accent-4, var(--accent)) / 0.15); }
+  .text-accent-2        { color: rgb(var(--accent-2, var(--accent))); }
+  .text-accent-3        { color: rgb(var(--accent-3, var(--accent))); }
+  .text-accent-4        { color: rgb(var(--accent-4, var(--accent))); }
+  .border-accent-2      { border-color: rgb(var(--accent-2, var(--accent))); }
+  .border-accent-3      { border-color: rgb(var(--accent-3, var(--accent))); }
+  .border-accent-4      { border-color: rgb(var(--accent-4, var(--accent))); }
+  .border-accent-2-soft { border-color: rgb(var(--accent-2, var(--accent)) / 0.30); }
+  .border-accent-3-soft { border-color: rgb(var(--accent-3, var(--accent)) / 0.30); }
+  .border-accent-4-soft { border-color: rgb(var(--accent-4, var(--accent)) / 0.30); }
 }

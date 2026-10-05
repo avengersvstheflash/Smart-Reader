@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export interface TagCountItem {
@@ -80,7 +80,7 @@ export const ExpandableTagPanel: React.FC<ExpandableTagPanelProps> = ({
                 return (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-caption font-medium bg-accent-wash text-accent-ink border border-accent/20 select-none"
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-caption font-medium bg-accent-2-soft text-accent-2 border border-accent-2-soft select-none"
                   >
                     <span>{tag}</span>
                     {typeof count === 'number' && (
@@ -98,7 +98,7 @@ export const ExpandableTagPanel: React.FC<ExpandableTagPanelProps> = ({
                   onClick={() => onToggle?.(tag)}
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-caption font-medium transition-all select-none border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                     active
-                      ? 'bg-accent-wash text-accent-ink border-accent/40 shadow-xs'
+                      ? 'bg-accent-2-soft text-accent-2 border-accent-2-soft shadow-xs'
                       : 'bg-card text-ink-muted border-line hover:bg-subtle hover:text-ink hover:border-line-strong'
                   }`}
                 >
@@ -129,7 +129,7 @@ export const ExpandableTagPanel: React.FC<ExpandableTagPanelProps> = ({
               return (
                 <span
                   key={tag}
-                  className={`${visibilityClass} items-center gap-1 px-2 py-0.5 rounded text-caption font-medium bg-accent-wash text-accent-ink border border-accent/20 select-none`}
+                  className={`${visibilityClass} items-center gap-1 px-2 py-0.5 rounded text-caption font-medium bg-accent-2-soft text-accent-2 border border-accent-2-soft select-none`}
                 >
                   <span>{tag}</span>
                   {typeof count === 'number' && (
@@ -147,7 +147,7 @@ export const ExpandableTagPanel: React.FC<ExpandableTagPanelProps> = ({
                 onClick={() => onToggle?.(tag)}
                 className={`${visibilityClass} items-center gap-1 px-2.5 py-1 rounded-full text-caption font-medium transition-all select-none border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   active
-                    ? 'bg-accent-wash text-accent-ink border-accent/40 shadow-xs'
+                    ? 'bg-accent-2-soft text-accent-2 border-accent-2-soft shadow-xs'
                     : 'bg-card text-ink-muted border-line hover:bg-subtle hover:text-ink hover:border-line-strong'
                 }`}
               >

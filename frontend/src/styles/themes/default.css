@@ -1,19 +1,23 @@
 :root,
 [data-theme='default'] {
   color-scheme: light;
-  --bg: 247 246 242;
+  --bg: 250 245 250;
   --surface: 255 255 255;
   --panel: 253 253 252;
-  --subtle: 240 238 233;
-  --line: 229 226 218;
-  --line-strong: 210 206 195;
+  --subtle: 245 240 245;
+  --line: 235 225 235;
+  --line-strong: 218 205 218;
   --ink: 28 31 36;
   --ink-muted: 94 100 110;
   --ink-light: 137 143 153;
   --brand: 41 56 69;
-  --accent: 196 109 59;
-  --accent-ink: 161 82 37;
-  --accent-wash: 244 233 223;
+  --accent: 236 72 153;
+  --accent-ink: 190 24 93;
+  --accent-wash: 251 207 232;
+  --accent-wash-alpha: 0.35;
+  --accent-2: 196 181 253;
+  --accent-3: 110 231 183;
+  --accent-4: 253 186 116;
   --ok: 47 125 92;
   --warn: 176 122 46;
   --err: 178 59 69;

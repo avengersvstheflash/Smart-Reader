@@ -153,3 +153,17 @@ Execution strictly constrained to three files:
    - Define `[data-theme='omni']` CSS variable tokens.
    - Implement omni body backdrop, button glow, and header border rules.
    - Implement shared polish block for brand button hover glow, header gradient, and active nav tab accent border.
+
+## Multi-Accent Extension (5.8c.2)
+
+Themes 'default' and 'dark' extended with secondary tokens:
+- --accent-2: tag chips
+- --accent-3: read/success state
+- --accent-4: queued/warning state
+
+'default' → girly diary (pink + lavender + mint + peach)
+'dark'    → synthwave (cyan + magenta + lime + amber)
+
+warm/glass/omni remain single-accent. Utility classes fall back to
+--accent when --accent-2/3/4 are undefined.
+
