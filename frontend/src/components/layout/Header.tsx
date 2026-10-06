@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Palette, Settings, ArrowLeft } from 'lucide-react';
 import { useThemeStore } from '../../store/useThemeStore';
+import { ThemeSigil } from './ThemeSigil';
 
 export interface HeaderProps {
   title?: ReactNode;
@@ -84,6 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <circle cx="39.6" cy="39.6" r="1.2" fill="#c084fc" />
               </svg>
             )}
+            <ThemeSigil />
           </Link>
 
           {title && (
