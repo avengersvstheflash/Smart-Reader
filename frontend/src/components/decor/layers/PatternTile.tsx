@@ -38,5 +38,18 @@ export function PatternTile({ theme }: { theme: string }) {
     );
   }
 
+  if (theme === 'cyberpunk') {
+    return (
+      <div
+        className="decor-tile"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgb(var(--accent) / 0.04) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--accent) / 0.04) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      />
+    );
+  }
+
   return null;
 }

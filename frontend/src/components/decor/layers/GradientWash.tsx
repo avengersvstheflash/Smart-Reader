@@ -35,5 +35,17 @@ export function GradientWash({ theme }: { theme: string }) {
     );
   }
 
+  if (theme === 'cyberpunk') {
+    return (
+      <div
+        className="decor-wash"
+        style={{
+          backgroundImage:
+            'radial-gradient(ellipse 50% 40% at 85% 15%, rgb(0 216 230 / 0.06), transparent 70%), radial-gradient(ellipse 50% 40% at 15% 85%, rgb(255 82 217 / 0.05), transparent 70%)',
+        }}
+      />
+    );
+  }
+
   return null;
 }
