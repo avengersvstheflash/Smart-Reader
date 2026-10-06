@@ -68,6 +68,12 @@ export const DECOR_REGISTRY: Record<string, DecorItem[]> = {
     { Component: WaterDrop, x: 54, y: 95, size: 26, opacity: 0.11, rotation: 0, twinkle: true },
     { Component: GrassTuft, x: 74, y: 94, size: 32, opacity: 0.13, rotation: 6 },
     { Component: Leaf, x: 88, y: 93, size: 44, opacity: 0.15, rotation: 28, drift: true },
+
+    // Density tune for bottom-right quadrant (y 60-100, x 60-100)
+    { Component: Leaf, x: 72, y: 62, size: 36, opacity: 0.10, rotation: -12, drift: true },
+    { Component: WaterDrop, x: 82, y: 74, size: 22, opacity: 0.11, rotation: 10, twinkle: true },
+    { Component: WindSwirl, x: 66, y: 88, size: 42, opacity: 0.10, rotation: 8, drift: true },
+    { Component: GrassTuft, x: 78, y: 92, size: 28, opacity: 0.10, rotation: -4 },
   ],
 
   sakura: [
@@ -112,6 +118,12 @@ export const DECOR_REGISTRY: Record<string, DecorItem[]> = {
     { Component: CherryBlossom, x: 54, y: 95, size: 32, opacity: 0.12, rotation: 18, twinkle: true },
     { Component: Petal, x: 74, y: 94, size: 24, opacity: 0.13, rotation: 5 },
     { Component: CherryBlossom, x: 88, y: 93, size: 44, opacity: 0.15, rotation: 28, drift: true },
+
+    // Density tune for bottom-right quadrant (y 60-100, x 60-100)
+    { Component: Petal, x: 72, y: 62, size: 26, opacity: 0.10, rotation: -14, drift: true },
+    { Component: BlossomBud, x: 82, y: 74, size: 20, opacity: 0.11, rotation: 15, twinkle: true },
+    { Component: Petal, x: 66, y: 88, size: 24, opacity: 0.10, rotation: 18, drift: true },
+    { Component: Branch, x: 78, y: 92, size: 42, opacity: 0.10, rotation: -6 },
   ],
 
   coffee: [
