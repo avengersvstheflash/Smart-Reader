@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, BookOpen, Check } from 'lucide-react';
 import { Book, formatAuthorList } from '../../types/domain';
+import { useThemeStore } from '../../store/useThemeStore';
 import { BookCoverArt } from './BookCoverArt';
 
 export interface BookCardProps {
@@ -28,30 +29,82 @@ export function formatReadingTime(wordCount?: number, chapterCount = 0): string 
   return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
 }
 
-interface CoverTheme {
-  name: string;
-  gradient: string;
-  spine: string;
-}
+type CoverTheme = { name: string; gradient: string; spine: string };
 
-const COVER_THEMES: CoverTheme[] = [
-  { name: 'terracotta', gradient: 'from-[#8B3A1C] to-[#54210D]', spine: '#3D1608' },
-  { name: 'indigo', gradient: 'from-[#2C3B5E] to-[#151D33]', spine: '#0E1322' },
-  { name: 'moss', gradient: 'from-[#2D4F37] to-[#14291B]', spine: '#0D1B11' },
-  { name: 'amber', gradient: 'from-[#784E1A] to-[#42290B]', spine: '#2E1C07' },
-  { name: 'plum', gradient: 'from-[#5C2B4E] to-[#311429]', spine: '#210C1B' },
-  { name: 'slate', gradient: 'from-[#3B4654] to-[#1F252E]', spine: '#14181F' },
-  { name: 'teal', gradient: 'from-[#1D4F4F] to-[#0D2929]', spine: '#081B1B' },
-];
+const COVER_THEMES_BY_THEME: Record<string, CoverTheme[]> = {
+  spring: [
+    // Brights
+    { name: 'spring-honey', gradient: 'from-[#F4E4A6] to-[#B89748]', spine: '#7A6130' },
+    { name: 'spring-cream', gradient: 'from-[#EDE5C8] to-[#8CA070]', spine: '#5E6B45' },
+    { name: 'spring-blush', gradient: 'from-[#F2D4D8] to-[#A88294]', spine: '#78596B' },
+    { name: 'spring-sky', gradient: 'from-[#C8E4E0] to-[#6B9490]', spine: '#456B68' },
+    // Medium
+    { name: 'spring-sage', gradient: 'from-[#B8D0B6] to-[#5C8060]', spine: '#3D5A40' },
+    { name: 'spring-fern', gradient: 'from-[#A4C296] to-[#4E7044]', spine: '#344E2E' },
+    // Darks
+    { name: 'spring-pine', gradient: 'from-[#5A7A5E] to-[#1F3A28]', spine: '#152618' },
+    { name: 'spring-moss', gradient: 'from-[#7A8F5E] to-[#2E3820]', spine: '#1F2615' },
+  ],
+  sakura: [
+    // Brights
+    { name: 'sakura-cream', gradient: 'from-[#F8E5D8] to-[#C09078]', spine: '#8A6350' },
+    { name: 'sakura-peach', gradient: 'from-[#F8D4BC] to-[#C88066]', spine: '#8F5340' },
+    { name: 'sakura-petal', gradient: 'from-[#F8D0DC] to-[#B86F88]', spine: '#84495F' },
+    { name: 'sakura-lilac', gradient: 'from-[#E5D4E8] to-[#946B9C]', spine: '#66476E' },
+    // Medium
+    { name: 'sakura-rose', gradient: 'from-[#E8A0B4] to-[#8A3854]', spine: '#5E2438' },
+    { name: 'sakura-plum', gradient: 'from-[#C888A8] to-[#682848]', spine: '#471530' },
+    // Darks
+    { name: 'sakura-wine', gradient: 'from-[#8A4858] to-[#35121C]', spine: '#220A10' },
+    { name: 'sakura-berry', gradient: 'from-[#A83870] to-[#3E0E28]', spine: '#27061A' },
+  ],
+  coffee: [
+    // Brights
+    { name: 'coffee-cream', gradient: 'from-[#F5E6C8] to-[#C0A170]', spine: '#8A6E42' },
+    { name: 'coffee-honey', gradient: 'from-[#F5D08A] to-[#B8853E]', spine: '#7E5924' },
+    { name: 'coffee-wheat', gradient: 'from-[#E8D4A8] to-[#9E7F50]', spine: '#6E5433' },
+    { name: 'coffee-caramel', gradient: 'from-[#E8A868] to-[#9E5A28]', spine: '#6B3B15' },
+    // Medium
+    { name: 'coffee-amber', gradient: 'from-[#C89560] to-[#6E3C1A]', spine: '#48240E' },
+    { name: 'coffee-mocha', gradient: 'from-[#A0704E] to-[#503020]', spine: '#321D10' },
+    // Darks
+    { name: 'coffee-espresso', gradient: 'from-[#6B4028] to-[#251208]', spine: '#170A04' },
+    { name: 'coffee-cocoa', gradient: 'from-[#5A3018] to-[#1E0C04]', spine: '#130702' },
+  ],
+  cyberpunk: [
+    { name: 'cyan-neon', gradient: 'from-[#00F0FF] to-[#0A2E5C]', spine: '#051833' },
+    { name: 'magenta-neon', gradient: 'from-[#FF007F] to-[#4A0033]', spine: '#2E0020' },
+    { name: 'lime-neon', gradient: 'from-[#39FF14] to-[#0A3D14]', spine: '#05240A' },
+    { name: 'amber-neon', gradient: 'from-[#FFB800] to-[#542B00]', spine: '#331A00' },
+    { name: 'deep-teal', gradient: 'from-[#00E5A3] to-[#003833]', spine: '#00211E' },
+    { name: 'void-purple', gradient: 'from-[#9D00FF] to-[#250047]', spine: '#17002E' },
+    { name: 'blood-orange', gradient: 'from-[#FF3B00] to-[#470B00]', spine: '#2E0500' },
+    { name: 'acid-green', gradient: 'from-[#A6FF00] to-[#213D00]', spine: '#142600' },
+  ],
+  omni: [
+    // Brights
+    { name: 'omni-lavender', gradient: 'from-[#E0D0F4] to-[#9E82C8]', spine: '#6E5890' },
+    { name: 'omni-pearl', gradient: 'from-[#D8D4EE] to-[#8A84B8]', spine: '#5E5888' },
+    { name: 'omni-iris', gradient: 'from-[#C8B4F0] to-[#7A5EC0]', spine: '#523C90' },
+    { name: 'omni-dawn', gradient: 'from-[#F0D0E4] to-[#A878A8]', spine: '#745278' },
+    // Medium
+    { name: 'omni-violet', gradient: 'from-[#A080D8] to-[#4E2888]', spine: '#371A62' },
+    { name: 'omni-royal', gradient: 'from-[#8474C8] to-[#3E2888]', spine: '#2A185E' },
+    // Darks
+    { name: 'omni-midnight', gradient: 'from-[#4A4A80] to-[#151538]', spine: '#0E0E28' },
+    { name: 'omni-abyss', gradient: 'from-[#3E2E68] to-[#120A24]', spine: '#0A0618' },
+  ],
+};
 
-export function getCoverTheme(seed: string): CoverTheme {
+export function getCoverTheme(seed: string, activeTheme: string = 'spring'): CoverTheme {
+  const palettes = COVER_THEMES_BY_THEME[activeTheme] || COVER_THEMES_BY_THEME.spring;
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     hash = (hash << 5) - hash + seed.charCodeAt(i);
     hash |= 0;
   }
-  const index = Math.abs(hash) % COVER_THEMES.length;
-  return COVER_THEMES[index];
+  const index = Math.abs(hash) % palettes.length;
+  return palettes[index];
 }
 
 function getCategoryBadgeClass(contentType?: string): string {
@@ -80,7 +133,8 @@ export const BookCard: React.FC<BookCardProps> = ({
   footer,
 }) => {
   const navigate = useNavigate();
-  const theme = getCoverTheme(book.title + book.id);
+  const currentTheme = useThemeStore((s) => s.theme);
+  const theme = getCoverTheme(book.title + book.id, currentTheme);
   const readingTime = formatReadingTime(book.wordCount, book.chapterCount);
   const isEmptyContent = book.integrityStatus === 'empty_content';
   const displayAuthor = formatAuthorList(book.bibliographic?.authors, book.author);
