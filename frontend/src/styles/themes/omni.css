@@ -99,10 +99,6 @@
   }
 }
 
-/* 1. Sigil Constant Ritual Orbit */
-.omni-sigil-only {
-  display: none !important;
-}
 
 [data-theme='omni'] .omni-sigil-only {
   display: inline-flex !important;
