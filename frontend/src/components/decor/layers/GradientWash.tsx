@@ -23,5 +23,17 @@ export function GradientWash({ theme }: { theme: string }) {
     );
   }
 
+  if (theme === 'coffee') {
+    return (
+      <div
+        className="decor-wash"
+        style={{
+          backgroundImage:
+            'radial-gradient(ellipse 60% 50% at 15% 25%, rgb(180 83 9 / 0.05), transparent 70%), radial-gradient(ellipse 50% 40% at 85% 75%, rgb(217 119 6 / 0.04), transparent 70%)',
+        }}
+      />
+    );
+  }
+
   return null;
 }

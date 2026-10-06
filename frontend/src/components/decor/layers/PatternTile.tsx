@@ -25,5 +25,18 @@ export function PatternTile({ theme }: { theme: string }) {
     );
   }
 
+  if (theme === 'coffee') {
+    return (
+      <div
+        className="decor-tile"
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(45deg, rgb(var(--accent) / 0.04) 0px, rgb(var(--accent) / 0.04) 1px, transparent 1px, transparent 12px)',
+          backgroundSize: 'auto',
+        }}
+      />
+    );
+  }
+
   return null;
 }

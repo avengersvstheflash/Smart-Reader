@@ -9,6 +9,11 @@ import { Petal } from './stickers/sakura/Petal';
 import { Branch } from './stickers/sakura/Branch';
 import { BlossomBud } from './stickers/sakura/BlossomBud';
 
+import { CoffeeCup } from './stickers/coffee/CoffeeCup';
+import { SteamCurl } from './stickers/coffee/SteamCurl';
+import { CoffeeBean } from './stickers/coffee/CoffeeBean';
+import { Croissant } from './stickers/coffee/Croissant';
+
 export interface DecorItem {
   Component: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   x: number;           // 0-100 % from left
@@ -107,5 +112,55 @@ export const DECOR_REGISTRY: Record<string, DecorItem[]> = {
     { Component: CherryBlossom, x: 54, y: 95, size: 32, opacity: 0.12, rotation: 18, twinkle: true },
     { Component: Petal, x: 74, y: 94, size: 24, opacity: 0.13, rotation: 5 },
     { Component: CherryBlossom, x: 88, y: 93, size: 44, opacity: 0.15, rotation: 28, drift: true },
+  ],
+
+  coffee: [
+    // Row y≈4 (6 items)
+    { Component: CoffeeCup, x: 6, y: 4, size: 36, opacity: 0.14, rotation: -8, drift: true },
+    { Component: SteamCurl, x: 22, y: 3, size: 40, opacity: 0.13, rotation: 6, drift: true },
+    { Component: CoffeeBean, x: 40, y: 5, size: 24, opacity: 0.12, rotation: -18 },
+    { Component: Croissant, x: 58, y: 4, size: 42, opacity: 0.13, rotation: 12 },
+    { Component: SteamCurl, x: 76, y: 3, size: 34, opacity: 0.12, rotation: -4, drift: true, twinkle: true },
+    { Component: CoffeeCup, x: 92, y: 5, size: 38, opacity: 0.15, rotation: 15, drift: true },
+
+    // Row y≈18 (5 items)
+    { Component: Croissant, x: 12, y: 17, size: 46, opacity: 0.13, rotation: -12 },
+    { Component: CoffeeBean, x: 30, y: 19, size: 26, opacity: 0.11, rotation: 20 },
+    { Component: SteamCurl, x: 50, y: 18, size: 36, opacity: 0.12, rotation: 4, drift: true, twinkle: true },
+    { Component: CoffeeCup, x: 70, y: 18, size: 34, opacity: 0.14, rotation: -10, drift: true },
+    { Component: CoffeeBean, x: 88, y: 19, size: 28, opacity: 0.13, rotation: -15 },
+
+    // Row y≈30 (5 items)
+    { Component: CoffeeBean, x: 5, y: 29, size: 26, opacity: 0.13, rotation: 25 },
+    { Component: CoffeeCup, x: 20, y: 31, size: 32, opacity: 0.12, rotation: 6 },
+    { Component: SteamCurl, x: 48, y: 30, size: 38, opacity: 0.11, rotation: -8, drift: true, twinkle: true },
+    { Component: Croissant, x: 80, y: 31, size: 44, opacity: 0.12, rotation: 16 },
+    { Component: SteamCurl, x: 95, y: 29, size: 32, opacity: 0.14, rotation: 10, drift: true },
+
+    // Row y≈52 (2 items - flanking cards)
+    { Component: CoffeeBean, x: 8, y: 52, size: 24, opacity: 0.14, rotation: -12 },
+    { Component: CoffeeCup, x: 92, y: 53, size: 36, opacity: 0.15, rotation: 18, drift: true },
+
+    // Row y≈68 (2 items - flanking cards)
+    { Component: SteamCurl, x: 5, y: 68, size: 34, opacity: 0.13, rotation: -6, drift: true, twinkle: true },
+    { Component: Croissant, x: 95, y: 67, size: 42, opacity: 0.12, rotation: -14 },
+
+    // Row y≈82 (3 items - sparse in center)
+    { Component: CoffeeCup, x: 8, y: 81, size: 34, opacity: 0.14, rotation: -12, drift: true },
+    { Component: SteamCurl, x: 50, y: 83, size: 28, opacity: 0.10, rotation: 6, drift: true, twinkle: true },
+    { Component: CoffeeBean, x: 92, y: 82, size: 24, opacity: 0.13, rotation: 22 },
+
+    // Row y≈94 (5 items)
+    { Component: Croissant, x: 14, y: 94, size: 44, opacity: 0.14, rotation: 10 },
+    { Component: CoffeeBean, x: 34, y: 93, size: 26, opacity: 0.12, rotation: -20 },
+    { Component: SteamCurl, x: 54, y: 95, size: 32, opacity: 0.11, rotation: 2, drift: true, twinkle: true },
+    { Component: CoffeeCup, x: 74, y: 94, size: 38, opacity: 0.13, rotation: -8, drift: true },
+    { Component: Croissant, x: 88, y: 93, size: 40, opacity: 0.15, rotation: -18, drift: true },
+
+    // Density tune for bottom-right quadrant (y 60-100, x 60-100)
+    { Component: SteamCurl, x: 72, y: 62, size: 40, opacity: 0.10, rotation: -8, drift: true },
+    { Component: CoffeeBean, x: 82, y: 74, size: 24, opacity: 0.11, rotation: 22 },
+    { Component: SteamCurl, x: 66, y: 88, size: 36, opacity: 0.10, rotation: 12, drift: true },
+    { Component: CoffeeBean, x: 78, y: 92, size: 20, opacity: 0.10, rotation: -5, twinkle: true },
   ],
 };
