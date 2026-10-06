@@ -624,3 +624,62 @@ specificity can silently break when adjacent rules are reverted.
 - Compress evidence before transmitting to LLM
 
 
+
+
+---
+
+## Current State (2026-10-07 evening)
+
+**HEAD:** 53b9186
+**Tree:** clean
+**Origin:** synced
+
+## Phase Status
+
+- 5.8d   Sigils: CLOSED (b7d845b)
+- 5.8d.2-4 Button animations: CLOSED (77ae44a)
+- 5.8d.5 Remove Ask this book: CLOSED (8a35fef)
+- 5.8e   Cover art: CLOSED (1ee511f)
+- 5.8e.5 Theme-reactive covers: CLOSED (53b9186)
+- 5.8i   Frontend polish: NEXT
+- 5.8j   Settings: QUEUED
+- 5.8k   Help: QUEUED
+
+## New Finding — F32 (deferred)
+
+Section classification for parser. Real books leak TOC/preface/index
+as chapters — ~5x waste on affected books. Fix: LLM-based classifier
+pre-synthesis using the resolved provider (OpenRouter OR Local).
+~$0.01/book, ~2 sessions. Deferred to v1.x. Design doc:
+DESIGN_SECTION_CLASSIFICATION.md.
+
+Provider routing is a trust boundary — local-only users MUST route
+to local provider. No silent cloud calls.
+
+## Book Cover Architecture
+
+- Component: frontend/src/components/library/BookCoverArt.tsx
+- CSS: frontend/src/styles/book-cover.css
+- Theme-reactive palette map: COVER_THEMES_BY_THEME
+- 4 pattern families (geometric / weave / symbol / particles)
+- z-index 5, mix-blend-mode: screen
+- Reduced-motion disables all animations
+- Hover does NOT scale pattern
+
+## Sigil / Button Architecture
+
+- Sigil: ThemeSigil.tsx + sigil.css
+- Button decor: ButtonDecor.tsx + button-theme.css
+- Classes applied unconditionally, CSS scoped per theme
+- Reduced-motion: fills stay, decor hides
+
+## Standing Rules
+
+- Raw evidence over summaries
+- No commits on dirty tree or red suite
+- Agents never declare phase closure
+- One workstream per session
+- VS Code closed during Antigravity edits
+- Never git add -f on gitignored files
+- Prefer targeted git checkout HEAD -- <file> over destructive reset
+- Compress evidence before transmitting to LLM
