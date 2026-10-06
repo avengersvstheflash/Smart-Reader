@@ -1,0 +1,288 @@
+/* ── Per-theme Continue button animations ──
+ * Only applies to spring, sakura, coffee. Cyberpunk and omni use
+ * their own button animations. Animates only box-shadow, border-color,
+ * and transform. Respects prefers-reduced-motion. */
+
+/* ── SPRING: soft water ripple breathing ── */
+[data-theme='spring'] .themed-button {
+  animation: themed-spring-breathe 5s ease-in-out infinite;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s ease;
+  border: 1px solid rgb(45 168 152 / 0.55);
+}
+@keyframes themed-spring-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgb(45 168 152 / 0.35),
+      0 0 22px rgb(45 168 152 / 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 16px rgb(45 168 152 / 0.55),
+      0 0 36px rgb(110 231 183 / 0.28);
+  }
+}
+[data-theme='spring'] .themed-button:hover {
+  transform: translateY(-1.5px);
+  box-shadow:
+    0 0 22px rgb(45 168 152 / 0.65),
+    0 0 48px rgb(110 231 183 / 0.35);
+}
+
+/* ── SAKURA: bloom glow with subtle scale ── */
+[data-theme='sakura'] .themed-button {
+  animation: themed-sakura-bloom 4s ease-in-out infinite;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s ease;
+  border: 1px solid rgb(236 72 153 / 0.55);
+}
+@keyframes themed-sakura-bloom {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgb(236 72 153 / 0.35),
+      0 0 22px rgb(244 114 182 / 0.18);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow:
+      0 0 18px rgb(236 72 153 / 0.60),
+      0 0 42px rgb(244 114 182 / 0.35);
+    transform: scale(1.015);
+  }
+}
+[data-theme='sakura'] .themed-button:hover {
+  transform: translateY(-1.5px) scale(1.03);
+  box-shadow:
+    0 0 24px rgb(236 72 153 / 0.70),
+    0 0 52px rgb(244 114 182 / 0.45);
+}
+
+/* ── COFFEE: warm slow amber pulse ── */
+[data-theme='coffee'] .themed-button {
+  animation: themed-coffee-simmer 6s ease-in-out infinite;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.25s ease;
+  border: 1px solid rgb(161 92 47 / 0.55);
+}
+@keyframes themed-coffee-simmer {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgb(161 92 47 / 0.30),
+      0 0 20px rgb(217 119 6 / 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 16px rgb(161 92 47 / 0.50),
+      0 0 34px rgb(217 119 6 / 0.28);
+  }
+}
+[data-theme='coffee'] .themed-button:hover {
+  transform: translateY(-1.5px);
+  box-shadow:
+    0 0 22px rgb(161 92 47 / 0.60),
+    0 0 44px rgb(217 119 6 / 0.35);
+}
+
+/* ── ACCESSIBILITY: static fallback ── */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme='spring'] .themed-button,
+  [data-theme='sakura'] .themed-button,
+  [data-theme='coffee'] .themed-button {
+    animation: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  [data-theme='spring'] .themed-button:hover,
+  [data-theme='sakura'] .themed-button:hover,
+  [data-theme='coffee'] .themed-button:hover {
+    transform: none !important;
+  }
+}
+
+
+/* ── Light-theme button fill: accent instead of dark brand ── */
+
+[data-theme='spring'] .themed-button {
+  background-color: rgb(var(--accent)) !important;
+  color: #ffffff !important;
+}
+[data-theme='spring'] .themed-button:hover {
+  background-color: rgb(var(--accent) / 0.92) !important;
+}
+
+[data-theme='sakura'] .themed-button {
+  background-color: rgb(var(--accent)) !important;
+  color: #ffffff !important;
+}
+[data-theme='sakura'] .themed-button:hover {
+  background-color: rgb(var(--accent) / 0.92) !important;
+}
+
+[data-theme='coffee'] .themed-button {
+  background-color: rgb(var(--accent)) !important;
+  color: #ffffff !important;
+}
+[data-theme='coffee'] .themed-button:hover {
+  background-color: rgb(var(--accent) / 0.92) !important;
+}
+
+/* ── Internal decorations: contain and layer behind text ── */
+
+[data-theme='spring'] .themed-button,
+[data-theme='sakura'] .themed-button,
+[data-theme='coffee'] .themed-button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ButtonDecor wrapper sits behind content */
+.btn-decor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+/* Text/icon in button must sit above the decor */
+.themed-button > *:not(.btn-decor) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── SPRING: concentric water ripples ── */
+
+.btn-decor-spring {
+  color: rgb(255 255 255 / 0.6);
+}
+.btn-ripple {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  margin-left: -10px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  opacity: 0;
+  animation: btn-ripple-out 2.5s ease-out infinite;
+}
+.btn-ripple-b { animation-delay: 0.8s; }
+.btn-ripple-c { animation-delay: 1.6s; }
+@keyframes btn-ripple-out {
+  0%   { transform: scale(0.4); opacity: 0; }
+  20%  { opacity: 0.7; }
+  100% { transform: scale(5);   opacity: 0; }
+}
+
+/* ── SAKURA: petals drifting down inside the button ── */
+
+.btn-decor-sakura {
+  color: rgb(255 255 255 / 0.55);
+}
+.btn-petal {
+  position: absolute;
+  top: -6px;
+  width: 10px;
+  height: 10px;
+  animation: btn-petal-fall 3.6s ease-in infinite;
+}
+.btn-petal-a { left: 18%; animation-delay: 0s;   }
+.btn-petal-b { left: 52%; animation-delay: 1.2s; }
+.btn-petal-c { left: 82%; animation-delay: 2.4s; }
+@keyframes btn-petal-fall {
+  0%   { transform: translateY(0)    rotate(0deg);   opacity: 0; }
+  15%  { opacity: 1; }
+  80%  { opacity: 0.8; }
+  100% { transform: translateY(42px) rotate(120deg); opacity: 0; }
+}
+
+/* ── COFFEE: steam curls rising inside the button ── */
+
+.btn-decor-coffee {
+  color: rgb(255 255 255 / 0.45);
+}
+.btn-steam {
+  position: absolute;
+  bottom: -6px;
+  width: 8px;
+  height: 20px;
+  animation: btn-steam-rise 3.2s ease-out infinite;
+}
+.btn-steam-a { left: 22%; animation-delay: 0s;   }
+.btn-steam-b { left: 50%; animation-delay: 1.05s; }
+.btn-steam-c { left: 78%; animation-delay: 2.1s; }
+@keyframes btn-steam-rise {
+  0%   { transform: translateY(20px) scale(0.85); opacity: 0; }
+  25%  { opacity: 0.8; }
+  70%  { opacity: 0.4; }
+  100% { transform: translateY(-20px) scale(1.1); opacity: 0; }
+}
+
+/* ── Reduced motion: keep accent fill, hide all decor ── */
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme='spring'] .themed-button,
+  [data-theme='sakura'] .themed-button,
+  [data-theme='coffee'] .themed-button {
+    background-color: rgb(var(--accent)) !important;
+    color: #ffffff !important;
+  }
+  .btn-decor { display: none !important; }
+}
+
+/* ── OMNI: arcanic internal decor ── */
+
+.btn-decor-omni {
+  color: rgb(192 132 252 / 0.55);   /* light violet */
+}
+
+/* Drifting cosmos particles */
+.btn-cosmos {
+  position: absolute;
+  bottom: -4px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow:
+    0 0 6px rgb(192 132 252 / 0.7),
+    0 0 12px rgb(244 114 182 / 0.3);
+  animation: btn-cosmos-rise 4.8s ease-out infinite;
+}
+.btn-cosmos-a { left: 15%;  animation-delay: 0s;    }
+.btn-cosmos-b { left: 38%;  animation-delay: 1.2s; }
+.btn-cosmos-c { left: 62%;  animation-delay: 2.4s; }
+.btn-cosmos-d { left: 85%;  animation-delay: 3.6s; }
+@keyframes btn-cosmos-rise {
+  0%   { transform: translateY(0)     scale(0.6); opacity: 0;    }
+  20%  { opacity: 0.9; }
+  60%  { opacity: 0.6; }
+  100% { transform: translateY(-38px) scale(1.1); opacity: 0;    }
+}
+
+/* Faint rotating arcane glyph behind text */
+.btn-arcane-glyph {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  width: 18px;
+  height: 18px;
+  margin-top: -9px;
+  color: rgb(244 114 182 / 0.35);   /* soft pink accent */
+  animation: btn-arcane-rotate 14s linear infinite;
+  transform-origin: center;
+}
+@keyframes btn-arcane-rotate {
+  from { transform: rotate(0deg);   }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Reduced motion: hide omni internal decor ── */
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-decor-omni { display: none !important; }
+}

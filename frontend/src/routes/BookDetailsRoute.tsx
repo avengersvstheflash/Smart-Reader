@@ -19,6 +19,7 @@ import { getCoverTheme } from '../components/library/BookCard';
 import { ExpandableTagPanel } from '../components/library/ExpandableTagPanel';
 import { formatAuthorList } from '../types/domain';
 import { renderInlineText } from '../components/reader/CanonicalBlock';
+import { ButtonDecor } from '../components/reader/ButtonDecor';
 
 function formatAiProvider(raw?: string): string | null {
   if (!raw) return null;
@@ -329,8 +330,9 @@ export default function BookDetailsRoute() {
                   : 'Start reading from Chapter 1'
               }
               onClick={() => navigate(`/read/${book.id}/${targetChapterId}`)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cyber-animated-button arcane-beam-button"
+              className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cyber-animated-button arcane-beam-button themed-button"
             >
+              <ButtonDecor />
               <span>▶</span>
               <span>{readButtonLabel}</span>
             </button>
