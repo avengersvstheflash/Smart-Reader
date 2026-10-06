@@ -52,6 +52,9 @@
     transition: none !important;
   }
   .theme-decor .decor-glow { animation: none !important; filter: none !important; }
+  [data-theme='omni'] .theme-decor .decor-item {
+    filter: drop-shadow(0 0 4px rgb(var(--accent) / 0.35)) !important;
+  }
 }
 
 /* Gentle drift — only on items flagged .decor-drift */
@@ -72,9 +75,14 @@
   animation: decor-twinkle 5s ease-in-out infinite;
 }
 
+/* Omni static base glow */
+[data-theme='omni'] .theme-decor .decor-item {
+  filter: drop-shadow(0 0 4px rgb(var(--accent) / 0.35));
+}
+
 @keyframes decor-glow {
-  0%, 100% { filter: drop-shadow(0 0 2px rgb(var(--accent) / 0.45)); }
-  50%      { filter: drop-shadow(0 0 9px rgb(var(--accent) / 0.85)); }
+  0%, 100% { filter: drop-shadow(0 0 3px rgb(var(--accent) / 0.55)); }
+  50%      { filter: drop-shadow(0 0 12px rgb(var(--accent) / 0.95)); }
 }
 
 .theme-decor .decor-glow {

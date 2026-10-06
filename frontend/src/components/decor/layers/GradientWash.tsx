@@ -47,5 +47,17 @@ export function GradientWash({ theme }: { theme: string }) {
     );
   }
 
+  if (theme === 'omni') {
+    return (
+      <div
+        className="decor-wash"
+        style={{
+          backgroundImage:
+            'radial-gradient(ellipse 55% 45% at 80% 20%, rgb(168 85 247 / 0.06), transparent 70%), radial-gradient(ellipse 45% 40% at 15% 75%, rgb(244 114 182 / 0.04), transparent 70%)',
+        }}
+      />
+    );
+  }
+
   return null;
 }

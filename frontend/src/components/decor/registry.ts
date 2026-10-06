@@ -1,4 +1,4 @@
-import type React from 'react';
+import React from 'react';
 import { WaterDrop } from './stickers/spring/WaterDrop';
 import { Leaf } from './stickers/spring/Leaf';
 import { WindSwirl } from './stickers/spring/WindSwirl';
@@ -19,6 +19,13 @@ import { HazardStripe } from './stickers/cyberpunk/HazardStripe';
 import { DataShard } from './stickers/cyberpunk/DataShard';
 import { CircuitTrace } from './stickers/cyberpunk/CircuitTrace';
 import { GlitchBar } from './stickers/cyberpunk/GlitchBar';
+
+import { MathSymbol } from './stickers/omni/MathSymbol';
+import { CosmosDot } from './stickers/omni/CosmosDot';
+import { OrbitRing } from './stickers/omni/OrbitRing';
+import { NeuralNode } from './stickers/omni/NeuralNode';
+import { BrainOutline } from './stickers/omni/BrainOutline';
+import { Glint } from './stickers/omni/Glint';
 
 export interface DecorItem {
   Component: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
@@ -231,5 +238,55 @@ export const DECOR_REGISTRY: Record<string, DecorItem[]> = {
     { Component: DataShard, x: 82, y: 74, size: 26, opacity: 0.11, rotation: 45 },
     { Component: GlitchBar, x: 66, y: 88, size: 38, opacity: 0.10, rotation: 2, twinkle: true, glow: true },
     { Component: HazardStripe, x: 78, y: 92, size: 34, opacity: 0.10, rotation: -35, drift: true },
+  ],
+
+  omni: [
+    // Row y≈4: x = 6, 22, 40, 58, 76, 92 (6 items)
+    { Component: CosmosDot, x: 6, y: 4, size: 24, opacity: 0.20, rotation: 12, twinkle: true, glow: true },
+    { Component: (p: { className?: string; style?: React.CSSProperties }) => React.createElement(MathSymbol, { ...p, glyph: '∑' }), x: 22, y: 3, size: 30, opacity: 0.18, rotation: -8, drift: true },
+    { Component: OrbitRing, x: 40, y: 5, size: 48, opacity: 0.19, rotation: 15, drift: true, glow: true },
+    { Component: NeuralNode, x: 58, y: 4, size: 40, opacity: 0.18, rotation: -12, glow: true },
+    { Component: Glint, x: 76, y: 3, size: 28, opacity: 0.21, rotation: 6, twinkle: true, glow: true },
+    { Component: BrainOutline, x: 92, y: 5, size: 42, opacity: 0.20, rotation: -18, drift: true },
+
+    // Row y≈18: x = 12, 30, 50, 70, 88 (5 items)
+    { Component: Glint, x: 12, y: 17, size: 32, opacity: 0.20, rotation: -20, twinkle: true, glow: true },
+    { Component: (p: { className?: string; style?: React.CSSProperties }) => React.createElement(MathSymbol, { ...p, glyph: '∫' }), x: 30, y: 19, size: 32, opacity: 0.19, rotation: 10 },
+    { Component: CosmosDot, x: 50, y: 18, size: 22, opacity: 0.17, rotation: 0, twinkle: true, glow: true },
+    { Component: OrbitRing, x: 70, y: 18, size: 52, opacity: 0.19, rotation: -14, drift: true, glow: true },
+    { Component: (p: { className?: string; style?: React.CSSProperties }) => React.createElement(MathSymbol, { ...p, glyph: '∂' }), x: 88, y: 19, size: 28, opacity: 0.18, rotation: 16, drift: true },
+
+    // Row y≈30: x = 5, 20, 38, 62, 80, 95 (6 items)
+    { Component: NeuralNode, x: 5, y: 29, size: 42, opacity: 0.19, rotation: 14, glow: true },
+    { Component: Glint, x: 20, y: 31, size: 26, opacity: 0.20, rotation: -8, twinkle: true, glow: true },
+    { Component: (p: { className?: string; style?: React.CSSProperties }) => React.createElement(MathSymbol, { ...p, glyph: 'π' }), x: 38, y: 30, size: 28, opacity: 0.18, rotation: -5, drift: true },
+    { Component: CosmosDot, x: 62, y: 31, size: 20, opacity: 0.17, rotation: 18, twinkle: true, glow: true },
+    { Component: OrbitRing, x: 80, y: 29, size: 46, opacity: 0.20, rotation: 22, drift: true, glow: true },
+    { Component: (p: { className?: string; style?: React.CSSProperties }) => React.createElement(MathSymbol, { ...p, glyph: '√' }), x: 95, y: 30, size: 28, opacity: 0.19, rotation: -12 },
+
+    // Row y≈52: x = 8, 92 (2 items - flanking cards)
+    { Component: BrainOutline, x: 8, y: 52, size: 44, opacity: 0.21, rotation: 8, drift: true },
+    { Component: NeuralNode, x: 92, y: 53, size: 40, opacity: 0.19, rotation: -16, glow: true },
+
+    // Row y≈68: x = 5, 95 (2 items - flanking cards)
+    { Component: OrbitRing, x: 5, y: 68, size: 52, opacity: 0.19, rotation: -18, drift: true, glow: true },
+    { Component: Glint, x: 95, y: 67, size: 30, opacity: 0.21, rotation: 15, twinkle: true, glow: true },
+
+    // Row y≈82: x = 8, 28, 50, 72, 92 (5 items)
+    { Component: Glint, x: 8, y: 81, size: 28, opacity: 0.20, rotation: -10, twinkle: true, glow: true },
+    { Component: (p: { className?: string; style?: React.CSSProperties }) => React.createElement(MathSymbol, { ...p, glyph: '≈' }), x: 28, y: 83, size: 26, opacity: 0.18, rotation: 12, drift: true },
+    { Component: BrainOutline, x: 50, y: 82, size: 40, opacity: 0.17, rotation: -6 },
+    { Component: CosmosDot, x: 72, y: 81, size: 22, opacity: 0.18, rotation: 20, twinkle: true, glow: true },
+    { Component: (p: { className?: string; style?: React.CSSProperties }) => React.createElement(MathSymbol, { ...p, glyph: '≠' }), x: 92, y: 83, size: 28, opacity: 0.19, rotation: -14, drift: true },
+
+    // Row y≈94: x = 14, 34, 54, 74, 88 (5 items)
+    { Component: OrbitRing, x: 14, y: 94, size: 48, opacity: 0.20, rotation: 16, drift: true, glow: true },
+    { Component: NeuralNode, x: 34, y: 93, size: 38, opacity: 0.18, rotation: -10, glow: true },
+    { Component: CosmosDot, x: 54, y: 95, size: 24, opacity: 0.19, rotation: 8, twinkle: true, glow: true },
+    { Component: Glint, x: 74, y: 94, size: 32, opacity: 0.20, rotation: -22, twinkle: true, glow: true },
+    { Component: (p: { className?: string; style?: React.CSSProperties }) => React.createElement(MathSymbol, { ...p, glyph: '∞' }), x: 88, y: 93, size: 30, opacity: 0.20, rotation: 10, drift: true },
+
+    // Density tune for bottom-right quadrant (1 item)
+    { Component: Glint, x: 68, y: 64, size: 26, opacity: 0.17, rotation: 18, twinkle: true, glow: true },
   ],
 };

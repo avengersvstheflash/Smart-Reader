@@ -51,5 +51,18 @@ export function PatternTile({ theme }: { theme: string }) {
     );
   }
 
+  if (theme === 'omni') {
+    return (
+      <div
+        className="decor-tile"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle, rgb(var(--accent) / 0.05) 0.8px, transparent 1.2px)',
+          backgroundSize: '28px 28px',
+        }}
+      />
+    );
+  }
+
   return null;
 }
