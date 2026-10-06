@@ -8,26 +8,12 @@
 
 ---
 
-## Current State (2026-10-05)
+## Current State (2026-10-06)
 
-**HEAD:** bbcfd7e (5.8c commit hash pending)  
-**Tree:** clean (post-commit)  
-**Origin:** synced  
-
-| | |
-|---|---|
-| **HEAD** | `bbcfd7e` (5.8c commit hash pending) |
-| **Origin** | synced (`origin/main`) |
-| **Working tree** | clean (post-commit) |
-| **Tests** | Not re-run this session (5.8c is UI-only) |
-| **Frontend** | `tsc --noEmit` / `vite build` clean |
-| **Last release tag** | `v0.6.0` @ `55d0855` (Phase 5.7.2 close) |
-| **Phase 5** | **CLOSED** |
-| **Phase 5.7.3** | **CLOSED** |
-| **Phase 5.8.0** | **CLOSED** |
-| **Phase 5.8** | **IN PROGRESS** |
-
-**Immediate next task:** 5.8c.1 per-theme accent calibration, F29 LaTeX fix (KaTeX), then 5.8b.
+**HEAD:** 8c3dc64
+**Tree:** clean
+**Origin:** synced
+**Tests:** not re-run this session (frontend CSS-only work)
 
 ---
 
@@ -67,36 +53,14 @@ The reader defaults to Omni. Original is reached contextually, via provenance �
 - Phase 5.7.3: CLOSED
 - Phase 5.8.0: CLOSED
 - Phase 5.8: IN PROGRESS
-  - 5.8a Omnitome Rebrand: CLOSED (eb4f2c7, bbcfd7e)
-  - 5.8c Omni Theme Identity: CLOSED (theme renamed neon→omni)
-  - 5.8c.1 Per-Theme Accent Calibration: QUEUED (plan drafted)
-  - F29 LaTeX Rendering: ELEVATED to 5.8.x
-
-| Phase | Status | Closed |
-|---|---|---|
-| 4.x | ✅ CLOSED | 2026-09-23 |
-| 5.1a, 5.1b | ✅ CLOSED | 2026-09-24 |
-| 5.2 | ✅ CLOSED | 2026-09-25 |
-| 5.3 | ✅ CLOSED | 2026-09-26 |
-| 5.5 series | ✅ CLOSED | 2026-09-29 |
-| 5.6 series | ✅ CLOSED | 2026-09-29 |
-| 5.7.1 (Python sidecar + OCR) | ✅ CLOSED | 2026-09-30 |
-| 5.7.2 (NLP migration + parallelism + attribution) | ✅ CLOSED | 2026-10-02 |
-| 5.7.3 (capability router + DOCX/RTF) | ✅ CLOSED | 2026-10-03 |
-| **5.8.0 (compression contract repair)** | ✅ **CLOSED** | 2026-10-03 |
-| **5.8.0g.1 (reading-time label)** | ✅ CLOSED | 2026-10-04 |
-| **5.8.0h.2 (F18)** | ✅ CLOSED | 2026-10-04 |
-| **5.8.0j.1 (F24 — chat-log parser)** | ✅ CLOSED | 2026-10-04 |
-| **5.8.0g.2 (label honesty)** | ✅ CLOSED | 2026-10-04 |
-| **5.8.0j.2 (F23 — math glyphs)** | ✅ CLOSED | 2026-10-04 |
-| **5.8a (Omnitome rebrand)** | ✅ CLOSED | 2026-10-05 |
-| **5.8c (Omni theme identity)** | ✅ CLOSED | 2026-10-05 |
-| **5.8c.1 (per-theme accent calibration)** | ⏳ QUEUED | — |
-| **5.8 (pre-Tauri close-out)** | 🔄 **IN PROGRESS** | — |
-| 5.9 (Kokoro TTS) | ⏸ PLANNED | — |
-| 6 (Tauri packaging) | ⏸ PLANNED | — |
-
-**Build 1 / v1.0 = Phase 5.8 → Phase 5.9 → Phase 6.** Nothing else enters Build 1.
+  - 5.8a Omnitome Rebrand: CLOSED
+  - 5.8c Omni Theme Identity: CLOSED
+  - 5.8c.1 Per-Theme Accent Calibration: SUPERSEDED by 5.8c.3
+  - 5.8c.2a CSS Modularization: CLOSED (c69ebd2)
+  - 5.8c.2b Multi-Accent Tokens: CLOSED (78bdf70)
+  - 5.8c.3 Theme Identity Restructure: CLOSED (8c3dc64)
+  - 5.8c.4 Cyberpunk Transformation: CLOSED (8c3dc64)
+  - 5.8c.5 Sticker Architecture: NEXT
 
 ---
 
@@ -215,26 +179,14 @@ Parts 13–15 now correctly read `Chapter 3` — but without the real title `Dat
 ---
 
 ## Next Session Opener
-1. Verify HEAD, tree clean, origin synced
-2. Implement 5.8c.1 per docs/DESIGN_OMNI_ACCENT_SYSTEM.md
-3. F29 KaTeX integration
-4. Continue 5.8b (Omni feature naming)
 
-### 5.8a — Omnitome rebrand (CLOSED)
-Shipped in `eb4f2c7` (frontend) and `bbcfd7e` (backend synthesis titles).
-
-### 5.8c — Omni Theme Identity (CLOSED)
-Theme renamed `neon` → `omni` (flagship dark violet). Global polish, reader prose strictly neutral, reduced-motion compliance.
-Documented in `docs/DESIGN_OMNI_THEME.md`.
-
-### 5.8c.1 — Per-Theme Accent Calibration (QUEUED)
-Design drafted in `docs/DESIGN_OMNI_ACCENT_SYSTEM.md`.
-
-### 5.8b — Omni feature naming
-Continued terminology pass — feature labels, badges, hero copy.
-
-### 5.8d — Background import tracking + notifications
-Prerequisite for 5.8f.
+1. Verify HEAD = 8c3dc64, tree clean
+2. Begin Phase 5.8c.5 — Sticker Architecture + Spring theme
+   - New ThemeDecor component + layered background system
+   - Inline SVG stickers (zero npm dependencies)
+   - Medium density, subtle animation, respects prefers-reduced-motion
+   - Reader prose invariant: ThemeDecor not rendered on Reader route
+3. Then sakura → coffee → cyberpunk → omni sticker sets
 
 ---
 
@@ -562,3 +514,42 @@ OMNI READING is a derived lens. Fully traceable back to source.
 Every decision serves this.
 
 End of handoff. Update at the end of every session.
+
+---
+
+## Theme Lineup (Final)
+
+| Theme | Identity | Accents |
+|---|---|---|
+| spring | Light cyan, water/wind/leaves | Teal family (fallback) |
+| sakura | Pink cherry blossoms | Pink/rose/blush/coral |
+| coffee | Amber coffee | Amber/gold/brown |
+| cyberpunk | Synthwave multi-neon | Cyan/magenta/lime/amber/crimson |
+| omni | Violet flagship | Violet/indigo/blue/pink |
+
+## New Hazards
+
+**H8 — VS Code Shadow Buffer**: Duplicate tabs with case-mismatched paths
+hold stale memory state and can silently revert Antigravity changes.
+Fix: close all tabs (Ctrl+K Ctrl+W) → Developer: Reload Window → Relaunch Terminal.
+
+## Sticker Architecture (Locked)
+
+- Hand-crafted inline SVG React components (no libraries)
+- Layered system: gradient wash + pattern tile + scatter + ornament corners
+- Density: Medium (~8-15 elements per theme)
+- Animation: subtle, respects prefers-reduced-motion
+- Files: frontend/src/components/decor/ (ThemeDecor, layers/, stickers/, registry.ts)
+- CSS: frontend/src/styles/decor.css
+
+## Standing Rules
+
+- Raw evidence over summaries
+- No commits on dirty tree or red suite
+- Agents never declare phase closure
+- One workstream per session
+- VS Code closed during Antigravity / writer-script edits (H1, H8)
+- Never git add -f on gitignored files
+- Compress evidence before transmitting to LLM (H7)
+
+---
