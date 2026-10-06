@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Search, AlertCircle, RotateCw, CheckSquare, Plus } from 'lucide-react';
 import { useBooks } from '../hooks/useBooks';
@@ -174,7 +174,7 @@ export const LibraryRoute: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/import')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none shadow-sm themed-primary-button"
           >
             <Plus className="w-4 h-4" aria-hidden="true" />
             <span>Add Book</span>

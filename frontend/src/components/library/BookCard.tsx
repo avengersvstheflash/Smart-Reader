@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, BookOpen, Check } from 'lucide-react';
 import { Book, formatAuthorList } from '../../types/domain';
+import { BookCoverArt } from './BookCoverArt';
 
 export interface BookCardProps {
   book: Book;
@@ -102,7 +103,7 @@ export const BookCard: React.FC<BookCardProps> = ({
 
   return (
     <article
-      className={`group relative flex rounded-md border border-line bg-card p-3 transition-all duration-150 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-md motion-safe:hover:border-line-strong ${
+      className={`group relative flex rounded-md border border-line bg-card p-3 transition-all duration-150 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-md motion-safe:hover:border-line-strong book-cover-card ${
         isRow ? 'flex-row gap-4 items-center' : 'flex-col'
       } ${
         isHero ? 'p-5 shadow-sm' : ''
@@ -129,6 +130,7 @@ export const BookCard: React.FC<BookCardProps> = ({
 
       {/* Main Clickable Cover and Link */}
       <div className="relative aspect-[3/4] w-full rounded overflow-hidden shadow-inner flex flex-col justify-between p-3.5 text-white select-none bg-gradient-to-br mb-3">
+        <BookCoverArt bookId={book.id} contentType={book.contentType} />
         {/* Decorative spine gradient */}
         <div
           className={`absolute inset-0 bg-gradient-to-br ${theme.gradient}`}
@@ -155,7 +157,7 @@ export const BookCard: React.FC<BookCardProps> = ({
           <BookOpen className="w-4 h-4 opacity-80" aria-hidden="true" />
           <div className="flex items-center gap-1.5">
             <span
-              className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded ${getCategoryBadgeClass(
+              className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded book-cover-badge ${getCategoryBadgeClass(
                 book.contentType
               )}`}
             >

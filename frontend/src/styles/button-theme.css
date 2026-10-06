@@ -286,3 +286,25 @@
 @media (prefers-reduced-motion: reduce) {
   .btn-decor-omni { display: none !important; }
 }
+
+/* Add Book button - accent fill on light themes */
+[data-theme='spring'] .themed-primary-button {
+  background-color: rgb(var(--accent)) !important;
+  color: #ffffff !important;
+  border: 1px solid rgb(var(--accent) / 0.65) !important;
+}
+[data-theme='sakura'] .themed-primary-button {
+  background-color: rgb(var(--accent)) !important;
+  color: #ffffff !important;
+  border: 1px solid rgb(var(--accent) / 0.65) !important;
+}
+[data-theme='coffee'] .themed-primary-button {
+  background-color: rgb(var(--accent)) !important;
+  color: #ffffff !important;
+  border: 1px solid rgb(var(--accent) / 0.65) !important;
+}
+[data-theme='spring'] .themed-primary-button:hover,
+[data-theme='sakura'] .themed-primary-button:hover,
+[data-theme='coffee'] .themed-primary-button:hover {
+  background-color: rgb(var(--accent) / 0.92) !important;
+}
