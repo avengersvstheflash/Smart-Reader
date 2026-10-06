@@ -151,8 +151,8 @@ export function ProvenancePreview({
       style={anchorRef ? positionStyle : undefined}
       className={
         anchorRef
-          ? 'fixed z-50 bg-[#0a0d14] border border-[rgb(var(--accent)/0.5)] shadow-[0_0_25px_rgb(0_216_230/0.25)] rounded-xl backdrop-blur-md p-4 text-left animate-in fade-in zoom-in-95 duration-150'
-          : 'absolute right-0 top-full mt-2 z-30 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-[#0a0d14] border border-[rgb(var(--accent)/0.5)] shadow-[0_0_25px_rgb(0_216_230/0.25)] rounded-xl backdrop-blur-md p-4 text-left animate-in fade-in zoom-in-95 duration-150'
+          ? 'fixed z-50 bg-[rgb(var(--surface))] border border-[rgb(var(--accent)/0.5)] shadow-[0_0_25px_rgb(var(--accent)/0.25)] rounded-xl backdrop-blur-md p-4 text-left animate-in fade-in zoom-in-95 duration-150'
+          : 'absolute right-0 top-full mt-2 z-30 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-[rgb(var(--surface))] border border-[rgb(var(--accent)/0.5)] shadow-[0_0_25px_rgb(var(--accent)/0.25)] rounded-xl backdrop-blur-md p-4 text-left animate-in fade-in zoom-in-95 duration-150'
       }
     >
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-line/60">
@@ -229,7 +229,7 @@ export function ProvenancePreview({
 
                     {/* Excerpt */}
                     {cExcerpt ? (
-                      <div className="bg-[#06080c] border-l-2 border-[rgb(var(--accent-2))] text-[rgb(var(--ink))] p-3 italic text-sm leading-relaxed rounded-r">
+                      <div className="bg-[rgb(var(--panel))] border-l-2 border-[rgb(var(--accent-2))] text-[rgb(var(--ink))] p-3 italic text-sm leading-relaxed rounded-r">
                         &ldquo;{cExcerpt}&rdquo;
                       </div>
                     ) : (
@@ -286,7 +286,7 @@ export function ProvenancePreview({
 
                   {/* Excerpt */}
                   {excerpt && (
-                    <div className="bg-[#06080c] border-l-2 border-[rgb(var(--accent-2))] text-[rgb(var(--ink))] p-3 italic text-sm my-2 leading-relaxed rounded-r">
+                    <div className="bg-[rgb(var(--panel))] border-l-2 border-[rgb(var(--accent-2))] text-[rgb(var(--ink))] p-3 italic text-sm my-2 leading-relaxed rounded-r">
                       &ldquo;{excerpt}&rdquo;
                     </div>
                   )}

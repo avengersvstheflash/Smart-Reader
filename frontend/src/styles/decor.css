@@ -1,0 +1,72 @@
+/* ── Theme decoration layer system ── */
+.theme-decor {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  user-select: none;
+}
+
+/* All decorative elements inherit accent color from the active theme */
+.theme-decor .decor-item {
+  position: absolute;
+  color: rgb(var(--accent));
+  opacity: 0.14;
+  pointer-events: none;
+}
+
+.theme-decor .decor-ornament {
+  position: absolute;
+  color: rgb(var(--accent));
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+
+/* Gradient wash layer */
+.theme-decor .decor-wash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Pattern tile layer */
+.theme-decor .decor-tile {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* Reader active overrides */
+.theme-decor[data-reader-active] .decor-item { opacity: 0.06; }
+.theme-decor[data-reader-active] .decor-tile { opacity: 0.25; }
+.theme-decor[data-reader-active] .decor-wash { opacity: 0.5; }
+
+/* Subtle motion — disable entirely when user prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .theme-decor .decor-item,
+  .theme-decor .decor-ornament {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Gentle drift — only on items flagged .decor-drift */
+@keyframes decor-drift {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-4px) rotate(2deg); }
+}
+.theme-decor .decor-drift {
+  animation: decor-drift 8s ease-in-out infinite;
+}
+
+/* Very slow twinkle for sparkles */
+@keyframes decor-twinkle {
+  0%, 100% { opacity: 0.06; }
+  50%      { opacity: 0.14; }
+}
+.theme-decor .decor-twinkle {
+  animation: decor-twinkle 5s ease-in-out infinite;
+}

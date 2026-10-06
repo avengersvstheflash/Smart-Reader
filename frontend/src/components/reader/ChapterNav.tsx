@@ -108,7 +108,7 @@ export function ChapterNav({
   return (
     <nav
       aria-label="Chapter navigation"
-      className="relative flex items-center justify-between border-t border-[rgb(var(--line))] bg-[#080b12]/90 backdrop-blur-md shadow-[0_-8px_20px_rgba(0,0,0,0.5)] px-4 py-2"
+      className="relative flex items-center justify-between border-t border-[rgb(var(--line))] bg-[rgb(var(--surface)/0.92)] backdrop-blur-md shadow-[0_-8px_20px_rgba(0,0,0,0.5)] px-4 py-2"
     >
       {/* Prev Button */}
       <button

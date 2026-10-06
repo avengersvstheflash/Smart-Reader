@@ -9,6 +9,7 @@ import ReaderRoute from './routes/ReaderRoute';
 import { ImportRoute } from './routes/ImportRoute';
 import { ResearchRoute } from './routes/ResearchRoute';
 import ResearchViewerRoute from './routes/ResearchViewerRoute';
+import { ThemeDecor } from './components/decor/ThemeDecor';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,6 +24,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ThemeDecor />
         <Layout>
           <ErrorBoundary>
             <Routes>
