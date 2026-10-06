@@ -582,11 +582,36 @@ elements should use conditional JSX render based on useThemeStore
 rather than display:none defaults + theme overrides. Relying on CSS
 specificity can silently break when adjacent rules are reverted.
 
-## Next Session Opener
+---
 
-1. Verify HEAD = a6f208d, tree clean
+## F29 + F31 Updates (2026-10-06 late)
+
+### F29 — KaTeX Math Rendering: CLOSED
+- katex@^0.16.47 + @types/katex added
+- MathRenderer component + splitMath() in CanonicalBlock
+- Renders LaTeX delimiters (\(...\), \[...\], $...$, $$...$$)
+- Bundle impact: +260 kB JS, +29 kB CSS, ~60 font files
+- Future optimization: lazy-load via dynamic import
+
+### F31 — Structural Math Loss During Extraction: OPEN, DEFERRED
+- Some PDF chapters lose math structure during extraction (superscripts,
+  roots, fractions flattened to plain text)
+- KaTeX has nothing to render when source chunks lack LaTeX delimiters
+- Not addressed by F23 (PUA replacement) or F29 (typesetting)
+- Investigation deferred to v1.x via docs/DESIGN_MATH_EXTRACTION.md
+- Not blocking Build 1
+
+### Updated Findings Ledger
+- F23 — PUA math glyphs: CLOSED (chat 9)
+- F29 — LaTeX typesetting in reader: CLOSED (2026-10-06)
+- F31 — Structural math loss in PDF extraction: OPEN (deferred v1.x)
+
+### Next Session Opener (unchanged)
+1. Verify HEAD = this docs commit, tree clean
 2. Begin Phase 5.8i — frontend verification walkthrough
 3. Then 5.8j (Settings) + 5.8k (Help)
+
+---
 
 ## Standing Rules
 
@@ -597,4 +622,5 @@ specificity can silently break when adjacent rules are reverted.
 - VS Code closed during Antigravity / writer-script edits
 - Never git add -f on gitignored files
 - Compress evidence before transmitting to LLM
+
 
