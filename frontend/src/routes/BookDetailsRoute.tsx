@@ -8,7 +8,6 @@ import {
   MoreHorizontal,
   Trash2,
   Plus,
-  Send,
 } from 'lucide-react';
 import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
@@ -648,31 +647,6 @@ export default function BookDetailsRoute() {
             )}
           </div>
 
-          {/* Ask this book form (disabled) */}
-          <div className="space-y-1.5">
-            <label htmlFor="ask-book-input" className="block text-ui-sm font-medium text-ink">
-              Ask this book…
-            </label>
-            <div className="relative">
-              <textarea
-                id="ask-book-input"
-                disabled
-                rows={3}
-                placeholder="Ask questions about themes, characters, or specific chapters…"
-                className="w-full text-ui-sm rounded-md border border-line bg-subtle/50 p-2.5 text-ink-muted placeholder:text-ink-faint resize-none disabled:cursor-not-allowed disabled:opacity-60"
-              />
-              <button
-                type="button"
-                disabled
-                title="Available in a later phase"
-                className="absolute bottom-2.5 right-2.5 p-1 rounded bg-subtle text-ink-faint disabled:opacity-40 disabled:cursor-not-allowed"
-                aria-label="Send query"
-              >
-                <Send className="w-3.5 h-3.5" aria-hidden="true" />
-              </button>
-            </div>
-            <p className="text-micro text-ink-faint">Available in a later phase</p>
-          </div>
 
           {/* Supporting materials */}
           <div className="space-y-2 pt-2 border-t border-line/40">
