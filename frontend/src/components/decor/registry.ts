@@ -29,6 +29,7 @@ export interface DecorItem {
   rotation?: number;
   drift?: boolean;
   twinkle?: boolean;
+  glow?: boolean;
 }
 
 export const DECOR_REGISTRY: Record<string, DecorItem[]> = {
@@ -186,14 +187,14 @@ export const DECOR_REGISTRY: Record<string, DecorItem[]> = {
     // Row y≈4 (6 items)
     { Component: HazardStripe, x: 6, y: 4, size: 42, opacity: 0.13, rotation: -25 },
     { Component: DataShard, x: 22, y: 3, size: 30, opacity: 0.14, rotation: 35 },
-    { Component: CircuitTrace, x: 40, y: 5, size: 38, opacity: 0.12, rotation: 0 },
-    { Component: GlitchBar, x: 58, y: 4, size: 46, opacity: 0.14, rotation: -4, twinkle: true },
+    { Component: CircuitTrace, x: 40, y: 5, size: 38, opacity: 0.12, rotation: 0, glow: true },
+    { Component: GlitchBar, x: 58, y: 4, size: 46, opacity: 0.14, rotation: -4, twinkle: true, glow: true },
     { Component: HazardStripe, x: 76, y: 3, size: 36, opacity: 0.13, rotation: 45 },
     { Component: CyberSkull, x: 92, y: 5, size: 38, opacity: 0.15, rotation: -30, drift: true },
 
     // Row y≈18 (5 items)
-    { Component: CircuitTrace, x: 12, y: 17, size: 44, opacity: 0.12, rotation: 45 },
-    { Component: GlitchBar, x: 30, y: 19, size: 40, opacity: 0.13, rotation: 0, twinkle: true },
+    { Component: CircuitTrace, x: 12, y: 17, size: 44, opacity: 0.12, rotation: 45, glow: true },
+    { Component: GlitchBar, x: 30, y: 19, size: 40, opacity: 0.13, rotation: 0, twinkle: true, glow: true },
     { Component: DataShard, x: 50, y: 18, size: 28, opacity: 0.12, rotation: -40 },
     { Component: HazardStripe, x: 70, y: 18, size: 40, opacity: 0.14, rotation: -35 },
     { Component: CircuitTrace, x: 88, y: 19, size: 36, opacity: 0.13, rotation: 15 },
@@ -201,7 +202,7 @@ export const DECOR_REGISTRY: Record<string, DecorItem[]> = {
     // Row y≈30 (5 items)
     { Component: DataShard, x: 5, y: 29, size: 32, opacity: 0.14, rotation: 50 },
     { Component: CyberSkull, x: 20, y: 31, size: 34, opacity: 0.13, rotation: 20 },
-    { Component: GlitchBar, x: 48, y: 30, size: 42, opacity: 0.11, rotation: -2, twinkle: true },
+    { Component: GlitchBar, x: 48, y: 30, size: 42, opacity: 0.11, rotation: -2, twinkle: true, glow: true },
     { Component: HazardStripe, x: 80, y: 31, size: 38, opacity: 0.13, rotation: 40 },
     { Component: DataShard, x: 95, y: 29, size: 30, opacity: 0.15, rotation: -25, drift: true },
 
@@ -210,25 +211,25 @@ export const DECOR_REGISTRY: Record<string, DecorItem[]> = {
     { Component: HazardStripe, x: 92, y: 53, size: 44, opacity: 0.15, rotation: -45 },
 
     // Row y≈68 (2 items - flanking cards)
-    { Component: GlitchBar, x: 5, y: 68, size: 44, opacity: 0.14, rotation: 5, twinkle: true },
-    { Component: CircuitTrace, x: 95, y: 67, size: 38, opacity: 0.12, rotation: 30 },
+    { Component: GlitchBar, x: 5, y: 68, size: 44, opacity: 0.14, rotation: 5, twinkle: true, glow: true },
+    { Component: CircuitTrace, x: 95, y: 67, size: 38, opacity: 0.12, rotation: 30, glow: true },
 
     // Row y≈82 (3 items - sparse in center)
-    { Component: CyberSkull, x: 8, y: 81, size: 36, opacity: 0.14, rotation: -40, drift: true },
-    { Component: GlitchBar, x: 50, y: 83, size: 36, opacity: 0.10, rotation: 0, twinkle: true },
+    { Component: CyberSkull, x: 8, y: 81, size: 36, opacity: 0.14, rotation: -40, drift: true, glow: true },
+    { Component: GlitchBar, x: 50, y: 83, size: 36, opacity: 0.10, rotation: 0, twinkle: true, glow: true },
     { Component: DataShard, x: 92, y: 82, size: 28, opacity: 0.13, rotation: 35 },
 
     // Row y≈94 (5 items)
     { Component: HazardStripe, x: 14, y: 94, size: 40, opacity: 0.14, rotation: -30 },
     { Component: DataShard, x: 34, y: 93, size: 30, opacity: 0.12, rotation: 25 },
-    { Component: CircuitTrace, x: 54, y: 95, size: 36, opacity: 0.12, rotation: -10, drift: true },
+    { Component: CircuitTrace, x: 54, y: 95, size: 36, opacity: 0.12, rotation: -10, drift: true, glow: true },
     { Component: HazardStripe, x: 74, y: 94, size: 38, opacity: 0.13, rotation: 40 },
     { Component: CyberSkull, x: 88, y: 93, size: 42, opacity: 0.15, rotation: 25, drift: true },
 
     // Density tune for bottom-right quadrant (y 60-100, x 60-100) (4 items)
     { Component: CircuitTrace, x: 72, y: 62, size: 36, opacity: 0.10, rotation: -20, drift: true },
     { Component: DataShard, x: 82, y: 74, size: 26, opacity: 0.11, rotation: 45 },
-    { Component: GlitchBar, x: 66, y: 88, size: 38, opacity: 0.10, rotation: 2, twinkle: true },
+    { Component: GlitchBar, x: 66, y: 88, size: 38, opacity: 0.10, rotation: 2, twinkle: true, glow: true },
     { Component: HazardStripe, x: 78, y: 92, size: 34, opacity: 0.10, rotation: -35, drift: true },
   ],
 };

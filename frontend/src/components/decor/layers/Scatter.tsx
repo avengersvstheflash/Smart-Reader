@@ -9,7 +9,7 @@ export function Scatter({ theme }: { theme: string }) {
       {items.map((item, i) => (
         <item.Component
           key={i}
-          className={`decor-item ${item.drift ? 'decor-drift' : ''} ${item.twinkle ? 'decor-twinkle' : ''}`}
+          className={`decor-item ${item.drift ? 'decor-drift' : ''} ${item.twinkle ? 'decor-twinkle' : ''} ${item.glow ? 'decor-glow' : ''}`}
           style={{
             left: `${item.x}%`,
             top: `${item.y}%`,
