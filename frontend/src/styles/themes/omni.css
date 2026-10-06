@@ -28,3 +28,222 @@
   --glow-accent: rgb(59 130 246 / 0.4);
   --gradient-hero: linear-gradient(135deg, rgb(168 85 247 / 0.15), rgb(59 130 246 / 0.08));
 }
+
+/* ── Omni Arcanic Animations ── */
+
+/* Arcanic logo breathe & blink — live pulsating purple neon light */
+@keyframes omni-arcane-breathe {
+  0%, 100% {
+    color: #f3e8ff;
+    text-shadow:
+      0 0 6px #c084fc,
+      0 0 14px #a855f7,
+      0 0 28px #9333ea,
+      0 0 45px rgb(168 85 247 / 0.9),
+      0 0 65px rgb(168 85 247 / 0.5);
+    filter: drop-shadow(0 0 6px rgb(168 85 247 / 0.9));
+    opacity: 1;
+  }
+  30% {
+    color: #d8b4fe;
+    text-shadow:
+      0 0 4px #a855f7,
+      0 0 10px rgb(168 85 247 / 0.7),
+      0 0 20px rgb(147 51 234 / 0.5);
+    filter: drop-shadow(0 0 3px rgb(168 85 247 / 0.6));
+    opacity: 0.85;
+  }
+  45% {
+    /* Fast blink dip */
+    color: #9333ea;
+    text-shadow: 0 0 3px #9333ea;
+    filter: drop-shadow(0 0 2px rgb(147 51 234 / 0.3));
+    opacity: 0.35;
+  }
+  50% {
+    /* Live surge flash */
+    color: #ffffff;
+    text-shadow:
+      0 0 8px #ffffff,
+      0 0 18px #d8b4fe,
+      0 0 32px #a855f7,
+      0 0 55px rgb(168 85 247 / 1),
+      0 0 80px rgb(147 51 234 / 0.8);
+    filter: drop-shadow(0 0 12px rgb(168 85 247 / 1));
+    opacity: 1;
+  }
+  55% {
+    /* Micro-blink */
+    color: #c084fc;
+    text-shadow: 0 0 6px #a855f7;
+    opacity: 0.6;
+  }
+  60% {
+    color: #f3e8ff;
+    text-shadow:
+      0 0 7px #c084fc,
+      0 0 16px #a855f7,
+      0 0 30px #9333ea,
+      0 0 50px rgb(168 85 247 / 0.9);
+    filter: drop-shadow(0 0 8px rgb(168 85 247 / 0.9));
+    opacity: 1;
+  }
+  80% {
+    color: #c084fc;
+    text-shadow:
+      0 0 4px #a855f7,
+      0 0 12px rgb(168 85 247 / 0.6),
+      0 0 24px rgb(147 51 234 / 0.4);
+    filter: drop-shadow(0 0 4px rgb(168 85 247 / 0.7));
+    opacity: 0.9;
+  }
+}
+
+/* 1. Sigil Constant Ritual Orbit */
+.omni-sigil-only {
+  display: none !important;
+}
+
+[data-theme='omni'] .omni-sigil-only {
+  display: inline-flex !important;
+  animation: grimoire-sigil-spin 18s linear infinite !important;
+  filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.8)) drop-shadow(0 0 16px rgba(124, 58, 237, 0.5)) !important;
+  vertical-align: middle;
+}
+
+@keyframes grimoire-sigil-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 2. Forbidden Mana Pulse (Continue Button) */
+@keyframes grimoire-mana-surge {
+  0%, 100% {
+    box-shadow:
+      0 0 12px rgba(168, 85, 247, 0.6),
+      0 0 26px rgba(124, 58, 237, 0.4),
+      0 0 45px rgba(147, 51, 234, 0.25),
+      inset 0 0 10px rgba(192, 132, 252, 0.3);
+    border-color: rgba(168, 85, 247, 0.85);
+  }
+  50% {
+    box-shadow:
+      0 0 18px rgba(192, 132, 252, 0.75),
+      0 0 36px rgba(168, 85, 247, 0.55),
+      0 0 60px rgba(124, 58, 237, 0.35),
+      inset 0 0 16px rgba(216, 180, 254, 0.45);
+    border-color: rgba(216, 180, 254, 0.95);
+  }
+}
+
+/* 3. Celestial Rune Wordmark Shimmer */
+@keyframes grimoire-text-shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  50%, 100% {
+    background-position: -50% center;
+  }
+}
+
+/* Button Styling (Occult Clasp) */
+[data-theme='omni'] .arcane-beam-button {
+  position: relative !important;
+  background: #0a0614 !important; /* Abyssal void core */
+  color: #faf5ff !important;
+  font-weight: 700 !important;
+  border: 1.5px solid rgba(168, 85, 247, 0.8) !important;
+  border-radius: 9999px !important;
+  animation: grimoire-mana-surge 3s ease-in-out infinite !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease !important;
+}
+
+[data-theme='omni'] .arcane-beam-button::before,
+[data-theme='omni'] .arcane-beam-button::after {
+  display: none !important;
+  content: none !important;
+}
+
+[data-theme='omni'] .arcane-beam-button:hover {
+  transform: translateY(-1.5px) scale(1.025) !important;
+  box-shadow:
+    0 0 22px rgba(192, 132, 252, 0.85),
+    0 0 45px rgba(168, 85, 247, 0.7),
+    0 0 75px rgba(124, 58, 237, 0.4),
+    inset 0 0 18px rgba(216, 180, 254, 0.5) !important;
+  color: #ffffff !important;
+}
+
+/* OMNITOME Shimmer Wordmark in Omni Theme */
+[data-theme='omni'] .arcane-logo-wordmark {
+  background: linear-gradient(
+    110deg,
+    #d8b4fe 0%,
+    #f3e8ff 35%,
+    #ffffff 50%,
+    #c084fc 65%,
+    #a855f7 100%
+  ) !important;
+  background-size: 250% 100% !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  color: transparent !important;
+  animation: grimoire-text-shimmer 4.5s ease-in-out infinite !important;
+  filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.6)) !important;
+}
+
+/* The Diamond ◆ in Omni Theme */
+[data-theme='omni'] .omni-diamond-rune {
+  color: #c084fc !important; /* Pure Amethyst */
+  filter: drop-shadow(0 0 8px rgba(192, 132, 252, 0.95)) drop-shadow(0 0 16px rgba(168, 85, 247, 0.6)) !important;
+}
+
+/* Runic Tag Chips in Omni Theme */
+[data-theme='omni'] .tag-chip {
+  color: #d8b4fe !important;
+  border-color: rgba(168, 85, 247, 0.5) !important;
+  background: rgba(168, 85, 247, 0.12) !important;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.18) !important;
+}
+
+[data-theme='omni'] .tag-chip-variant-0 {
+  color: #d8b4fe !important;
+  border-color: rgba(168, 85, 247, 0.5) !important;
+  background: rgba(168, 85, 247, 0.12) !important;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.18);
+}
+
+[data-theme='omni'] .tag-chip-variant-1 {
+  color: #f0abfc !important; /* Ethereal Orchid */
+  border-color: rgba(217, 70, 239, 0.5) !important;
+  background: rgba(217, 70, 239, 0.12) !important;
+  box-shadow: 0 0 8px rgba(217, 70, 239, 0.18);
+}
+
+[data-theme='omni'] .tag-chip-variant-2 {
+  color: #c084fc !important; /* Arcane Violet */
+  border-color: rgba(147, 51, 234, 0.5) !important;
+  background: rgba(147, 51, 234, 0.12) !important;
+  box-shadow: 0 0 8px rgba(147, 51, 234, 0.18);
+}
+
+[data-theme='omni'] .tag-chip-variant-3 {
+  color: #e9d5ff !important; /* Moonlit Lavender */
+  border-color: rgba(192, 132, 252, 0.5) !important;
+  background: rgba(192, 132, 252, 0.12) !important;
+  box-shadow: 0 0 8px rgba(192, 132, 252, 0.18);
+}
+
+/* Reduced-motion guard */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme='omni'] .omni-sigil-only,
+  [data-theme='omni'] .arcane-logo-wordmark,
+  [data-theme='omni'] .arcane-beam-button {
+    animation: none !important;
+  }
+}
+

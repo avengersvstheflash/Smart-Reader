@@ -329,7 +329,7 @@ export default function BookDetailsRoute() {
                   : 'Start reading from Chapter 1'
               }
               onClick={() => navigate(`/read/${book.id}/${targetChapterId}`)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cyber-animated-button"
+              className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cyber-animated-button arcane-beam-button"
             >
               <span>▶</span>
               <span>{readButtonLabel}</span>
