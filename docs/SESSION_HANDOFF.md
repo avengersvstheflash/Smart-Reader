@@ -517,30 +517,76 @@ End of handoff. Update at the end of every session.
 
 ---
 
-## Theme Lineup (Final)
+## Current State (2026-10-06 evening)
 
-| Theme | Identity | Accents |
+**HEAD:** a6f208d
+**Tree:** clean
+**Origin:** synced
+
+## Phase Status
+
+- Phase 5: CLOSED
+- Phase 5.7.3: CLOSED
+- Phase 5.8.0: CLOSED
+- Phase 5.8: IN PROGRESS
+  - 5.8a Omnitome Rebrand: CLOSED
+  - 5.8c Omni Theme Identity: CLOSED
+  - 5.8c.1 Per-Theme Accent Calibration: SUPERSEDED
+  - 5.8c.2a CSS Modularization: CLOSED
+  - 5.8c.2b Multi-Accent Tokens: CLOSED
+  - 5.8c.3 Theme Identity Restructure: CLOSED
+  - 5.8c.4 Cyberpunk Transformation: CLOSED
+  - 5.8c.5 Sticker Architecture + Spring: CLOSED
+  - 5.8c.6 Sakura Stickers: CLOSED
+  - 5.8c.7 Coffee Stickers: CLOSED
+  - 5.8c.7c Density Tune: CLOSED
+  - 5.8c.8 Cyberpunk Stickers: CLOSED
+  - 5.8c.8b Cyberpunk Glow: CLOSED
+  - 5.8c.9a Omni Stickers: CLOSED
+  - 5.8c.9b Omni Animations: CLOSED
+  - 5.8c.9b.2 Sigil Leak Fix: CLOSED
+  - 5.8i Frontend Polish: NEXT
+  - 5.8j Settings Page: QUEUED
+  - 5.8k Help Page: QUEUED
+
+## Theme Lineup
+
+| Theme | Identity | Sticker Set |
 |---|---|---|
-| spring | Light cyan, water/wind/leaves | Teal family (fallback) |
-| sakura | Pink cherry blossoms | Pink/rose/blush/coral |
-| coffee | Amber coffee | Amber/gold/brown |
-| cyberpunk | Synthwave multi-neon | Cyan/magenta/lime/amber/crimson |
-| omni | Violet flagship | Violet/indigo/blue/pink |
-
-## New Hazards
-
-**H8 — VS Code Shadow Buffer**: Duplicate tabs with case-mismatched paths
-hold stale memory state and can silently revert Antigravity changes.
-Fix: close all tabs (Ctrl+K Ctrl+W) → Developer: Reload Window → Relaunch Terminal.
+| spring | Light cyan, water/wind/leaves | 32 items, calm |
+| sakura | Pink cherry blossoms | 32 items, calm |
+| coffee | Amber coffee | 32 items, calm |
+| cyberpunk | Synthwave multi-neon | 32 items, aggressive, 11 glow |
+| omni | Violet flagship, arcanic | 32 items, celestial, 21 glow |
 
 ## Sticker Architecture (Locked)
 
-- Hand-crafted inline SVG React components (no libraries)
-- Layered system: gradient wash + pattern tile + scatter + ornament corners
-- Density: Medium (~8-15 elements per theme)
-- Animation: subtle, respects prefers-reduced-motion
-- Files: frontend/src/components/decor/ (ThemeDecor, layers/, stickers/, registry.ts)
+- Files: frontend/src/components/decor/
 - CSS: frontend/src/styles/decor.css
+- Mount: <ThemeDecor /> in App.tsx
+- Reader safety: data-reader-active softening
+- Theme-exclusive decor MUST use conditional JSX render (H9), not
+  CSS-only hiding
+
+## Theme Animation Conventions
+
+- cyberpunk: cyber-animated-logo (strobe), cyber-animated-button (plasma)
+- omni: omni-animated-logo (arcane breathe), omni-animated-button (aura)
+- Classes applied unconditionally; behavior gated via [data-theme='X']
+- Reduced-motion: animations disabled, static glow remains
+
+## New Hazards
+
+**H9 — CSS-only theme scoping is fragile**: Theme-exclusive decorative
+elements should use conditional JSX render based on useThemeStore
+rather than display:none defaults + theme overrides. Relying on CSS
+specificity can silently break when adjacent rules are reverted.
+
+## Next Session Opener
+
+1. Verify HEAD = a6f208d, tree clean
+2. Begin Phase 5.8i — frontend verification walkthrough
+3. Then 5.8j (Settings) + 5.8k (Help)
 
 ## Standing Rules
 
@@ -548,8 +594,7 @@ Fix: close all tabs (Ctrl+K Ctrl+W) → Developer: Reload Window → Relaunch Te
 - No commits on dirty tree or red suite
 - Agents never declare phase closure
 - One workstream per session
-- VS Code closed during Antigravity / writer-script edits (H1, H8)
+- VS Code closed during Antigravity / writer-script edits
 - Never git add -f on gitignored files
-- Compress evidence before transmitting to LLM (H7)
+- Compress evidence before transmitting to LLM
 
----
