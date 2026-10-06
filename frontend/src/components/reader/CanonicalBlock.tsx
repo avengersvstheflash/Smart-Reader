@@ -8,14 +8,43 @@ import {
   ParagraphSentence,
 } from '../../types/domain';
 
-// TODO(nested-emphasis): non-recursive parser. Handles **bold**,
-// *italic*, `code`, ~~strike~~ individually but not nested combinations
-// like *outer **inner** outer*. Sufficient for backend-extracted prose
-// (plain text) and DeepSeek output (structural markdown only). If a
-// user imports a .md file with nested emphasis, swap to a real parser
-// (marked / remark) or make this recursive. Tracked in
-// docs/SESSION_HANDOFF.md as a soft refactor item.
-export function renderInlineText(text?: string | null): React.ReactNode {
+import { MathRenderer } from './MathRenderer';
+
+function splitMath(text: string): Array<{ type: 'text' | 'math'; value: string; display?: boolean }> {
+  // Match: \( ... \), \[ ... \], $$ ... $$, $ ... $
+  const regex = /(\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]|\$\$[\s\S]*?\$\$|\$[^\$\n]+?\$)/g;
+  const parts: Array<{ type: 'text' | 'math'; value: string; display?: boolean }> = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', value: text.slice(lastIndex, match.index) });
+    }
+    const raw = match[0];
+    let latex = raw;
+    let display = false;
+    if (raw.startsWith('\\(') && raw.endsWith('\\)')) {
+      latex = raw.slice(2, -2);
+    } else if (raw.startsWith('\\[') && raw.endsWith('\\]')) {
+      latex = raw.slice(2, -2);
+      display = true;
+    } else if (raw.startsWith('$$') && raw.endsWith('$$')) {
+      latex = raw.slice(2, -2);
+      display = true;
+    } else if (raw.startsWith('$') && raw.endsWith('$')) {
+      latex = raw.slice(1, -1);
+    }
+    parts.push({ type: 'math', value: latex, display });
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', value: text.slice(lastIndex) });
+  }
+  return parts;
+}
+
+// Internal text emphasis parser (bold, italic, code, strike) for non-math text segments
+function renderEmphasis(text?: string | null): React.ReactNode {
   if (!text) return null;
   const str = String(text);
   if (!/[*_`~]/.test(str)) {
@@ -57,6 +86,31 @@ export function renderInlineText(text?: string | null): React.ReactNode {
   }
 
   return parts.length === 1 ? parts[0] : parts;
+}
+
+// TODO(nested-emphasis): non-recursive parser. Handles **bold**,
+// *italic*, `code`, ~~strike~~ individually but not nested combinations
+// like *outer **inner** outer*. Sufficient for backend-extracted prose
+// (plain text) and DeepSeek output (structural markdown only). If a
+// user imports a .md file with nested emphasis, swap to a real parser
+// (marked / remark) or make this recursive. Tracked in
+// docs/SESSION_HANDOFF.md as a soft refactor item.
+export function renderInlineText(text?: string | null): React.ReactNode {
+  if (!text) return null;
+  const str = String(text);
+
+  const mathParts = splitMath(str);
+  if (mathParts.length === 1 && mathParts[0].type === 'text') {
+    return renderEmphasis(str);
+  }
+
+  return mathParts.map((part, i) =>
+    part.type === 'math' ? (
+      <MathRenderer key={i} latex={part.value} displayMode={part.display} />
+    ) : (
+      <React.Fragment key={i}>{renderEmphasis(part.value)}</React.Fragment>
+    )
+  );
 }
 
 function getAlignClass(align?: string): string | undefined {
