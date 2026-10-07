@@ -22,7 +22,9 @@ export function useChapters(bookId: string) {
     queryKey: ['chapters', bookId],
     queryFn: async () => {
       const res = await apiClient<ChaptersResponse>(`/api/books/${bookId}/chapters`);
-      return (res.chapters || []).map(normalizeChapter);
+      return (res.chapters || [])
+        .map(normalizeChapter)
+        .filter((ch) => !ch.structuralRole || ch.structuralRole.toLowerCase() === 'chapter');
     },
     enabled: Boolean(bookId),
   });
