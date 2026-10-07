@@ -57,6 +57,7 @@ const SUITES = [
   'f33_surrogate_sanitize_test.js',
   'f32_3_toc_chapter_builder_test.js',
   'f34_1a_rerank_multi_test.js',
+  'f32_3a_page_tracking_test.js',
 ];
 
 

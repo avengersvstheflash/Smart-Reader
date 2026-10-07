@@ -319,15 +319,54 @@ class IngestionService {
     const blocksForChapterDetection = bodyBlocks.length > 0 ? bodyBlocks : classifiedBlocks;
 
     // Structure & Chapter Detection via DocumentStructureEngine
-    const tree = documentStructureEngine.buildStructureTree({
-      format,
-      rawText: normalizedText,
-      blocks: blocksForChapterDetection,
-      metadata: {
+    let tree = null;
+    if (structureMap && structureMap.method === 'toc' && structureMap.toc && structureMap.toc.length >= 3) {
+      const tocChapters = documentStructureEngine.buildChaptersFromToc(structureMap.toc, blocksForChapterDetection, {
         title: title || 'Full Text',
         author: author || 'Unknown Author',
-      },
-    });
+      });
+      
+      if (tocChapters) {
+        console.log(`[Ingestion] Structure: TOC-driven chapter build (${structureMap.toc.length} entries)`);
+        tree = {
+          chapters: tocChapters.map((ch, index) => {
+            const canonicalDoc = new CanonicalDocument(ch.blocks);
+            const { sections } = documentStructureEngine.buildNestedSectionHierarchy(ch.blocks);
+            return {
+              id: `chap-${index + 1}`,
+              number: index + 1,
+              title: ch.title,
+              structuralRole: 'chapter',
+              confidence: 0.95,
+              sourceLocation: {
+                startOffset: ch.blocks[0]?.startOffset || 0,
+                endOffset: ch.blocks[ch.blocks.length - 1]?.endOffset || 0,
+                startPage: ch.pageStart,
+                endPage: ch.pageEnd,
+              },
+              wordCount: canonicalDoc.calculateWordCount(),
+              characterCount: canonicalDoc.toPlainText().length,
+              canonicalBlocks: ch.blocks,
+              sections: sections || [],
+              sectionCount: documentStructureEngine.countTotalSections(sections || []),
+              content: canonicalDoc.toPlainText(),
+            };
+          })
+        };
+      }
+    }
+
+    if (!tree) {
+      tree = documentStructureEngine.buildStructureTree({
+        format,
+        rawText: normalizedText,
+        blocks: blocksForChapterDetection,
+        metadata: {
+          title: title || 'Full Text',
+          author: author || 'Unknown Author',
+        },
+      });
+    }
 
     let tablesCount = 0;
     let totalSections = 0;

@@ -3,6 +3,7 @@ const path = require('path');
 const { CanonicalDocument } = require('../models/canonicalContent');
 const contentNormalizer = require('../normalizers/contentNormalizer');
 const documentStructureAnalyzer = require('../structure/documentStructureAnalyzer');
+const documentStructureEngine = require('../../structure/documentStructureEngine');
 const pythonSidecarClient = require('../../ai/pythonSidecarClient');
 const { normalizeLegacyGlyphs } = require('../legacyFontNormalizer');
 const config = require('../../../config');
@@ -76,7 +77,7 @@ class PDFJSParser {
     }
 
     // Check for selectable text vs scanned / image-only PDF (< 20 chars)
-    let combinedRawText = pages.map((p) => p.text || '').join('\n\n').trim();
+    let combinedRawText = pages.map((p) => p.text || '').join('\n\f\n').trim();
 
     if (combinedRawText.length >= 20) {
       console.log(
@@ -213,17 +214,100 @@ class PDFJSParser {
       };
     }
 
-    // Perform structural analysis via DocumentStructureAnalyzer
-    const analysis = documentStructureAnalyzer.analyze({
-      format: 'pdf',
-      pages,
-      blocks: allBlocks,
-      rawText: combinedRawText,
-      metadata: {
-        title: docTitle || options.originalFilename || 'Imported PDF Document',
-        author: docAuthor || 'Unknown Author',
-      },
-    });
+    // F32.3: Check if PyMuPDF detected an embedded TOC
+    const structureMap = options.structureMap;
+    let analysis = null;
+
+    if (structureMap && structureMap.method === 'toc' && Array.isArray(structureMap.toc) && structureMap.toc.length >= 3) {
+      try {
+        const tocChapters = documentStructureEngine.buildChaptersFromToc(
+          structureMap.toc,
+          allBlocks,
+          {
+            title: docTitle || options.originalFilename,
+            author: docAuthor,
+          }
+        );
+
+        if (tocChapters && tocChapters.length > 0) {
+          console.log(`[Ingestion] Structure: TOC-driven chapter build (${structureMap.toc.length} entries)`);
+
+          let totalSectionCount = 0;
+          let totalTablesCount = 0;
+
+          const chapters = tocChapters.map((ch, idx) => {
+            const tables = (ch.canonicalBlocks || ch.blocks || []).filter((b) => b.type === 'table');
+            totalTablesCount += tables.length;
+            const { sections } = documentStructureEngine.buildNestedSectionHierarchy(ch.blocks || []);
+            const secCount = documentStructureEngine.countTotalSections(sections || []);
+            totalSectionCount += secCount;
+            const canonicalDoc = new CanonicalDocument(ch.blocks || []);
+
+            const startPage = ch.pageStart || 1;
+            const endPage = ch.pageEnd || startPage;
+
+            return {
+              number: idx + 1,
+              title: ch.title,
+              structuralRole: 'chapter',
+              startPage,
+              endPage,
+              canonicalBlocks: ch.blocks,
+              sections: sections || [],
+              sectionCount: secCount,
+              content: canonicalDoc.toPlainText(),
+              wordCount: canonicalDoc.calculateWordCount(),
+              confidence: 0.95,
+              sourceLocation: {
+                startOffset: ch.blocks[0]?.startOffset || 0,
+                endOffset: ch.blocks[ch.blocks.length - 1]?.endOffset || 0,
+                startPage,
+                endPage,
+              },
+              metadata: {
+                startPage,
+                endPage,
+                sectionsCount: secCount,
+                tablesCount: tables.length,
+                structuralRole: 'chapter',
+                confidence: 0.95,
+              },
+            };
+          });
+
+          analysis = {
+            documentType: 'textbook',
+            pageCount,
+            chapterCount: chapters.length,
+            sectionCount: totalSectionCount,
+            tablesCount: totalTablesCount,
+            totalWordCount: chapters.reduce((sum, ch) => sum + (ch.wordCount || 0), 0),
+            chapters,
+            tocDetected: true,
+            confidence: 0.95,
+            integrityStatus: 'valid',
+            integrityWarning: '',
+          };
+        }
+      } catch (tocErr) {
+        console.warn(`[Ingestion] TOC chapter build failed, falling back to heuristic: ${tocErr.message}`);
+        analysis = null;
+      }
+    }
+
+    if (!analysis) {
+      // Perform structural analysis via DocumentStructureAnalyzer (fallback)
+      analysis = documentStructureAnalyzer.analyze({
+        format: 'pdf',
+        pages,
+        blocks: allBlocks,
+        rawText: combinedRawText,
+        metadata: {
+          title: docTitle || options.originalFilename || 'Imported PDF Document',
+          author: docAuthor || 'Unknown Author',
+        },
+      });
+    }
 
     const finalTitle = docTitle || analysis.chapters[0]?.title || 'Imported PDF Document';
 

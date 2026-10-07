@@ -240,9 +240,72 @@ class DocumentStructureEngine {
    * Converts plain text into blocks with basic heading detection
    */
   blocksFromText(rawText, format) {
+    if (!rawText) return [];
+
+    const hasPageMarkers = typeof rawText === 'string' && rawText.includes('\f');
+    const isPdf = format === 'pdf';
+
+    // If page markers exist, split by form feed \f and assign 1-indexed sourcePage
+    if (hasPageMarkers) {
+      const pageChunks = rawText.split(/\f+/);
+      const blocks = [];
+      let currentPage = 1;
+
+      for (const pageRaw of pageChunks) {
+        const norm = contentNormalizer.normalize(pageRaw);
+        if (!norm) {
+          currentPage++;
+          continue;
+        }
+        const paragraphs = norm.split(/\n\s*\n/);
+        for (const para of paragraphs) {
+          const trimmed = para.trim();
+          if (!trimmed) continue;
+
+          if (format === 'markdown') {
+            const hMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+            if (hMatch) {
+              blocks.push({
+                id: `blk-${blocks.length + 1}`,
+                type: 'heading',
+                level: hMatch[1].length,
+                text: hMatch[2].trim(),
+                sourcePage: currentPage,
+              });
+              continue;
+            }
+          }
+
+          const hMatch = this.detectHeadingLine(trimmed);
+          if (hMatch && !trimmed.includes('\n')) {
+            blocks.push({
+              id: `blk-${blocks.length + 1}`,
+              type: 'heading',
+              level: hMatch.level,
+              text: hMatch.text,
+              sourcePage: currentPage,
+            });
+            continue;
+          }
+
+          blocks.push({
+            id: `blk-${blocks.length + 1}`,
+            type: 'paragraph',
+            text: trimmed.replace(/\n+/g, ' '),
+            sourcePage: currentPage,
+          });
+        }
+        currentPage++;
+      }
+
+      return blocks;
+    }
+
+    // Default flow: no page markers present
     const norm = contentNormalizer.normalize(rawText);
     const paragraphs = norm.split(/\n\s*\n/);
     const blocks = [];
+    const defaultPage = isPdf ? 1 : null;
 
     for (const para of paragraphs) {
       const trimmed = para.trim();
@@ -256,6 +319,7 @@ class DocumentStructureEngine {
             type: 'heading',
             level: hMatch[1].length,
             text: hMatch[2].trim(),
+            sourcePage: defaultPage,
           });
           continue;
         }
@@ -268,6 +332,7 @@ class DocumentStructureEngine {
           type: 'heading',
           level: hMatch.level,
           text: hMatch.text,
+          sourcePage: defaultPage,
         });
         continue;
       }
@@ -276,6 +341,7 @@ class DocumentStructureEngine {
         id: `blk-${blocks.length + 1}`,
         type: 'paragraph',
         text: trimmed.replace(/\n+/g, ' '),
+        sourcePage: defaultPage,
       });
     }
 
@@ -968,6 +1034,74 @@ class DocumentStructureEngine {
       }
     }
     return count;
+  }
+
+  buildChaptersFromToc(toc, blocks, metadata = {}) {
+    if (!toc || toc.length < 3) return null;
+
+    const hasBlockPages = blocks.some(b => b.sourcePage !== undefined || b.page !== undefined || b.pageNum !== undefined);
+    if (!hasBlockPages) return null;
+
+    const topLevelEntries = toc.filter(e => (e.level || 1) <= 2);
+
+    const filteredEntries = topLevelEntries.filter(entry => {
+      const title = entry.title || '';
+      const role = this.classifyRoleFromTitle(title);
+      return role === 'chapter' || role === 'section';
+    });
+
+    if (filteredEntries.length === 0) return null;
+
+    const normalizedBlocks = blocks.map(b => ({
+      ...b,
+      _page: b.sourcePage || b.page || b.pageNum || 1
+    }));
+
+    for (let i = 0; i < filteredEntries.length; i++) {
+      const entry = filteredEntries[i];
+      const targetPage = entry.page;
+      let blockIndex = normalizedBlocks.findIndex(b => b._page === targetPage);
+      
+      if (blockIndex === -1) {
+        blockIndex = normalizedBlocks.findIndex(b => b._page >= targetPage);
+      }
+      
+      entry._blockIndex = blockIndex !== -1 ? blockIndex : normalizedBlocks.length;
+    }
+
+    let maxIdx = 0;
+    for (const entry of filteredEntries) {
+      if (entry._blockIndex < maxIdx) {
+        entry._blockIndex = maxIdx;
+      }
+      maxIdx = entry._blockIndex;
+    }
+
+    const chapters = [];
+    for (let i = 0; i < filteredEntries.length; i++) {
+      const entry = filteredEntries[i];
+      const startIdx = i === 0 ? 0 : entry._blockIndex;
+      const endIdx = i < filteredEntries.length - 1 ? filteredEntries[i + 1]._blockIndex : normalizedBlocks.length;
+      
+      const chapterBlocks = normalizedBlocks.slice(startIdx, endIdx);
+      
+      const title = entry.title;
+      const pageStart = chapterBlocks.length > 0 ? chapterBlocks[0]._page : entry.page;
+      const pageEnd = chapterBlocks.length > 0 ? chapterBlocks[chapterBlocks.length - 1]._page : entry.page;
+
+      chapters.push({
+        title,
+        pageStart,
+        pageEnd,
+        blocks: chapterBlocks.map(b => {
+          const clone = { ...b };
+          delete clone._page;
+          return clone;
+        })
+      });
+    }
+
+    return chapters;
   }
 }
 
