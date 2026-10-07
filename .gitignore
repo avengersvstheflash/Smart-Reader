@@ -63,3 +63,6 @@ venv/
 __pycache__/
 *.pyc
 test-*.txt
+
+# Local session handoff backups
+docs/*.md.bak-*
