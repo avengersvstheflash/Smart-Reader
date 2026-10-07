@@ -16,6 +16,7 @@
 
 const aiService = require('./aiService');
 const { callOpenRouterWithBackoff } = require('./openrouterProvider');
+const { detectStructure } = require('./structureDetector');
 
 const SECTION_TYPES = [
   'BODY',
@@ -206,11 +207,147 @@ ${text.slice(0, 1500)}
   }
 }
 
+/**
+ * Fast multi-layer structure detector with optional LLM consolidation.
+ * Layer 0: PyMuPDF doc.get_toc() -> embedded bookmarks (~5ms)
+ * Layer 1: font-size + numbering heuristics in Python (~50ms)
+ * Layer 2: LLM consolidation of heading candidates (DISABLED by default, opt-in only)
+ *
+ * @param {Buffer} pdfBuffer
+ * @param {object} [options]
+ * @param {boolean} [options.useLlmConsolidation]
+ * @param {object} [options.aiService]
+ * @param {string} [options.baseUrl]
+ * @returns {Promise<{
+ *   frontMatterPageRange: [number, number] | null,
+ *   backMatterPageRange: [number, number] | null,
+ *   hasEmbeddedToc: boolean,
+ *   toc: Array<{level: number, title: string, page: number}>,
+ *   headingCandidates: Array<{page: number, text: string, fontSize: number, isHeading: boolean}>,
+ *   method: string,
+ *   llmConsolidated: boolean,
+ *   warnings: string[],
+ *   estimatedChapterCount?: number,
+ * }>}
+ */
+async function buildSectionMapFast(pdfBuffer, options = {}) {
+  const useLlmConsolidation = typeof options.useLlmConsolidation === 'boolean'
+    ? options.useLlmConsolidation
+    : (process.env.ENABLE_SECTION_LLM_CONSOLIDATION === 'true');
+
+  const detected = await detectStructure(pdfBuffer, options);
+
+  if (!detected) {
+    return {
+      frontMatterPageRange: null,
+      backMatterPageRange: null,
+      hasEmbeddedToc: false,
+      toc: [],
+      headingCandidates: [],
+      method: 'none',
+      llmConsolidated: false,
+      warnings: ['sidecar_down'],
+    };
+  }
+
+  const {
+    frontMatterPageRange,
+    backMatterPageRange,
+    hasEmbeddedToc,
+    toc,
+    headingCandidates,
+    method,
+    warnings,
+    estimatedChapterCount,
+  } = detected;
+
+  if (useLlmConsolidation && !hasEmbeddedToc && headingCandidates && headingCandidates.length > 5) {
+    const compactCandidates = headingCandidates.slice(0, 150).map((c) => ({
+      page: c.page,
+      text: c.text,
+      fontSize: c.fontSize,
+    }));
+
+    const providerClient = (options && options.aiService) || aiService;
+    const prompt = `Consolidate these candidates into a chapter tree. Exclude TOC/preface/index/foreword entries. Return JSON.
+
+Heading candidates:
+${JSON.stringify(compactCandidates, null, 2)}`;
+
+    try {
+      const response = await callOpenRouterWithBackoff(() =>
+        providerClient.generateText(prompt, {
+          maxTokens: 500,
+          reasoning: { enabled: false },
+          temperature: 0.1,
+        })
+      );
+
+      let consolidatedToc = toc;
+      try {
+        const raw = (response?.text || '').replace(/```(?:json)?/g, '').replace(/```/g, '').trim();
+        const match = raw.match(/\[[\s\S]*\]/) || raw.match(/\{[\s\S]*\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            consolidatedToc = parsed.map((item) => ({
+              level: item.level || 1,
+              title: String(item.title || item.name || '').trim(),
+              page: Number(item.page || 1),
+            }));
+          }
+        }
+      } catch (_) {
+        // Fall back to original toc if parsing fails
+      }
+
+      return {
+        frontMatterPageRange,
+        backMatterPageRange,
+        hasEmbeddedToc,
+        toc: consolidatedToc,
+        headingCandidates,
+        method,
+        llmConsolidated: true,
+        warnings,
+        estimatedChapterCount: consolidatedToc.length > 0 ? consolidatedToc.length : estimatedChapterCount,
+      };
+    } catch (_err) {
+      return {
+        frontMatterPageRange,
+        backMatterPageRange,
+        hasEmbeddedToc,
+        toc,
+        headingCandidates,
+        method,
+        llmConsolidated: false,
+        warnings: [...warnings, 'llm_consolidation_failed'],
+        estimatedChapterCount,
+      };
+    }
+  }
+
+  return {
+    frontMatterPageRange,
+    backMatterPageRange,
+    hasEmbeddedToc,
+    toc,
+    headingCandidates,
+    method,
+    llmConsolidated: false,
+    warnings,
+    estimatedChapterCount,
+  };
+}
+
 module.exports = {
   classifySection,
   classifyHeuristically,
+  buildSectionMapFast,
   SECTION_TYPES,
 };
 module.exports.classifySection = classifySection;
+module.exports.buildSectionMapFast = buildSectionMapFast;
 module.exports.default = classifySection;
+
 

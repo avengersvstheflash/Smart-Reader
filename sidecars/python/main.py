@@ -16,6 +16,7 @@ import uvicorn
 from ocr.routes import router as ocr_router, start_ocr_warmup, is_ocr_ready
 from nlp.routes import router as nlp_router, start_reranker_warmup
 from embed.routes import router as embed_router
+# F32.1: parse_router mounts /v1/parse (docx, rtf, and structure detection)
 from parse.routes import router as parse_router
 
 app = FastAPI(title="Smart Reader Python Sidecar", version="1.0.0")

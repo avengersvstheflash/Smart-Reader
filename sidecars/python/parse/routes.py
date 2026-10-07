@@ -3,7 +3,14 @@ from fastapi import APIRouter, File, UploadFile, HTTPException
 from docx import Document
 from striprtf.striprtf import rtf_to_text
 
+import base64
+from pydantic import BaseModel
+from .structure import detect_structure
+
 router = APIRouter(prefix="/v1/parse", tags=["parse"])
+
+class StructureRequest(BaseModel):
+    pdf_base64: str
 
 @router.post("/docx")
 async def parse_docx_endpoint(file: UploadFile = File(...)):
@@ -82,3 +89,23 @@ async def parse_rtf_endpoint(file: UploadFile = File(...)):
         return {"title": title, "author": author, "blocks": blocks}
     except Exception as e:
         raise HTTPException(status_code=400, detail={"status": "error", "code": "INVALID_RTF", "message": str(e)})
+
+
+@router.post("/structure")
+async def parse_structure_endpoint(payload: StructureRequest):
+    print(f"[Routing: Parse] Endpoint: /structure | Base64Length: {len(payload.pdf_base64)}")
+    try:
+        pdf_bytes = base64.b64decode(payload.pdf_base64)
+    except Exception as e:
+        return {
+            "has_embedded_toc": False,
+            "toc": [],
+            "heading_candidates": [],
+            "front_matter_page_range": None,
+            "back_matter_page_range": None,
+            "estimated_chapter_count": 0,
+            "method": "none",
+            "warnings": [f"invalid_base64_payload: {str(e)}"],
+        }
+    return detect_structure(pdf_bytes)
+

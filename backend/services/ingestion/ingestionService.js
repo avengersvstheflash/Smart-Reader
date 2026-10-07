@@ -9,7 +9,7 @@ const rtfParser = require('./parsers/rtfParser');
 const config = require('../../config');
 const chapterDetector = require('./structure/chapterDetector');
 const documentStructureEngine = require('../structure/documentStructureEngine');
-const { classifySection } = require('../ai/sectionClassifier');
+const { classifySection, buildSectionMapFast } = require('../ai/sectionClassifier');
 const { CanonicalDocument } = require('./models/canonicalContent');
 
 /**
@@ -70,10 +70,25 @@ class IngestionService {
       if (!fileBuffer || fileBuffer.length === 0) {
         throw new Error('PDF ingestion requires a valid file buffer.');
       }
+
+      let structureMap = null;
+      try {
+        structureMap = await buildSectionMapFast(fileBuffer);
+      } catch (_e) {
+        structureMap = { method: 'none', warnings: ['sidecar_down'] };
+      }
+
+      if (structureMap && (structureMap.method === 'toc' || structureMap.method === 'heuristic')) {
+        console.log(`[Ingestion] Structure: fast path (${structureMap.method})`);
+      } else {
+        console.log('[Ingestion] Structure: fallback to per-block classifier');
+      }
+
       const pdfResult = await pdfjsParser.parse(fileBuffer, {
         title,
         author,
         originalFilename,
+        structureMap,
       });
 
       const totalWords = pdfResult.totalWordCount || pdfResult.chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
@@ -187,30 +202,77 @@ class IngestionService {
     // Raw text/block extraction
     const rawBlocks = documentStructureEngine.blocksFromText(normalizedText, format);
 
-    // F32: Section classification before chapter detection
+    // F32.1: Structure detection - try fast path first if PDF buffer is available
+    let structureMap = null;
+    if (fileBuffer && (format === 'pdf' || (fileBuffer.length >= 4 && fileBuffer[0] === 0x25 && fileBuffer[1] === 0x50))) {
+      try {
+        structureMap = await buildSectionMapFast(fileBuffer);
+      } catch (_e) {
+        structureMap = { method: 'none', warnings: ['sidecar_down'] };
+      }
+    }
+
     let priorSection = null;
     const classifiedBlocks = [];
     const storedSections = [];
-    for (let i = 0; i < rawBlocks.length; i++) {
-      const block = rawBlocks[i];
-      const context = {
-        bookTitle: title || 'Full Text',
-        isFirstBlock: i === 0,
-        isLastBlock: i === rawBlocks.length - 1,
-        priorSection,
-      };
-      const result = await classifySection(block, context);
-      block.section = result.section;
-      block.sectionConfidence = result.confidence;
-      priorSection = result.section;
-      classifiedBlocks.push(block);
-      storedSections.push({
-        id: block.id,
-        section: result.section,
-        confidence: result.confidence,
-        text: block.text,
-        type: block.type,
-      });
+
+    if (structureMap && (structureMap.method === 'toc' || structureMap.method === 'heuristic')) {
+      console.log(`[Ingestion] Structure: fast path (${structureMap.method})`);
+      // Fast path: skip front-matter pages, mark heading candidates; do NOT run per-block loop
+      const fmRange = structureMap.frontMatterPageRange;
+      const bmRange = structureMap.backMatterPageRange;
+      const headingCandidateTexts = new Set(
+        (structureMap.headingCandidates || []).map((h) => (h.text || '').trim().toLowerCase())
+      );
+
+      for (let i = 0; i < rawBlocks.length; i++) {
+        const block = rawBlocks[i];
+        const page = block.page || block.pageNum || 1;
+        const isFrontMatter = fmRange && page >= fmRange[0] && page <= fmRange[1];
+        const isBackMatter = bmRange && page >= bmRange[0] && page <= bmRange[1];
+        const blockText = (block.text || '').trim().toLowerCase();
+        const isHeading = headingCandidateTexts.has(blockText);
+
+        block.section = isFrontMatter ? 'TOC' : (isBackMatter ? 'INDEX' : 'BODY');
+        block.sectionConfidence = 0.9;
+        if (isHeading) {
+          block.isHeadingCandidate = true;
+        }
+        classifiedBlocks.push(block);
+        storedSections.push({
+          id: block.id,
+          section: block.section,
+          confidence: block.sectionConfidence,
+          text: block.text,
+          type: block.type,
+        });
+      }
+    } else {
+      if (structureMap && structureMap.method === 'none') {
+        console.log('[Ingestion] Structure: fallback to per-block classifier');
+      }
+      // Current per-block loop
+      for (let i = 0; i < rawBlocks.length; i++) {
+        const block = rawBlocks[i];
+        const context = {
+          bookTitle: title || 'Full Text',
+          isFirstBlock: i === 0,
+          isLastBlock: i === rawBlocks.length - 1,
+          priorSection,
+        };
+        const result = await classifySection(block, context);
+        block.section = result.section;
+        block.sectionConfidence = result.confidence;
+        priorSection = result.section;
+        classifiedBlocks.push(block);
+        storedSections.push({
+          id: block.id,
+          section: result.section,
+          confidence: result.confidence,
+          text: block.text,
+          type: block.type,
+        });
+      }
     }
 
     // Filter: only BODY blocks pass to chapter detection
