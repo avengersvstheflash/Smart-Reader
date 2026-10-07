@@ -7,6 +7,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import pysbd
 
+from .sanitize import sanitize_deep
+
 router = APIRouter(prefix="", tags=["nlp"])
 
 _reranker = None
@@ -124,10 +126,11 @@ async def nlp_split(req: SplitRequest):
                     "start": max(0, start_idx),
                     "end": max(0, end_idx)
                 })
-        return {
+        result = {
             "sentences": sentences_out,
             "model": "pysbd-0.3.4"
         }
+        return sanitize_deep(result)
     except Exception as err:
         print(f"[NLP Error] Split failed: {err}", file=sys.stderr)
         return JSONResponse(
@@ -183,10 +186,11 @@ async def nlp_chunk(req: ChunkRequest):
                 "endBlockId": current_chunk_blocks[-1].id or ""
             })
 
-        return {
+        result = {
             "chunks": chunks_out,
             "model": "pysbd-0.3.4"
         }
+        return sanitize_deep(result)
     except Exception as err:
         print(f"[NLP Error] Chunking failed: {err}", file=sys.stderr)
         return JSONResponse(
@@ -218,7 +222,7 @@ async def nlp_slice(req: SliceRequest):
     5.8.0b/c (2026-10-03) corrects this to a unified 2,000-word target.
     """
     try:
-        sections = req.sections
+        sections = sanitize_deep(req.sections)
         if not sections:
             return {"units": []}
 
@@ -391,7 +395,8 @@ async def nlp_slice(req: SliceRequest):
             units[-1]["sections"].extend(last["sections"])
             units[-1]["wordCount"] += last["wordCount"]
 
-        return {"units": units}
+        result = {"units": units}
+        return sanitize_deep(result)
 
     except Exception as err:
         print(f"[NLP Error] Slicing failed: {err}", file=sys.stderr)
