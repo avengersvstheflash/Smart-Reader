@@ -346,6 +346,49 @@ OUTPUT:`;
     const rawParagraphs = rawCompression.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
     const claimedAttributions = [];
 
+    // F34.1a: Multi-batch rerank across all paragraphs in this chapter in a single round trip
+    const normalizedChunks = chunks
+      .slice(0, 5)
+      .map((c) => ({
+        id: c.id,
+        text: c.text || c.textContent || c.content || c.text_content || '',
+      }))
+      .filter((c) => c.id && c.text);
+
+    const client = options.nlpClient || nlpClient;
+    const timeoutMs = options.timeoutMs || 10000;
+    const startMultiMs = Date.now();
+
+    const batchInputs = rawParagraphs.map((para, pIdx) => ({
+      id: `p-${pIdx}`,
+      query: para,
+      candidates: normalizedChunks,
+    }));
+
+    let multiResultsMap = null;
+    let multiFellBack = false;
+
+    if (normalizedChunks.length > 0 && batchInputs.length > 0 && typeof client.rerankBatchMulti === 'function') {
+      try {
+        const multiRes = await client.rerankBatchMulti(batchInputs, { timeoutMs });
+        const latencyMs = Date.now() - startMultiMs;
+        if (latencyMs > 2000) {
+          console.warn(`[SynthesisService] Multi-batch reranker latency exceeded 2.0s: ${latencyMs}ms`);
+        }
+        if (multiRes && Array.isArray(multiRes.results)) {
+          multiResultsMap = new Map();
+          for (const item of multiRes.results) {
+            multiResultsMap.set(item.id, item.scores || []);
+          }
+        }
+      } catch (err) {
+        console.warn(`[SynthesisService] RERANKER_MULTI_FALLBACK: ${err.message}`);
+        multiFellBack = true;
+      }
+    } else {
+      multiFellBack = true;
+    }
+
     for (let pIdx = 0; pIdx < rawParagraphs.length; pIdx++) {
       const para = rawParagraphs[pIdx];
       const sentences = this.splitSentences(para);
@@ -376,38 +419,44 @@ OUTPUT:`;
       let attribution_stage = 'legacy';
       let reranker_scores = {};
 
-      // 5.8.0i (2026-10-03): timeout bumped 1500 -> 4000 -> 10000ms.
-      // Logs showed first-inference scoring exceeding 4s even after warmup.
-      // Combined with the warmup inference pass added in the sidecar, real
-      // latency is ~600-900ms on CPU, <200ms on GPU. 10s is a safety ceiling.
-      const rerankRes = await this.rerankParagraphCandidates(para, chunks, { timeoutMs: 10000 });
-      if (!rerankRes.fellBack) {
+      const multiScores = multiResultsMap ? multiResultsMap.get(`p-${pIdx}`) : null;
+
+      if (!multiFellBack && Array.isArray(multiScores) && multiScores.length > 0) {
         attribution_stage = 'reranker';
-        for (const r of rerankRes.scores) {
+        for (const r of multiScores) {
           reranker_scores[r.id] = r.score;
         }
       } else {
-        try {
-          const embeddingService = require('../semantic/embeddingService');
-          const paraVec = await embeddingService.embedText(para, { timeoutMs: 3000 });
-          if (paraVec && Array.isArray(paraVec)) {
-            for (const chunk of chunks) {
-              const chunkVecStr = chunk.embedding_json || chunk.embedding;
-              if (chunkVecStr) {
-                const chunkVec = typeof chunkVecStr === 'string' ? JSON.parse(chunkVecStr) : chunkVecStr;
-                const sim = embeddingService.cosineSimilarity(paraVec, chunkVec);
-                reranker_scores[chunk.id] = sim;
-              } else {
-                reranker_scores[chunk.id] = 0;
-              }
-            }
-            attribution_stage = 'centroid';
-            console.warn('[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.');
-          } else {
-            console.warn('[SynthesisService] ATTRIBUTION_LEGACY_FALLBACK: centroid returned invalid embeddings');
+        // Fallback: per-paragraph rerank (F34 batch endpoint / single query)
+        const rerankRes = await this.rerankParagraphCandidates(para, chunks, { timeoutMs });
+        if (!rerankRes.fellBack) {
+          attribution_stage = 'reranker';
+          for (const r of rerankRes.scores) {
+            reranker_scores[r.id] = r.score;
           }
-        } catch (embErr) {
-          console.warn(`[SynthesisService] ATTRIBUTION_LEGACY_FALLBACK: centroid fallback failed: ${embErr.message}`);
+        } else {
+          try {
+            const embeddingService = require('../semantic/embeddingService');
+            const paraVec = await embeddingService.embedText(para, { timeoutMs: 3000 });
+            if (paraVec && Array.isArray(paraVec)) {
+              for (const chunk of chunks) {
+                const chunkVecStr = chunk.embedding_json || chunk.embedding;
+                if (chunkVecStr) {
+                  const chunkVec = typeof chunkVecStr === 'string' ? JSON.parse(chunkVecStr) : chunkVecStr;
+                  const sim = embeddingService.cosineSimilarity(paraVec, chunkVec);
+                  reranker_scores[chunk.id] = sim;
+                } else {
+                  reranker_scores[chunk.id] = 0;
+                }
+              }
+              attribution_stage = 'centroid';
+              console.warn('[SynthesisService] ATTRIBUTION_CENTROID_FALLBACK: Successfully applied paragraph centroid fallback.');
+            } else {
+              console.warn('[SynthesisService] ATTRIBUTION_LEGACY_FALLBACK: centroid returned invalid embeddings');
+            }
+          } catch (embErr) {
+            console.warn(`[SynthesisService] ATTRIBUTION_LEGACY_FALLBACK: centroid fallback failed: ${embErr.message}`);
+          }
         }
       }
 
@@ -418,6 +467,7 @@ OUTPUT:`;
         reranker_scores,
       });
     }
+
 
     // Step d2: Extract [INSUFFICIENT_M] marker and strip markers from displayed content
     let insufficientMarker = null;

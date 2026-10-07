@@ -79,6 +79,14 @@ class RerankBatchRequest(BaseModel):
     candidates: List[RerankCandidate] = []
     top_k: Optional[int] = None
 
+class RerankMultiBatchItem(BaseModel):
+    id: str
+    query: str
+    candidates: List[RerankCandidate] = []
+
+class RerankMultiBatchRequest(BaseModel):
+    batches: List[RerankMultiBatchItem] = []
+
 
 class SplitRequest(BaseModel):
     text: str
@@ -535,6 +543,85 @@ async def nlp_rerank_batch(req: RerankBatchRequest):
         }
     except Exception as err:
         print(f"[NLP Error] Batch reranking failed: {err}", file=sys.stderr)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "status": "error",
+                "code": "RERANKER_FAILED",
+                "message": str(err)
+            }
+        )
+
+@router.post("/v1/nlp/rerank-batch-multi")
+async def nlp_rerank_batch_multi(req: RerankMultiBatchRequest):
+    global _reranker, _is_warming
+
+    batches = req.batches
+    n_batches = len(batches) if batches else 0
+    total_candidates = sum(len(b.candidates) for b in batches) if batches else 0
+    print(f"[Routing: NLP] Endpoint: /v1/nlp/rerank-batch-multi | Batches: {n_batches} | Total Candidates: {total_candidates} | Warmed: {_reranker is not None}")
+
+    if not batches or n_batches == 0:
+        return {
+            "results": [],
+            "warning": None
+        }
+
+    with _reranker_lock:
+        if _reranker is None:
+            if not _is_warming:
+                _is_warming = True
+                threading.Thread(target=_load_reranker_worker, daemon=True).start()
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "status": "error",
+                    "code": "RERANKER_WARMING",
+                    "message": "Reranker is loading"
+                }
+            )
+        model = _reranker
+
+    try:
+        results_out = []
+        for b in batches:
+            candidates = b.candidates
+            if not candidates or len(candidates) == 0:
+                results_out.append({
+                    "id": b.id,
+                    "scores": []
+                })
+                continue
+
+            query = b.query
+            pairs = [(query, c.text) for c in candidates]
+            raw_scores = model.predict(pairs)
+            if hasattr(raw_scores, "tolist"):
+                scores_list = raw_scores.tolist()
+            elif isinstance(raw_scores, (list, tuple)):
+                scores_list = [float(s) for s in raw_scores]
+            else:
+                scores_list = [float(raw_scores)]
+
+            scores_out = []
+            for i, c in enumerate(candidates):
+                score_val = float(scores_list[i]) if i < len(scores_list) else 0.0
+                scores_out.append({
+                    "id": c.id,
+                    "score": score_val
+                })
+
+            results_out.append({
+                "id": b.id,
+                "scores": scores_out
+            })
+
+        return sanitize_deep({
+            "results": results_out,
+            "warning": None
+        })
+    except Exception as err:
+        print(f"[NLP Error] Multi-batch reranking failed: {err}", file=sys.stderr)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={

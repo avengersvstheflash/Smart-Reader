@@ -327,10 +327,116 @@ async function rerankCandidatesBatch(query, candidates, options = {}) {
   };
 }
 
+/**
+ * Reranks multiple batches of query+candidates in chunks of 20 batches per HTTP call.
+ *
+ * @param {Array<{ id: string, query: string, candidates: Array<{ id: string, text: string }> }>} batches
+ * @param {string|{ baseUrl?: string, timeoutMs?: number, chunkSize?: number, batchSize?: number }} [options]
+ * @returns {Promise<{ results: Array<{ id: string, scores: Array<{ id: string, score: number }> }>, warning: string|null, model?: string }>}
+ */
+async function rerankBatchMulti(batches, options = {}) {
+  if (!batches || batches.length === 0) {
+    return {
+      results: [],
+      warning: null,
+      model: 'bge-reranker-v2-m3',
+    };
+  }
+
+  const baseUrl = typeof options === 'string' ? options : options?.baseUrl;
+  const targetUrl = resolveBaseUrl(baseUrl);
+  const timeoutMs = (typeof options === 'object' && options?.timeoutMs)
+    ? options.timeoutMs
+    : (config.PYTHON_SIDECAR_TIMEOUT_MS || 60000);
+  const chunkSize = (typeof options === 'object' && (options?.chunkSize || options?.batchSize))
+    ? (options.chunkSize || options.batchSize)
+    : 20;
+
+  const slices = [];
+  for (let i = 0; i < batches.length; i += chunkSize) {
+    slices.push(batches.slice(i, i + chunkSize));
+  }
+
+  const allResults = [];
+  let modelName = 'bge-reranker-v2-m3';
+
+  for (const slice of slices) {
+    let res;
+    try {
+      const signal = AbortSignal.timeout(timeoutMs);
+      res = await fetch(`${targetUrl}/v1/nlp/rerank-batch-multi`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          batches: slice,
+        }),
+        signal,
+      });
+    } catch (err) {
+      const isTimeout = Boolean(
+        err && (
+          err.name === 'TimeoutError' ||
+          err.name === 'AbortError' ||
+          (err.cause && err.cause.name === 'TimeoutError')
+        )
+      );
+      if (isTimeout) {
+        const timeoutErr = new Error(
+          `NLP multi-batch reranker timed out after ${timeoutMs}ms (sidecar may be warming or slow)`
+        );
+        timeoutErr.code = 'NLP_SIDECAR_TIMEOUT';
+        timeoutErr.cause = err;
+        throw timeoutErr;
+      }
+      const unavailableErr = new Error(
+        'NLP reranker via the Python sidecar is unavailable. Please ensure the sidecar is running.'
+      );
+      unavailableErr.code = 'NLP_SIDECAR_UNAVAILABLE';
+      unavailableErr.cause = err;
+      throw unavailableErr;
+    }
+
+    if (res.status === 503) {
+      let body = {};
+      try {
+        body = await res.json();
+      } catch (_) {}
+      const warmingErr = new Error(
+        body.message || 'Reranker model is still warming up'
+      );
+      warmingErr.code = 'RERANKER_WARMING';
+      throw warmingErr;
+    }
+
+    if (!res.ok) {
+      const err = new Error(
+        res.status >= 500
+          ? 'NLP multi-batch reranker failed in sidecar'
+          : `NLP multi-batch reranker failed with status ${res.status}`
+      );
+      err.code = 'NLP_PROCESSING_FAILED';
+      throw err;
+    }
+
+    const data = await res.json();
+    if (data.model) modelName = data.model;
+    if (Array.isArray(data.results)) {
+      allResults.push(...data.results);
+    }
+  }
+
+  return {
+    results: allResults,
+    warning: null,
+    model: modelName,
+  };
+}
+
 module.exports = {
   sliceSections,
   splitSentences,
   chunkBlocks,
   rerankCandidates,
   rerankCandidatesBatch,
+  rerankBatchMulti,
 };
