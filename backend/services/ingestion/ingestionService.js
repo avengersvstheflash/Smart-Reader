@@ -9,6 +9,7 @@ const rtfParser = require('./parsers/rtfParser');
 const config = require('../../config');
 const chapterDetector = require('./structure/chapterDetector');
 const documentStructureEngine = require('../structure/documentStructureEngine');
+const { classifySection } = require('../ai/sectionClassifier');
 const { CanonicalDocument } = require('./models/canonicalContent');
 
 /**
@@ -183,10 +184,44 @@ class IngestionService {
     // Normalize input
     const normalizedText = contentNormalizer.normalize(text);
 
+    // Raw text/block extraction
+    const rawBlocks = documentStructureEngine.blocksFromText(normalizedText, format);
+
+    // F32: Section classification before chapter detection
+    let priorSection = null;
+    const classifiedBlocks = [];
+    const storedSections = [];
+    for (let i = 0; i < rawBlocks.length; i++) {
+      const block = rawBlocks[i];
+      const context = {
+        bookTitle: title || 'Full Text',
+        isFirstBlock: i === 0,
+        isLastBlock: i === rawBlocks.length - 1,
+        priorSection,
+      };
+      const result = await classifySection(block, context);
+      block.section = result.section;
+      block.sectionConfidence = result.confidence;
+      priorSection = result.section;
+      classifiedBlocks.push(block);
+      storedSections.push({
+        id: block.id,
+        section: result.section,
+        confidence: result.confidence,
+        text: block.text,
+        type: block.type,
+      });
+    }
+
+    // Filter: only BODY blocks pass to chapter detection
+    const bodyBlocks = classifiedBlocks.filter((b) => b.section === 'BODY');
+    const blocksForChapterDetection = bodyBlocks.length > 0 ? bodyBlocks : classifiedBlocks;
+
     // Structure & Chapter Detection via DocumentStructureEngine
     const tree = documentStructureEngine.buildStructureTree({
       format,
       rawText: normalizedText,
+      blocks: blocksForChapterDetection,
       metadata: {
         title: title || 'Full Text',
         author: author || 'Unknown Author',
@@ -246,6 +281,8 @@ class IngestionService {
       totalWordCount,
       integrityStatus: isZero ? 'empty_content' : 'valid',
       integrityWarning: isZero ? 'Content extraction incomplete: document contained no readable text.' : '',
+      allBlocks: classifiedBlocks,
+      storedSections,
     };
   }
 
