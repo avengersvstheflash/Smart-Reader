@@ -92,37 +92,41 @@ class IngestionService {
         structureMap,
       });
 
-      // F31: Hook PDF math extraction via pdfmath
+      // F31: Hook PDF math extraction via pdfmath (gated behind ENABLE_MATH_EXTRACTION)
       if (format === 'pdf' || format === 'PDF') {
-        const mathResult = await extractMath(fileBuffer);
-        if (mathResult?.success && mathResult.latexBlocks && mathResult.latexBlocks.length > 0) {
-          let replacedCount = 0;
-          for (const mBlock of mathResult.latexBlocks) {
-            if (!mBlock.textOriginal || !mBlock.latex || mBlock.textOriginal === mBlock.latex) {
-              continue;
-            }
-            let blockReplaced = false;
-            for (const ch of (pdfResult.chapters || [])) {
-              if (ch.content && ch.content.includes(mBlock.textOriginal)) {
-                ch.content = ch.content.replaceAll(mBlock.textOriginal, mBlock.latex);
-                blockReplaced = true;
+        if (process.env.ENABLE_MATH_EXTRACTION === 'true') {
+          const mathResult = await extractMath(fileBuffer);
+          if (mathResult?.success && mathResult.latexBlocks && mathResult.latexBlocks.length > 0) {
+            let replacedCount = 0;
+            for (const mBlock of mathResult.latexBlocks) {
+              if (!mBlock.textOriginal || !mBlock.latex || mBlock.textOriginal === mBlock.latex) {
+                continue;
               }
-              if (Array.isArray(ch.canonicalBlocks)) {
-                for (const cb of ch.canonicalBlocks) {
-                  if (cb.text && cb.text.includes(mBlock.textOriginal)) {
-                    cb.text = cb.text.replaceAll(mBlock.textOriginal, mBlock.latex);
-                    blockReplaced = true;
+              let blockReplaced = false;
+              for (const ch of (pdfResult.chapters || [])) {
+                if (ch.content && ch.content.includes(mBlock.textOriginal)) {
+                  ch.content = ch.content.replaceAll(mBlock.textOriginal, mBlock.latex);
+                  blockReplaced = true;
+                }
+                if (Array.isArray(ch.canonicalBlocks)) {
+                  for (const cb of ch.canonicalBlocks) {
+                    if (cb.text && cb.text.includes(mBlock.textOriginal)) {
+                      cb.text = cb.text.replaceAll(mBlock.textOriginal, mBlock.latex);
+                      blockReplaced = true;
+                    }
                   }
                 }
               }
+              if (blockReplaced) {
+                replacedCount++;
+              }
             }
-            if (blockReplaced) {
-              replacedCount++;
-            }
+            console.log(`[MathExtractor] ${replacedCount} math blocks replaced`);
+          } else {
+            console.log('[MathExtractor] no math found (or sidecar down), text unchanged');
           }
-          console.log(`[MathExtractor] ${replacedCount} math blocks replaced`);
         } else {
-          console.log('[MathExtractor] no math found (or sidecar down), text unchanged');
+          console.log('[MathExtractor] DISABLED by default (ENABLE_MATH_EXTRACTION !== true). Skipping.');
         }
       }
 
