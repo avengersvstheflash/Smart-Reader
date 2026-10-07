@@ -18,6 +18,8 @@ from nlp.routes import router as nlp_router, start_reranker_warmup
 from embed.routes import router as embed_router
 # F32.1: parse_router mounts /v1/parse (docx, rtf, and structure detection)
 from parse.routes import router as parse_router
+# F31: math_router mounts /v1/math
+from pdfmath_sidecar.extract import router as math_router
 
 app = FastAPI(title="Smart Reader Python Sidecar", version="1.0.0")
 
@@ -25,6 +27,7 @@ app.include_router(ocr_router)
 app.include_router(nlp_router)
 app.include_router(embed_router)
 app.include_router(parse_router)
+app.include_router(math_router)
 
 @app.on_event("startup")
 def on_startup():

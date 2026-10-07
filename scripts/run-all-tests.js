@@ -52,6 +52,7 @@ const SUITES = [
   'phase5_8_0j_legacy_font_test.js',
   'f32_section_classifier_test.js',
   'f32_1_structure_detector_test.js',
+  'f31_math_extractor_test.js',
 ];
 
 let passed = 0;

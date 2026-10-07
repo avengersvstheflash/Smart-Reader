@@ -13,10 +13,7 @@ from typing import Any, Dict, List, Optional
 try:
     import pymupdf
 except ImportError:
-    try:
-        import fitz as pymupdf
-    except ImportError:
-        pymupdf = None
+    pymupdf = None
 
 
 def detect_structure(pdf_bytes: bytes) -> Dict[str, Any]:
