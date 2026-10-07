@@ -829,7 +829,10 @@ OUTPUT:`;
       const client = options.nlpClient || nlpClient;
       // 5.8.0i (2026-10-03): default timeout bumped 1500 -> 4000 -> 10000ms.
       const timeoutMs = options.timeoutMs || 10000;
-      const res = await client.rerankCandidates(paragraph, normalizedCandidates, { timeoutMs });
+      const rerankFn = typeof client.rerankCandidatesBatch === 'function'
+        ? client.rerankCandidatesBatch
+        : client.rerankCandidates;
+      const res = await rerankFn.call(client, paragraph, normalizedCandidates, { timeoutMs });
       const latencyMs = Date.now() - startMs;
 
       if (latencyMs > 2000) {

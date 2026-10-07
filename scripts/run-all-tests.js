@@ -53,6 +53,7 @@ const SUITES = [
   'f32_section_classifier_test.js',
   'f32_1_structure_detector_test.js',
   'f31_math_extractor_test.js',
+  'f34_rerank_batch_test.js',
 ];
 
 let passed = 0;

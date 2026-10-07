@@ -72,6 +72,11 @@ class RerankRequest(BaseModel):
     query: str
     candidates: List[RerankCandidate]
 
+class RerankBatchRequest(BaseModel):
+    query: str
+    candidates: List[RerankCandidate] = []
+    top_k: Optional[int] = None
+
 
 class SplitRequest(BaseModel):
     text: str
@@ -458,6 +463,73 @@ async def nlp_rerank(req: RerankRequest):
         }
     except Exception as err:
         print(f"[NLP Error] Reranking failed: {err}", file=sys.stderr)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "status": "error",
+                "code": "RERANKER_FAILED",
+                "message": str(err)
+            }
+        )
+
+@router.post("/v1/nlp/rerank-batch")
+async def nlp_rerank_batch(req: RerankBatchRequest):
+    global _reranker, _is_warming
+
+    candidates = req.candidates
+    n = len(candidates) if candidates else 0
+    print(f"[Routing: NLP] Endpoint: /v1/nlp/rerank-batch | Candidates: {n} | Warmed: {_reranker is not None}")
+
+    if not candidates or n == 0:
+        return {
+            "scores": [],
+            "warning": None
+        }
+
+    with _reranker_lock:
+        if _reranker is None:
+            if not _is_warming:
+                _is_warming = True
+                threading.Thread(target=_load_reranker_worker, daemon=True).start()
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "status": "error",
+                    "code": "RERANKER_WARMING",
+                    "message": "Reranker is loading"
+                }
+            )
+        model = _reranker
+
+    try:
+        query = req.query
+        pairs = [(query, c.text) for c in candidates]
+        # CrossEncoder.predict evaluates all candidate pairs in a batched forward pass
+        raw_scores = model.predict(pairs)
+        if hasattr(raw_scores, "tolist"):
+            scores_list = raw_scores.tolist()
+        elif isinstance(raw_scores, (list, tuple)):
+            scores_list = [float(s) for s in raw_scores]
+        else:
+            scores_list = [float(raw_scores)]
+
+        scores_out = []
+        for i, c in enumerate(candidates):
+            score_val = float(scores_list[i]) if i < len(scores_list) else 0.0
+            scores_out.append({
+                "id": c.id,
+                "score": score_val
+            })
+
+        if req.top_k is not None and req.top_k > 0 and req.top_k < len(scores_out):
+            scores_out = sorted(scores_out, key=lambda x: x["score"], reverse=True)[:req.top_k]
+
+        return {
+            "scores": scores_out,
+            "warning": None
+        }
+    except Exception as err:
+        print(f"[NLP Error] Batch reranking failed: {err}", file=sys.stderr)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
