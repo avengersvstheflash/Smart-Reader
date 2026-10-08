@@ -1042,23 +1042,39 @@ class DocumentStructureEngine {
     const hasBlockPages = blocks.some(b => b.sourcePage !== undefined || b.page !== undefined || b.pageNum !== undefined);
     if (!hasBlockPages) return null;
 
-    const topLevelEntries = toc.filter(e => (e.level || 1) <= 2);
+    // 2a. Filter to level === 1 only (top-level chapters)
+    const topLevelEntries = toc.filter(e => (e.level || 1) === 1);
+    if (topLevelEntries.length === 0) return null;
 
-    const filteredEntries = topLevelEntries.filter(entry => {
-      const title = entry.title || '';
+    // Helper to classify structural role of surviving TOC entries
+    const getStructuralRole = (title = '') => {
+      const clean = title.trim().toLowerCase().replace(/^#+\s*/, '').replace(/[:.—–-].*$/, '').trim();
+
+      // Front-matter titles (Author's Note, Notation, Acknowledgments, A Note on AI Assistance, Preface, Foreword, etc.)
+      if (/^(?:author'?s?\s+note|notation|(?:a\s+)?note\s+on\s+ai\s+assistance|acknowledg(?:e)?ments?|preface|foreword|prologue|dedication|copyright|about\s+the\s+author(?:s)?|table\s+of\s+contents|contents)\b/i.test(clean)) {
+        return 'front_matter';
+      }
+
+      // Back-matter titles (Index, References, Bibliography, Glossary, Appendix, etc.)
+      if (/^(?:index|subject\s*index|author\s*index|appendix(?:\s+[a-z0-9]+)?|references|bibliography|glossary|further\s*reading|epilogue|afterword|colophon|notes)\b/i.test(clean)) {
+        return 'back_matter';
+      }
+
       const role = this.classifyRoleFromTitle(title);
-      return role === 'chapter' || role === 'section';
-    });
+      if (role === 'front_matter') return 'front_matter';
+      if (role === 'back_matter' || role === 'index' || role === 'appendix') return 'back_matter';
+      return 'chapter';
+    };
 
-    if (filteredEntries.length === 0) return null;
+    console.log(`[Ingestion] Structure: TOC-driven chapter build (${topLevelEntries.length} entries)`);
 
     const normalizedBlocks = blocks.map(b => ({
       ...b,
       _page: b.sourcePage || b.page || b.pageNum || 1
     }));
 
-    for (let i = 0; i < filteredEntries.length; i++) {
-      const entry = filteredEntries[i];
+    for (let i = 0; i < topLevelEntries.length; i++) {
+      const entry = topLevelEntries[i];
       const targetPage = entry.page;
       let blockIndex = normalizedBlocks.findIndex(b => b._page === targetPage);
       
@@ -1070,7 +1086,7 @@ class DocumentStructureEngine {
     }
 
     let maxIdx = 0;
-    for (const entry of filteredEntries) {
+    for (const entry of topLevelEntries) {
       if (entry._blockIndex < maxIdx) {
         entry._blockIndex = maxIdx;
       }
@@ -1078,19 +1094,22 @@ class DocumentStructureEngine {
     }
 
     const chapters = [];
-    for (let i = 0; i < filteredEntries.length; i++) {
-      const entry = filteredEntries[i];
+    for (let i = 0; i < topLevelEntries.length; i++) {
+      const entry = topLevelEntries[i];
       const startIdx = i === 0 ? 0 : entry._blockIndex;
-      const endIdx = i < filteredEntries.length - 1 ? filteredEntries[i + 1]._blockIndex : normalizedBlocks.length;
+      const endIdx = i < topLevelEntries.length - 1 ? topLevelEntries[i + 1]._blockIndex : normalizedBlocks.length;
       
       const chapterBlocks = normalizedBlocks.slice(startIdx, endIdx);
       
       const title = entry.title;
+      const role = getStructuralRole(title);
       const pageStart = chapterBlocks.length > 0 ? chapterBlocks[0]._page : entry.page;
       const pageEnd = chapterBlocks.length > 0 ? chapterBlocks[chapterBlocks.length - 1]._page : entry.page;
 
       chapters.push({
         title,
+        structural_role: role,
+        structuralRole: role,
         pageStart,
         pageEnd,
         blocks: chapterBlocks.map(b => {

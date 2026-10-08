@@ -92,6 +92,20 @@ class IngestionService {
         structureMap,
       });
 
+      // Preserve role classification for TOC chapters if parser defaulted to 'chapter'
+      if (pdfResult?.chapters && structureMap?.method === 'toc' && Array.isArray(structureMap.toc)) {
+        for (const ch of pdfResult.chapters) {
+          const clean = (ch.title || '').trim().toLowerCase().replace(/^#+\s*/, '').replace(/[:.—–-].*$/, '').trim();
+          if (/^(?:author'?s?\s+note|notation|(?:a\s+)?note\s+on\s+ai\s+assistance|acknowledg(?:e)?ments?|preface|foreword|prologue|dedication|copyright|about\s+the\s+author(?:s)?|table\s+of\s+contents|contents)\b/i.test(clean)) {
+            ch.structuralRole = 'front_matter';
+            if (ch.metadata) ch.metadata.structuralRole = 'front_matter';
+          } else if (/^(?:index|subject\s*index|author\s*index|appendix(?:\s+[a-z0-9]+)?|references|bibliography|glossary|further\s*reading|epilogue|afterword|colophon|notes)\b/i.test(clean)) {
+            ch.structuralRole = 'back_matter';
+            if (ch.metadata) ch.metadata.structuralRole = 'back_matter';
+          }
+        }
+      }
+
       // F31: Hook PDF math extraction via pdfmath (gated behind ENABLE_MATH_EXTRACTION)
       if (format === 'pdf' || format === 'PDF') {
         if (process.env.ENABLE_MATH_EXTRACTION === 'true') {
@@ -327,7 +341,7 @@ class IngestionService {
       });
       
       if (tocChapters) {
-        console.log(`[Ingestion] Structure: TOC-driven chapter build (${structureMap.toc.length} entries)`);
+        console.log(`[Ingestion] Structure: TOC-driven chapter build (${tocChapters.length} entries)`);
         tree = {
           chapters: tocChapters.map((ch, index) => {
             const canonicalDoc = new CanonicalDocument(ch.blocks);
@@ -336,7 +350,7 @@ class IngestionService {
               id: `chap-${index + 1}`,
               number: index + 1,
               title: ch.title,
-              structuralRole: 'chapter',
+              structuralRole: ch.structuralRole || ch.structural_role || 'chapter',
               confidence: 0.95,
               sourceLocation: {
                 startOffset: ch.blocks[0]?.startOffset || 0,
