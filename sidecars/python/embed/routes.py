@@ -30,7 +30,7 @@ class EmbedBatchRequest(BaseModel):
     texts: List[str]
 
 @router.post("/v1/embed/batch")
-async def embed_batch(req: EmbedBatchRequest):
+def embed_batch(req: EmbedBatchRequest):
     global _model, _is_warming
 
     if req.texts is None or len(req.texts) == 0:
@@ -42,6 +42,17 @@ async def embed_batch(req: EmbedBatchRequest):
                 "message": "No texts provided"
             }
         )
+
+    if len(req.texts) > 32:
+        return JSONResponse(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            content={
+                "status": "error",
+                "code": "EMBED_BATCH_TOO_LARGE",
+                "message": f"Batch size {len(req.texts)} exceeds server limit 32",
+            }
+        )
+
 
     with _model_lock:
         if _model is None:

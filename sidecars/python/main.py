@@ -2,6 +2,8 @@ import os
 import sys
 import torch  # noqa: F401 — load before PaddleOCR to avoid WinError 127
 
+os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
+
 # Ensure sidecars/python directory is in sys.path
 sys_path_dir = os.path.dirname(os.path.abspath(__file__))
 if sys_path_dir not in sys.path:

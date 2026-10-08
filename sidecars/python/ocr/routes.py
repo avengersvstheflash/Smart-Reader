@@ -61,6 +61,65 @@ def readiness_probe():
         "warmup_sec": warmup_duration_sec
     }
 
+from fastapi.concurrency import run_in_threadpool
+
+def _ocr_pdf_sync(content):
+    doc = fitz.open(stream=content, filetype="pdf")
+    pages_out: List[Dict[str, Any]] = []
+    all_confidences: List[float] = []
+    total_extracted_chars = 0
+
+    for page_idx in range(len(doc)):
+        page = doc[page_idx]
+        # 200 DPI provides an optimal balance between recognition accuracy and CPU rasterization speed
+        pix = page.get_pixmap(dpi=200)
+        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape((pix.h, pix.w, pix.n))
+        if pix.n == 4:
+            img = img[:, :, :3]
+
+        ocr_res = ocr_engine.ocr(img, cls=True)
+        page_lines: List[str] = []
+
+        if ocr_res and ocr_res[0]:
+            for line in ocr_res[0]:
+                text, conf = line[1]
+                cleaned = text.strip()
+                if cleaned:
+                    page_lines.append(cleaned)
+                    all_confidences.append(float(conf))
+                    total_extracted_chars += len(cleaned)
+
+        page_text = "\n\n".join(page_lines)
+        pages_out.append({
+            "num": page_idx + 1,
+            "text": page_text
+        })
+
+    # Diagnostic Language Guard (Step 5 Decision):
+    # 1. If document extracted text across pages, evaluate average line confidence.
+    # Clean English print yields avg confidence > 0.90 (calibration: ~0.95+).
+    # Foreign unsupported scripts forced through 'ch' yield severe degradation (e.g. Greek avg 0.54, Cyrillic 0.75).
+    # We enforce a conservative 0.80 average confidence threshold for multi-line extractions.
+    if len(all_confidences) >= 3:
+        avg_conf = sum(all_confidences) / len(all_confidences)
+        if avg_conf < 0.80:
+            print(f"[LanguageGuard] Rejected document: average confidence {avg_conf:.4f} < 0.80 threshold")
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content={
+                    "status": "error",
+                    "code": "OCR_LANGUAGE_UNSUPPORTED",
+                    "message": "OCR language not yet supported for this document",
+                    "avg_confidence": round(avg_conf, 4)
+                }
+            )
+
+    return {
+        "status": "success",
+        "pages": pages_out,
+        "model": "ch_PP-OCRv4"
+    }
+
 @router.post("/v1/ocr/pdf")
 async def ocr_pdf(file: UploadFile = File(...)):
     """
@@ -90,61 +149,7 @@ async def ocr_pdf(file: UploadFile = File(...)):
                 }
             )
 
-        doc = fitz.open(stream=content, filetype="pdf")
-        pages_out: List[Dict[str, Any]] = []
-        all_confidences: List[float] = []
-        total_extracted_chars = 0
-
-        for page_idx in range(len(doc)):
-            page = doc[page_idx]
-            # 200 DPI provides an optimal balance between recognition accuracy and CPU rasterization speed
-            pix = page.get_pixmap(dpi=200)
-            img = np.frombuffer(pix.samples, dtype=np.uint8).reshape((pix.h, pix.w, pix.n))
-            if pix.n == 4:
-                img = img[:, :, :3]
-
-            ocr_res = ocr_engine.ocr(img, cls=True)
-            page_lines: List[str] = []
-
-            if ocr_res and ocr_res[0]:
-                for line in ocr_res[0]:
-                    text, conf = line[1]
-                    cleaned = text.strip()
-                    if cleaned:
-                        page_lines.append(cleaned)
-                        all_confidences.append(float(conf))
-                        total_extracted_chars += len(cleaned)
-
-            page_text = "\n\n".join(page_lines)
-            pages_out.append({
-                "num": page_idx + 1,
-                "text": page_text
-            })
-
-        # Diagnostic Language Guard (Step 5 Decision):
-        # 1. If document extracted text across pages, evaluate average line confidence.
-        # Clean English print yields avg confidence > 0.90 (calibration: ~0.95+).
-        # Foreign unsupported scripts forced through 'ch' yield severe degradation (e.g. Greek avg 0.54, Cyrillic 0.75).
-        # We enforce a conservative 0.80 average confidence threshold for multi-line extractions.
-        if len(all_confidences) >= 3:
-            avg_conf = sum(all_confidences) / len(all_confidences)
-            if avg_conf < 0.80:
-                print(f"[LanguageGuard] Rejected document: average confidence {avg_conf:.4f} < 0.80 threshold")
-                return JSONResponse(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    content={
-                        "status": "error",
-                        "code": "OCR_LANGUAGE_UNSUPPORTED",
-                        "message": "OCR language not yet supported for this document",
-                        "avg_confidence": round(avg_conf, 4)
-                    }
-                )
-
-        return {
-            "status": "success",
-            "pages": pages_out,
-            "model": "ch_PP-OCRv4"
-        }
+        return await run_in_threadpool(_ocr_pdf_sync, content)
 
     except Exception as err:
         print(f"[OCR Error] Failed to process PDF: {err}", file=sys.stderr)

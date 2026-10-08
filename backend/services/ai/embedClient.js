@@ -5,9 +5,9 @@
 'use strict';
 
 const config = require('../../config');
-const { resolveBaseUrl } = require('./sidecarBase');
+const { resolveBaseUrl, waitForReady } = require('./sidecarBase');
 
-const DEFAULT_BATCH_SIZE = 75;
+const DEFAULT_BATCH_SIZE = process.env.EMBED_BATCH_SIZE ? parseInt(process.env.EMBED_BATCH_SIZE, 10) : 16;
 const WARMING_RETRY_INTERVALS_MS = [2000, 4000, 8000];
 
 async function embedBatch(texts, options = {}) {
@@ -24,7 +24,7 @@ async function embedBatch(texts, options = {}) {
   const targetUrl = resolveBaseUrl(baseUrl);
   const timeoutMs = (typeof options === 'object' && options?.timeoutMs)
     ? options.timeoutMs
-    : (config.PYTHON_SIDECAR_TIMEOUT_MS || 30000);
+    : (config.PYTHON_SIDECAR_TIMEOUT_MS || 90000);
   const retryIntervals = (typeof options === 'object' && options?.retryIntervals)
     ? options.retryIntervals
     : WARMING_RETRY_INTERVALS_MS;
@@ -38,6 +38,8 @@ async function embedBatch(texts, options = {}) {
   const allEmbeddings = [];
   let lastModel = 'bge-m3-python-fp32';
   let lastDims = 1024;
+
+  await waitForReady(targetUrl, 90000);
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const chunkTexts = texts.slice(i, i + batchSize);
@@ -86,30 +88,28 @@ async function embedBatch(texts, options = {}) {
         break;
       }
 
+
       if (res.status === 503) {
         let isWarming = true;
+        let bodyCode = null;
         try {
           const body = await res.json();
+          bodyCode = body.code;
           if (body.code !== undefined && body.code !== 'EMBED_MODEL_WARMING') {
             isWarming = false;
           }
-        } catch (_) {
-          // If we fail to parse, assume it's still warming since status was 503
-        }
+        } catch (_) { }
         if (isWarming) {
-          if (attempt < maxRetries) {
-            await new Promise((r) => setTimeout(r, retryIntervals[attempt]));
-            attempt++;
-            continue;
-          } else {
-            const err = new Error('Embedding model is still warming up after max retries');
-            err.code = 'EMBED_MODEL_WARMING';
-            throw err;
-          }
+          const err = new Error('Embedding model is still warming up');
+          err.code = 'EMBED_MODEL_WARMING';
+          throw err;
+        } else {
+          console.error(`[embedClient] 503 but not warming! code=${bodyCode}`);
         }
       }
 
       if (res.status >= 500) {
+        console.error(`[embedClient] 500+ error: status=${res.status}`);
         const err = new Error('Embedding computation failed in sidecar');
         err.code = 'EMBED_PROCESSING_FAILED';
         throw err;

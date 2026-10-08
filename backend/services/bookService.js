@@ -379,6 +379,7 @@ class BookService {
           .catch((err) => {
             console.warn(`[Import] Indexing failed: ${err.message}`);
             jobRepository.fail(indexJob.id, err);
+            throw err;
           })
           .then(() => {
             console.log(`[Import] Classifying ${book.id}...`);

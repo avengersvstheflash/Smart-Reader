@@ -79,6 +79,15 @@ class IngestionService {
         structureMap = { method: 'none', warnings: ['sidecar_down'] };
       }
 
+      if (structureMap && structureMap.method === 'none' && (structureMap.warnings || []).includes('sidecar_down')) {
+        const err = new Error(
+          'Python sidecar unavailable for document structure detection. ' +
+          'Please ensure the sidecar is running and retry.'
+        );
+        err.code = 'SIDECAR_UNAVAILABLE';
+        throw err;
+      }
+
       if (structureMap && (structureMap.method === 'toc' || structureMap.method === 'heuristic')) {
         console.log(`[Ingestion] Structure: fast path (${structureMap.method})`);
       } else {
@@ -260,7 +269,16 @@ class IngestionService {
     if (fileBuffer && (format === 'pdf' || (fileBuffer.length >= 4 && fileBuffer[0] === 0x25 && fileBuffer[1] === 0x50))) {
       try {
         structureMap = await buildSectionMapFast(fileBuffer);
-      } catch (_e) {
+        if (structureMap && structureMap.method === 'none' && (structureMap.warnings || []).includes('sidecar_down')) {
+          const err = new Error(
+            'Python sidecar unavailable for document structure detection. ' +
+            'Please ensure the sidecar is running and retry.'
+          );
+          err.code = 'SIDECAR_UNAVAILABLE';
+          throw err;
+        }
+      } catch (e) {
+        if (e.code === 'SIDECAR_UNAVAILABLE') throw e;
         structureMap = { method: 'none', warnings: ['sidecar_down'] };
       }
     }

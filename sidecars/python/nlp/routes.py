@@ -103,7 +103,7 @@ class ChunkRequest(BaseModel):
     overlap_tokens: int = 150
 
 @router.post("/v1/nlp/split")
-async def nlp_split(req: SplitRequest):
+def nlp_split(req: SplitRequest):
     """
     Splits input text into sentence spans with exact start/end character offsets using pysbd.
     Returns: { "sentences": [{ "text": str, "start": int, "end": int }], "model": "pysbd-0.3.4" }
@@ -151,7 +151,7 @@ async def nlp_split(req: SplitRequest):
         )
 
 @router.post("/v1/nlp/chunk")
-async def nlp_chunk(req: ChunkRequest):
+def nlp_chunk(req: ChunkRequest):
     """
     Chunks blocks into token-bounded chunks respecting target_tokens and overlap_tokens.
     Returns: { "chunks": [{ "id": str, "text": str, "tokenCount": int, "startBlockId": str, "endBlockId": str }], "model": "pysbd-0.3.4" }
@@ -217,7 +217,7 @@ class SliceRequest(BaseModel):
     sections: List[dict]
 
 @router.post("/v1/nlp/slice")
-async def nlp_slice(req: SliceRequest):
+def nlp_slice(req: SliceRequest):
     """
     Slices candidate sections into evenly distributed source units of ~1,500-2,500 words.
 
@@ -418,7 +418,7 @@ async def nlp_slice(req: SliceRequest):
         )
 
 @router.post("/v1/nlp/rerank")
-async def nlp_rerank(req: RerankRequest):
+def nlp_rerank(req: RerankRequest):
     global _reranker, _is_warming
 
     candidates = req.candidates
@@ -486,7 +486,7 @@ async def nlp_rerank(req: RerankRequest):
         )
 
 @router.post("/v1/nlp/rerank-batch")
-async def nlp_rerank_batch(req: RerankBatchRequest):
+def nlp_rerank_batch(req: RerankBatchRequest):
     global _reranker, _is_warming
 
     candidates = req.candidates
@@ -553,7 +553,7 @@ async def nlp_rerank_batch(req: RerankBatchRequest):
         )
 
 @router.post("/v1/nlp/rerank-batch-multi")
-async def nlp_rerank_batch_multi(req: RerankMultiBatchRequest):
+def nlp_rerank_batch_multi(req: RerankMultiBatchRequest):
     global _reranker, _is_warming
 
     batches = req.batches

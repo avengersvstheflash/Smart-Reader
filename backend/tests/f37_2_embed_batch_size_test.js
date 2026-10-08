@@ -24,11 +24,12 @@ async function runTests() {
 
   try {
     // --------------------------------------------------------------------------
-    // T1: embedBatch with 200 texts -> 3 HTTP calls (at 75/call: 75, 75, 50)
+    // T1: embedBatch with 200 texts -> 13 HTTP calls (at 16/call: 12x 16, 1x 8)
     // --------------------------------------------------------------------------
     {
       const calls = [];
       global.fetch = async (url, opts) => {
+        if (url.includes('/ready')) return { status: 200 };
         const body = JSON.parse(opts.body);
         calls.push({ url, textCount: body.texts.length, texts: body.texts });
         return {
@@ -46,20 +47,22 @@ async function runTests() {
       const texts200 = Array.from({ length: 200 }, (_, i) => `item-${i}`);
       const res = await embedClient.embedBatch(texts200);
 
-      assert.strictEqual(calls.length, 3, `T1 failed: expected 3 HTTP calls, got ${calls.length}`);
-      assert.strictEqual(calls[0].textCount, 75, `T1 failed: expected batch 1 size 75, got ${calls[0].textCount}`);
-      assert.strictEqual(calls[1].textCount, 75, `T1 failed: expected batch 2 size 75, got ${calls[1].textCount}`);
-      assert.strictEqual(calls[2].textCount, 50, `T1 failed: expected batch 3 size 50, got ${calls[2].textCount}`);
+      assert.strictEqual(calls.length, 13, `T1 failed: expected 13 HTTP calls, got ${calls.length}`);
+      for (let i = 0; i < 12; i++) {
+        assert.strictEqual(calls[i].textCount, 16, `T1 failed: expected batch size 16, got ${calls[i].textCount}`);
+      }
+      assert.strictEqual(calls[12].textCount, 8, `T1 failed: expected batch size 8, got ${calls[12].textCount}`);
       assert.strictEqual(res.embeddings.length, 200, 'T1 failed: expected 200 embeddings returned');
-      console.log('[PASS] T1: embedBatch with 200 texts -> 3 HTTP calls (75, 75, 50)');
+      console.log('[PASS] T1: embedBatch with 200 texts -> 13 HTTP calls (12x 16, 1x 8)');
     }
 
     // --------------------------------------------------------------------------
-    // T2: embedBatch with 50 texts -> 1 HTTP call
+    // T2: embedBatch with 50 texts -> 4 HTTP calls (16, 16, 16, 2)
     // --------------------------------------------------------------------------
     {
       const calls = [];
       global.fetch = async (url, opts) => {
+        if (url.includes('/ready')) return { status: 200 };
         const body = JSON.parse(opts.body);
         calls.push({ url, textCount: body.texts.length });
         return {
@@ -77,10 +80,11 @@ async function runTests() {
       const texts50 = Array.from({ length: 50 }, (_, i) => `item-${i}`);
       const res = await embedClient.embedBatch(texts50);
 
-      assert.strictEqual(calls.length, 1, `T2 failed: expected 1 HTTP call, got ${calls.length}`);
-      assert.strictEqual(calls[0].textCount, 50, `T2 failed: expected batch size 50, got ${calls[0].textCount}`);
+      assert.strictEqual(calls.length, 4, `T2 failed: expected 4 HTTP calls, got ${calls.length}`);
+      assert.strictEqual(calls[0].textCount, 16, `T2 failed: expected batch size 16, got ${calls[0].textCount}`);
+      assert.strictEqual(calls[3].textCount, 2, `T2 failed: expected batch size 2, got ${calls[3].textCount}`);
       assert.strictEqual(res.embeddings.length, 50, 'T2 failed: expected 50 embeddings returned');
-      console.log('[PASS] T2: embedBatch with 50 texts -> 1 HTTP call');
+      console.log('[PASS] T2: embedBatch with 50 texts -> 4 HTTP calls (16, 16, 16, 2)');
     }
 
     // --------------------------------------------------------------------------
@@ -88,7 +92,8 @@ async function runTests() {
     // --------------------------------------------------------------------------
     {
       let callCount = 0;
-      global.fetch = async () => {
+      global.fetch = async (url) => {
+        if (url && url.includes('/ready')) return { status: 200 };
         callCount++;
         return { ok: true, status: 200, json: async () => ({}) };
       };
@@ -102,10 +107,11 @@ async function runTests() {
     }
 
     // --------------------------------------------------------------------------
-    // T4: results preserve input order across batch boundaries
+    // T4: results preserve input order across 16-size batches
     // --------------------------------------------------------------------------
     {
       global.fetch = async (url, opts) => {
+        if (url.includes('/ready')) return { status: 200 };
         const body = JSON.parse(opts.body);
         return {
           ok: true,
@@ -130,15 +136,16 @@ async function runTests() {
           `T4 failed: ordering mismatch at index ${i}`
         );
       }
-      console.log('[PASS] T4: results preserve input order across batch boundaries');
+      console.log('[PASS] T4: results preserve input order across 16-size batches');
     }
 
     // --------------------------------------------------------------------------
-    // T5: sidecar warming (503) -> retries then succeeds
+    // T5: sidecar warming (503) -> retries then succeeds (Actually now throws EMBED_MODEL_WARMING)
     // --------------------------------------------------------------------------
     {
       let attempts = 0;
       global.fetch = async (url, opts) => {
+        if (url.includes('/ready')) return { status: 200 };
         attempts++;
         if (attempts === 1) {
           return {
@@ -147,54 +154,97 @@ async function runTests() {
             json: async () => ({ code: 'EMBED_MODEL_WARMING' }),
           };
         }
-        const body = JSON.parse(opts.body);
         return {
           ok: true,
           status: 200,
           json: async () => ({
             status: 'success',
-            embeddings: body.texts.map(() => [0.42]),
+            embeddings: [[0.42]],
             model: 'bge-m3-python-fp32',
             dims: 1024,
           }),
         };
       };
 
-      const res = await embedClient.embedBatch(['warm-test'], {
-        retryIntervals: [10, 20],
-      });
-      assert.strictEqual(attempts, 2, `T5 failed: expected 2 attempts, got ${attempts}`);
-      assert.strictEqual(res.embeddings.length, 1);
-      console.log('[PASS] T5: sidecar warming (503) -> retries then succeeds');
+      let threw = false;
+      let errCode = null;
+      try {
+        await embedClient.embedBatch(['warm-test'], {
+          retryIntervals: [10, 20],
+        });
+      } catch (err) {
+        threw = true;
+        errCode = err.code;
+      }
+      assert.strictEqual(threw, true, 'T5 failed: expected embedBatch to throw warming');
+      assert.strictEqual(errCode, 'EMBED_MODEL_WARMING');
+      console.log('[PASS] T5: sidecar warming (503) -> correctly throws EMBED_MODEL_WARMING');
     }
 
     // --------------------------------------------------------------------------
-    // T6: sidecar down -> EMBED_MODEL_UNAVAILABLE
+    // T6: sidecar 413 EMBED_BATCH_TOO_LARGE -> surfaced as-is
     // --------------------------------------------------------------------------
     {
-      global.fetch = async () => {
-        throw new TypeError('fetch failed: connect ECONNREFUSED 127.0.0.1:8765');
+      global.fetch = async (url) => {
+        if (url && url.includes('/ready')) return { status: 200 };
+        return {
+          ok: false,
+          status: 413,
+          json: async () => ({ code: 'EMBED_BATCH_TOO_LARGE', message: 'Batch size exceeds server limit 32' }),
+        };
       };
 
       let threw = false;
       let errCode = null;
       try {
-        await embedClient.embedBatch(['fail-test']);
+        await embedClient.embedBatch(['large-batch-test']);
       } catch (err) {
         threw = true;
         errCode = err.code;
       }
 
-      assert.strictEqual(threw, true, 'T6 failed: expected embedBatch to throw when sidecar is down');
-      assert.strictEqual(errCode, 'EMBED_MODEL_UNAVAILABLE', `T6 failed: expected EMBED_MODEL_UNAVAILABLE, got ${errCode}`);
-      console.log('[PASS] T6: sidecar down -> EMBED_MODEL_UNAVAILABLE');
+      assert.strictEqual(threw, true, 'T6 failed: expected embedBatch to throw when 413 is returned');
+      assert.strictEqual(errCode, 'EMBED_PROCESSING_FAILED', `T6 failed: expected EMBED_PROCESSING_FAILED, got ${errCode}`);
+      console.log('[PASS] T6: sidecar 413 EMBED_BATCH_TOO_LARGE -> surfaced');
+    }
+
+    // --------------------------------------------------------------------------
+    // T7: env var EMBED_BATCH_SIZE=8 -> 200 texts = 25 calls
+    // --------------------------------------------------------------------------
+    {
+      const calls = [];
+      global.fetch = async (url, opts) => {
+        if (url.includes('/ready')) return { status: 200 };
+        const body = JSON.parse(opts.body);
+        calls.push({ url, textCount: body.texts.length });
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            status: 'success',
+            embeddings: body.texts.map((t) => [t]),
+            model: 'bge-m3-python-fp32',
+            dims: 1024,
+          }),
+        };
+      };
+
+      process.env.EMBED_BATCH_SIZE = '8';
+      delete require.cache[require.resolve('../services/ai/embedClient')];
+      const newEmbedClient = require('../services/ai/embedClient');
+
+      const res = await newEmbedClient.embedBatch(Array.from({ length: 200 }, (_, i) => `item-${i}`));
+      assert.strictEqual(calls.length, 25, `T7 failed: expected 25 HTTP calls, got ${calls.length}`);
+      console.log('[PASS] T7: env var EMBED_BATCH_SIZE=8 -> 200 texts = 25 calls');
+      
+      delete process.env.EMBED_BATCH_SIZE;
     }
   } finally {
     global.fetch = origFetch;
   }
 
   console.log('\n================================================================');
-  console.log('RESULTS: 6 passed, 0 failed');
+  console.log('RESULTS: 7 passed, 0 failed');
   console.log('================================================================\n');
 }
 

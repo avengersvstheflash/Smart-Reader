@@ -60,6 +60,7 @@ const SUITES = [
   'f32_3a_page_tracking_test.js',
   'f37_python_embedder_default_test.js',
   'f37_2_embed_batch_size_test.js',
+  'f37_5_pipeline_reliability_test.js',
 ];
 
 
