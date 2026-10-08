@@ -102,6 +102,7 @@ const defaultProviderInstance = new BgeEmbeddingProvider();
 module.exports = {
   BgeEmbeddingProvider,
   bgeProvider: defaultProviderInstance,
+  bgeEmbeddingProvider: defaultProviderInstance,
   embed,
   warmup,
   EMBEDDING_DIM,
