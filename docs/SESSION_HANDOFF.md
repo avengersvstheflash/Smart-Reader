@@ -193,3 +193,49 @@
 - `docs/DESIGN_CHATLOG_PARSING.md` — F24 chat-log detection and parsing design
 - `docs/session-logs/` — Detailed chronological build logs (including `2026-10-07.md`)
 - *Historical note:* Earlier phase logs archived to `docs/session-logs/2026-10-*.md`.
+
+
+---
+
+## Current State (2026-10-09 early AM)
+
+**HEAD:** 3174b83
+**Tree:** clean
+**Origin:** synced
+
+## Phase Status
+
+- F32.3b  TOC level-1 filter + roles: CLOSED
+- F37     Python embedder default: CLOSED
+- F37.2   Batch size 75 + caller batching: CLOSED
+- F37.5   Pipeline reliability: CLOSED
+- F37.6   4GB GPU batch size: CLOSED
+- F37.7   FP16 + warmup + telemetry: CLOSED
+- F38     Chapter synthesis quality: OPEN (next session)
+- F39     TOC-listing leakage: OPEN
+- F40     Layout-aware PDF parsing: OPEN (v1.x)
+- F41     Hardware-aware routing: OPEN (v1.x)
+- F37.1   Runtime ONNX fallback: OPEN (deferred)
+- F37.3   Frontend warmup UX: OPEN (deferred)
+- 5.8i    Frontend walkthrough: QUEUED
+
+## Next Session Opener
+
+1. Verify HEAD = 3174b83, tree clean
+2. Priority: **F38** — chapter synthesis quality. Chapter 1 of
+   Reddi failed twice (LLM produced 380-590 words vs 236-354 clamp).
+   Needs a diagnostic session on the compression contract + prompt.
+3. Secondary: F39 (TOC-listing filter) — small, bounded.
+4. Then 5.8i frontend walkthrough OR F37.1/F37.3 polish.
+
+## Standing Rules (unchanged)
+
+- Raw evidence over summaries
+- No commits on dirty tree or red suite
+- Agents never declare phase closure
+- One workstream per session
+- VS Code closed during Antigravity edits
+- Never git add -f on gitignored files
+- Compress evidence before transmitting to LLM
+- Prefer targeted git checkout HEAD -- <file> over destructive reset
+- Every prompt includes "attempt at most N times, then stop"
