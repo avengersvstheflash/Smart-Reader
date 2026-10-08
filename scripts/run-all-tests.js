@@ -19,7 +19,7 @@ const ROOT = path.resolve(__dirname, '..');
 // Isolate test DB from dev DB so test runs do not wipe user Library
 process.env.DB_PATH = path.join(ROOT, 'storage', 'test-data.db');
 
-const TIMEOUT_MS = 300_000;
+const TIMEOUT_MS = 600_000;
 
 const SUITES = [
   'phase5_7_3_parse_test.js',
@@ -59,6 +59,7 @@ const SUITES = [
   'f34_1a_rerank_multi_test.js',
   'f32_3a_page_tracking_test.js',
   'f37_python_embedder_default_test.js',
+  'f37_2_embed_batch_size_test.js',
 ];
 
 

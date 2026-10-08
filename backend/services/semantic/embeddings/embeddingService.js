@@ -77,17 +77,61 @@ class EmbeddingService {
 
   async embedChunks(chunks) {
     if (!Array.isArray(chunks)) return [];
-    const embedded = [];
+    if (chunks.length === 0) return [];
 
-    for (const chunk of chunks) {
-      const vector = await this.embedChunk(chunk);
-      embedded.push({
-        ...chunk,
-        embedding: vector,
-      });
+    const currentDim = this.activeProvider.getDimension();
+    const results = new Array(chunks.length);
+    const uncachedIndices = [];
+    const uncachedTexts = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      let cachedVector = null;
+
+      if (chunk.contentHash && this.embeddingCache.has(chunk.contentHash)) {
+        const cached = this.embeddingCache.get(chunk.contentHash);
+        if (cached && Array.isArray(cached) && cached.length === currentDim) {
+          cachedVector = cached;
+        }
+      }
+
+      if (!cachedVector && chunk.contentHash) {
+        const existing = semanticChunkRepository.findByHash(chunk.contentHash);
+        if (existing && existing.embedding && Array.isArray(existing.embedding) && existing.embedding.length === currentDim) {
+          this.embeddingCache.set(chunk.contentHash, existing.embedding);
+          cachedVector = existing.embedding;
+        }
+      }
+
+      if (cachedVector) {
+        results[i] = cachedVector;
+      } else {
+        const textToEmbed = chunk.sectionHeading
+          ? '[' + chunk.sectionHeading + '] ' + chunk.textContent
+          : chunk.textContent;
+        uncachedIndices.push(i);
+        uncachedTexts.push(textToEmbed);
+      }
     }
 
-    return embedded;
+    if (uncachedTexts.length > 0) {
+      const vectors = await this.activeProvider.embedBatch(uncachedTexts);
+      for (let j = 0; j < uncachedIndices.length; j++) {
+        const originalIdx = uncachedIndices[j];
+        const vector = Array.isArray(vectors) ? vectors[j] : null;
+        results[originalIdx] = vector;
+
+        const chunk = chunks[originalIdx];
+        if (chunk.contentHash && vector) {
+          this.embeddingCache.set(chunk.contentHash, vector);
+        }
+      }
+    }
+
+    return chunks.map((chunk, i) => ({
+      ...chunk,
+      embedding: results[i],
+    }));
   }
 
   cosineSimilarity(vecA, vecB) {
