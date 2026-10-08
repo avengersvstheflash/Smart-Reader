@@ -17,7 +17,7 @@ import uvicorn
 
 from ocr.routes import router as ocr_router, start_ocr_warmup, is_ocr_ready
 from nlp.routes import router as nlp_router, start_reranker_warmup
-from embed.routes import router as embed_router
+from embed.routes import router as embed_router, start_embed_warmup
 # F32.1: parse_router mounts /v1/parse (docx, rtf, and structure detection)
 from parse.routes import router as parse_router
 # F31: math_router mounts /v1/math
@@ -37,6 +37,8 @@ def on_startup():
     # 5.8.0i: warm the BGE reranker at boot so early synthesis calls
     # don't pay the 503 RERANKER_WARMING penalty during import.
     start_reranker_warmup()
+    # Warm BGE-M3 in FP16 so first import doesn't pay warmup penalty
+    start_embed_warmup()
 
 @app.get("/v1/health")
 def health_check():

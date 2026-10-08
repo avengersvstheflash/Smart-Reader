@@ -36,7 +36,7 @@ async function checkReady(baseUrl, timeoutMs = 500) {
   try {
     const signal = AbortSignal.timeout(timeoutMs);
     const res = await fetch(`${targetUrl}/v1/ready`, { signal });
-    if (res.status === 200) {
+    if (res.status === 200 || res.status === 404) {
       return { ready: true };
     }
     if (res.status === 503) {

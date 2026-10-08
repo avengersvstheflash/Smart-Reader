@@ -9,7 +9,7 @@ const rtfParser = require('./parsers/rtfParser');
 const config = require('../../config');
 const chapterDetector = require('./structure/chapterDetector');
 const documentStructureEngine = require('../structure/documentStructureEngine');
-const { classifySection, buildSectionMapFast } = require('../ai/sectionClassifier');
+const sectionClassifier = require('../ai/sectionClassifier');
 const { extractMath } = require('../ai/mathExtractor');
 const { CanonicalDocument } = require('./models/canonicalContent');
 
@@ -72,9 +72,13 @@ class IngestionService {
         throw new Error('PDF ingestion requires a valid file buffer.');
       }
 
+      const t0Pdf = Date.now();
+      const fileSizeMb = (fileBuffer.length / (1024 * 1024)).toFixed(2);
+      console.log(`[Ingestion] Starting PDF processing for "${originalFilename || title}" (${fileSizeMb} MB)...`);
+
       let structureMap = null;
       try {
-        structureMap = await buildSectionMapFast(fileBuffer);
+        structureMap = await sectionClassifier.buildSectionMapFast(fileBuffer);
       } catch (_e) {
         structureMap = { method: 'none', warnings: ['sidecar_down'] };
       }
@@ -100,6 +104,18 @@ class IngestionService {
         originalFilename,
         structureMap,
       });
+
+      const parseDurSec = ((Date.now() - t0Pdf) / 1000).toFixed(2);
+      const estChunks = Math.ceil((pdfResult?.totalWordCount || 0) / 120);
+      const estIndexingSec = Math.round(estChunks * 0.06);
+      console.log(
+        `[Ingestion] PDF parsed in ${parseDurSec}s: ${pdfResult?.chapters?.length || 0} chapters, ${pdfResult?.totalWordCount || 0} words (~${estChunks} estimated chunks)`
+      );
+      if (estChunks > 0) {
+        console.log(
+          `[Ingestion] Projected indexing duration: ~${estIndexingSec}s (${(estIndexingSec / 60).toFixed(1)} mins at GPU FP16 speed)`
+        );
+      }
 
       // Preserve role classification for TOC chapters if parser defaulted to 'chapter'
       if (pdfResult?.chapters && structureMap?.method === 'toc' && Array.isArray(structureMap.toc)) {
@@ -268,7 +284,7 @@ class IngestionService {
     let structureMap = null;
     if (fileBuffer && (format === 'pdf' || (fileBuffer.length >= 4 && fileBuffer[0] === 0x25 && fileBuffer[1] === 0x50))) {
       try {
-        structureMap = await buildSectionMapFast(fileBuffer);
+        structureMap = await sectionClassifier.buildSectionMapFast(fileBuffer);
         if (structureMap && structureMap.method === 'none' && (structureMap.warnings || []).includes('sidecar_down')) {
           const err = new Error(
             'Python sidecar unavailable for document structure detection. ' +
@@ -331,7 +347,7 @@ class IngestionService {
           isLastBlock: i === rawBlocks.length - 1,
           priorSection,
         };
-        const result = await classifySection(block, context);
+        const result = await sectionClassifier.classifySection(block, context);
         block.section = result.section;
         block.sectionConfidence = result.confidence;
         priorSection = result.section;

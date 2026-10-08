@@ -166,19 +166,12 @@ async function runTests() {
         };
       };
 
-      let threw = false;
-      let errCode = null;
-      try {
-        await embedClient.embedBatch(['warm-test'], {
-          retryIntervals: [10, 20],
-        });
-      } catch (err) {
-        threw = true;
-        errCode = err.code;
-      }
-      assert.strictEqual(threw, true, 'T5 failed: expected embedBatch to throw warming');
-      assert.strictEqual(errCode, 'EMBED_MODEL_WARMING');
-      console.log('[PASS] T5: sidecar warming (503) -> correctly throws EMBED_MODEL_WARMING');
+      const res = await embedClient.embedBatch(['warm-test'], {
+        retryIntervals: [10, 20],
+      });
+      assert.strictEqual(attempts, 2, `T5 failed: expected 2 attempts, got ${attempts}`);
+      assert.strictEqual(res.embeddings.length, 1);
+      console.log('[PASS] T5: sidecar warming (503) -> retries then succeeds');
     }
 
     // --------------------------------------------------------------------------

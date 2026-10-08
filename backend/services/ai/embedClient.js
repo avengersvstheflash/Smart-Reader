@@ -41,8 +41,18 @@ async function embedBatch(texts, options = {}) {
 
   await waitForReady(targetUrl, 90000);
 
+  const totalBatches = Math.ceil(texts.length / batchSize);
+  const embedStartTime = Date.now();
+  if (totalBatches > 1) {
+    console.log(
+      `[Embed] Starting embedding for ${texts.length} chunks across ${totalBatches} batches (batchSize=${batchSize})...`
+    );
+  }
+
   for (let i = 0; i < texts.length; i += batchSize) {
     const chunkTexts = texts.slice(i, i + batchSize);
+    const batchIndex = Math.floor(i / batchSize) + 1;
+    const batchT0 = Date.now();
     let attempt = 0;
 
     while (true) {
@@ -85,6 +95,17 @@ async function embedBatch(texts, options = {}) {
         }
         if (data.model) lastModel = data.model;
         if (data.dims) lastDims = data.dims;
+
+        if (totalBatches > 1) {
+          const batchSec = (Date.now() - batchT0) / 1000;
+          const elapsedSec = (Date.now() - embedStartTime) / 1000;
+          const avgSec = elapsedSec / batchIndex;
+          const remaining = totalBatches - batchIndex;
+          const etaSec = Math.round(avgSec * remaining);
+          console.log(
+            `[Embed] Batch ${batchIndex}/${totalBatches} complete (${chunkTexts.length} chunks in ${batchSec.toFixed(2)}s) | Elapsed: ${elapsedSec.toFixed(1)}s | ETA: ${etaSec}s`
+          );
+        }
         break;
       }
 
@@ -100,6 +121,12 @@ async function embedBatch(texts, options = {}) {
           }
         } catch (_) { }
         if (isWarming) {
+          if (attempt < maxRetries) {
+            const delay = retryIntervals[attempt] !== undefined ? retryIntervals[attempt] : 1000;
+            await new Promise((r) => setTimeout(r, delay));
+            attempt++;
+            continue;
+          }
           const err = new Error('Embedding model is still warming up');
           err.code = 'EMBED_MODEL_WARMING';
           throw err;

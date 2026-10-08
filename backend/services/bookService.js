@@ -242,6 +242,9 @@ class BookService {
       status: 'processing',
     });
 
+    const pipelineT0 = Date.now();
+    const stageTimings = {};
+
     // 2. Create Ingestion Job at start of lifecycle (0%)
     const job = jobRepository.create({
       book_id: book.id,
@@ -254,6 +257,7 @@ class BookService {
     try {
       // 3. Process through Ingestion Service Pipeline (20% before parse, 60% after parse)
       jobRepository.update(job.id, { progress: 20 });
+      const t0Ingest = Date.now();
       const ingestionResult = await ingestionService.ingest({
         title: provisionalTitle,
         author: author || '',
@@ -263,7 +267,9 @@ class BookService {
         originalFilename,
         contentType,
       });
+      stageTimings.ingestMs = Date.now() - t0Ingest;
       jobRepository.update(job.id, { progress: 60 });
+      console.log(`[Pipeline] Stage 1/5: INGEST complete in ${(stageTimings.ingestMs / 1000).toFixed(2)}s`);
 
       if (ingestionResult.webAcquired && ingestionResult.book) {
         jobRepository.complete(job.id);
@@ -368,13 +374,15 @@ class BookService {
           progress: 0,
         });
 
+        const t0Index = Date.now();
         Promise.resolve()
           .then(() => {
             return semanticLifecycle.indexBook(book.id, { skipJob: false, jobId: indexJob.id });
           })
           .then(() => {
+            stageTimings.indexMs = Date.now() - t0Index;
             jobRepository.complete(indexJob.id);
-            console.log(`[Import] Indexed ${book.id}`);
+            console.log(`[Pipeline] Stage 2/5: SEMANTIC_INDEX complete in ${(stageTimings.indexMs / 1000).toFixed(2)}s`);
           })
           .catch((err) => {
             console.warn(`[Import] Indexing failed: ${err.message}`);
@@ -383,8 +391,13 @@ class BookService {
           })
           .then(() => {
             console.log(`[Import] Classifying ${book.id}...`);
+            const t0Classify = Date.now();
             const bookClassifier = require('./ai/bookClassifier');
             return bookClassifier.classifyBook(book.id, { fast: false })
+              .then(() => {
+                stageTimings.classifyMs = Date.now() - t0Classify;
+                console.log(`[Pipeline] Stage 3/5: CLASSIFY complete in ${(stageTimings.classifyMs / 1000).toFixed(2)}s`);
+              })
               .catch((err) => {
                 console.warn(`[Import] Classification failed: ${err.message}`);
               });
@@ -393,9 +406,14 @@ class BookService {
             if (!qualifiesForOutline) return null;
 
             console.log(`[Import] Generating outline for ${book.id}...`);
+            const t0Outline = Date.now();
             const editorialService = require('./synthesis/editorialService');
             return editorialService.generateSingleBookOutline(book.id, {
               fast: true,
+            }).then((outline) => {
+              stageTimings.outlineMs = Date.now() - t0Outline;
+              console.log(`[Pipeline] Stage 4/5: OUTLINE complete in ${(stageTimings.outlineMs / 1000).toFixed(2)}s`);
+              return outline;
             }).catch((err) => {
               console.warn(`[Import] Outline failed: ${err.message}`);
               return null;
@@ -403,6 +421,7 @@ class BookService {
           })
           .then((outline) => {
             console.log(`[Import] Generating synopsis for ${book.id}...`);
+            const t0Synopsis = Date.now();
             const synopsisJob = jobRepository.create({
               book_id: book.id,
               type: 'SYNOPSIS',
@@ -413,6 +432,8 @@ class BookService {
             return intelligentSummarizer
               .generateSynopsis(book.id, { jobId: synopsisJob.id })
               .then(() => {
+                stageTimings.synopsisMs = Date.now() - t0Synopsis;
+                console.log(`[Pipeline] Stage 5/5: SYNOPSIS complete in ${(stageTimings.synopsisMs / 1000).toFixed(2)}s`);
                 jobRepository.complete(synopsisJob.id);
               })
               .catch((err) => {
@@ -475,6 +496,19 @@ class BookService {
               err.message
             );
             // Do NOT rethrow — this runs after the HTTP response was sent
+          })
+          .finally(() => {
+            const totalSec = ((Date.now() - pipelineT0) / 1000).toFixed(1);
+            console.log(
+              `\n============================================================\n` +
+              `📊 PIPELINE TELEMETRY SUMMARY: "${book.title}" (${totalSec}s total)\n` +
+              `  - 1. Ingest & Parse:   ${((stageTimings.ingestMs || 0) / 1000).toFixed(1)}s\n` +
+              `  - 2. Semantic Index:   ${((stageTimings.indexMs || 0) / 1000).toFixed(1)}s\n` +
+              `  - 3. Classification:   ${((stageTimings.classifyMs || 0) / 1000).toFixed(1)}s\n` +
+              `  - 4. Outline Gen:      ${((stageTimings.outlineMs || 0) / 1000).toFixed(1)}s\n` +
+              `  - 5. Synopsis Gen:     ${((stageTimings.synopsisMs || 0) / 1000).toFixed(1)}s\n` +
+              `============================================================\n`
+            );
           });
       }
 
