@@ -241,6 +241,8 @@ class AINormalizer {
   sanitizeRawText(str) {
     if (!str) return '';
     return str
+      // Strip [TITLE: ...] marker if emitted by LLM
+      .replace(/^\s*\[TITLE:[^\]\r\n]*\]\r?\n?/gim, '')
       // Replace raw HTML formatting tags with markdown tokens
       .replace(/<\/?(?:strong|b)>/gi, '**')
       .replace(/<\/?(?:em|i)>/gi, '*')

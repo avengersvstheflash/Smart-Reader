@@ -530,8 +530,206 @@ async function runTests() {
     console.log(`  ✓ Verified: Trailing heading merged backward — ${result.length} chunk(s) produced.\n`);
   }
 
+  // --------------------------------------------------------------------------
+  // Test 9: F38.3 Chapter Title Extraction & Stripping
+  // --------------------------------------------------------------------------
+  console.log('Test 9: F38.3 [TITLE: ...] is stripped from cleanContent and stored on smart_chapters.title');
+  {
+    const book = bookRepository.create({
+      title: 'F38.3 Title Test Book',
+      author: 'Tester',
+      content_type: 'research',
+    });
+
+    const chunkText = 'Distributed systems require explicit communication protocols to coordinate state changes across separate network nodes. ' +
+      'Consensus algorithms like Paxos and Raft provide fault-tolerant agreement on ordered state transitions. ' +
+      'Replication logs ensure durable writes across server instances before acknowledging client mutations. ' +
+      'Failure detectors monitor node heartbeats to identify unresponsive participants and initiate leader re-election. ' +
+      'Formal models ensure safety properties hold despite arbitrary network delays or node crashes. ' +
+      'By enforcing strict linearizability constraints, modern distributed architectures preserve consistent database states during unplanned hardware failures across geo-distributed compute clusters.';
+    const validChunk = semanticChunkRepository.create({
+      book_id: book.id,
+      sequence_index: 0,
+      text_content: chunkText,
+      token_count: 90,
+      section_heading: 'Title Section',
+    });
+
+    const outlineId = `outline-f383-${Date.now()}`;
+    const chapterId = `smart-${book.id}-ch-title`;
+
+    smartChapterRepository.create({
+      id: chapterId,
+      book_id: book.id,
+      sequence: 1,
+      title: 'Original Inherited Leaked Title (2)',
+      status: 'pending',
+      planned_source_section_ids: [validChunk.id],
+      planned_word_count: 260,
+    });
+
+    outlineRepository.saveOutline({
+      outlineId,
+      title: 'Title Outline',
+      type: 'single_book',
+      chapters: [
+        {
+          chapterId,
+          title: 'Original Inherited Leaked Title (2)',
+          sourceSectionIds: [validChunk.id],
+          targetWordCount: 260,
+        },
+      ],
+      createdAt: new Date().toISOString(),
+    });
+
+    const originalIsAvailable = aiService.isAvailable;
+    const originalGenerateText = aiService.generateText;
+
+    aiService.isAvailable = () => true;
+    aiService.generateText = async () => {
+      return {
+        text: '[TITLE: Distributed State Replication Protocols]\n\n' +
+          'Distributed systems require explicit communication protocols to coordinate state changes across separate network nodes [Source 1]. ' +
+          'Consensus algorithms like Paxos and Raft provide fault-tolerant agreement on ordered state transitions [Source 1]. ' +
+          'Replication logs ensure durable writes across server instances before acknowledging client mutations [Source 1]. ' +
+          'Failure detectors monitor node heartbeats to identify unresponsive participants and initiate leader re-election [Source 1]. ' +
+          'Formal models ensure safety properties hold despite arbitrary network delays or node crashes [Source 1].\n\n' +
+          'Secondary replication mechanisms synchronize standby replicas through incremental log streaming [Source 1]. ' +
+          'Read consistency models determine whether client read operations observe linearizable state transitions [Source 1]. ' +
+          'Network partitions activate quorum requirements to guarantee single-leader invariants across regional data centers [Source 1]. ' +
+          'Snapshotting techniques compact append-only replication logs to conserve storage and accelerate recovery times [Source 1]. ' +
+          'Dynamic membership reconfiguration allows cluster nodes to join or leave without pausing ongoing transactional processing [Source 1].',
+        finish_reason: 'stop',
+        provider: 'mock_llm',
+        model: 'mock_v1',
+      };
+    };
+
+    try {
+      const synthResult = await synthesisService.synthesizeChapter(outlineId, chapterId, { fast: false });
+      assert.ok(synthResult, 'Synthesis result should exist');
+
+      const savedChapter = smartChapterRepository.getById(chapterId);
+      assert.ok(savedChapter, 'Saved chapter must exist');
+      assert.strictEqual(savedChapter.status, 'generated', 'Status should be generated');
+
+      // 1. Assert title is extracted and saved
+      assert.strictEqual(savedChapter.title, 'Distributed State Replication Protocols', 'smart_chapters.title should be the extracted LLM title');
+
+      // 2. Assert [TITLE: ...] is stripped from cleanContent
+      assert.ok(!savedChapter.content.includes('[TITLE:'), 'cleanContent must NOT contain [TITLE: marker');
+      assert.ok(!savedChapter.content.includes('Distributed State Replication Protocols]'), 'cleanContent must NOT contain trailing title marker bracket');
+
+      // 3. Assert canonicalBlocks do not contain [TITLE: ...]
+      const meta = typeof savedChapter.metadata_json === 'string'
+        ? JSON.parse(savedChapter.metadata_json)
+        : (savedChapter.metadata || {});
+      assert.strictEqual(meta.title, 'Distributed State Replication Protocols', 'metadata.title must match extracted title');
+      const hasTitleInBlocks = (meta.canonicalBlocks || []).some((b) => b.text && b.text.includes('[TITLE:'));
+      assert.strictEqual(hasTitleInBlocks, false, 'canonicalBlocks must not contain [TITLE: marker');
+
+      console.log('  ✓ Verified: [TITLE: ...] extracted to smart_chapters.title and stripped from cleanContent.\n');
+    } finally {
+      aiService.isAvailable = originalIsAvailable;
+      aiService.generateText = originalGenerateText;
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 10: F38.3 Missing [TITLE: ...] marker preserves existing title without crash
+  // --------------------------------------------------------------------------
+  console.log('Test 10: F38.3 Missing [TITLE: ...] marker preserves existing title without error');
+  {
+    const book = bookRepository.create({
+      title: 'F38.3 Missing Marker Test Book',
+      author: 'Tester',
+      content_type: 'research',
+    });
+
+    const chunkText = 'Distributed consensus models enforce deterministic state machine transitions across asynchronous computer networks without relying on central coordinators. ' +
+      'Leader election mechanisms such as Raft utilize randomized election timers to avoid concurrent split votes among healthy voting candidate nodes. ' +
+      'Quorum replication ensures that every accepted log entry is durably committed to stable storage before serving read requests. ' +
+      'Network partitions require explicit consistency trade-offs to prevent split-brain states during inter-region link severance across geographically distributed data centers. ' +
+      'Formal verification of safety invariants guarantees linearizable ordering across partitioned nodes.';
+    const validChunk = semanticChunkRepository.create({
+      book_id: book.id,
+      sequence_index: 0,
+      text_content: chunkText,
+      token_count: 90,
+      section_heading: 'Consensus Section',
+    });
+
+    const outlineId = `outline-f383-missing-${Date.now()}`;
+    const chapterId = `smart-${book.id}-ch-missing-title`;
+
+    smartChapterRepository.create({
+      id: chapterId,
+      book_id: book.id,
+      sequence: 1,
+      title: 'Preserved Original Title',
+      status: 'pending',
+      planned_source_section_ids: [validChunk.id],
+      planned_word_count: 260,
+    });
+
+    outlineRepository.saveOutline({
+      outlineId,
+      title: 'Missing Title Outline',
+      type: 'single_book',
+      chapters: [
+        {
+          chapterId,
+          title: 'Preserved Original Title',
+          sourceSectionIds: [validChunk.id],
+          targetWordCount: 260,
+        },
+      ],
+      createdAt: new Date().toISOString(),
+    });
+
+    const originalIsAvailable = aiService.isAvailable;
+    const originalGenerateText = aiService.generateText;
+
+    aiService.isAvailable = () => true;
+    aiService.generateText = async () => {
+      return {
+        text: 'Distributed consensus models enforce deterministic state machine transitions across asynchronous computer networks [Source 1]. ' +
+          'Leader election mechanisms such as Raft utilize randomized election timers to avoid concurrent split votes among healthy voting candidate nodes [Source 1]. ' +
+          'Quorum replication ensures that every accepted log entry is durably committed to stable storage before serving read requests [Source 1]. ' +
+          'Failure detectors monitor node heartbeats to identify unresponsive participants and initiate leader re-election [Source 1]. ' +
+          'Formal models ensure safety properties hold despite arbitrary network delays or node crashes [Source 1].\n\n' +
+          'Network partitions require explicit consistency trade-offs to prevent split-brain states during inter-region link severance [Source 1]. ' +
+          'Formal verification of safety invariants guarantees linearizable ordering across partitioned nodes [Source 1]. ' +
+          'Snapshotting techniques compact append-only replication logs to conserve storage and accelerate recovery times [Source 1]. ' +
+          'Secondary replication mechanisms synchronize standby replicas through incremental log streaming [Source 1]. ' +
+          'Dynamic membership reconfiguration allows cluster nodes to join or leave without pausing ongoing transactional processing [Source 1].',
+        finish_reason: 'stop',
+        provider: 'mock_llm',
+        model: 'mock_v1',
+      };
+    };
+
+    try {
+      const synthResult = await synthesisService.synthesizeChapter(outlineId, chapterId, { fast: false });
+      assert.ok(synthResult, 'Synthesis result should exist');
+
+      const savedChapter = smartChapterRepository.getById(chapterId);
+      assert.ok(savedChapter, 'Saved chapter must exist');
+      assert.strictEqual(savedChapter.status, 'generated', 'Status should be generated');
+
+      // Assert missing marker preserves original title without crash
+      assert.strictEqual(savedChapter.title, 'Preserved Original Title', 'Missing marker must preserve existing title');
+
+      console.log('  ✓ Verified: Missing [TITLE: ...] marker preserves original title without crash.\n');
+    } finally {
+      aiService.isAvailable = originalIsAvailable;
+      aiService.generateText = originalGenerateText;
+    }
+  }
+
   console.log('================================================================');
-  console.log('🎉 ALL PHASE 5.6 VALIDATION TESTS PASSED (8 tests)');
+  console.log('🎉 ALL PHASE 5.6 VALIDATION TESTS PASSED (10 tests)');
   console.log('================================================================\n');
 }
 

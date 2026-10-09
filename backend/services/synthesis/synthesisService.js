@@ -332,6 +332,10 @@ ABSOLUTE CEILING: 500 words. Do not exceed 500 words under any circumstances, ev
 If 360 words is genuinely insufficient for the source's information density, you may extend up to 500 words — but no further.
 
 Rules:
+- The very first line of your output MUST be: [TITLE: <short chapter title>] followed by a blank line.
+  Generate a concise title (3-8 words) that captures the chapter's core subject from the source material.
+  Title must not include source markers, quotes, or punctuation beyond standard title casing.
+  Must be the very first line of output, followed by a blank line.
 - Preserve every distinct concept, argument, example, and factual claim from the source. If the source names 14 methods, name all 14.
 - Do not add narrative framing, introductions, meta-commentary, transitions, or conclusions not present in the source. Begin directly with dense factual statements.
 - Do not paraphrase away specificity. "Gradient descent, SGD, and OLS" must not become "several optimization methods".
@@ -375,6 +379,10 @@ OUTPUT:`;
             return `Your previous output was ${wordCount} words, which exceeded the limit. Strictly condense into 250–360 words (target around 300 words).
 The 500-word ceiling strictly includes all [Source N] citation markers. Do not exceed ${bounds.hardCeiling} total words under any circumstances.
 Rules:
+- The very first line of your output MUST be: [TITLE: <short chapter title>] followed by a blank line.
+  Generate a concise title (3-8 words) that captures the chapter's core subject from the source material.
+  Title must not include source markers, quotes, or punctuation beyond standard title casing.
+  Must be the very first line of output, followed by a blank line.
 - Preserve every distinct concept, argument, example, and factual claim from the source.
 - Structure the output as 3–5 paragraphs separated by blank lines.
 - Every sentence must cite its source chunk at the end: [Source N].
@@ -452,13 +460,34 @@ OUTPUT:`;
       rawCompression = this.generateDeterministicSynthesis(chapter, context.includedChunks);
     }
 
+    // Step d0: Extract [TITLE: ...] marker and determine chapter title
+    let extractedTitle = null;
+    const titleMatch = rawCompression.match(/\[TITLE:\s*([^\]\r\n]+)\]/i);
+    if (titleMatch) {
+      const candidateTitle = titleMatch[1].trim().replace(/^["']|["']$/g, '').trim();
+      const wordCount = candidateTitle.split(/\s+/).filter(Boolean).length;
+      if (candidateTitle.length > 0 && wordCount <= 12) {
+        extractedTitle = candidateTitle;
+      }
+    }
+
+    const existingChapter = smartChapterRepository.getById(targetSmartId);
+    const existingTitle = (existingChapter && existingChapter.title) || chapter.title;
+    const finalTitle = extractedTitle || existingTitle;
+
+    // Strip [TITLE: ...] marker from rawCompression before paragraph splitting
+    const rawCompressionBody = rawCompression
+      .replace(/^\s*\[TITLE:[^\]\r\n]*\]\r?\n?/gim, '')
+      .replace(/\s*\[TITLE:[^\]\r\n]*\]/gi, '')
+      .trim();
+
     // Step d1: Signal A - Extract [Source N] claimed attributions before stripping markers
     const sourceMap = {};
     for (let i = 0; i < chunks.length; i++) {
       sourceMap[i + 1] = chunks[i].id;
     }
 
-    const rawParagraphs = rawCompression.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+    const rawParagraphs = rawCompressionBody.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
     const claimedAttributions = [];
 
     // F34.1a: Multi-batch rerank across all paragraphs in this chapter in a single round trip
@@ -601,7 +630,9 @@ OUTPUT:`;
       insufficientMarker = insufficientMatch[0].trim();
     }
 
-    let cleanContent = rawCompression.replace(/\s*\[Source\s+[\d\s,–-]+\]/gi, '').trim();
+    let cleanContent = rawCompressionBody
+      .replace(/\s*\[Source\s+[\d\s,–-]+\]/gi, '')
+      .trim();
     cleanContent = cleanContent.replace(/\[Source\s*$/i, '').trim();
     cleanContent = cleanContent.replace(/\s*\[INSUFFICIENT_M[^\]]*\]/gi, '').trim();
 
@@ -653,7 +684,7 @@ OUTPUT:`;
     const metadata = {
       outlineId,
       chapterId,
-      title: chapter.title,
+      title: finalTitle,
       grounded: true,
       chunkCount: chunks.length,
       provenance: chunkIds,
@@ -730,6 +761,7 @@ OUTPUT:`;
     let smartChapter = smartChapterRepository.getById(targetSmartId);
     if (smartChapter) {
       smartChapter = smartChapterRepository.update(targetSmartId, {
+        title: finalTitle,
         status: 'generated',
         content: cleanContent,
         synthesis_type: synthesisType,

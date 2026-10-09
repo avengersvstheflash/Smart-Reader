@@ -53,14 +53,13 @@ function ReaderSkeleton() {
 /** Status view for Smart chapters that are not yet generated */
 function SmartChapterStatus({
   status,
-  title,
   sequence,
   bookId,
   onGenerate,
   busy,
 }: {
   status: 'pending' | 'generating' | 'failed';
-  title: string | null;
+  title?: string | null;
   sequence: number;
   bookId: string;
   onGenerate: (count: number) => void;
@@ -71,7 +70,7 @@ function SmartChapterStatus({
       <div className="max-w-2xl mx-auto py-16 px-4 text-center space-y-4">
         <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
         <h2 className="text-h2 font-semibold text-ink">
-          {title || `Chapter ${sequence}`}
+          Chapter {sequence}
         </h2>
         <p className="text-body text-ink-muted">
           Synthesizing Omni chapter content with citations and provenance…
@@ -92,7 +91,7 @@ function SmartChapterStatus({
       <div className="max-w-2xl mx-auto py-16 px-4 text-center space-y-4">
         <AlertCircle className="w-10 h-10 text-err mx-auto" />
         <h2 className="text-h2 font-semibold text-ink">
-          {title || `Chapter ${sequence}`}
+          Chapter {sequence}
         </h2>
         <p className="text-body text-ink-muted">
           Generation failed for this chapter. You can retry generating it.
@@ -124,7 +123,7 @@ function SmartChapterStatus({
     <div className="max-w-2xl mx-auto py-16 px-4 text-center space-y-4">
       <Clock className="w-10 h-10 text-ink-muted mx-auto opacity-60" />
       <h2 className="text-h2 font-semibold text-ink">
-        {title || `Chapter ${sequence}`}
+        Chapter {sequence}
       </h2>
       <p className="text-body text-ink-muted">
         This Omni chapter is queued and has not been synthesized yet.
@@ -435,7 +434,7 @@ export default function ReaderRoute() {
     ? {
         id: smartChapter.id,
         number: smartChapter.sequence,
-        title: smartChapter.title || `Chapter ${smartChapter.sequence}`,
+        title: isGenerated ? (smartChapter.title || `Chapter ${smartChapter.sequence}`) : `Chapter ${smartChapter.sequence}`,
         wordCount: smartChapter.plannedWordCount || 0,
         status: 'read',
         bookId: smartChapter.bookId,
@@ -561,7 +560,7 @@ export default function ReaderRoute() {
             chapters={smartChapters.map((sc) => ({
               id: sc.id,
               number: sc.sequence,
-              title: sc.title || `Chapter ${sc.sequence}`,
+              title: sc.status === 'generated' ? (sc.title || `Chapter ${sc.sequence}`) : `Chapter ${sc.sequence}`,
               status: sc.status,
             }))}
             currentId={chapterId}

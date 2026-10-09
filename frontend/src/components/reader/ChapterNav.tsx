@@ -163,6 +163,9 @@ export function ChapterNav({
                 const isActive = ch.id === currentId;
                 const isHighlighted = highlightedIndex === idx;
                 const isNonGenerated = ch.status && ch.status !== 'generated';
+                const displayTitle = isNonGenerated
+                  ? `Chapter ${ch.number}`
+                  : (ch.title || `Chapter ${ch.number}`);
 
                 return (
                   <li key={ch.id} role="presentation">
@@ -191,7 +194,7 @@ export function ChapterNav({
                           <span className="text-caption text-faint mr-2 font-mono">
                             {ch.number}.
                           </span>
-                          <span className="truncate">{ch.title}</span>
+                          <span className="truncate">{displayTitle}</span>
                         </div>
                         {isNonGenerated && (
                           <span className="text-micro px-1.5 py-0.5 rounded bg-subtle text-ink-muted shrink-0 capitalize">
