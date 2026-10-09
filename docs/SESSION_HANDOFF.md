@@ -213,11 +213,29 @@
 - F37.7   FP16 + warmup + telemetry: CLOSED
 - F38     Chapter synthesis quality: OPEN (next session)
 - F39     TOC-listing leakage: OPEN
-- F40     Layout-aware PDF parsing: OPEN (v1.x)
-- F41     Hardware-aware routing: OPEN (v1.x)
 - F37.1   Runtime ONNX fallback: OPEN (deferred)
 - F37.3   Frontend warmup UX: OPEN (deferred)
 - 5.8i    Frontend walkthrough: QUEUED
+
+## Deferred to v1.5
+
+- F40 — Layout-aware PDF parsing (Marker / LayoutParser style).
+  Reason: current pipeline (PyMuPDF + TOC + structural roles) already
+  handles Reddi ML Systems Vol 1 (508K words, 256-entry TOC). Adding
+  a layout-aware model would introduce a second structural authority
+  and reopen closed work. Revisit only if a specific layout failure
+  surfaces.
+
+- F41 — Hardware-aware model routing (unload OCR/reranker when idle).
+  Reason: after F37.7 FP16, BGE-M3 sits at ~1.1 GB. No memory pressure
+  remains on the 4 GB RTX 3050 target. Fixing a problem that no longer
+  exists would add complexity for no gain.
+
+These are deliberately parked. Both would be justified only on
+significantly more capable hardware (RTX 5080/5090 class or a
+60-series laptop in the future). Current hardware, current pipeline,
+and current v1.0 scope are complete without them. Adding them now
+would be scope creep for its own sake.
 
 ## Next Session Opener
 
