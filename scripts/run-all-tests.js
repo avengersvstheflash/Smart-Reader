@@ -61,6 +61,7 @@ const SUITES = [
   'f37_python_embedder_default_test.js',
   'f37_2_embed_batch_size_test.js',
   'f37_5_pipeline_reliability_test.js',
+  'f38_manual_resynthesize_test.js',
 ];
 
 
