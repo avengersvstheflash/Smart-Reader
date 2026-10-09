@@ -116,7 +116,9 @@ from nlp.routes import nlp_slice, SliceRequest
 # Input with math alphanumeric and lone surrogate \ud835
 sections = [{'content': 'Equation: \\ud835\\udc00 + lone \\ud835 in text', 'wordCount': 10}]
 req = SliceRequest(sections=sections)
-res = asyncio.run(nlp_slice(req))
+res = nlp_slice(req)
+if asyncio.iscoroutine(res):
+    res = asyncio.run(res)
 out_bytes = json.dumps(res).encode('utf-8')
 print("STATUS:200")
 `;

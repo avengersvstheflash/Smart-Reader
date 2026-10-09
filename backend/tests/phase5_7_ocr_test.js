@@ -369,8 +369,106 @@ async function runTests() {
     assert.ok(hasEmptyOutputLog, 'Expected Decision: OCR_EMPTY_OUTPUT in warning logs');
     console.log('  ✓ T9 passed: parser correctly rejected empty OCR output with honest failure and logged OCR_EMPTY_OUTPUT');
 
+    // -------------------------------------------------------------------------
+    // T10: ocrPdf() throws .code === "OCR_TIMEOUT" when request exceeds timeout
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 10] ocrPdf() throws .code === "OCR_TIMEOUT" on timeout');
+    activeMockHandler = (req, res) => {
+      if (req.url === '/v1/ocr/pdf' && req.method === 'POST') {
+        // Deliberately delay response past timeout
+        setTimeout(() => {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ status: 'success', pages: [] }));
+        }, 300);
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    };
+
+    let t10Error = null;
+    try {
+      await pythonSidecarClient.ocrPdf(pdfBuffer, { timeoutMs: 50 });
+    } catch (err) {
+      t10Error = err;
+    }
+    assert.ok(t10Error, 'Expected ocrPdf to throw timeout error');
+    assert.strictEqual(t10Error.code, 'OCR_TIMEOUT', `Expected OCR_TIMEOUT, got ${t10Error.code}`);
+    assert.ok(t10Error.message.includes('timed out'), `Expected message to mention timed out, got: ${t10Error.message}`);
+    console.log('  ✓ T10 passed: ocrPdf correctly differentiates timeout with OCR_TIMEOUT');
+
+    // -------------------------------------------------------------------------
+    // T11: Parser integration: surfaces honest timeout message when OCR times out
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 11] Parser integration: surfaces honest timeout message when OCR times out');
+    activeMockHandler = (req, res) => {
+      if (req.url === '/v1/ready' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ready', model: 'ch_PP-OCRv4' }));
+        return;
+      }
+      if (req.url === '/v1/ocr/pdf' && req.method === 'POST') {
+        setTimeout(() => {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ status: 'success', pages: [] }));
+        }, 400);
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    };
+
+    let t11Error = null;
+    try {
+      await pdfjsParser.parse(pdfBuffer, { ocrTimeoutMs: 50 });
+    } catch (err) {
+      t11Error = err;
+    }
+    assert.ok(t11Error, 'Expected parser to throw on OCR timeout');
+    assert.ok(
+      t11Error.message.includes('OCR processing timed out'),
+      `Expected message to mention OCR processing timed out, got: ${t11Error.message}`
+    );
+    console.log('  ✓ T11 passed: parser surfaces honest timeout error message when OCR times out');
+
+    // -------------------------------------------------------------------------
+    // T12: Parser integration: surfaces distinct failure message on 500 OCR failure
+    // -------------------------------------------------------------------------
+    console.log('\n[Test 12] Parser integration: surfaces distinct failure message on 500 OCR failure');
+    activeMockHandler = (req, res) => {
+      if (req.url === '/v1/ready' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ready', model: 'ch_PP-OCRv4' }));
+        return;
+      }
+      if (req.url === '/v1/ocr/pdf' && req.method === 'POST') {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'error', code: 'OCR_PROCESSING_FAILED', message: 'Engine CUDA OOM' }));
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    };
+
+    let t12Error = null;
+    try {
+      await pdfjsParser.parse(pdfBuffer);
+    } catch (err) {
+      t12Error = err;
+    }
+    assert.ok(t12Error, 'Expected parser to throw on OCR 500 failure');
+    assert.ok(
+      t12Error.message.includes('OCR processing failed in the sidecar engine'),
+      `Expected message to mention OCR processing failed in the sidecar engine, got: ${t12Error.message}`
+    );
+    assert.ok(
+      t12Error.message.includes('Engine CUDA OOM'),
+      `Expected message to include server message detail, got: ${t12Error.message}`
+    );
+    console.log('  ✓ T12 passed: parser surfaces honest 500 failure detail without confusing offline error');
+
     console.log('\n================================================================');
-    console.log('🎉 ALL 9 OCR INTEGRATION & MOCK TESTS PASSED');
+    console.log('🎉 ALL 12 OCR INTEGRATION & MOCK TESTS PASSED');
     console.log('================================================================\n');
   } finally {
     process.env.PYTHON_SIDECAR_URL = originalEnvUrl;
