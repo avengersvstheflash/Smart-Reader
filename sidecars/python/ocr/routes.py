@@ -1,4 +1,5 @@
 import io
+import os
 import sys
 import threading
 import time
@@ -23,10 +24,25 @@ def warm_up_engine():
     print("[Warmup] Starting PaddleOCR (ch_PP-OCRv4) background warm-up...")
     t0 = time.time()
     try:
-        engine = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
-        # Run a lightweight 64x64 blank image inference to load execution graph and weights into memory
-        blank_img = np.ones((64, 64, 3), dtype=np.uint8) * 255
-        engine.ocr(blank_img, cls=True)
+        cpu_count = os.cpu_count() or 8
+        cpu_threads = min(12, max(4, cpu_count))
+        try:
+            engine = PaddleOCR(
+                use_angle_cls=True,
+                lang="ch",
+                show_log=False,
+                enable_mkldnn=True,
+                cpu_threads=cpu_threads,
+            )
+            blank_img = np.ones((64, 64, 3), dtype=np.uint8) * 255
+            engine.ocr(blank_img, cls=True)
+            print(f"[Warmup] PaddleOCR initialized with MKLDNN enabled ({cpu_threads} threads)")
+        except Exception as mkldnn_err:
+            print(f"[Warmup] MKLDNN init failed ({mkldnn_err}), falling back to standard CPU engine")
+            engine = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
+            blank_img = np.ones((64, 64, 3), dtype=np.uint8) * 255
+            engine.ocr(blank_img, cls=True)
+
         ocr_engine = engine
         warmup_duration_sec = round(time.time() - t0, 2)
         is_ready = True
@@ -68,26 +84,49 @@ def _ocr_pdf_sync(content):
     pages_out: List[Dict[str, Any]] = []
     all_confidences: List[float] = []
     total_extracted_chars = 0
+    total_supported_chars = 0
+
+    target_dpi = int(os.environ.get("OCR_DPI", "175"))
 
     for page_idx in range(len(doc)):
-        page = doc[page_idx]
-        # 200 DPI provides an optimal balance between recognition accuracy and CPU rasterization speed
-        pix = page.get_pixmap(dpi=200)
-        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape((pix.h, pix.w, pix.n))
-        if pix.n == 4:
-            img = img[:, :, :3]
-
-        ocr_res = ocr_engine.ocr(img, cls=True)
         page_lines: List[str] = []
+        try:
+            page = doc[page_idx]
+            rect = page.rect
+            max_dim_pt = max(rect.width, rect.height)
+            dpi = target_dpi
+            if max_dim_pt > 1200:
+                dpi = max(96, int(target_dpi * (1200 / max_dim_pt)))
 
-        if ocr_res and ocr_res[0]:
-            for line in ocr_res[0]:
-                text, conf = line[1]
-                cleaned = text.strip()
-                if cleaned:
-                    page_lines.append(cleaned)
-                    all_confidences.append(float(conf))
-                    total_extracted_chars += len(cleaned)
+            # Direct sRGB rasterization: handles CMYK, Grayscale, Alpha, Stride natively in C++
+            pix = page.get_pixmap(dpi=dpi, colorspace=fitz.csRGB, alpha=False)
+            img = np.frombuffer(pix.samples, dtype=np.uint8).reshape((pix.h, pix.w, 3))
+
+            # Dark-mode boost: invert if page has very dark background (white text on dark)
+            if img.mean() < 75.0:
+                img = 255 - img
+
+            ocr_res = ocr_engine.ocr(img, cls=True)
+
+            if ocr_res and ocr_res[0]:
+                for line in ocr_res[0]:
+                    if not (isinstance(line, (list, tuple)) and len(line) >= 2):
+                        continue
+                    line_data = line[1]
+                    if not (isinstance(line_data, (list, tuple)) and len(line_data) >= 2):
+                        continue
+                    text, conf = line_data[0], line_data[1]
+                    cleaned = str(text).strip()
+                    if cleaned:
+                        page_lines.append(cleaned)
+                        all_confidences.append(float(conf))
+                        total_extracted_chars += len(cleaned)
+                        for ch in cleaned:
+                            # Count ASCII printable (English letters, digits, punctuation, code) and CJK
+                            if 32 <= ord(ch) <= 126 or ('\u4e00' <= ch <= '\u9fff') or ('\u3040' <= ch <= '\u30ff'):
+                                total_supported_chars += 1
+        except Exception as page_err:
+            print(f"[OCR Warning] Failed to process page {page_idx + 1}: {page_err}", file=sys.stderr)
 
         page_text = "\n\n".join(page_lines)
         pages_out.append({
@@ -95,15 +134,19 @@ def _ocr_pdf_sync(content):
             "text": page_text
         })
 
-    # Diagnostic Language Guard (Step 5 Decision):
-    # 1. If document extracted text across pages, evaluate average line confidence.
-    # Clean English print yields avg confidence > 0.90 (calibration: ~0.95+).
-    # Foreign unsupported scripts forced through 'ch' yield severe degradation (e.g. Greek avg 0.54, Cyrillic 0.75).
-    # We enforce a conservative 0.80 average confidence threshold for multi-line extractions.
-    if len(all_confidences) >= 3:
+    # Diagnostic Language Guard:
+    # Protects against feeding garbage into downstream models when document is
+    # in an unsupported language (e.g. Cyrillic, Greek, Arabic) forced through 'ch' engine.
+    # Documents in English/Chinese/ASCII (including degraded/ugly scans, code, numbers)
+    # have high supported_chars ratio and are accepted regardless of low confidence.
+    if len(all_confidences) >= 3 and total_extracted_chars > 0:
         avg_conf = sum(all_confidences) / len(all_confidences)
-        if avg_conf < 0.80:
-            print(f"[LanguageGuard] Rejected document: average confidence {avg_conf:.4f} < 0.80 threshold")
+        supported_ratio = total_supported_chars / total_extracted_chars
+
+        # Only reject if document clearly belongs to an unsupported script
+        # (low supported character ratio AND low confidence)
+        if supported_ratio < 0.20 and avg_conf < 0.80:
+            print(f"[LanguageGuard] Rejected unsupported language document: avg_confidence={avg_conf:.4f}, supported_ratio={supported_ratio:.2f}")
             return JSONResponse(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 content={

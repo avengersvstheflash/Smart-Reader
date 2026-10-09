@@ -105,7 +105,17 @@ class PDFJSParser {
         }
 
         if (readyStatus.ready) {
-          const ocrResult = await pythonSidecarClient.ocrPdf(buffer);
+          const dynamicTimeoutMs = options.ocrTimeoutMs || Math.max(
+            config.PYTHON_SIDECAR_TIMEOUT_MS || 120000,
+            pageCount * 25000 + 60000
+          );
+          console.log(
+            `[Routing: Ingestion] Format: PDF | Decision: PYTHON_OCR_INVOKE | Pages: ${pageCount} | Timeout: ${Math.round(dynamicTimeoutMs / 1000)}s`
+          );
+          const ocrResult = await pythonSidecarClient.ocrPdf(buffer, {
+            pageCount,
+            timeoutMs: dynamicTimeoutMs,
+          });
           if (ocrResult && Array.isArray(ocrResult.pages) && ocrResult.pages.length > 0) {
             pages = ocrResult.pages.map((p, idx) => ({
               num: typeof p.num === 'number' ? p.num : idx + 1,
@@ -136,6 +146,16 @@ class PDFJSParser {
             "This PDF document contains little or no selectable text. OCR was attempted but the document's language is not yet supported (currently English and Chinese)."
           );
         }
+        if (err.code === 'OCR_TIMEOUT') {
+          throw new Error(
+            `This PDF document contains little or no selectable text and requires OCR. However, OCR processing timed out for ${pageCount} pages. Please retry or adjust timeout settings.`
+          );
+        }
+        if (err.code === 'OCR_PROCESSING_FAILED') {
+          throw new Error(
+            `This PDF document contains little or no selectable text. OCR processing failed in the sidecar engine: ${err.message}`
+          );
+        }
         if (ocrSuccess) {
           throw err;
         }
@@ -143,6 +163,11 @@ class PDFJSParser {
       }
 
       if (!ocrSuccess) {
+        if (ocrErr && ocrErr.code === 'OCR_PROCESSING_FAILED') {
+          throw new Error(
+            `This PDF document contains little or no selectable text. OCR processing failed in the sidecar engine: ${ocrErr.message}`
+          );
+        }
         const failureErr = ocrErr || new Error('Sidecar unavailable');
         console.warn(
           `[Routing: Ingestion] Format: PDF | Decision: OCR_FAILED_FALLBACK | Error: ${failureErr.message} | Action: Rejecting with honest failure`
