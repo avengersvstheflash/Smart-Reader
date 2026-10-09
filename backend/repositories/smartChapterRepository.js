@@ -28,6 +28,25 @@ class SmartChapterRepository {
     return info.changes > 0;
   }
 
+  /**
+   * Atomically claim a failed (or pending) chapter for resynthesis.
+   * If force is true, allows re-claiming generated chapters as well (as long as not generating).
+   *
+   * @param {string} id
+   * @param {boolean|{ force?: boolean }} [options]
+   * @returns {boolean} true if changes > 0
+   */
+  forceClaimForSynthesis(id, options = {}) {
+    const force = typeof options === 'boolean' ? options : Boolean(options && options.force);
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const query = force
+      ? "UPDATE smart_chapters SET status = 'generating', updated_at = ? WHERE id = ? AND status != 'generating'"
+      : "UPDATE smart_chapters SET status = 'generating', updated_at = ? WHERE id = ? AND status IN ('failed', 'pending')";
+    const info = db.prepare(query).run(now, id);
+    return info.changes > 0;
+  }
+
   create(chapter) {
     const db = getDatabase();
     const now = new Date().toISOString();

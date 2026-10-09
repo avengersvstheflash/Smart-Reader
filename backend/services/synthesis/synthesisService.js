@@ -82,6 +82,119 @@ class SynthesisService {
     }
   }
 
+  /**
+   * Manually resynthesize an existing smart chapter (status 'failed' or 'pending', or 'generated' if force: true).
+   * Reuses the chapter's planned_source_section_ids without re-planning or re-slicing.
+   *
+   * @param {string} targetSmartId
+   * @param {Object} [options={}]
+   * @returns {Promise<Object>}
+   */
+  async resynthesizeChapter(targetSmartId, options = {}) {
+    const smartChapter = smartChapterRepository.getById(targetSmartId);
+    if (!smartChapter) {
+      const err = new Error(`Smart chapter not found: ${targetSmartId}`);
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (smartChapter.status === 'generating') {
+      const err = new Error(`Chapter ${targetSmartId} is currently generating`);
+      err.statusCode = 409;
+      throw err;
+    }
+
+    const claimed = smartChapterRepository.forceClaimForSynthesis(targetSmartId, options);
+    if (!claimed) {
+      const err = new Error(`Cannot claim chapter ${targetSmartId} (status: ${smartChapter.status})`);
+      err.statusCode = 409;
+      throw err;
+    }
+
+    let meta = {};
+    try {
+      meta = typeof smartChapter.metadata_json === 'string'
+        ? JSON.parse(smartChapter.metadata_json)
+        : (smartChapter.metadata || {});
+    } catch {}
+
+    let outline = null;
+    if (meta.outlineId) {
+      outline = outlineRepository.getById(meta.outlineId);
+    }
+    if (!outline && smartChapter.book_id) {
+      outline = outlineRepository.getByBookId(smartChapter.book_id);
+    }
+    if (!outline) {
+      outline = {
+        outlineId: meta.outlineId || `book-editorial-${smartChapter.book_id}`,
+        collectionId: smartChapter.book_id,
+        type: smartChapter.synthesis_type || 'single_book',
+        chapters: [],
+      };
+    }
+
+    let sourceSectionIds = [];
+    if (smartChapter.planned_source_section_ids) {
+      try {
+        sourceSectionIds = typeof smartChapter.planned_source_section_ids === 'string'
+          ? JSON.parse(smartChapter.planned_source_section_ids)
+          : smartChapter.planned_source_section_ids;
+      } catch {}
+    }
+    if (!Array.isArray(sourceSectionIds) || sourceSectionIds.length === 0) {
+      if (Array.isArray(meta.provenance) && meta.provenance.length > 0) {
+        sourceSectionIds = meta.provenance;
+      }
+    }
+
+    const existingOutlineChapter = Array.isArray(outline.chapters)
+      ? outline.chapters.find((c) => (
+          c.chapterId === targetSmartId ||
+          c.id === targetSmartId ||
+          (typeof c.chapterId === 'string' && c.chapterId.endsWith(`-${targetSmartId}`)) ||
+          (typeof c.id === 'string' && c.id.endsWith(`-${targetSmartId}`)) ||
+          (typeof targetSmartId === 'string' && targetSmartId.endsWith(`-${c.chapterId || c.id}`))
+        ))
+      : null;
+
+    const chapterObj = {
+      ...(existingOutlineChapter || {}),
+      id: targetSmartId,
+      chapterId: targetSmartId,
+      title: smartChapter.title || (existingOutlineChapter && existingOutlineChapter.title) || null,
+      sequence: smartChapter.sequence !== undefined ? smartChapter.sequence : (existingOutlineChapter && existingOutlineChapter.sequence),
+      targetWordCount: smartChapter.planned_word_count || (existingOutlineChapter && existingOutlineChapter.targetWordCount) || meta.target_word_count || meta.assessed_target_words,
+      sourceSectionIds: sourceSectionIds.length > 0 ? sourceSectionIds : (existingOutlineChapter?.sourceSectionIds || []),
+    };
+
+    try {
+      return await this._executeSynthesizeChapter(outline, chapterObj, targetSmartId, {
+        ...options,
+        resynthesis_source: 'manual',
+      });
+    } catch (err) {
+      const existing = smartChapterRepository.getById(targetSmartId);
+      if (existing) {
+        let existingMeta = {};
+        try {
+          existingMeta = typeof existing.metadata_json === 'string'
+            ? JSON.parse(existing.metadata_json)
+            : (existing.metadata || {});
+        } catch {}
+        smartChapterRepository.update(targetSmartId, {
+          status: 'failed',
+          metadata_json: {
+            ...existingMeta,
+            error: err.message,
+            failedAt: new Date().toISOString(),
+          },
+        });
+      }
+      throw err;
+    }
+  }
+
   async _executeSynthesizeChapter(outline, chapter, targetSmartId, options) {
     const outlineId = outline.outlineId;
     const chapterId = targetSmartId;
@@ -224,7 +337,7 @@ Rules:
 - Do not paraphrase away specificity. "Gradient descent, SGD, and OLS" must not become "several optimization methods".
 - Every sentence must cite its source chunk at the end: [Source N].
 - Structure the output as 3–5 paragraphs separated by blank lines. Each paragraph covers one coherent movement of the source. Do not emit as a single block.
-- Final enforcement: count your own words. If you would exceed 500, cut from the middle, not the end. The last sentence must be complete.
+- Final enforcement: count your own words. The 500-word ceiling includes all citation markers. If you would exceed 500 words, cut from the middle, not the end. The last sentence must be complete.
 
 If 500 words is strictly too small for the source's information density, emit [INSUFFICIENT_M: needs ~X words] as the final line instead of exceeding 500 words.
 
@@ -259,13 +372,13 @@ OUTPUT:`;
             if (vType === 'structural_placeholder') {
               return `${compressionPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous output lacked normal sentence structure or variety. Emit well-formed sentences with standard punctuation (. ! ?) and distinct prose paragraphs. Target range: 250–360 words. Ceiling: ${bounds.hardCeiling}. Floor: ${bounds.hardFloor}.`;
             }
-            return `Your previous output was ${wordCount} words. Target range: 250–360 words. Absolute bounds: [${bounds.hardFloor}, ${bounds.hardCeiling}].
-Rewrite to fit within the 250–360 range (or up to 500 words if dense), preserving every distinct concept.
+            return `Your previous output was ${wordCount} words, which exceeded the limit. Strictly condense into 250–360 words (target around 300 words).
+The 500-word ceiling strictly includes all [Source N] citation markers. Do not exceed ${bounds.hardCeiling} total words under any circumstances.
 Rules:
 - Preserve every distinct concept, argument, example, and factual claim from the source.
 - Structure the output as 3–5 paragraphs separated by blank lines.
 - Every sentence must cite its source chunk at the end: [Source N].
-- Do not exceed ${bounds.hardCeiling} words.
+- Do not exceed ${bounds.hardCeiling} words total.
 
 SOURCE MATERIAL:
 ${sourceMaterial}
@@ -557,6 +670,7 @@ OUTPUT:`;
       truncated,
       finish_reason: finishReason,
       resynthesis_attempts: resynthesisAttempts,
+      ...(options.resynthesis_source ? { resynthesis_source: options.resynthesis_source } : {}),
       ...(violation_type ? { violation_type } : {}),
       ...(insufficientMarker ? { insufficient_marker: insufficientMarker } : {}),
       ...(fellBack ? {

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -11,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
-import { useSmartChapters, useResumeTarget } from '../hooks/useSmartChapters';
+import { useSmartChapters, useResumeTarget, useResynthesizeSmartChapter } from '../hooks/useSmartChapters';
 import { formatRelativeTime } from '../lib/relativeTime';
 import { useModal } from '../store/useModalStore';
 import { getCoverTheme } from '../components/library/BookCard';
@@ -118,6 +119,10 @@ export default function BookDetailsRoute() {
   } = useSemanticStatus(bookId);
 
   const { resumeTarget } = useResumeTarget(bookId);
+
+  const { mutateAsync: resynthesizeChapter } = useResynthesizeSmartChapter(bookId);
+  const [resynthesizingId, setResynthesizingId] = useState<string | null>(null);
+  const [resynthesizeToast, setResynthesizeToast] = useState<{ chapterId: string; message: string } | null>(null);
 
   const providerLabel = formatAiProvider(book?.aiProvider);
 
@@ -506,98 +511,151 @@ export default function BookDetailsRoute() {
               <p className="text-micro text-ink-faint mt-1">They will appear here once synthesis begins.</p>
             </div>
           ) : (
-            <ol role="list" className="divide-y divide-line/40">
-              {smartChapters.map((sc, index) => {
-                const isGenerated = sc.status === 'generated';
-                const isGenerating = sc.status === 'generating';
-                const isPending = sc.status === 'pending';
-                const isFailed = sc.status === 'failed';
+            <>
+              {resynthesizeToast && (
+                <div
+                  role="alert"
+                  className="mb-4 p-3 rounded-md border border-err/30 bg-err/10 text-err text-xs flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{resynthesizeToast.message}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setResynthesizeToast(null)}
+                    className="text-err hover:opacity-75 font-semibold ml-3 shrink-0"
+                    aria-label="Dismiss alert"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              <ol role="list" className="divide-y divide-line/40">
+                {smartChapters.map((sc, index) => {
+                  const isGenerated = sc.status === 'generated';
+                  const isGenerating = sc.status === 'generating';
+                  const isPending = sc.status === 'pending';
+                  const isFailed = sc.status === 'failed';
+                  const isChapterResynthesizing = resynthesizingId === sc.id;
 
-                const queuedStyles = [
-                  'bg-[rgb(var(--accent-4)/0.15)] text-[rgb(var(--accent-4))]',
-                  'bg-[rgb(var(--accent-2)/0.15)] text-[rgb(var(--accent-2))]',
-                  'bg-[rgb(var(--neon-red,var(--err))/0.15)] text-[rgb(var(--neon-red,var(--err))]',
-                ];
-                const queuedStyle = queuedStyles[index % 3];
+                  const queuedStyles = [
+                    'bg-[rgb(var(--accent-4)/0.15)] text-[rgb(var(--accent-4))]',
+                    'bg-[rgb(var(--accent-2)/0.15)] text-[rgb(var(--accent-2))]',
+                    'bg-[rgb(var(--neon-red,var(--err))/0.15)] text-[rgb(var(--neon-red,var(--err))]',
+                  ];
+                  const queuedStyle = queuedStyles[index % 3];
 
-                const badge = isGenerating ? (
-                  <span className="text-micro font-semibold px-2 py-0.5 rounded-full bg-accent/10 text-accent-ink animate-pulse">
-                    Generating…
-                  </span>
-                ) : isPending ? (
-                  <span className={`text-micro font-medium px-2 py-0.5 rounded-full ${queuedStyle}`}>
-                    Queued
-                  </span>
-                ) : isFailed ? (
-                  <span className="text-micro font-semibold px-2 py-0.5 rounded-full bg-err/10 text-err">
-                    Failed
-                  </span>
-                ) : null;
-
-                const readStyle = index % 2 === 0
-                  ? 'bg-[rgb(var(--accent-3)/0.15)] text-[rgb(var(--accent-3))]'
-                  : 'bg-[rgb(var(--accent)/0.15)] text-[rgb(var(--accent))]';
-
-                const readIndicator = sc.readAt ? (
-                  <span className={`text-micro font-medium px-2 py-0.5 rounded-full shrink-0 ${readStyle}`}>
-                    Read {formatRelativeTime(sc.readAt)}
-                  </span>
-                ) : sc.openedAt ? (
-                  <span className="text-micro text-ink-faint shrink-0">
-                    Opened {formatRelativeTime(sc.openedAt)}
-                  </span>
-                ) : null;
-
-                const rowContent = (
-                  <>
-                    <div className="flex items-center gap-3 min-w-0 flex-1 pr-4">
-                      <span className="font-mono text-caption text-faint w-7 text-right shrink-0">
-                        {sc.sequence}.
+                  const badge = (isGenerating || isChapterResynthesizing) ? (
+                    <span className="inline-flex items-center gap-1.5 text-micro font-semibold px-2 py-0.5 rounded-full bg-accent/10 text-accent-ink animate-pulse">
+                      <RotateCw className="w-3 h-3 animate-spin" />
+                      Generating…
+                    </span>
+                  ) : isPending ? (
+                    <span className={`text-micro font-medium px-2 py-0.5 rounded-full ${queuedStyle}`}>
+                      Queued
+                    </span>
+                  ) : isFailed ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-micro font-semibold px-2 py-0.5 rounded-full bg-err/10 text-err">
+                        Failed
                       </span>
-                      <span
-                        className={`text-ui-sm truncate font-medium flex-1 min-w-0 ${
-                          isGenerated
-                            ? 'text-ink group-hover:text-accent-ink transition-colors'
-                            : 'text-ink-muted'
-                        }`}
+                      <button
+                        type="button"
+                        disabled={isChapterResynthesizing}
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setResynthesizingId(sc.id);
+                          setResynthesizeToast(null);
+                          try {
+                            await resynthesizeChapter({ smartChapterId: sc.id });
+                          } catch (err: any) {
+                            const failureReason = sc.metadata?.fallback_reason || sc.metadata?.error || err?.message || 'Synthesis failed';
+                            setResynthesizeToast({
+                              chapterId: sc.id,
+                              message: `Chapter ${sc.sequence} synthesis failed: ${failureReason}`,
+                            });
+                          } finally {
+                            setResynthesizingId(null);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-err/30 bg-err/10 text-err hover:bg-err/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                        title="Synthesize failed chapter"
                       >
-                        {sc.title ?? `Chapter ${sc.sequence}`}
-                      </span>
+                        <RotateCw className="w-3.5 h-3.5" />
+                        Synthesize Chapter
+                      </button>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {readIndicator}
-                      {badge}
-                    </div>
-                  </>
-                );
+                  ) : null;
 
-                return (
-                  <li key={sc.id}>
-                    {isGenerated ? (
-                      <Link
-                        to={`/read/${book.id}/${sc.id}`}
-                        className="group flex items-center justify-between py-2.5 px-3 rounded hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                      >
-                        {rowContent}
-                      </Link>
-                    ) : (
-                      <div
-                        className="flex items-center justify-between py-2.5 px-3 rounded opacity-60 cursor-not-allowed"
-                        title={
-                          isPending
-                            ? 'Not yet generated'
-                            : isGenerating
-                            ? 'Generating…'
-                            : 'Generation failed'
-                        }
-                      >
-                        {rowContent}
+                  const readStyle = index % 2 === 0
+                    ? 'bg-[rgb(var(--accent-3)/0.15)] text-[rgb(var(--accent-3))]'
+                    : 'bg-[rgb(var(--accent)/0.15)] text-[rgb(var(--accent))]';
+
+                  const readIndicator = sc.readAt ? (
+                    <span className={`text-micro font-medium px-2 py-0.5 rounded-full shrink-0 ${readStyle}`}>
+                      Read {formatRelativeTime(sc.readAt)}
+                    </span>
+                  ) : sc.openedAt ? (
+                    <span className="text-micro text-ink-faint shrink-0">
+                      Opened {formatRelativeTime(sc.openedAt)}
+                    </span>
+                  ) : null;
+
+                  const rowContent = (
+                    <>
+                      <div className="flex items-center gap-3 min-w-0 flex-1 pr-4">
+                        <span className="font-mono text-caption text-faint w-7 text-right shrink-0">
+                          {sc.sequence}.
+                        </span>
+                        <span
+                          className={`text-ui-sm truncate font-medium flex-1 min-w-0 ${
+                            isGenerated
+                              ? 'text-ink group-hover:text-accent-ink transition-colors'
+                              : 'text-ink-muted'
+                          }`}
+                        >
+                          {sc.title ?? `Chapter ${sc.sequence}`}
+                        </span>
                       </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {readIndicator}
+                        {badge}
+                      </div>
+                    </>
+                  );
+
+                  return (
+                    <li key={sc.id}>
+                      {isGenerated ? (
+                        <Link
+                          to={`/read/${book.id}/${sc.id}`}
+                          className="group flex items-center justify-between py-2.5 px-3 rounded hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        >
+                          {rowContent}
+                        </Link>
+                      ) : (
+                        <div
+                          className={`flex items-center justify-between py-2.5 px-3 rounded ${
+                            isFailed ? '' : 'opacity-60 cursor-not-allowed'
+                          }`}
+                          title={
+                            isPending
+                              ? 'Not yet generated'
+                              : isGenerating
+                              ? 'Generating…'
+                              : undefined
+                          }
+                        >
+                          {rowContent}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </>
           )}
         </div>
 

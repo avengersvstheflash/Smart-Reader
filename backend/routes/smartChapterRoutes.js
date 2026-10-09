@@ -157,4 +157,41 @@ router.post('/:id/progress', (req, res, next) => {
   }
 });
 
+// POST /api/smart-chapters/:id/resynthesize - manual resynthesize for failed chapters
+router.post('/:id/resynthesize', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { force = false } = req.body || {};
+
+    const chapter = smartChapterRepository.getById(id);
+    if (!chapter) {
+      return res.status(404).json({ error: `Smart chapter not found: ${id}` });
+    }
+
+    if (chapter.status === 'generating') {
+      return res.status(409).json({ error: `Chapter ${id} is currently generating` });
+    }
+
+    if (chapter.status === 'generated' && !force) {
+      return res.status(409).json({ error: `Chapter ${id} is already generated (use force: true to re-generate)` });
+    }
+
+    const synthesisService = require('../services/synthesis/synthesisService');
+    const result = await synthesisService.resynthesizeChapter(id, { force });
+
+    return res.json({
+      success: true,
+      result,
+    });
+  } catch (err) {
+    if (err.statusCode === 404) {
+      return res.status(404).json({ error: err.message });
+    }
+    if (err.statusCode === 409) {
+      return res.status(409).json({ error: err.message });
+    }
+    next(err);
+  }
+});
+
 module.exports = router;

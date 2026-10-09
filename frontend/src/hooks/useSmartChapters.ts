@@ -185,3 +185,32 @@ export function useResumeTarget(bookId: string | null | undefined) {
     refetch,
   };
 }
+
+export function useResynthesizeSmartChapter(bookId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    { success: boolean },
+    Error,
+    { smartChapterId: string; force?: boolean }
+  >({
+    mutationFn: async ({ smartChapterId, force = false }) => {
+      return apiClient(`/api/smart-chapters/${smartChapterId}/resynthesize`, {
+        method: 'POST',
+        body: JSON.stringify({ force }),
+      });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['smart-chapters', variables.smartChapterId] });
+      if (bookId) {
+        queryClient.invalidateQueries({ queryKey: ['smart-chapters', 'book', bookId] });
+        queryClient.invalidateQueries({ queryKey: ['resume-target', bookId] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['smart-chapters'] });
+        queryClient.invalidateQueries({ queryKey: ['resume-target'] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+      queryClient.invalidateQueries({ queryKey: ['book'] });
+    },
+  });
+}
