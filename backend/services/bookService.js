@@ -375,129 +375,80 @@ class BookService {
         });
 
         const t0Index = Date.now();
-        Promise.resolve()
-          .then(() => {
-            return semanticLifecycle.indexBook(book.id, { skipJob: false, jobId: indexJob.id });
-          })
-          .then(() => {
+        (async () => {
+          try {
+            await semanticLifecycle.indexBook(book.id, { skipJob: false, jobId: indexJob.id });
             stageTimings.indexMs = Date.now() - t0Index;
             jobRepository.complete(indexJob.id);
             console.log(`[Pipeline] Stage 2/5: SEMANTIC_INDEX complete in ${(stageTimings.indexMs / 1000).toFixed(2)}s`);
-          })
-          .catch((err) => {
-            console.warn(`[Import] Indexing failed: ${err.message}`);
-            jobRepository.fail(indexJob.id, err);
-            throw err;
-          })
-          .then(() => {
+
             console.log(`[Import] Classifying ${book.id}...`);
             const t0Classify = Date.now();
             const bookClassifier = require('./ai/bookClassifier');
-            return bookClassifier.classifyBook(book.id, { fast: false })
-              .then(() => {
-                stageTimings.classifyMs = Date.now() - t0Classify;
-                console.log(`[Pipeline] Stage 3/5: CLASSIFY complete in ${(stageTimings.classifyMs / 1000).toFixed(2)}s`);
-              })
-              .catch((err) => {
-                console.warn(`[Import] Classification failed: ${err.message}`);
-              });
-          })
-          .then(() => {
-            if (!qualifiesForOutline) return null;
+            await bookClassifier.classifyBook(book.id, { fast: false });
+            stageTimings.classifyMs = Date.now() - t0Classify;
+            console.log(`[Pipeline] Stage 3/5: CLASSIFY complete in ${(stageTimings.classifyMs / 1000).toFixed(2)}s`);
 
-            console.log(`[Import] Generating outline for ${book.id}...`);
-            const t0Outline = Date.now();
-            const editorialService = require('./synthesis/editorialService');
-            return editorialService.generateSingleBookOutline(book.id, {
-              fast: true,
-            }).then((outline) => {
+            if (qualifiesForOutline) {
+              console.log(`[Import] Generating outline for ${book.id}...`);
+              const t0Outline = Date.now();
+              const editorialService = require('./synthesis/editorialService');
+              const outline = await editorialService.generateSingleBookOutline(book.id, { fast: true });
               stageTimings.outlineMs = Date.now() - t0Outline;
               console.log(`[Pipeline] Stage 4/5: OUTLINE complete in ${(stageTimings.outlineMs / 1000).toFixed(2)}s`);
-              return outline;
-            }).catch((err) => {
-              console.warn(`[Import] Outline failed: ${err.message}`);
-              return null;
-            });
-          })
-          .then((outline) => {
-            console.log(`[Import] Generating synopsis for ${book.id}...`);
-            const t0Synopsis = Date.now();
-            const synopsisJob = jobRepository.create({
-              book_id: book.id,
-              type: 'SYNOPSIS',
-              status: 'PROCESSING',
-              progress: 0,
-            });
-            const intelligentSummarizer = require('./ai/intelligentSummarizer');
-            return intelligentSummarizer
-              .generateSynopsis(book.id, { jobId: synopsisJob.id })
-              .then(() => {
+
+              console.log(`[Import] Generating synopsis for ${book.id}...`);
+              const t0Synopsis = Date.now();
+              const synopsisJob = jobRepository.create({
+                book_id: book.id,
+                type: 'SYNOPSIS',
+                status: 'PROCESSING',
+                progress: 0,
+              });
+              const intelligentSummarizer = require('./ai/intelligentSummarizer');
+              try {
+                await intelligentSummarizer.generateSynopsis(book.id, { jobId: synopsisJob.id });
                 stageTimings.synopsisMs = Date.now() - t0Synopsis;
                 console.log(`[Pipeline] Stage 5/5: SYNOPSIS complete in ${(stageTimings.synopsisMs / 1000).toFixed(2)}s`);
                 jobRepository.complete(synopsisJob.id);
-              })
-              .catch((err) => {
+              } catch (err) {
                 console.warn(`[Import] Synopsis failed: ${err.message}`);
                 jobRepository.fail(synopsisJob.id, err);
-              })
-              .then(() => outline);
-          })
-          .then((outline) => {
-            if (!outline || !outline.chapters || outline.chapters.length === 0) {
-              if (qualifiesForOutline) {
-                console.warn(
-                  `[Import] No outline for ${book.id}; skipping auto-synthesis`
-                );
               }
-              return null;
-            }
 
-            console.log(
-              `[Import] Auto-synthesizing initial chapters for ${book.id}...`
-            );
-            const synthesisJob = jobRepository.create({
-              book_id: book.id,
-              type: 'SYNTHESIS',
-              status: 'PROCESSING',
-              progress: 0,
-            });
-            const editorialService = require('./synthesis/editorialService');
-            return editorialService
-              .synthesizeNextChapters(book.id, 3, { jobId: synthesisJob.id })
-              .then((result) => {
-                jobRepository.complete(synthesisJob.id);
-                if (result) {
-                  console.log(
-                    `[Import] Auto-synthesized ${result.synthesizedCount}/3 chapters for ${book.id}`
-                  );
-                }
-
-                // Non-blocking PROVENANCE_VERIFY pass across synthesized chapters
-                const provenanceResolver = require('./semantic/provenanceResolver');
-                provenanceResolver.triggerVerificationForBook(book.id)
-                  .then((pvRes) => {
+              if (outline && outline.chapters && outline.chapters.length > 0) {
+                console.log(`[Import] Auto-synthesizing initial chapters for ${book.id}...`);
+                const synthesisJob = jobRepository.create({
+                  book_id: book.id,
+                  type: 'SYNTHESIS',
+                  status: 'PROCESSING',
+                  progress: 0,
+                });
+                try {
+                  const result = await editorialService.synthesizeNextChapters(book.id, 3, { jobId: synthesisJob.id });
+                  jobRepository.complete(synthesisJob.id);
+                  if (result) {
+                    console.log(`[Import] Auto-synthesized ${result.synthesizedCount}/3 chapters for ${book.id}`);
+                  }
+                  
+                  // Non-blocking PROVENANCE_VERIFY pass
+                  const provenanceResolver = require('./semantic/provenanceResolver');
+                  provenanceResolver.triggerVerificationForBook(book.id).then((pvRes) => {
                     console.log(`[Import] Provenance verified for ${book.id}: ${pvRes.verifiedCount} chapter(s)`);
-                  })
-                  .catch((pvErr) => {
+                  }).catch((pvErr) => {
                     console.warn(`[Import] Provenance verification warning for ${book.id}:`, pvErr.message);
                   });
-
-                return result;
-              })
-              .catch((err) => {
-                console.warn(`[Import] Synthesis failed: ${err.message}`);
-                jobRepository.fail(synthesisJob.id, err);
-                return null;
-              });
-          })
-          .catch((err) => {
-            console.error(
-              `[Import] Background pipeline failed for ${book.id}:`,
-              err.message
-            );
-            // Do NOT rethrow — this runs after the HTTP response was sent
-          })
-          .finally(() => {
+                } catch (err) {
+                  console.warn(`[Import] Synthesis failed: ${err.message}`);
+                  jobRepository.fail(synthesisJob.id, err);
+                }
+              } else {
+                console.warn(`[Import] No outline for ${book.id}; skipping auto-synthesis`);
+              }
+            }
+          } catch (err) {
+            console.error(`[Import] Background pipeline failed for ${book.id}:`, err.message);
+          } finally {
             const totalSec = ((Date.now() - pipelineT0) / 1000).toFixed(1);
             console.log(
               `\n============================================================\n` +
@@ -509,7 +460,8 @@ class BookService {
               `  - 5. Synopsis Gen:     ${((stageTimings.synopsisMs || 0) / 1000).toFixed(1)}s\n` +
               `============================================================\n`
             );
-          });
+          }
+        })();
       }
 
       // 8. Return HTTP response immediately
