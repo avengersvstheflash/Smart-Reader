@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   BookOpen,
@@ -13,13 +13,13 @@ import {
 import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
 import { useSmartChapters, useResumeTarget, useResynthesizeSmartChapter } from '../hooks/useSmartChapters';
-import { formatRelativeTime } from '../lib/relativeTime';
 import { useModal } from '../store/useModalStore';
 import { getCoverTheme } from '../components/library/BookCard';
 import { ExpandableTagPanel } from '../components/library/ExpandableTagPanel';
 import { formatAuthorList } from '../types/domain';
 import { renderInlineText } from '../components/reader/CanonicalBlock';
 import { ButtonDecor } from '../components/reader/ButtonDecor';
+import { SmartChapterList } from '../components/reader/SmartChapterList';
 
 function formatAiProvider(raw?: string): string | null {
   if (!raw) return null;
@@ -122,7 +122,27 @@ export default function BookDetailsRoute() {
 
   const { mutateAsync: resynthesizeChapter } = useResynthesizeSmartChapter(bookId);
   const [resynthesizingId, setResynthesizingId] = useState<string | null>(null);
-  const [resynthesizeToast, setResynthesizeToast] = useState<{ chapterId: string; message: string } | null>(null);
+  const [resynthesizeToast, setResynthesizeToast] = useState<string | null>(null);
+
+  const handleResynthesize = async (smartChapterId: string) => {
+    setResynthesizingId(smartChapterId);
+    setResynthesizeToast(null);
+    try {
+      await resynthesizeChapter({ smartChapterId });
+    } catch (err: any) {
+      const chapter = smartChapters.find((c) => c.id === smartChapterId);
+      const failureReason =
+        chapter?.metadata?.fallback_reason ||
+        chapter?.metadata?.error ||
+        err?.message ||
+        'Synthesis failed';
+      setResynthesizeToast(
+        `Chapter ${chapter?.sequence ?? ''} synthesis failed: ${failureReason}`
+      );
+    } finally {
+      setResynthesizingId(null);
+    }
+  };
 
   const providerLabel = formatAiProvider(book?.aiProvider);
 
@@ -505,157 +525,14 @@ export default function BookDetailsRoute() {
                 <div key={i} className="h-11 bg-subtle rounded animate-pulse" />
               ))}
             </div>
-          ) : smartChapters.length === 0 ? (
-            <div className="py-8 text-center">
-              <p className="text-caption text-ink-muted">No Omni chapters yet.</p>
-              <p className="text-micro text-ink-faint mt-1">They will appear here once synthesis begins.</p>
-            </div>
           ) : (
-            <>
-              {resynthesizeToast && (
-                <div
-                  role="alert"
-                  className="mb-4 p-3 rounded-md border border-err/30 bg-err/10 text-err text-xs flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{resynthesizeToast.message}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setResynthesizeToast(null)}
-                    className="text-err hover:opacity-75 font-semibold ml-3 shrink-0"
-                    aria-label="Dismiss alert"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
-              <ol role="list" className="divide-y divide-line/40">
-                {smartChapters.map((sc, index) => {
-                  const isGenerated = sc.status === 'generated';
-                  const isGenerating = sc.status === 'generating';
-                  const isPending = sc.status === 'pending';
-                  const isFailed = sc.status === 'failed';
-                  const isChapterResynthesizing = resynthesizingId === sc.id;
-
-                  const queuedStyles = [
-                    'bg-[rgb(var(--accent-4)/0.15)] text-[rgb(var(--accent-4))]',
-                    'bg-[rgb(var(--accent-2)/0.15)] text-[rgb(var(--accent-2))]',
-                    'bg-[rgb(var(--neon-red,var(--err))/0.15)] text-[rgb(var(--neon-red,var(--err))]',
-                  ];
-                  const queuedStyle = queuedStyles[index % 3];
-
-                  const badge = (isGenerating || isChapterResynthesizing) ? (
-                    <span className="inline-flex items-center gap-1.5 text-micro font-semibold px-2 py-0.5 rounded-full bg-accent/10 text-accent-ink animate-pulse">
-                      <RotateCw className="w-3 h-3 animate-spin" />
-                      Generating…
-                    </span>
-                  ) : isPending ? (
-                    <span className={`text-micro font-medium px-2 py-0.5 rounded-full ${queuedStyle}`}>
-                      Queued
-                    </span>
-                  ) : isFailed ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-micro font-semibold px-2 py-0.5 rounded-full bg-err/10 text-err">
-                        Failed
-                      </span>
-                      <button
-                        type="button"
-                        disabled={isChapterResynthesizing}
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setResynthesizingId(sc.id);
-                          setResynthesizeToast(null);
-                          try {
-                            await resynthesizeChapter({ smartChapterId: sc.id });
-                          } catch (err: any) {
-                            const failureReason = sc.metadata?.fallback_reason || sc.metadata?.error || err?.message || 'Synthesis failed';
-                            setResynthesizeToast({
-                              chapterId: sc.id,
-                              message: `Chapter ${sc.sequence} synthesis failed: ${failureReason}`,
-                            });
-                          } finally {
-                            setResynthesizingId(null);
-                          }
-                        }}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-err/30 bg-err/10 text-err hover:bg-err/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                        title="Synthesize failed chapter"
-                      >
-                        <RotateCw className="w-3.5 h-3.5" />
-                        Synthesize Chapter
-                      </button>
-                    </div>
-                  ) : null;
-
-                  const readStyle = index % 2 === 0
-                    ? 'bg-[rgb(var(--accent-3)/0.15)] text-[rgb(var(--accent-3))]'
-                    : 'bg-[rgb(var(--accent)/0.15)] text-[rgb(var(--accent))]';
-
-                  const readIndicator = sc.readAt ? (
-                    <span className={`text-micro font-medium px-2 py-0.5 rounded-full shrink-0 ${readStyle}`}>
-                      Read {formatRelativeTime(sc.readAt)}
-                    </span>
-                  ) : sc.openedAt ? (
-                    <span className="text-micro text-ink-faint shrink-0">
-                      Opened {formatRelativeTime(sc.openedAt)}
-                    </span>
-                  ) : null;
-
-                  const rowContent = (
-                    <>
-                      <div className="flex items-center gap-3 min-w-0 flex-1 pr-4">
-                        <span className="font-mono text-caption text-faint w-7 text-right shrink-0">
-                          {sc.sequence}.
-                        </span>
-                        <span
-                          className={`text-ui-sm truncate font-medium flex-1 min-w-0 ${
-                            isGenerated
-                              ? 'text-ink group-hover:text-accent-ink transition-colors'
-                              : 'text-ink-muted'
-                          }`}
-                        >
-                          {sc.title ?? `Chapter ${sc.sequence}`}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        {readIndicator}
-                        {badge}
-                      </div>
-                    </>
-                  );
-
-                  return (
-                    <li key={sc.id}>
-                      {isGenerated ? (
-                        <Link
-                          to={`/read/${book.id}/${sc.id}`}
-                          className="group flex items-center justify-between py-2.5 px-3 rounded hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                        >
-                          {rowContent}
-                        </Link>
-                      ) : (
-                        <div
-                          className={`flex items-center justify-between py-2.5 px-3 rounded ${
-                            isFailed ? '' : 'opacity-60 cursor-not-allowed'
-                          }`}
-                          title={
-                            isPending
-                              ? 'Not yet generated'
-                              : isGenerating
-                              ? 'Generating…'
-                              : undefined
-                          }
-                        >
-                          {rowContent}
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            </>
+            <SmartChapterList
+              smartChapters={smartChapters}
+              resynthesizingId={resynthesizingId}
+              onResynthesize={handleResynthesize}
+              resynthesizeToast={resynthesizeToast}
+              onDismissToast={() => setResynthesizeToast(null)}
+            />
           )}
         </div>
 
