@@ -43,7 +43,12 @@ class SynthesisService {
       throw new Error(`Editorial outline not found: ${outlineId}`);
     }
 
-    const chapter = outline.chapters.find((c) => (c.chapterId === chapterId || c.id === chapterId));
+    const chapter = outline.chapters.find((c) => (
+      c.chapterId === chapterId ||
+      c.id === chapterId ||
+      (typeof c.chapterId === 'string' && c.chapterId.endsWith(`-${chapterId}`)) ||
+      (typeof c.id === 'string' && c.id.endsWith(`-${chapterId}`))
+    ));
     if (!chapter) {
       throw new Error(`Chapter ${chapterId} not found in outline ${outlineId}`);
     }
@@ -196,35 +201,32 @@ ${sourceMaterial}`;
       assessedTargetWords = maxAllowedWords;
     }
 
-    const hardCeiling = Math.round(assessedTargetWords * 1.2);
-    const hardFloor = Math.round(assessedTargetWords * 0.8);
+    // F38 (2026-10-09): Widen validation envelope to product range [150, 500].
+    // Typical slice (1500–2500 source words) targets 250–360 Omni words.
+    // Absolute ceiling is 500 words. Do not nitpick small overshoots.
+    const hardFloor = 150;
+    const hardCeiling = 500;
     const ratio = (N > 0 && assessedTargetWords > 0) ? (N / assessedTargetWords).toFixed(1) : '7.0';
 
     const compressionPrompt = `You are compressing a source text, not summarizing or synthesizing it.
 
 INPUT: ${N} source words across ${K} chunks.
-Compress this source to exactly ${assessedTargetWords} words. Hard ceiling: ${hardCeiling}. Hard floor: ${hardFloor}.
-Compression ratio for this task: ~${ratio}:1.
+
+Compress this source into a dense passage of 250–360 words. Aim for the middle of this range unless the source material is unusually sparse (aim lower) or unusually dense (aim near the top).
+
+ABSOLUTE CEILING: 500 words. Do not exceed 500 words under any circumstances, even for very dense material.
+
+If 360 words is genuinely insufficient for the source's information density, you may extend up to 500 words — but no further.
 
 Rules:
+- Preserve every distinct concept, argument, example, and factual claim from the source. If the source names 14 methods, name all 14.
+- Do not add narrative framing, introductions, meta-commentary, transitions, or conclusions not present in the source. Begin directly with dense factual statements.
+- Do not paraphrase away specificity. "Gradient descent, SGD, and OLS" must not become "several optimization methods".
+- Every sentence must cite its source chunk at the end: [Source N].
+- Structure the output as 3–5 paragraphs separated by blank lines. Each paragraph covers one coherent movement of the source. Do not emit as a single block.
+- Final enforcement: count your own words. If you would exceed 500, cut from the middle, not the end. The last sentence must be complete.
 
-Preserve every distinct concept, argument, example, and factual claim from the source. If the source names 14 methods, name all 14.
-
-Do not add narrative framing, introductions, meta-commentary, transitions, or conclusions not present in the source. Begin directly with dense factual statements.
-
-Do not paraphrase away specificity. "Gradient descent, SGD, and OLS" must not become "several optimization methods".
-
-Use the source's own structure denser, not a rewritten structure.
-
-Every sentence must cite its source chunk at the end: [Source N].
-
-Structure the output as 3–5 paragraphs separated by blank lines. Each paragraph covers one coherent movement of the source. Do not emit the output as a single block.
-
-Target length: exactly ${assessedTargetWords} words. Aim for the lower half of the band (${hardFloor}–${assessedTargetWords} words) to avoid ceiling overshoot. Do NOT exceed ${hardCeiling} words.
-
-If ${assessedTargetWords} words is strictly too small for the source's information density, emit [INSUFFICIENT_M: needs ~X words] as the final line instead of exceeding ${hardCeiling} words.
-
-Final enforcement: count your own words. If you would exceed ${hardCeiling}, cut from the middle, not the end. The last sentence must be complete.
+If 500 words is strictly too small for the source's information density, emit [INSUFFICIENT_M: needs ~X words] as the final line instead of exceeding 500 words.
 
 SOURCE MATERIAL:
 ${sourceMaterial}
@@ -248,22 +250,22 @@ OUTPUT:`;
           generateFn: async (promptToRun) => {
             return await callOpenRouterWithBackoff(() => aiService.generateText(promptToRun, {
               temperature: 0.25,
-              maxTokens: Math.ceil(assessedTargetWords * 2.5),
+              maxTokens: Math.max(Math.ceil(assessedTargetWords * 2.5), 1000),
               reasoning: { enabled: false },
             }));
           },
           prompt: compressionPrompt,
           tightenedPrompt: (wordCount, bounds, vType) => {
             if (vType === 'structural_placeholder') {
-              return `${compressionPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous output lacked normal sentence structure or variety. Emit well-formed sentences with standard punctuation (. ! ?) and distinct prose paragraphs. Target: exactly ${bounds.targetWords} words. Ceiling: ${bounds.hardCeiling}. Floor: ${bounds.hardFloor}.`;
+              return `${compressionPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous output lacked normal sentence structure or variety. Emit well-formed sentences with standard punctuation (. ! ?) and distinct prose paragraphs. Target range: 250–360 words. Ceiling: ${bounds.hardCeiling}. Floor: ${bounds.hardFloor}.`;
             }
-            return `Your previous output was ${wordCount} words. Required: ${bounds.targetWords} words. Hard bounds: [${bounds.hardFloor}, ${bounds.hardCeiling}].
-Rewrite to hit the target exactly, preserving every distinct concept.
+            return `Your previous output was ${wordCount} words. Target range: 250–360 words. Absolute bounds: [${bounds.hardFloor}, ${bounds.hardCeiling}].
+Rewrite to fit within the 250–360 range (or up to 500 words if dense), preserving every distinct concept.
 Rules:
-Preserve every distinct concept, argument, example, and factual claim from the source.
-Structure the output as 3–5 paragraphs separated by blank lines.
-Every sentence must cite its source chunk at the end: [Source N].
-Do not exceed ${bounds.hardCeiling} words.
+- Preserve every distinct concept, argument, example, and factual claim from the source.
+- Structure the output as 3–5 paragraphs separated by blank lines.
+- Every sentence must cite its source chunk at the end: [Source N].
+- Do not exceed ${bounds.hardCeiling} words.
 
 SOURCE MATERIAL:
 ${sourceMaterial}
@@ -389,6 +391,7 @@ OUTPUT:`;
       multiFellBack = true;
     }
 
+    let embeddingFallbackDisabled = false;
     for (let pIdx = 0; pIdx < rawParagraphs.length; pIdx++) {
       const para = rawParagraphs[pIdx];
       const sentences = this.splitSentences(para);
@@ -434,8 +437,16 @@ OUTPUT:`;
           for (const r of rerankRes.scores) {
             reranker_scores[r.id] = r.score;
           }
-        } else {
+        } else if (!embeddingFallbackDisabled) {
           try {
+            if (config.USE_PYTHON_EMBEDDER) {
+              const { checkReady } = require('../ai/sidecarBase');
+              const status = await checkReady(null, 500);
+              if (!status.ready) {
+                embeddingFallbackDisabled = true;
+                throw new Error('Python sidecar unavailable for embedding fallback');
+              }
+            }
             const embeddingService = require('../semantic/embeddingService');
             const paraVec = await embeddingService.embedText(para, { timeoutMs: 3000 });
             if (paraVec && Array.isArray(paraVec)) {
@@ -455,6 +466,7 @@ OUTPUT:`;
               console.warn('[SynthesisService] ATTRIBUTION_LEGACY_FALLBACK: centroid returned invalid embeddings');
             }
           } catch (embErr) {
+            embeddingFallbackDisabled = true;
             console.warn(`[SynthesisService] ATTRIBUTION_LEGACY_FALLBACK: centroid fallback failed: ${embErr.message}`);
           }
         }

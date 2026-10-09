@@ -299,7 +299,7 @@ async function runTests() {
       createdAt: new Date().toISOString(),
     });
 
-    // Mock aiService to produce a persistent violation (> 500 words, hard ceiling is ~300)
+    // Mock aiService to produce a persistent violation (> 500 words, hard ceiling is 500)
     const originalIsAvailable = aiService.isAvailable;
     const originalGenerateText = aiService.generateText;
 
@@ -309,7 +309,7 @@ async function runTests() {
       aiCallCount++;
       const sentence = 'Continuous distributed synchronization demands persistent verification of replication state. ';
       return {
-        text: sentence.repeat(50),
+        text: sentence.repeat(70),
         finish_reason: 'stop',
         provider: 'mock_llm',
         model: 'mock_v1',
