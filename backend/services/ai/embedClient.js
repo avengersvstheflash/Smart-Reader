@@ -5,7 +5,7 @@
 'use strict';
 
 const config = require('../../config');
-const { resolveBaseUrl, waitForReady } = require('./sidecarBase');
+const { resolveBaseUrl, waitForReady, warmModel, checkModelReady } = require('./sidecarBase');
 
 const DEFAULT_BATCH_SIZE = process.env.EMBED_BATCH_SIZE ? parseInt(process.env.EMBED_BATCH_SIZE, 10) : 16;
 const WARMING_RETRY_INTERVALS_MS = [2000, 4000, 8000];
@@ -39,7 +39,28 @@ async function embedBatch(texts, options = {}) {
   let lastModel = 'bge-m3-python-fp32';
   let lastDims = 1024;
 
-  await waitForReady(targetUrl, 90000);
+  const readyWaitMs = (typeof options === 'object' && options?.timeoutMs) ? options.timeoutMs : 90000;
+  const isReady = (readyWaitMs !== 90000)
+    ? await waitForReady(targetUrl, readyWaitMs)
+    : await waitForReady(targetUrl, 90000);
+
+  if (!isReady) {
+    const unavailableErr = new Error(
+      `Python sidecar is not available at ${targetUrl}: server not ready within ${readyWaitMs}ms`
+    );
+    unavailableErr.code = 'EMBED_MODEL_UNAVAILABLE';
+    throw unavailableErr;
+  }
+
+  // Proactively warm embed model if unloaded/idle
+  try {
+    const embedStatus = await checkModelReady('embed', targetUrl, 1000);
+    if (!embedStatus.ready && embedStatus.state !== 'DOWN') {
+      await warmModel('embed', targetUrl, { timeoutMs: 15000 });
+    }
+  } catch (_warmErr) {
+    // Non-blocking: batch fetch loop handles on-demand loading or retry
+  }
 
   const totalBatches = Math.ceil(texts.length / batchSize);
   const embedStartTime = Date.now();
@@ -116,11 +137,14 @@ async function embedBatch(texts, options = {}) {
         try {
           const body = await res.json();
           bodyCode = body.code;
-          if (body.code !== undefined && body.code !== 'EMBED_MODEL_WARMING') {
+          if (body.code !== undefined && body.code !== 'EMBED_MODEL_WARMING' && body.code !== 'MODEL_WARMING') {
             isWarming = false;
           }
         } catch (_) { }
         if (isWarming) {
+          // Trigger warming in case model was in UNLOADED state
+          warmModel('embed', targetUrl, { fireAndForget: true }).catch(() => {});
+
           if (attempt < maxRetries) {
             const delay = retryIntervals[attempt] !== undefined ? retryIntervals[attempt] : 1000;
             await new Promise((r) => setTimeout(r, delay));

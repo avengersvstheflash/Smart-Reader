@@ -359,6 +359,12 @@ class BookService {
             chapterEntities[0].word_count > 0));
 
       if (isValidContent) {
+        if (config.USE_PYTHON_EMBEDDER) {
+          try {
+            const { warmModel } = require('./ai/sidecarBase');
+            warmModel('embed', null, { fireAndForget: true }).catch(() => {});
+          } catch (_) {}
+        }
         const semanticLifecycle = require('./semantic/semanticLifecycle');
         const totalWords =
           ingestionResult.totalWordCount ||

@@ -11,11 +11,68 @@
 'use strict';
 
 const config = require('../../config');
-const { resolveBaseUrl } = require('./sidecarBase');
+const { resolveBaseUrl, warmModel, checkModelReady } = require('./sidecarBase');
+
+/**
+ * Checks OCR readiness specifically without blocking other sidecar workloads.
+ * Checks /v1/lifecycle/status for 'ocr' state, falling back to legacy /v1/ready.
+ *
+ * @param {string} [baseUrl]
+ * @param {number} [timeoutMs=500]
+ * @returns {Promise<{ ready: boolean, reason?: 'down' | 'warming' }>}
+ */
+async function checkOcrReady(baseUrl, timeoutMs = 500) {
+  const targetUrl = resolveBaseUrl(baseUrl);
+  try {
+    const status = await checkModelReady('ocr', targetUrl, timeoutMs);
+    if (status.ready) {
+      return { ready: true, state: 'LOADED' };
+    }
+    if (status.state === 'LOADING') {
+      return { ready: false, reason: 'warming', state: 'LOADING' };
+    }
+    if (status.state === 'UNLOADED') {
+      return { ready: false, reason: 'unloaded', state: 'UNLOADED' };
+    }
+    if (status.state === 'DOWN') {
+      return { ready: false, reason: 'down', state: 'DOWN' };
+    }
+    // Backward compatibility: probe legacy /v1/ready endpoint on legacy sidecar builds
+    const signal = AbortSignal.timeout(timeoutMs);
+    const res = await fetch(`${targetUrl}/v1/ready`, { signal });
+    if (res.status === 200 || res.status === 404) {
+      return { ready: true };
+    }
+    if (res.status === 503) {
+      return { ready: false, reason: 'warming' };
+    }
+    return { ready: false, reason: 'down' };
+  } catch (_err) {
+    return { ready: false, reason: 'down' };
+  }
+}
+
+/**
+ * Proactively verifies or warms the OCR engine on the sidecar.
+ *
+ * @param {string} [baseUrl]
+ * @param {number} [timeoutMs=30000]
+ * @returns {Promise<{ ready: boolean, reason?: 'down' | 'warming' }>}
+ */
+async function warmOcr(baseUrl, timeoutMs = 30000) {
+  const targetUrl = resolveBaseUrl(baseUrl);
+  try {
+    const res = await warmModel('ocr', targetUrl, { timeoutMs });
+    if (res.ok) {
+      return { ready: true };
+    }
+  } catch (_) {}
+  return { ready: false, reason: 'down' };
+}
 
 /**
  * Submits a PDF buffer to the Python sidecar for OCR extraction.
- * Assumes the sidecar is verified ready by the caller.
+ * Proactively warms OCR specifically if needed.
  *
  * @param {Buffer} pdfBuffer
  * @param {string|{ baseUrl?: string, timeoutMs?: number, pageCount?: number }} [options]
@@ -41,6 +98,18 @@ async function ocrPdf(pdfBuffer, options = {}) {
       config.PYTHON_SIDECAR_TIMEOUT_MS || 180000,
       estimatedPages * 25000 + 60000
     );
+  }
+
+  // If normal execution timeout, proactively check or warm OCR model without blocking non-OCR workloads
+  if (timeoutMs > 1000) {
+    try {
+      const ocrStatus = await checkModelReady('ocr', targetUrl, 500);
+      if (!ocrStatus.ready && ocrStatus.state === 'UNLOADED') {
+        await warmModel('ocr', targetUrl, { timeoutMs: 15000 });
+      }
+    } catch (_) {
+      // Non-blocking: proceed directly to /v1/ocr/pdf
+    }
   }
 
   const formData = new FormData();
@@ -115,4 +184,6 @@ async function ocrPdf(pdfBuffer, options = {}) {
 
 module.exports = {
   ocrPdf,
+  checkOcrReady,
+  warmOcr,
 };

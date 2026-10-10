@@ -521,6 +521,10 @@ OUTPUT:`;
 
     if (normalizedChunks.length > 0 && batchInputs.length > 0 && typeof client.rerankBatchMulti === 'function') {
       try {
+        const { warmModel } = require('../ai/sidecarBase');
+        warmModel('reranker', null, { fireAndForget: true }).catch(() => {});
+      } catch (_) {}
+      try {
         const multiRes = await client.rerankBatchMulti(batchInputs, { timeoutMs });
         const latencyMs = Date.now() - startMultiMs;
         if (latencyMs > 2000) {
@@ -589,15 +593,18 @@ OUTPUT:`;
         } else if (!embeddingFallbackDisabled) {
           try {
             if (config.USE_PYTHON_EMBEDDER) {
-              const { checkReady } = require('../ai/sidecarBase');
-              const status = await checkReady(null, 500);
-              if (!status.ready) {
+              const { checkModelReady, warmModel } = require('../ai/sidecarBase');
+              const embedStatus = await checkModelReady('embed', null, 500);
+              if (embedStatus.state === 'DOWN') {
                 embeddingFallbackDisabled = true;
                 throw new Error('Python sidecar unavailable for embedding fallback');
               }
+              if (embedStatus.state === 'UNLOADED' || embedStatus.state === 'LOADING') {
+                await warmModel('embed', null, { timeoutMs: 15000 });
+              }
             }
             const embeddingService = require('../semantic/embeddingService');
-            const paraVec = await embeddingService.embedText(para, { timeoutMs: 3000 });
+            const paraVec = await embeddingService.embedText(para, { timeoutMs: 5000 });
             if (paraVec && Array.isArray(paraVec)) {
               for (const chunk of chunks) {
                 const chunkVecStr = chunk.embedding_json || chunk.embedding;

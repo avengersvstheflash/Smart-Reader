@@ -93,52 +93,51 @@ class PDFJSParser {
       let ocrErr = null;
 
       try {
-        let readyStatus = await pythonSidecarClient.checkReady();
-        if (!readyStatus.ready && readyStatus.reason === 'warming') {
+        const ocrStatus = await pythonSidecarClient.checkOcrReady();
+        if (!ocrStatus.ready) {
+          if (ocrStatus.state === 'DOWN') {
+            throw new Error('Sidecar service is not running or ready');
+          }
           console.warn(
-            `[Routing: Ingestion] Format: PDF | Decision: OCR_SIDECAR_WARMING | Waiting up to 60s`
+            `[Routing: Ingestion] Format: PDF | Decision: OCR_SIDECAR_WARMING | State: ${ocrStatus.state || 'unloaded'} — waiting for warmup`
           );
-          const warmed = await pythonSidecarClient.waitForReady(60000);
-          if (warmed) {
-            readyStatus = { ready: true };
+          const warmed = await pythonSidecarClient.warmOcr();
+          if (!warmed.ready) {
+            throw new Error('OCR warmup failed');
           }
         }
 
-        if (readyStatus.ready) {
-          const dynamicTimeoutMs = options.ocrTimeoutMs || Math.max(
-            config.PYTHON_SIDECAR_TIMEOUT_MS || 120000,
-            pageCount * 25000 + 60000
-          );
-          console.log(
-            `[Routing: Ingestion] Format: PDF | Decision: PYTHON_OCR_INVOKE | Pages: ${pageCount} | Timeout: ${Math.round(dynamicTimeoutMs / 1000)}s`
-          );
-          const ocrResult = await pythonSidecarClient.ocrPdf(buffer, {
-            pageCount,
-            timeoutMs: dynamicTimeoutMs,
-          });
-          if (ocrResult && Array.isArray(ocrResult.pages) && ocrResult.pages.length > 0) {
-            pages = ocrResult.pages.map((p, idx) => ({
-              num: typeof p.num === 'number' ? p.num : idx + 1,
-              text: p.text || '',
-            }));
-            pageCount = pages.length;
-            combinedRawText = pages.map((p) => p.text || '').join('\n\n').trim();
-            allBlocks.length = 0;
-            ocrSuccess = true;
+        const dynamicTimeoutMs = options.ocrTimeoutMs || Math.max(
+          config.PYTHON_SIDECAR_TIMEOUT_MS || 120000,
+          pageCount * 25000 + 60000
+        );
+        console.log(
+          `[Routing: Ingestion] Format: PDF | Decision: PYTHON_OCR_INVOKE | Pages: ${pageCount} | Timeout: ${Math.round(dynamicTimeoutMs / 1000)}s`
+        );
+        const ocrResult = await pythonSidecarClient.ocrPdf(buffer, {
+          pageCount,
+          timeoutMs: dynamicTimeoutMs,
+        });
+        if (ocrResult && Array.isArray(ocrResult.pages) && ocrResult.pages.length > 0) {
+          pages = ocrResult.pages.map((p, idx) => ({
+            num: typeof p.num === 'number' ? p.num : idx + 1,
+            text: p.text || '',
+          }));
+          pageCount = pages.length;
+          combinedRawText = pages.map((p) => p.text || '').join('\n\n').trim();
+          allBlocks.length = 0;
+          ocrSuccess = true;
 
-            if (combinedRawText.length < 20) {
-              console.warn(
-                `[Routing: Ingestion] Format: PDF | Decision: OCR_EMPTY_OUTPUT | SelectableChars: ${combinedRawText.length} | Action: Rejecting with honest failure`
-              );
-              throw new Error(
-                'This PDF document contains little or no selectable text. OCR via the Python sidecar returned no usable text. The document may be blank, corrupted, or in a format the OCR engine cannot process.'
-              );
-            }
-          } else {
-            ocrErr = new Error('OCR returned no pages');
+          if (combinedRawText.length < 20) {
+            console.warn(
+              `[Routing: Ingestion] Format: PDF | Decision: OCR_EMPTY_OUTPUT | SelectableChars: ${combinedRawText.length} | Action: Rejecting with honest failure`
+            );
+            throw new Error(
+              'This PDF document contains little or no selectable text. OCR via the Python sidecar returned no usable text. The document may be blank, corrupted, or in a format the OCR engine cannot process.'
+            );
           }
         } else {
-          ocrErr = new Error('Sidecar service is not running or ready');
+          ocrErr = new Error('OCR returned no pages');
         }
       } catch (err) {
         if (err.code === 'OCR_LANGUAGE_UNSUPPORTED') {
