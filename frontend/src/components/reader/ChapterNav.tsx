@@ -165,7 +165,11 @@ export function ChapterNav({
                 const isNonGenerated = ch.status && ch.status !== 'generated';
                 const displayTitle = isNonGenerated
                   ? `Chapter ${ch.number}`
-                  : (ch.title || `Chapter ${ch.number}`);
+                  : (ch.title
+                      ? (ch.title.startsWith(`Chapter ${ch.number}: `)
+                          ? ch.title
+                          : `Chapter ${ch.number}: ${ch.title}`)
+                      : `Chapter ${ch.number}`);
 
                 return (
                   <li key={ch.id} role="presentation">

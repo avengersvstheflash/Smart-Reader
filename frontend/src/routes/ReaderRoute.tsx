@@ -434,7 +434,11 @@ export default function ReaderRoute() {
     ? {
         id: smartChapter.id,
         number: smartChapter.sequence,
-        title: isGenerated ? (smartChapter.title || `Chapter ${smartChapter.sequence}`) : `Chapter ${smartChapter.sequence}`,
+        title: isGenerated && smartChapter.title
+          ? (smartChapter.title.startsWith(`Chapter ${smartChapter.sequence}: `)
+              ? smartChapter.title
+              : `Chapter ${smartChapter.sequence}: ${smartChapter.title}`)
+          : `Chapter ${smartChapter.sequence}`,
         wordCount: smartChapter.plannedWordCount || 0,
         status: 'read',
         bookId: smartChapter.bookId,
@@ -560,7 +564,11 @@ export default function ReaderRoute() {
             chapters={smartChapters.map((sc) => ({
               id: sc.id,
               number: sc.sequence,
-              title: sc.status === 'generated' ? (sc.title || `Chapter ${sc.sequence}`) : `Chapter ${sc.sequence}`,
+              title: sc.status === 'generated' && sc.title
+                ? (sc.title.startsWith(`Chapter ${sc.sequence}: `)
+                    ? sc.title
+                    : `Chapter ${sc.sequence}: ${sc.title}`)
+                : `Chapter ${sc.sequence}`,
               status: sc.status,
             }))}
             currentId={chapterId}

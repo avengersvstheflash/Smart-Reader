@@ -125,7 +125,11 @@ export function SmartChapterList({
                       : 'text-ink-muted'
                   }`}
                 >
-                  {isGenerated ? (sc.title || `Chapter ${sc.sequence}`) : `Chapter ${sc.sequence}`}
+                  {isGenerated && sc.title
+                    ? (sc.title.startsWith(`Chapter ${sc.sequence}: `)
+                        ? sc.title
+                        : `Chapter ${sc.sequence}: ${sc.title}`)
+                    : `Chapter ${sc.sequence}`}
                 </span>
               </div>
               <div className="flex items-center gap-3 shrink-0">
