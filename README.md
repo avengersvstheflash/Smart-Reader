@@ -4,79 +4,116 @@
 
 *Ingests PDFs, EPUBs, DOCX, RTF, web articles, and raw text. Enforces a clean architectural split: **Import** is the entry point, **Library** holds curated Omni Readings only, and **Research** holds immutable original sources where every compressed sentence traces deterministically to its source passage.*
 
-[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![React 18.3](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![SQLite](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3)
-
-![Tests 31/31 Passing](https://img.shields.io/badge/Tests-31%2F31_Passing-3fb950)
-![Local-First Enabled](https://img.shields.io/badge/Local--First-enabled-2ea043)
-![Status Phase 5.8 In Progress](https://img.shields.io/badge/Status-Phase_5.8_In_Progress-blue)
-[![Latest Release](https://img.shields.io/badge/Release-v0.6.0-purple.svg)](https://github.com/avengersvstheflash/Smart-Reader/releases/tag/v0.6.0)
-[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/) [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/) [![React 18.3](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/) [![SQLite](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3) [![Tests 41/41](https://img.shields.io/badge/Tests-41%2F41_Passing-3fb950)](https://github.com/avengersvstheflash/Smart-Reader) [![Local-First](https://img.shields.io/badge/Local--First-enabled-2ea043)](https://github.com/avengersvstheflash/Smart-Reader) [![Status](https://img.shields.io/badge/Status-Phase_5.8_F43_Complete-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Lifecycle](https://img.shields.io/badge/Sidecar_Lifecycle-Idle_Unload-555555)](https://github.com/avengersvstheflash/Smart-Reader) [![Corpus](https://img.shields.io/badge/Fixture_Corpus-7_docs-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Release](https://img.shields.io/badge/Release-v0.6.0-purple.svg)](https://github.com/avengersvstheflash/Smart-Reader/releases/tag/v0.6.0) [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ---
 
 ## The Two-Representation Invariant
 
-Omnitome is a **reading and comprehension platform**, not a lossy summarization utility. It maintains two strict representations of every document:
-
 | Representation | Behavior |
 | --- | --- |
 | 📄 **Original Reading** | **Immutable source.** The text exactly as uploaded. Nothing in the system modifies it. Lives in Research. |
-| 🧠 **Omni Reading** | **Derived lens.** A compressed representation whose length is chosen adaptively per source unit. Distinct concepts, arguments, and claims are preserved, and every sentence is fully traceable. Lives in Library. |
-
-**The Invariant:**
+| 🧠 **Omni Reading** | **Derived lens.** An adaptively compressed representation preserving concepts and arguments with deterministic provenance. Lives in Library. |
 
 ```text
 ORIGINAL READING  →  immutable source, never touched
 OMNI READING      →  derived lens, fully traceable back to source
 ```
 
-Every feature exists to keep the relationship between source and lens visible, honest, and verifiable.
+---
+
+## 📈 Recent Milestones
+
+```mermaid
+timeline
+    title Omnitome Development Arc
+    section Foundation
+        Phase 5.0 : Core capabilities
+        Phase 5.7 : Python sidecar
+    section Speed
+        F37.7 : FP16 CUDA breakthrough
+              : 3959 to 1135 MB VRAM
+              : 124s to under 1s per batch
+    section Quality
+        F38 series : Synthesis contract repair
+                   : Chunker 75w merge-back
+                   : Range contract and retry
+    section Reliability
+        F43 : Sidecar lifecycle
+            : Idle eviction daemon
+            : 3.2 GB VRAM freed
+```
+
+---
+
+## ⚡ Performance
+
+Omnitome processes a 508K-word technical book end-to-end on a laptop RTX 3050 in under 6 minutes, with models that idle-unload to 103 MiB VRAM when not in use.
+
+| Metric | Before F37 | After F37.7 + F43 | Impact |
+| :--- | :--- | :--- | :---: |
+| **508K-Word Import** | Multi-hour projection | **~5.9 minutes** | 🚀 30x+ faster |
+| **Semantic Index Throughput** | ~50–150 ms/chunk (CPU) | **~78 ms/chunk** (GPU FP16) | ⚡ Real-time indexing |
+| **BGE-M3 Active VRAM** | 3,959 MiB | **1,135 MB** | 📉 71% reduction |
+| **Idle VRAM (All Evicted)** | n/a (held permanently) | **103 MiB** | 🧹 3.2 GB freed |
+| **16-Chunk Embedding Batch** | ~124 seconds | **< 1 second** | ⚡ 120x+ speedup |
+| **Auto-Reload Latency** | n/a | **~6.5 seconds** | 🔄 Transparent reload |
+
+---
+
+## 📖 What Works Today
+
+| Format | Status | Example Tested |
+| :--- | :---: | :--- |
+| **PDF (text)** | ✅ | Reddi ML Systems (508K words) |
+| **PDF (scanned)** | ✅ | Kaggle dojo, Boston Art Annual |
+| **EPUB** | ✅ | Moby Dick, Les Misérables |
+| **DOCX** | ✅ | Generated sample |
+| **RTF** | ✅ | Generated sample |
+| **Markdown** | ✅ | Standard CommonMark |
+| **Text / Paste** | ✅ | UTF-8 clipboard buffer |
+| **Web URL** | ✅ | Wikipedia, OpenLibrary |
+| **Japanese (UTF-8)** | ✅ | センツアマニ (Mori Ōgai) |
+| **French (UTF-8)** | ✅ | Monsieur Vénus |
+| **Legacy ShiftJIS** | ⚠️ | Requires pre-conversion to UTF-8 |
+
+> *Legacy ShiftJIS/Aozora files require conversion to UTF-8 before import. Auto-detection is planned for v1.x. Max file size configurable via `IMPORT_MAX_SIZE_MB` (50–200 MB).*
 
 ---
 
 ## 🏗️ Architecture & Data Flow
 
-Omnitome leverages a **Hybrid Node + Python** architecture. Node.js owns orchestration, state (SQLite), and API routing. A local FastAPI Python Sidecar (`127.0.0.1:8765`) owns CPU-heavy primitives. Node is the sole SQLite writer.
+Omnitome leverages a **Hybrid Node + Python** architecture. Node.js owns orchestration, state (SQLite), and API routing. A local FastAPI Python Sidecar (`127.0.0.1:8765`) owns neural and CPU-heavy primitives. Node is the sole SQLite writer.
 
 ```mermaid
 flowchart LR
     subgraph INGESTION ["1. Ingestion (Import)"]
-        RawDoc["Source Material<br/>(PDF, EPUB, DOCX, RTF)"]
-        Parser["Layout-Aware Parser"]
-        RawDoc --> Parser
+        RawDoc["Source Material<br/>(PDF, EPUB, DOCX, RTF)"] --> Parser["Layout-Aware Parser"]
     end
-
-    subgraph PYTHON_SIDECAR ["2. Python Sidecar (CPU-Heavy)"]
+    subgraph PYTHON_SIDECAR ["2. Python Sidecar (FastAPI)"]
+        Lifecycle["Lifecycle Manager<br/>(Idle Unload Daemon)"]
         OCR["PaddleOCR<br/>(Rasterization)"]
         NLP["NLP Segmentation<br/>(pysbd)"]
         Structure["Structure Detection<br/>(PyMuPDF)"]
         Math["Math Extraction<br/>(pdfmath)"]
-        Embedder["BGE-M3 Vector Index &<br/>Reranker (BGE v2)"]
+        Embedder["BGE-M3 Vector Index &<br/>Reranker (FP16 CUDA)"]
+        Lifecycle -.->|"Manages"| OCR & Embedder
     end
-
     subgraph NODE_ENGINE ["3. Node Engine (Orchestration)"]
         direction TB
         Canon["Canonical Source"]
         Classifier["Hybrid Section Classifier"]
-        Synopsis["Intelligent Summarizer"]
         Planner["Editorial Planner<br/>(1,500–2,500w Units)"]
-        Compressor["Parallel Synthesis<br/>(Bounded Promise Pool)"]
-        
-        Canon --> Classifier
-        Canon --> Synopsis
-        Canon --> Planner --> Compressor
+        Compressor["Parallel Synthesis<br/>(Bounded Pool)"]
+        Canon --> Classifier & Planner --> Compressor
     end
-
     Parser --> Canon
     Parser -.->|"Image PDF"| OCR
     Parser -.->|"Structure"| Structure
     Parser -.->|"Math/LaTeX"| Math
     Canon -.->|"Sentences"| NLP
     Canon -.->|"Vectorization/Rerank"| Embedder
-
+    Compressor -.->|"status / warm"| Lifecycle
     subgraph PRESENTATION ["4. Presentation Layer"]
         Canon ===>|"Immutable Paper"| ResearchViewer["Research Viewer"]
         Compressor ===>|"Tinted Lens"| LibraryReader["Library Omni Reader<br/>(KaTeX + Theme Engine)"]
@@ -84,100 +121,68 @@ flowchart LR
     end
 ```
 
-### Provider Abstraction
-- **OpenRouter** (cloud fallback) or **Local** (OpenAI-compatible: Ollama at `http://localhost:11434/v1`, LM Studio, llama.cpp, vLLM).
-- *Principle:* Ollama-first UX, OpenAI-compatible architecture. Trust boundaries ensure the Python sidecar NEVER calls an LLM.
+> *Models (PaddleOCR, BGE-M3 embedder, BGE reranker) are managed by the Lifecycle Manager, which idle-unloads them after their per-model TTL and auto-reloads on demand in ~6.5s.*
+
+**Provider Abstraction:** OpenRouter (cloud fallback) or Local (OpenAI-compatible: Ollama at `http://localhost:11434/v1`, LM Studio, llama.cpp, vLLM). Trust boundaries ensure the Python sidecar NEVER calls an LLM.
 
 ---
 
-## 🌟 Key Capabilities
+## 🎨 Theme & Visual System
 
-### 🧠 Core Intelligence
-- **Loss-Bounded Semantic Compression:** Preserves distinct concepts and causal relationships at ~7:1 density.
-- **Interactive Provenance:** Paragraph-level source attribution with sentence-level segmentation.
-- **Hybrid Section Classifier & Structure Detection:** Fast Python-based PyMuPDF TOC and font-size heuristics (Layer 0/1) for precise outline building.
-- **Mathematical Extraction:** `pdfmath` sidecar for precise LaTeX block extraction and KaTeX rendering.
-
-### 🎨 Theme & Visual System
-- **5 Adaptive Themes:** `spring`, `sakura`, `coffee`, `cyberpunk`, `omni` — each featuring bespoke palettes, procedural cover art, and sticker architectures.
-- **Animated Sigils & Decor:** Custom animations linked to themes (reduced motion supported).
-- **Three Design Laws:**
-  1. *Source is paper:* Original reading renders on neutral paper.
-  2. *The lens is tinted:* Omni reading carries a quiet accent identity.
-  3. *Derivation never masquerades as source:* Every Omni claim retains a provenance path.
+Omnitome features 5 adaptive themes (`spring`, `sakura`, `coffee`, `cyberpunk`, `omni`) with procedural cover art, custom animated sigils, and KaTeX math rendering governed by three design laws:
+1. **Source is paper:** Original reading renders on neutral, unadorned paper.
+2. **The lens is tinted:** Omni reading carries a quiet accent identity reflecting synthesis.
+3. **Derivation never masquerades as source:** Every Omni claim retains an explicit, clickable provenance path.
 
 ---
 
 ## 🛠️ Getting Started
 
-### Prerequisites
-- **Node.js 22 LTS** (see `.nvmrc`)
-- **Python 3.10+** (for the local sidecar)
+### Prerequisites & Installation
+- **Node.js 22 LTS** (see `.nvmrc`) and **Python 3.10+** (local sidecar)
 - **Local LLM Engine** (Ollama recommended) or OpenRouter API key
 
-### Installation
-
 ```bash
-git clone https://github.com/avengersvstheflash/Smart-Reader.git
-cd Smart-Reader
-
-# 1. Setup Node Environment
-nvm use
-npm install
-cp .env.example .env
-
-# 2. Setup Python Sidecar
-cd sidecars/python
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cd ../..
+git clone https://github.com/avengersvstheflash/Smart-Reader.git && cd Smart-Reader
+nvm use && npm install && cp .env.example .env
+cd sidecars/python && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && cd ../..
 ```
 
-### Running the App
-Requires three terminal processes:
-
+### Running the App & Testing
 ```bash
-# 1. Python Sidecar (Port 8765)
-cd sidecars/python && source .venv/bin/activate && uvicorn main:app --port 8765
+# Terminal 1 (Sidecar :8765): cd sidecars/python && uvicorn main:app --port 8765
+# Terminal 2 (Node :3000):    node backend/server.js
+# Terminal 3 (Vite :5173):    cd frontend && npm run dev
 
-# 2. Node Backend (Port 3000)
-node backend/server.js
-
-# 3. React Frontend (Port 5173)
-cd frontend && npm run dev
+node scripts/run-all-tests.js  # 41/41 test suites passing
 ```
-
-### Testing
-```bash
-node scripts/run-all-tests.js
-```
-*(Currently 31/31 suites passing).*
 
 ---
 
 ## 🗺️ Roadmap & Phase Status
 
-Omnitome is developed in strict phases.
-
 | Phase | Description | Status |
 | :---: | --- | :---: |
 | **5.0** | Core Capabilities | 🟢 CLOSED |
-| **5.7** | Python Sidecar Foundation, OCR, Embeddings, Reranker | 🟢 CLOSED |
-| **5.8a** | Omnitome Rebrand & Core Identity | 🟢 CLOSED |
-| **5.8c-e** | Omni Theme Identity, Procedural Covers, Visual System | 🟢 CLOSED |
-| **5.8p** | Performance & Progress (Batching, UI Progress, Limits) | 🟡 CURRENT |
-| **5.8i** | Frontend Walkthrough & Verification | ⏳ QUEUED |
-| **5.8j-k** | Settings, Help, Guide Pages | ⏳ QUEUED |
-| **5.9** | Kokoro TTS (Python sidecar audio generation) | ⏳ QUEUED |
-| **6.0** | Tauri Desktop Packaging (macOS/Windows/Linux) → v1.0 | ⏳ QUEUED |
+| **5.7** | Python Sidecar Foundation | 🟢 CLOSED |
+| **5.8.0** | Compression Contract Repair | 🟢 CLOSED |
+| **5.8a/c** | Rebrand + Omni Theme System | 🟢 CLOSED |
+| **F37.x** | FP16 Embedding Breakthrough | 🟢 CLOSED |
+| **F38.x** | Synthesis Contract + Chunker + Titles | 🟢 CLOSED |
+| **F42** | Diverse Fixture Corpus | 🟢 SCAFFOLDED |
+| **F43** | Sidecar Lifecycle + Idle Unload | 🟢 CLOSED |
+| **F45** | Configurable Import Cap | 🟢 CLOSED |
+| **5.8i** | Frontend Walkthrough | ⏳ QUEUED |
+| **5.8j-k** | Settings + Help pages | ⏳ QUEUED |
+| **5.9** | Kokoro TTS | ⏳ QUEUED |
+| **6.0** | Tauri Packaging → v1.0 | ⏳ QUEUED |
 
-**Current Focus (5.8p.1):** Performance optimizations including batched reranking to eliminate sequential bottlenecking and bounding `pdfmath` execution.
+**Current Focus:** closing remaining F38.x polish items (F48 publisher validation, F49 synopsis retry fabrication fix, F51b max chunk guard) before moving to 5.8i frontend walkthrough.
 
 > For deep architectural insights, see [`docs/SESSION_HANDOFF.md`](./docs/SESSION_HANDOFF.md).
 
 ---
 
-## 📜 Acknowledgements
+## 📄 License
 
-Built with `pdfjs-dist`, `better-sqlite3`, `FastAPI`, `Ollama`, and `OpenRouter`. Local execution is a deliberate architecture decision, ensuring zero egress for private libraries with deterministic latency.
+MIT © [Omnitome Contributors](./LICENSE)
