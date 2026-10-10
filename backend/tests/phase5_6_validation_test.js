@@ -344,7 +344,7 @@ async function runTests() {
   console.log('Test 6: Chunker — heading followed by large paragraph, no standalone heading chunk');
   {
     const SemanticChunker = require('../services/semantic/semanticChunker').constructor;
-    const chunker = new SemanticChunker({ targetMinTokens: 10, targetMaxTokens: 500, minWordCount: 5 });
+    const chunker = new SemanticChunker({ targetMinTokens: 10, targetMaxTokens: 500 });
 
     // Canonical blocks: heading + large paragraph
     const headingText = 'Introduction to Gradient Methods';
@@ -404,15 +404,15 @@ async function runTests() {
   }
 
   // --------------------------------------------------------------------------
-  // Test 7: Undersized chunk merge — 40-word chunk merges with next chunk
+  // Test 7: Undersized chunk merge — <75-word chunk merges with next chunk
   // --------------------------------------------------------------------------
-  console.log('Test 7: Post-pass merge combines a 40-word chunk with the next chunk');
+  console.log('Test 7: Post-pass merge combines an undersized (<75-word) chunk with the next chunk');
   {
     const SemanticChunker = require('../services/semantic/semanticChunker').constructor;
     // Use default minWordCount: 75
     const chunker = new SemanticChunker({ targetMinTokens: 10, targetMaxTokens: 1000 });
 
-    // Two paragraphs: first ~40 words (undersized), second ~100 words (adequate)
+    // Two paragraphs: first ~40 words (undersized, <75w), second ~100 words (adequate, >=75w)
     const shortPara = 'Stochastic gradient descent updates model weights using noisy gradient estimates computed from random mini-batches. ' +
       'This approach dramatically reduces the per-iteration computational cost compared to full-batch gradient methods.';
     const longPara = 'Momentum-based optimizers accumulate an exponentially decaying moving average of past gradients, allowing the update ' +
@@ -474,14 +474,15 @@ async function runTests() {
   console.log('Test 8: Heading at chapter end merges backward into previous chunk');
   {
     const SemanticChunker = require('../services/semantic/semanticChunker').constructor;
-    const chunker = new SemanticChunker({ targetMinTokens: 10, targetMaxTokens: 1000, minWordCount: 5 });
+    const chunker = new SemanticChunker({ targetMinTokens: 10, targetMaxTokens: 1000 });
 
     // A normal paragraph followed by a heading with NO following content
     const normalPara = 'Regularization techniques constrain the hypothesis space of learned models to reduce overfitting on finite training datasets. ' +
       'L2 weight decay penalizes large parameter magnitudes by adding a quadratic term to the training loss, effectively shrinking all ' +
       'weights toward zero proportional to their current magnitude. Dropout randomly zeroes a fraction of activations during each forward ' +
       'pass, forcing the network to learn redundant representations that generalize better to unseen inputs. Early stopping monitors ' +
-      'validation loss and halts training when it begins to increase, preserving the model state at the empirical risk minimum.';
+      'validation loss and halts training when it begins to increase, preserving the model state at the empirical risk minimum. ' +
+      'Data augmentation synthesizes realistic perturbations to expand the empirical training distribution across sample domains.';
     const trailingHeading = 'Conclusion and Future Directions';
 
     const units = [
@@ -814,8 +815,255 @@ async function runTests() {
     console.log('  ✓ Verified: Retry prompt contains "Here is the draft you produced" and previous draft.\n');
   }
 
+  // --------------------------------------------------------------------------
+  // Test 13: F38.11 — 64w chunk between two 300w chunks merges into next sibling
+  // --------------------------------------------------------------------------
+  console.log('Test 13: 64w chunk between two 300w chunks merges into next sibling');
+  {
+    const SemanticChunker = require('../services/semantic/semanticChunker').constructor;
+    const chunker = new SemanticChunker({ targetMinTokens: 10, targetMaxTokens: 1000, hardMaxTokens: 2000 });
+
+    const chunk300a = ('Distributed replicated state machines guarantee safety under arbitrary packet loss and delay. '.repeat(25)).trim();
+    const chunk64 = '[Section: The Project Gutenberg eBook of Les misérables Tome I: Fantine]\n\nTitle : Les misérables Tome I: Fantine\n\nAuthor : Victor Hugo\n\nRelease date : January 10, 2006 [eBook #17489] Most recently updated: October 30, 2023\n\nLanguage : French\n\nOther information and formats : www.gutenberg.org/ebooks/17489\n\nCredits : Produced by www.ebooksgratuits.com and Chuck Greif\n\n[Section: Les Misérables]\n\n[Section: Victor Hugo]\n\n[Section: Tome I—FANTINE]\n\n[Section: (1862)]';
+    const chunk300b = ('Vector clocks capture causal relationships between concurrent events without relying on synchronized physical clocks. '.repeat(25)).trim();
+
+    const wCount64 = chunk64.trim().split(/\s+/).length;
+    const wCount300a = chunk300a.trim().split(/\s+/).length;
+    const wCount300b = chunk300b.trim().split(/\s+/).length;
+
+    assert.strictEqual(wCount64, 64, `Middle chunk must be exactly 64w, got ${wCount64}`);
+    assert.ok(wCount300a >= 75, `First chunk must be >= 75w, got ${wCount300a}`);
+    assert.ok(wCount300b >= 75, `Third chunk must be >= 75w, got ${wCount300b}`);
+
+    const units = [
+      {
+        bookId: 'test-book-t13',
+        chapterId: 'ch-t13-1',
+        sectionHeading: 'Replication Protocols',
+        contentType: 'paragraph',
+        textContent: chunk300a,
+        tokenCount: chunker.estimateTokens(chunk300a),
+        canonicalBlock: { type: 'paragraph', text: chunk300a },
+        sourceReference: 'test',
+        sourcePage: null,
+        structuralRole: 'chapter',
+      },
+      {
+        bookId: 'test-book-t13',
+        chapterId: 'ch-t13-1',
+        sectionHeading: 'Front Matter Gutenberg',
+        contentType: 'paragraph',
+        textContent: chunk64,
+        tokenCount: chunker.estimateTokens(chunk64),
+        canonicalBlock: { type: 'paragraph', text: chunk64 },
+        sourceReference: 'test',
+        sourcePage: null,
+        structuralRole: 'chapter',
+      },
+      {
+        bookId: 'test-book-t13',
+        chapterId: 'ch-t13-1',
+        sectionHeading: 'Causal Ordering',
+        contentType: 'paragraph',
+        textContent: chunk300b,
+        tokenCount: chunker.estimateTokens(chunk300b),
+        canonicalBlock: { type: 'paragraph', text: chunk300b },
+        sourceReference: 'test',
+        sourcePage: null,
+        structuralRole: 'chapter',
+      },
+    ];
+
+    const result = chunker.chunkPreprocessedUnits(units, {});
+
+    assert.strictEqual(result.length, 2, `Expected 2 chunks after 64w merged into next sibling, got ${result.length}`);
+    assert.ok(result[0].textContent.includes(chunk300a.substring(0, 50)), 'First chunk contains chunk 1 text');
+    assert.ok(result[1].textContent.includes(chunk64.substring(0, 50)), 'Second chunk contains merged 64w text');
+    assert.ok(result[1].textContent.includes(chunk300b.substring(0, 50)), 'Second chunk contains chunk 3 text');
+
+    for (const c of result) {
+      const words = c.textContent.trim().split(/\s+/).length;
+      assert.ok(words >= 75, `All resulting chunks must be >= 75w, got ${words}`);
+    }
+    assert.strictEqual(result[0].sequence, 0, 'Sequence must be 0');
+    assert.strictEqual(result[1].sequence, 1, 'Sequence must be 1');
+
+    console.log(`  ✓ Verified: 64w chunk merged into next sibling — ${result.length} chunk(s) produced, all >= 75w.\n`);
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 14: F38.11 — Lone 60w fragment with no siblings is dropped with log
+  // --------------------------------------------------------------------------
+  console.log('Test 14: Lone 60w fragment with no siblings is dropped with log');
+  {
+    const SemanticChunker = require('../services/semantic/semanticChunker').constructor;
+    const chunker = new SemanticChunker({ targetMinTokens: 10, targetMaxTokens: 1000 });
+
+    const lone60 = 'The Project Gutenberg eBook of Les misérables Tome I: Fantine, by Victor Hugo. This eBook is for the use of anyone anywhere in the United States and most other parts of the world at no cost. You may copy it, give it away or re-use it under the terms of the Project Gutenberg License online with all conditions applied herein.';
+    const wCount = lone60.trim().split(/\s+/).length;
+    assert.strictEqual(wCount, 60, `Lone fragment must be exactly 60w, got ${wCount}`);
+
+    const units = [
+      {
+        bookId: 'test-book-t14',
+        chapterId: 'ch-t14-1',
+        sectionHeading: 'Lone Gutenberg Dedication',
+        contentType: 'paragraph',
+        textContent: lone60,
+        tokenCount: chunker.estimateTokens(lone60),
+        canonicalBlock: { type: 'paragraph', text: lone60 },
+        sourceReference: 'test',
+        sourcePage: null,
+        structuralRole: 'chapter',
+      },
+    ];
+
+    const originalWarn = console.warn;
+    const warnLogs = [];
+    console.warn = (...args) => {
+      warnLogs.push(args.join(' '));
+      originalWarn(...args);
+    };
+
+    let result;
+    try {
+      result = chunker.chunkPreprocessedUnits(units, {});
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    assert.strictEqual(result.length, 0, 'Lone undersized fragment must be dropped (0 chunks emitted)');
+    const dropLog = warnLogs.find((msg) =>
+      msg.includes('[SemanticChunker] Dropping undersized lone fragment') &&
+      msg.includes('60w') &&
+      msg.includes('below 75w threshold with no merge target')
+    );
+    assert.ok(dropLog, `Expected drop log message, got: ${JSON.stringify(warnLogs)}`);
+
+    console.log('  ✓ Verified: Lone 60w fragment dropped with honest warning log.\n');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 15: F38.11 — 500w + 100w + 500w slice passes pre-LLM guard and synthesizes
+  // --------------------------------------------------------------------------
+  console.log('Test 15: 500w + 100w + 500w slice passes pre-LLM guard and synthesizes successfully');
+  {
+    const book = bookRepository.create({
+      title: 'Phase 5.6 Test Book 15',
+      author: 'Tester',
+      content_type: 'research',
+    });
+
+    const para500a = ('Replication state machines maintain uniform operational order across distributed nodes. ' +
+      'Consensus algorithms verify quorum acceptance before committing transitions to persistent write-ahead storage logs. ' +
+      'Network partitions activate automated leader elections with randomized heartbeat timers to prevent split-brain anomalies. ' +
+      'By enforcing strict linearizability invariants, client mutations observe sequential transaction consistency across data centers. ').repeat(10).trim();
+
+    const para100 = ('Stochastic gradient updates apply noisy estimates computed across random data mini-batches. ' +
+      'Momentum accumulators maintain moving averages of directional vectors to accelerate convergence through loss ravines. ' +
+      'Second order approximations compute inverse Hessian matrices at significant computational overhead. ' +
+      'Modern adaptive algorithms rescale update steps dynamically based on empirical gradient variance. ').repeat(2).trim();
+
+    const para500b = ('Vector clocks establish partial orderings across concurrent operations without synchronized atomic physical timers. ' +
+      'Each participant maintains monotonic counter vectors updated during message exchanges throughout the distributed topology. ' +
+      'Gossip protocols distribute membership metadata changes across peer clusters with bounded latency and high resilience. ' +
+      'Distributed snapshotting algorithms capture consistent global states without suspending continuous transaction execution. ').repeat(10).trim();
+
+    const w1 = para500a.split(/\s+/).length;
+    const w2 = para100.split(/\s+/).length;
+    const w3 = para500b.split(/\s+/).length;
+
+    assert.ok(w1 >= 400, `First chunk should be ~500w, got ${w1}`);
+    assert.ok(w2 >= 75 && w2 <= 150, `Middle chunk should be ~100w, got ${w2}`);
+    assert.ok(w3 >= 400, `Third chunk should be ~500w, got ${w3}`);
+
+    const chunk1 = semanticChunkRepository.create({
+      book_id: book.id,
+      sequence_index: 0,
+      text_content: para500a,
+      token_count: 500,
+      section_heading: 'Section 1',
+    });
+    const chunk2 = semanticChunkRepository.create({
+      book_id: book.id,
+      sequence_index: 1,
+      text_content: para100,
+      token_count: 120,
+      section_heading: 'Section 2',
+    });
+    const chunk3 = semanticChunkRepository.create({
+      book_id: book.id,
+      sequence_index: 2,
+      text_content: para500b,
+      token_count: 500,
+      section_heading: 'Section 3',
+    });
+
+    const outlineId = `outline-p56-t15-${Date.now()}`;
+    const chapterId = `smart-${book.id}-ch-1`;
+
+    smartChapterRepository.create({
+      id: chapterId,
+      book_id: book.id,
+      sequence: 1,
+      title: 'Chapter 1: Multi-Chunk Slice',
+      status: 'pending',
+      planned_source_section_ids: [chunk1.id, chunk2.id, chunk3.id],
+      planned_word_count: 300,
+    });
+
+    outlineRepository.saveOutline({
+      outlineId,
+      title: 'Multi-Chunk Outline',
+      type: 'single_book',
+      chapters: [
+        {
+          chapterId,
+          title: 'Chapter 1: Multi-Chunk Slice',
+          sourceSectionIds: [chunk1.id, chunk2.id, chunk3.id],
+          targetWordCount: 300,
+        },
+      ],
+      createdAt: new Date().toISOString(),
+    });
+
+    const originalIsAvailable = aiService.isAvailable;
+    const originalGenerateText = aiService.generateText;
+    aiService.isAvailable = () => true;
+    aiService.generateText = async () => {
+      return {
+        text: 'Distributed consensus algorithms ensure uniform transaction state replication across partitioned clusters [Source 1]. ' +
+          'Randomized election timeouts isolate split-brain anomalies and maintain safety invariants across all connected nodes [Source 1]. ' +
+          'Write-ahead logging persists state transitions before acknowledging mutations to client endpoints [Source 2].\n\n' +
+          'Adaptive optimization algorithms tune parameter update trajectories based on moving average gradient magnitudes [Source 2]. ' +
+          'Secondary replication mechanisms stream log checkpoints to standby instances for instantaneous disaster recovery [Source 3]. ' +
+          'Linearizable read paths verify lease validity with the current cluster leader to prevent stale reads across network partitions [Source 3].',
+        finishReason: 'stop',
+      };
+    };
+
+    try {
+      await synthesisService.synthesizeChapter(outlineId, chapterId, { fast: true });
+    } finally {
+      aiService.isAvailable = originalIsAvailable;
+      aiService.generateText = originalGenerateText;
+    }
+
+    const updated = smartChapterRepository.getById(chapterId);
+    assert.ok(updated, 'Smart chapter record must exist');
+    assert.strictEqual(updated.status, 'generated', 'Chapter must be "generated", not "failed"');
+    const meta = typeof updated.metadata_json === 'string'
+      ? JSON.parse(updated.metadata_json)
+      : (updated.metadata || {});
+    const words = meta.actual_word_count || (updated.content ? updated.content.trim().split(/\s+/).length : 0);
+    assert.ok(words >= 150 && words <= 500, `Actual word count must be in [150, 500], got ${words}`);
+    assert.strictEqual(Boolean(meta.compression_violation), false, 'Compression violation should be false');
+
+    console.log(`  ✓ Verified: 500w + 100w + 500w slice passed synthesis — status: ${updated.status}, words: ${words}.\n`);
+  }
+
   console.log('================================================================');
-  console.log('🎉 ALL PHASE 5.6 VALIDATION TESTS PASSED (12 tests)');
+  console.log('🎉 ALL PHASE 5.6 VALIDATION TESTS PASSED (15 tests)');
   console.log('================================================================\n');
 }
 

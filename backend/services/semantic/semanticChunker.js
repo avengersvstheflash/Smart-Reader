@@ -231,8 +231,20 @@ class SemanticChunker {
           }
         }
       }
-      arr.forEach((c, idx) => { c.sequence = idx; });
-      return arr;
+      // Drop any lone undersized fragments that could not be merged
+      const filtered = [];
+      for (let i = 0; i < arr.length; i++) {
+        const c = arr[i];
+        const count = wordCount(c);
+        if (count < this.minWordCount) {
+          const seq = c.sequence !== undefined ? c.sequence : i;
+          console.warn(`[SemanticChunker] Dropping undersized lone fragment (${count}w) at sequence ${seq} — below 75w threshold with no merge target`);
+        } else {
+          filtered.push(c);
+        }
+      }
+      filtered.forEach((c, idx) => { c.sequence = idx; });
+      return filtered;
     };
 
     return postPassMerge(chunks);
