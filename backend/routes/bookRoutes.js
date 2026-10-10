@@ -1,11 +1,12 @@
 const express = require('express');
 const multer = require('multer');
+const config = require('../config');
 const bookService = require('../services/bookService');
 const webAcquisitionService = require('../services/web/webAcquisitionService');
 
 const router = express.Router();
 const upload = multer({
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  limits: { fileSize: config.IMPORT_MAX_SIZE_MB * 1024 * 1024 },
   storage: multer.memoryStorage(),
 });
 

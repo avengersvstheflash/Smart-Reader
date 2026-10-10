@@ -1,5 +1,6 @@
-import { useState, useRef, DragEvent, KeyboardEvent, ChangeEvent } from 'react';
+import { useState, useEffect, useRef, DragEvent, KeyboardEvent, ChangeEvent } from 'react';
 import { Upload } from 'lucide-react';
+import { getClientConfig } from '../../api/client';
 
 export interface ImportDropzoneProps {
   onFiles: (files: File[]) => void;
@@ -18,8 +19,25 @@ export const ImportDropzone: React.FC<ImportDropzoneProps> = ({
   compact = false,
   hint = 'TXT Â· EPUB Â· PDF Â· HTML Â· Markdown',
 }) => {
+  const [maxImportSizeMB, setMaxImportSizeMB] = useState<number>(50);
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    getClientConfig()
+      .then((cfg) => {
+        if (mounted && cfg?.maxImportSizeMB) {
+          setMaxImportSizeMB(cfg.maxImportSizeMB);
+        }
+      })
+      .catch((err) => {
+        console.warn('[ImportDropzone] Failed to fetch client config, falling back to 50MB:', err);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleClick = () => {
     if (!disabled) {
@@ -128,7 +146,7 @@ export const ImportDropzone: React.FC<ImportDropzoneProps> = ({
           <span className="text-[rgb(var(--accent))] hover:underline">Choose a file</span> or drag and drop
         </p>
         <p className="text-caption text-ink-muted">{hint}</p>
-        <p className="text-micro text-ink-light mt-0.5">Up to 50MB per file</p>
+        <p className="text-micro text-ink-light mt-0.5">Up to {maxImportSizeMB}MB per file</p>
       </div>
     </div>
   );

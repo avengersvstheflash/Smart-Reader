@@ -34,10 +34,39 @@ function resolveSafeProvider(raw) {
   return 'gemini';
 }
 
+// Import size cap resolver (50-200 MB, default 50 MB)
+function resolveImportMaxSizeMB() {
+  const raw = process.env.IMPORT_MAX_SIZE_MB;
+  if (raw === undefined || raw === '') {
+    const val = 50;
+    console.log(`[Config] Import size cap: ${val} MB`);
+    return val;
+  }
+
+  const parsed = parseInt(raw, 10);
+  if (isNaN(parsed) || parsed < 50) {
+    console.warn(`[Config] IMPORT_MAX_SIZE_MB=${raw} is outside 50-200 MB range. Falling back to 50.`);
+    console.log(`[Config] Import size cap: 50 MB`);
+    return 50;
+  }
+
+  if (parsed > 200) {
+    console.warn(`[Config] IMPORT_MAX_SIZE_MB=${raw} exceeds v1.0 ceiling of 200. Clamping to 200. Streaming upload required for larger files (v1.5).`);
+    console.log(`[Config] Import size cap: 200 MB`);
+    return 200;
+  }
+
+  console.log(`[Config] Import size cap: ${parsed} MB`);
+  return parsed;
+}
+
+const IMPORT_MAX_SIZE_MB = resolveImportMaxSizeMB();
+
 module.exports = {
   PORT: 3000,
   ROOT_DIR,
   STORAGE_DIR,
+  IMPORT_MAX_SIZE_MB,
   BOOKS_DIR: path.join(STORAGE_DIR, 'books'),
   COVERS_DIR: path.join(STORAGE_DIR, 'covers'),
   PAGES_DIR: path.join(STORAGE_DIR, 'pages'),

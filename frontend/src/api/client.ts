@@ -45,3 +45,11 @@ export async function apiClient<T>(endpoint: string, options: RequestInit = {}):
   return response.json() as Promise<T>;
 }
 
+export async function apiGet<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  return apiClient<T>(endpoint, { ...options, method: 'GET' });
+}
+
+export async function getClientConfig() {
+  return apiGet<{ maxImportSizeMB: number }>('/api/config/client');
+}
+
