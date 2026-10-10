@@ -157,6 +157,122 @@ class TestLifecycleManager(unittest.TestCase):
         except Exception as e:
             self.fail(f"_reclaim_memory() raised unexpected exception: {e}")
 
+    def test_t9_acquire_returns_instance_and_tracks_inflight(self):
+        """T9. After registering 'embed' with a mock loader, acquire() returns
+        the mock instance and increments/decrements in_flight correctly."""
+        manager = LifecycleManager()
+        mock_instance = {"name": "mock_bge_m3"}
+
+        manager.register(
+            name="embed",
+            loader=lambda: mock_instance,
+            unloader=lambda inst: None,
+            idle_ttl_sec=900,
+        )
+        self.assertEqual(manager.get_state("embed"), "UNLOADED")
+        self.assertEqual(manager.get_in_flight("embed"), 0)
+
+        with manager.acquire("embed") as embedder:
+            self.assertIs(embedder, mock_instance)
+            self.assertEqual(manager.get_state("embed"), "LOADED")
+            self.assertEqual(manager.get_in_flight("embed"), 1)
+
+        self.assertEqual(manager.get_in_flight("embed"), 0)
+        self.assertEqual(manager.get_state("embed"), "LOADED")
+        self.assertIs(manager.models["embed"].instance, mock_instance)
+
+        unloaded_instance = None
+        def tracking_unloader(inst):
+            nonlocal unloaded_instance
+            unloaded_instance = inst
+
+        manager.models["embed"].unload_fn = tracking_unloader
+        ok = manager.unload("embed")
+        self.assertTrue(ok)
+        self.assertEqual(manager.get_state("embed"), "UNLOADED")
+        self.assertIs(unloaded_instance, mock_instance)
+        self.assertIsNone(manager.models["embed"].instance)
+
+        # Unloader error does not crash unload() per section 5
+        manager.models["embed"].unload_fn = lambda inst: 1 / 0
+        manager.warm("embed")
+        self.assertTrue(manager.unload("embed"))
+        self.assertEqual(manager.get_state("embed"), "UNLOADED")
+
+    def test_t10_register_three_models_status_unloaded(self):
+        """T10. Registering three models with mock loaders: status() returns
+        all three keys, each in UNLOADED state."""
+        manager = LifecycleManager()
+        for name in ("embed", "ocr", "reranker"):
+            manager.register(
+                name=name,
+                loader=lambda n=name: {"model": n},
+                unloader=lambda inst: None,
+                idle_ttl_sec=300,
+            )
+
+        status = manager.status()
+        self.assertIn("models", status)
+        self.assertIn("embed", status["models"])
+        self.assertIn("ocr", status["models"])
+        self.assertIn("reranker", status["models"])
+        self.assertEqual(status["models"]["embed"]["state"], "UNLOADED")
+        self.assertEqual(status["models"]["ocr"]["state"], "UNLOADED")
+        self.assertEqual(status["models"]["reranker"]["state"], "UNLOADED")
+        # Verify top-level status aliases exposed for backward compatibility
+        self.assertIn("embed", status)
+        self.assertIn("ocr", status)
+        self.assertIn("reranker", status)
+        self.assertEqual(status["embed"]["state"], "UNLOADED")
+        self.assertEqual(status["ocr"]["state"], "UNLOADED")
+        self.assertEqual(status["reranker"]["state"], "UNLOADED")
+
+    def test_t11_warm_isolation_between_models(self):
+        """T11. warm() on 'ocr' and 'reranker' independently does not affect
+        'embed' state (isolation)."""
+        manager = LifecycleManager()
+        loaded = []
+        manager.register(name="embed", loader=lambda: loaded.append("embed") or "inst_embed")
+        manager.register(name="ocr", loader=lambda: loaded.append("ocr") or "inst_ocr")
+        manager.register(name="reranker", loader=lambda: loaded.append("reranker") or "inst_reranker")
+
+        self.assertEqual(manager.get_state("embed"), "UNLOADED")
+        self.assertEqual(manager.get_state("ocr"), "UNLOADED")
+        self.assertEqual(manager.get_state("reranker"), "UNLOADED")
+
+        # warm 'ocr' independently
+        ok_ocr = manager.warm("ocr")
+        self.assertTrue(ok_ocr)
+        self.assertEqual(manager.get_state("ocr"), "LOADED")
+        self.assertEqual(manager.get_state("embed"), "UNLOADED")
+        self.assertEqual(manager.get_state("reranker"), "UNLOADED")
+
+        # warm 'reranker' independently
+        ok_reranker = manager.warm("reranker")
+        self.assertTrue(ok_reranker)
+        self.assertEqual(manager.get_state("reranker"), "LOADED")
+        self.assertEqual(manager.get_state("embed"), "UNLOADED")
+        self.assertEqual(manager.get_state("ocr"), "LOADED")
+
+        # acquire 'embed' independently
+        with manager.acquire("embed") as emb_inst:
+            self.assertEqual(emb_inst, "inst_embed")
+            self.assertEqual(manager.get_state("embed"), "LOADED")
+
+        # unload 'ocr' - 'embed' and 'reranker' remain LOADED
+        ok_unload = manager.unload("ocr")
+        self.assertTrue(ok_unload)
+        self.assertEqual(manager.get_state("ocr"), "UNLOADED")
+        self.assertEqual(manager.get_state("embed"), "LOADED")
+        self.assertEqual(manager.get_state("reranker"), "LOADED")
+
+        # unload 'reranker' - 'embed' still remains LOADED
+        ok_unload_rr = manager.unload("reranker")
+        self.assertTrue(ok_unload_rr)
+        self.assertEqual(manager.get_state("reranker"), "UNLOADED")
+        self.assertEqual(manager.get_state("embed"), "LOADED")
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -11,12 +11,12 @@ from .sanitize import sanitize_deep
 
 router = APIRouter(prefix="", tags=["nlp"])
 
-_reranker = None
-_reranker_lock = threading.Lock()
-_is_warming = False
+import os
+from lifecycle import lifecycle_manager, ModelState
 
-def _load_reranker_worker():
-    global _reranker, _is_warming
+
+def _load_reranker():
+    print("[Warmup] Starting BGE reranker (bge-reranker-v2-m3) background warm-up...")
     try:
         import torch
         from sentence_transformers import CrossEncoder
@@ -41,29 +41,29 @@ def _load_reranker_worker():
         # slow on both CPU and GPU (cuda kernel JIT, memory arena setup).
         _ = model.predict([("warmup query", "warmup passage")])
 
-        with _reranker_lock:
-            _reranker = model
-            _is_warming = False
         print(f"[Warmup] BGE reranker ready on {device} (warmup inference complete)")
+        return model
     except Exception as e:
         print(f"[NLP Error] Reranker warmup failed: {e}", file=sys.stderr)
-        with _reranker_lock:
-            _is_warming = False
+        raise
+
+
+def _unload_reranker(model=None):
+    print("[NLP] Unloading BGE reranker...")
+    del model
+
+
+lifecycle_manager.register(
+    name="reranker",
+    loader=_load_reranker,
+    unloader=_unload_reranker,
+    idle_ttl_sec=int(os.environ.get("SIDECAR_RERANKER_IDLE_SEC", "600"))
+)
 
 
 def start_reranker_warmup():
-    """
-    5.8.0i: Kick off reranker model loading in a background thread at sidecar boot.
-    Prevents the 503 RERANKER_WARMING window during early synthesis calls.
-    Safe to call multiple times — no-op if the model is already loaded or loading.
-    """
-    global _is_warming
-    with _reranker_lock:
-        if _reranker is not None or _is_warming:
-            return
-        _is_warming = True
-    print("[Warmup] Starting BGE reranker (bge-reranker-v2-m3) background warm-up...")
-    threading.Thread(target=_load_reranker_worker, daemon=True).start()
+    """Starts background warmup of BGE reranker via lifecycle manager."""
+    threading.Thread(target=lambda: lifecycle_manager.warm("reranker"), daemon=True).start()
 
 
 class RerankCandidate(BaseModel):
@@ -419,11 +419,10 @@ def nlp_slice(req: SliceRequest):
 
 @router.post("/v1/nlp/rerank")
 def nlp_rerank(req: RerankRequest):
-    global _reranker, _is_warming
-
     candidates = req.candidates
     n = len(candidates) if candidates else 0
-    print(f"[Routing: NLP] Endpoint: /v1/nlp/rerank | Candidates: {n} | Warmed: {_reranker is not None}")
+    warmed = lifecycle_manager.get_state("reranker") == ModelState.LOADED.value
+    print(f"[Routing: NLP] Endpoint: /v1/nlp/rerank | Candidates: {n} | Warmed: {warmed}")
 
     if not candidates or n == 0:
         return JSONResponse(
@@ -435,165 +434,21 @@ def nlp_rerank(req: RerankRequest):
             }
         )
 
-    with _reranker_lock:
-        if _reranker is None:
-            if not _is_warming:
-                _is_warming = True
-                threading.Thread(target=_load_reranker_worker, daemon=True).start()
-            return JSONResponse(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={
-                    "status": "error",
-                    "code": "RERANKER_WARMING",
-                    "message": "Reranker is loading"
-                }
-            )
-        model = _reranker
-
-    try:
-        query = req.query
-        pairs = [(query, c.text) for c in candidates]
-        raw_scores = model.predict(pairs)
-        if hasattr(raw_scores, "tolist"):
-            scores_list = raw_scores.tolist()
-        elif isinstance(raw_scores, (list, tuple)):
-            scores_list = [float(s) for s in raw_scores]
-        else:
-            scores_list = [float(raw_scores)]
-
-        scores_out = []
-        for i, c in enumerate(candidates):
-            score_val = float(scores_list[i]) if i < len(scores_list) else 0.0
-            scores_out.append({
-                "id": c.id,
-                "score": score_val
-            })
-
-        return {
-            "status": "success",
-            "scores": scores_out,
-            "model": "bge-reranker-v2-m3"
-        }
-    except Exception as err:
-        print(f"[NLP Error] Reranking failed: {err}", file=sys.stderr)
+    if lifecycle_manager.get_state("reranker") == ModelState.LOADING.value:
         return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
                 "status": "error",
-                "code": "RERANKER_FAILED",
-                "message": str(err)
+                "code": "RERANKER_WARMING",
+                "message": "Reranker is loading"
             }
         )
 
-@router.post("/v1/nlp/rerank-batch")
-def nlp_rerank_batch(req: RerankBatchRequest):
-    global _reranker, _is_warming
-
-    candidates = req.candidates
-    n = len(candidates) if candidates else 0
-    print(f"[Routing: NLP] Endpoint: /v1/nlp/rerank-batch | Candidates: {n} | Warmed: {_reranker is not None}")
-
-    if not candidates or n == 0:
-        return {
-            "scores": [],
-            "warning": None
-        }
-
-    with _reranker_lock:
-        if _reranker is None:
-            if not _is_warming:
-                _is_warming = True
-                threading.Thread(target=_load_reranker_worker, daemon=True).start()
-            return JSONResponse(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={
-                    "status": "error",
-                    "code": "RERANKER_WARMING",
-                    "message": "Reranker is loading"
-                }
-            )
-        model = _reranker
-
     try:
-        query = req.query
-        pairs = [(query, c.text) for c in candidates]
-        # CrossEncoder.predict evaluates all candidate pairs in a batched forward pass
-        raw_scores = model.predict(pairs)
-        if hasattr(raw_scores, "tolist"):
-            scores_list = raw_scores.tolist()
-        elif isinstance(raw_scores, (list, tuple)):
-            scores_list = [float(s) for s in raw_scores]
-        else:
-            scores_list = [float(raw_scores)]
-
-        scores_out = []
-        for i, c in enumerate(candidates):
-            score_val = float(scores_list[i]) if i < len(scores_list) else 0.0
-            scores_out.append({
-                "id": c.id,
-                "score": score_val
-            })
-
-        if req.top_k is not None and req.top_k > 0 and req.top_k < len(scores_out):
-            scores_out = sorted(scores_out, key=lambda x: x["score"], reverse=True)[:req.top_k]
-
-        return {
-            "scores": scores_out,
-            "warning": None
-        }
-    except Exception as err:
-        print(f"[NLP Error] Batch reranking failed: {err}", file=sys.stderr)
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "status": "error",
-                "code": "RERANKER_FAILED",
-                "message": str(err)
-            }
-        )
-
-@router.post("/v1/nlp/rerank-batch-multi")
-def nlp_rerank_batch_multi(req: RerankMultiBatchRequest):
-    global _reranker, _is_warming
-
-    batches = req.batches
-    n_batches = len(batches) if batches else 0
-    total_candidates = sum(len(b.candidates) for b in batches) if batches else 0
-    print(f"[Routing: NLP] Endpoint: /v1/nlp/rerank-batch-multi | Batches: {n_batches} | Total Candidates: {total_candidates} | Warmed: {_reranker is not None}")
-
-    if not batches or n_batches == 0:
-        return {
-            "results": [],
-            "warning": None
-        }
-
-    with _reranker_lock:
-        if _reranker is None:
-            if not _is_warming:
-                _is_warming = True
-                threading.Thread(target=_load_reranker_worker, daemon=True).start()
-            return JSONResponse(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={
-                    "status": "error",
-                    "code": "RERANKER_WARMING",
-                    "message": "Reranker is loading"
-                }
-            )
-        model = _reranker
-
-    try:
-        results_out = []
-        for b in batches:
-            candidates = b.candidates
-            if not candidates or len(candidates) == 0:
-                results_out.append({
-                    "id": b.id,
-                    "scores": []
-                })
-                continue
-
-            query = b.query
+        with lifecycle_manager.acquire("reranker") as model:
+            if model is None:
+                raise RuntimeError("Reranker model instance is not available")
+            query = req.query
             pairs = [(query, c.text) for c in candidates]
             raw_scores = model.predict(pairs)
             if hasattr(raw_scores, "tolist"):
@@ -611,15 +466,151 @@ def nlp_rerank_batch_multi(req: RerankMultiBatchRequest):
                     "score": score_val
                 })
 
-            results_out.append({
-                "id": b.id,
-                "scores": scores_out
-            })
+            return {
+                "status": "success",
+                "scores": scores_out,
+                "model": "bge-reranker-v2-m3"
+            }
+    except Exception as err:
+        print(f"[NLP Error] Reranking failed: {err}", file=sys.stderr)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "status": "error",
+                "code": "RERANKER_FAILED",
+                "message": str(err)
+            }
+        )
 
-        return sanitize_deep({
-            "results": results_out,
+@router.post("/v1/nlp/rerank-batch")
+def nlp_rerank_batch(req: RerankBatchRequest):
+    candidates = req.candidates
+    n = len(candidates) if candidates else 0
+    warmed = lifecycle_manager.get_state("reranker") == ModelState.LOADED.value
+    print(f"[Routing: NLP] Endpoint: /v1/nlp/rerank-batch | Candidates: {n} | Warmed: {warmed}")
+
+    if not candidates or n == 0:
+        return {
+            "scores": [],
             "warning": None
-        })
+        }
+
+    if lifecycle_manager.get_state("reranker") == ModelState.LOADING.value:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "error",
+                "code": "RERANKER_WARMING",
+                "message": "Reranker is loading"
+            }
+        )
+
+    try:
+        with lifecycle_manager.acquire("reranker") as model:
+            if model is None:
+                raise RuntimeError("Reranker model instance is not available")
+            query = req.query
+            pairs = [(query, c.text) for c in candidates]
+            # CrossEncoder.predict evaluates all candidate pairs in a batched forward pass
+            raw_scores = model.predict(pairs)
+            if hasattr(raw_scores, "tolist"):
+                scores_list = raw_scores.tolist()
+            elif isinstance(raw_scores, (list, tuple)):
+                scores_list = [float(s) for s in raw_scores]
+            else:
+                scores_list = [float(raw_scores)]
+
+            scores_out = []
+            for i, c in enumerate(candidates):
+                score_val = float(scores_list[i]) if i < len(scores_list) else 0.0
+                scores_out.append({
+                    "id": c.id,
+                    "score": score_val
+                })
+
+            if req.top_k is not None and req.top_k > 0 and req.top_k < len(scores_out):
+                scores_out = sorted(scores_out, key=lambda x: x["score"], reverse=True)[:req.top_k]
+
+            return {
+                "scores": scores_out,
+                "warning": None
+            }
+    except Exception as err:
+        print(f"[NLP Error] Batch reranking failed: {err}", file=sys.stderr)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "status": "error",
+                "code": "RERANKER_FAILED",
+                "message": str(err)
+            }
+        )
+
+@router.post("/v1/nlp/rerank-batch-multi")
+def nlp_rerank_batch_multi(req: RerankMultiBatchRequest):
+    batches = req.batches
+    n_batches = len(batches) if batches else 0
+    total_candidates = sum(len(b.candidates) for b in batches) if batches else 0
+    warmed = lifecycle_manager.get_state("reranker") == ModelState.LOADED.value
+    print(f"[Routing: NLP] Endpoint: /v1/nlp/rerank-batch-multi | Batches: {n_batches} | Total Candidates: {total_candidates} | Warmed: {warmed}")
+
+    if not batches or n_batches == 0:
+        return {
+            "results": [],
+            "warning": None
+        }
+
+    if lifecycle_manager.get_state("reranker") == ModelState.LOADING.value:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "error",
+                "code": "RERANKER_WARMING",
+                "message": "Reranker is loading"
+            }
+        )
+
+    try:
+        with lifecycle_manager.acquire("reranker") as model:
+            if model is None:
+                raise RuntimeError("Reranker model instance is not available")
+            results_out = []
+            for b in batches:
+                candidates = b.candidates
+                if not candidates or len(candidates) == 0:
+                    results_out.append({
+                        "id": b.id,
+                        "scores": []
+                    })
+                    continue
+
+                query = b.query
+                pairs = [(query, c.text) for c in candidates]
+                raw_scores = model.predict(pairs)
+                if hasattr(raw_scores, "tolist"):
+                    scores_list = raw_scores.tolist()
+                elif isinstance(raw_scores, (list, tuple)):
+                    scores_list = [float(s) for s in raw_scores]
+                else:
+                    scores_list = [float(raw_scores)]
+
+                scores_out = []
+                for i, c in enumerate(candidates):
+                    score_val = float(scores_list[i]) if i < len(scores_list) else 0.0
+                    scores_out.append({
+                        "id": c.id,
+                        "score": score_val
+                    })
+
+                results_out.append({
+                    "id": b.id,
+                    "scores": scores_out
+                })
+
+            return sanitize_deep({
+                "results": results_out,
+                "warning": None
+            })
     except Exception as err:
         print(f"[NLP Error] Multi-batch reranking failed: {err}", file=sys.stderr)
         return JSONResponse(

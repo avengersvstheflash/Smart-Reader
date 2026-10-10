@@ -5,6 +5,7 @@
 import gc
 import sys
 import time
+import inspect
 import threading
 from enum import Enum
 from typing import Callable, Optional, Dict, Any
@@ -19,13 +20,23 @@ class ModelState(str, Enum):
 
 class ModelRegistration:
     """Holds state, lifecycle hooks, and synchronization primitives for a managed model."""
-    def __init__(self, name: str, load_fn: Optional[Callable] = None, unload_fn: Optional[Callable] = None):
+    def __init__(
+        self,
+        name: str,
+        load_fn: Optional[Callable] = None,
+        unload_fn: Optional[Callable] = None,
+        idle_ttl_sec: Optional[int] = None
+    ):
         self.name = name
         self.state = ModelState.UNLOADED
         self.last_accessed_timestamp = time.time()
         self.in_flight_requests = 0
         self.load_fn = load_fn
         self.unload_fn = unload_fn
+        # F43 Phase 2: Track configured idle timeout in seconds (used by eviction daemon in Phase 3)
+        self.idle_ttl_sec = idle_ttl_sec
+        # F43 Phase 2: Retain loaded engine/model instance across requests
+        self.instance: Any = None
         self.lock = threading.RLock()
 
 
@@ -36,16 +47,16 @@ class ModelAcquisitionContext:
         self.model_name = model_name
 
     def __enter__(self):
-        self.manager._enter_acquire(self.model_name)
-        return self
+        # F43 Phase 2: Return loaded model instance directly to the caller's context block
+        return self.manager._enter_acquire(self.model_name)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.manager._exit_acquire(self.model_name)
         return False
 
     async def __aenter__(self):
-        self.manager._enter_acquire(self.model_name)
-        return self
+        # F43 Phase 2: Return loaded model instance directly to async caller's context block
+        return self.manager._enter_acquire(self.model_name)
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         self.manager._exit_acquire(self.model_name)
@@ -65,13 +76,31 @@ class LifecycleManager:
     def models(self) -> Dict[str, ModelRegistration]:
         return self._models
 
-    def register(self, model_name: str, load_fn: Optional[Callable] = None, unload_fn: Optional[Callable] = None):
+    def register(
+        self,
+        model_name: Optional[str] = None,
+        load_fn: Optional[Callable] = None,
+        unload_fn: Optional[Callable] = None,
+        *,
+        name: Optional[str] = None,
+        loader: Optional[Callable] = None,
+        unloader: Optional[Callable] = None,
+        idle_ttl_sec: Optional[int] = None
+    ):
         """Registers a model for lifecycle tracking. Starts in UNLOADED state."""
+        # F43 Phase 2: Support keyword parameters (name, loader, unloader, idle_ttl_sec)
+        # matching model adapter registration across embed, ocr, and reranker
+        target_name = name or model_name
+        target_load = loader or load_fn
+        target_unload = unloader or unload_fn
+        if not target_name:
+            raise ValueError("Model name must be specified.")
         with self._global_lock:
-            self._models[model_name] = ModelRegistration(
-                name=model_name,
-                load_fn=load_fn,
-                unload_fn=unload_fn
+            self._models[target_name] = ModelRegistration(
+                name=target_name,
+                load_fn=target_load,
+                unload_fn=target_unload,
+                idle_ttl_sec=idle_ttl_sec
             )
 
     def is_registered(self, model_name: str) -> bool:
@@ -113,9 +142,13 @@ class LifecycleManager:
                 info.state = ModelState.LOADING
                 try:
                     if info.load_fn is not None:
-                        info.load_fn()
+                        # F43 Phase 2: Save return value of loader to retain model instance
+                        loaded = info.load_fn()
+                        if loaded is not None:
+                            info.instance = loaded
                     info.state = ModelState.LOADED
                 except Exception:
+                    info.instance = None
                     info.state = ModelState.UNLOADED
                     self._reclaim_memory()
                     raise
@@ -128,6 +161,8 @@ class LifecycleManager:
 
             info.in_flight_requests += 1
             info.last_accessed_timestamp = time.time()
+            # F43 Phase 2: Return loaded model instance to acquisition context
+            return info.instance
 
     def _exit_acquire(self, model_name: str):
         if model_name not in self._models:
@@ -154,11 +189,15 @@ class LifecycleManager:
                 info.state = ModelState.LOADING
                 try:
                     if info.load_fn is not None:
-                        info.load_fn()
+                        # F43 Phase 2: Save return value of loader during warmup
+                        loaded = info.load_fn()
+                        if loaded is not None:
+                            info.instance = loaded
                     info.state = ModelState.LOADED
                     info.last_accessed_timestamp = time.time()
                     return True
                 except Exception:
+                    info.instance = None
                     info.state = ModelState.UNLOADED
                     self._reclaim_memory()
                     raise
@@ -182,8 +221,19 @@ class LifecycleManager:
             info.state = ModelState.UNLOADING
             try:
                 if info.unload_fn is not None:
-                    info.unload_fn()
+                    # F43 Phase 2: Pass model instance to unload hook if parameter accepted;
+                    # protect against unloader exceptions crashing the sidecar per design spec section 5
+                    try:
+                        sig = inspect.signature(info.unload_fn)
+                        if len(sig.parameters) >= 1:
+                            info.unload_fn(info.instance)
+                        else:
+                            info.unload_fn()
+                    except Exception as err:
+                        print(f"[Lifecycle Error] Unload hook failed for '{model_name}': {err}", file=sys.stderr)
             finally:
+                # F43 Phase 2: Clear model instance reference prior to memory reclamation
+                info.instance = None
                 self._reclaim_memory()
                 info.state = ModelState.UNLOADED
                 info.last_accessed_timestamp = time.time()

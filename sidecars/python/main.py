@@ -9,6 +9,7 @@ sys_path_dir = os.path.dirname(os.path.abspath(__file__))
 if sys_path_dir not in sys.path:
     sys.path.insert(0, sys_path_dir)
 
+import threading
 from common import setup_system_io
 setup_system_io()
 
@@ -18,9 +19,9 @@ import uvicorn
 
 from lifecycle import lifecycle_manager
 
-from ocr.routes import router as ocr_router, start_ocr_warmup, is_ocr_ready
-from nlp.routes import router as nlp_router, start_reranker_warmup
-from embed.routes import router as embed_router, start_embed_warmup
+from ocr.routes import router as ocr_router, is_ocr_ready
+from nlp.routes import router as nlp_router
+from embed.routes import router as embed_router
 # F32.1: parse_router mounts /v1/parse (docx, rtf, and structure detection)
 from parse.routes import router as parse_router
 # F31: math_router mounts /v1/math
@@ -36,12 +37,14 @@ app.include_router(math_router)
 
 @app.on_event("startup")
 def on_startup():
-    start_ocr_warmup()
+    # Warm OCR via lifecycle manager in background
+    threading.Thread(target=lambda: lifecycle_manager.warm('ocr'), daemon=True).start()
     # 5.8.0i: warm the BGE reranker at boot so early synthesis calls
     # don't pay the 503 RERANKER_WARMING penalty during import.
-    start_reranker_warmup()
+    threading.Thread(target=lambda: lifecycle_manager.warm('reranker'), daemon=True).start()
     # Warm BGE-M3 in FP16 so first import doesn't pay warmup penalty
-    start_embed_warmup()
+    threading.Thread(target=lambda: lifecycle_manager.warm('embed'), daemon=True).start()
+
 
 @app.get("/v1/health")
 def health_check():

@@ -13,14 +13,13 @@ from paddleocr import PaddleOCR
 
 router = APIRouter(prefix="", tags=["ocr"])
 
-# Global state for OCR engine and readiness
-ocr_engine: Optional[PaddleOCR] = None
-is_ready: bool = False
+from lifecycle import lifecycle_manager, ModelState
+
 warmup_duration_sec: float = 0.0
 
-def warm_up_engine():
-    """Initializes PaddleOCR and warms up weights in memory in background."""
-    global ocr_engine, is_ready, warmup_duration_sec
+def _load_ocr():
+    """Initializes PaddleOCR and warms up weights in memory."""
+    global warmup_duration_sec
     print("[Warmup] Starting PaddleOCR (ch_PP-OCRv4) background warm-up...")
     t0 = time.time()
     try:
@@ -43,26 +42,36 @@ def warm_up_engine():
             blank_img = np.ones((64, 64, 3), dtype=np.uint8) * 255
             engine.ocr(blank_img, cls=True)
 
-        ocr_engine = engine
         warmup_duration_sec = round(time.time() - t0, 2)
-        is_ready = True
         print(f"[Warmup] PaddleOCR engine ready in {warmup_duration_sec}s")
+        return engine
     except Exception as e:
         print(f"[Warmup] PaddleOCR initialization failed: {e}", file=sys.stderr)
+        raise
+
+def _unload_ocr(engine=None):
+    print("[OCR] Unloading PaddleOCR engine...")
+    del engine
+
+lifecycle_manager.register(
+    name="ocr",
+    loader=_load_ocr,
+    unloader=_unload_ocr,
+    idle_ttl_sec=int(os.environ.get("SIDECAR_OCR_IDLE_SEC", "300"))
+)
 
 def start_ocr_warmup():
-    """Starts the background thread for OCR warm-up."""
-    thread = threading.Thread(target=warm_up_engine, daemon=True)
-    thread.start()
+    """Starts the background thread for OCR warm-up via lifecycle manager."""
+    threading.Thread(target=lambda: lifecycle_manager.warm("ocr"), daemon=True).start()
 
 def is_ocr_ready() -> bool:
     """Returns whether the OCR engine is initialized and ready."""
-    return is_ready
+    return lifecycle_manager.get_state("ocr") == ModelState.LOADED.value
 
 @router.get("/v1/ready")
 def readiness_probe():
     """Returns 200 OK once OCR weights are in memory; 503 while warming up."""
-    if not is_ready:
+    if not is_ocr_ready():
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
@@ -79,7 +88,13 @@ def readiness_probe():
 
 from fastapi.concurrency import run_in_threadpool
 
-def _ocr_pdf_sync(content):
+def _ocr_pdf_sync(content, engine=None):
+    if engine is None:
+        with lifecycle_manager.acquire("ocr") as eng:
+            if eng is None:
+                raise RuntimeError("OCR engine instance is not available")
+            return _ocr_pdf_sync(content, eng)
+
     doc = fitz.open(stream=content, filetype="pdf")
     pages_out: List[Dict[str, Any]] = []
     all_confidences: List[float] = []
@@ -106,7 +121,7 @@ def _ocr_pdf_sync(content):
             if img.mean() < 75.0:
                 img = 255 - img
 
-            ocr_res = ocr_engine.ocr(img, cls=True)
+            ocr_res = engine.ocr(img, cls=True)
 
             if ocr_res and ocr_res[0]:
                 for line in ocr_res[0]:
@@ -170,7 +185,7 @@ async def ocr_pdf(file: UploadFile = File(...)):
     Rasterizes pages at 200 DPI using PyMuPDF (fitz).
     Returns { status: 'success', pages: [{ num, text }], model: 'ch_PP-OCRv4' }
     """
-    if not is_ready or ocr_engine is None:
+    if lifecycle_manager.get_state("ocr") == ModelState.LOADING.value:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
