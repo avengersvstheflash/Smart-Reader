@@ -728,8 +728,94 @@ async function runTests() {
     }
   }
 
+  // --------------------------------------------------------------------------
+  // Test 11: tightenedPrompt includes previous text when provided (F38.12)
+  // --------------------------------------------------------------------------
+  console.log('Test 11: tightenedPrompt receives previous draft text and includes it in retry context');
+  {
+    let receivedPreviousText = null;
+    let callCount = 0;
+    const initialText = 'Draft of first attempt that was too long and verbose with details.';
+
+    const generateFn = async (prompt) => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          text: initialText,
+          finishReason: 'stop',
+        };
+      }
+      return {
+        text: 'Condensing Raft consensus and quorum replication without partitions. Leader election uses randomized timers for split votes. Quorum writes persist logs before read execution.',
+        finishReason: 'stop',
+      };
+    };
+
+    const guardResult = await aiRetryGuard.executeWithWordCountGuard({
+      generateFn,
+      prompt: 'Initial prompt for compression',
+      bounds: { targetWords: 250, hardFloor: 180, hardCeiling: 360 },
+      tightenedPrompt: (wordCount, bounds, vType, previousText) => {
+        receivedPreviousText = previousText;
+        return `Retry prompt: previous had ${wordCount} words. Previous text was: ${previousText}`;
+      },
+      maxRetries: 1,
+      contextLabel: '[Test 11]',
+      structuralCheck: false,
+    });
+
+    assert.strictEqual(callCount, 2, 'generateFn should be called twice');
+    assert.strictEqual(receivedPreviousText, initialText, 'tightenedPrompt must receive the previous draft text');
+    console.log('  ✓ Verified: tightenedPrompt received previous text when provided.\n');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test 12: Retry prompt contains "Here is the draft you produced" (F38.12)
+  // --------------------------------------------------------------------------
+  console.log('Test 12: Default and synthesis retry prompt contains "Here is the draft you produced"');
+  {
+    let retryPromptReceived = null;
+    let callCount = 0;
+    const initialDraft = 'Initial long draft text with excessive verbosity that failed the hard boundaries.';
+
+    const generateFn = async (prompt) => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          text: initialDraft,
+          finishReason: 'stop',
+        };
+      }
+      retryPromptReceived = prompt;
+      return {
+        text: 'A clean second attempt with Raft consensus and durable write-ahead logging across partitioned nodes. Linearizable reads guarantee safety invariants throughout cluster execution.',
+        finishReason: 'stop',
+      };
+    };
+
+    await aiRetryGuard.executeWithWordCountGuard({
+      generateFn,
+      prompt: 'Initial prompt',
+      bounds: { targetWords: 250, hardFloor: 180, hardCeiling: 360 },
+      maxRetries: 1,
+      contextLabel: '[Test 12]',
+      structuralCheck: false,
+    });
+
+    assert.ok(retryPromptReceived, 'Retry prompt must have been generated');
+    assert.ok(
+      retryPromptReceived.includes('Here is the draft you produced'),
+      'Retry prompt must contain "Here is the draft you produced"'
+    );
+    assert.ok(
+      retryPromptReceived.includes(initialDraft),
+      'Retry prompt must contain the verbatim previous draft text'
+    );
+    console.log('  ✓ Verified: Retry prompt contains "Here is the draft you produced" and previous draft.\n');
+  }
+
   console.log('================================================================');
-  console.log('🎉 ALL PHASE 5.6 VALIDATION TESTS PASSED (10 tests)');
+  console.log('🎉 ALL PHASE 5.6 VALIDATION TESTS PASSED (12 tests)');
   console.log('================================================================\n');
 }
 

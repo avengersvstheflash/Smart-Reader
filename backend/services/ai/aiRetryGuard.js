@@ -126,13 +126,16 @@ class AIRetryGuard {
       if (attempt <= maxRetries) {
         retried = true;
         if (typeof tightenedPrompt === 'function') {
-          currentPrompt = tightenedPrompt(lastWordCount, bounds, violationType);
+          currentPrompt = tightenedPrompt(lastWordCount, bounds, violationType, lastText);
         } else if (typeof tightenedPrompt === 'string' && tightenedPrompt.trim().length > 0) {
           currentPrompt = tightenedPrompt;
         } else if (violationType === 'structural_placeholder') {
           currentPrompt = `${prompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous output lacked normal sentence structure or vocabulary variety. Write in complete, natural English sentences with standard punctuation (. ! ?) and distinct prose paragraphs. Required word count: ${targetWords}. Floor: ${hardFloor}, Ceiling: ${hardCeiling}.`;
         } else {
-          currentPrompt = `${prompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous attempt was ${lastWordCount} words, which violates the required length. Return exactly ${targetWords} words. Do not exceed ${hardCeiling} words. Hard bounds: ${hardFloor} minimum, ${hardCeiling} maximum.`;
+          const draftSection = lastText && lastText.trim().length > 0
+            ? ` Here is the draft you produced:\n===\n${lastText.trim()}\n===\n`
+            : ' ';
+          currentPrompt = `${prompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous attempt was ${lastWordCount} words, which violates the required length.${draftSection}Return exactly ${targetWords} words. Do not exceed ${hardCeiling} words. Hard bounds: ${hardFloor} minimum, ${hardCeiling} maximum.`;
         }
       }
     }

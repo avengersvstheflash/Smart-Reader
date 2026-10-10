@@ -336,17 +336,17 @@ Rules:
   Generate a concise title (3-8 words) that captures the chapter's core subject from the source material.
   Title must not include source markers, quotes, or punctuation beyond standard title casing.
   Must be the very first line of output, followed by a blank line.
-- Preserve every distinct concept, argument, example, and factual claim from the source. If the source names 14 methods, name all 14.
+- Preserve the source's most important concepts, arguments, and causal relationships. Prioritize analytical structure over exhaustive enumeration when approaching the 500-word ceiling.
+- Maintain specificity where it matters most: technical terms, named entities, and quantitative claims should stay concrete. But when the source is genuinely too dense to fit, select the strongest examples rather than compressing every item weakly.
 - Do not add narrative framing, introductions, meta-commentary, transitions, or conclusions not present in the source. Begin directly with dense factual statements.
-- Do not paraphrase away specificity. "Gradient descent, SGD, and OLS" must not become "several optimization methods".
 - Every sentence must cite its source chunk at the end: [Source N].
 - Structure the output as 3–5 paragraphs separated by blank lines. Each paragraph covers one coherent movement of the source. Do not emit as a single block.
 - Final enforcement: count your own words. The 500-word ceiling includes all citation markers. If you would exceed 500 words, cut from the middle, not the end. The last sentence must be complete.
 
-If 500 words is strictly too small for the source's information density, emit [INSUFFICIENT_M: needs ~X words] as the final line instead of exceeding 500 words.
-
 SOURCE MATERIAL:
 ${sourceMaterial}
+
+FINAL CONSTRAINT — the output MUST be 250-360 words, with an absolute ceiling of 500 words. The ceiling includes all [Source N] markers. If you cannot fit the source within 500 words, emit the [INSUFFICIENT_M: needs ~X words] marker and stop.
 
 OUTPUT:`;
 
@@ -367,29 +367,36 @@ OUTPUT:`;
           generateFn: async (promptToRun) => {
             return await callOpenRouterWithBackoff(() => aiService.generateText(promptToRun, {
               temperature: 0.25,
-              maxTokens: Math.max(Math.ceil(assessedTargetWords * 2.5), 1000),
+              maxTokens: Math.max(Math.ceil(assessedTargetWords * 2.5), 1200),
               reasoning: { enabled: false },
             }));
           },
           prompt: compressionPrompt,
-          tightenedPrompt: (wordCount, bounds, vType) => {
+          tightenedPrompt: (wordCount, bounds, vType, previousText) => {
             if (vType === 'structural_placeholder') {
               return `${compressionPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous output lacked normal sentence structure or variety. Emit well-formed sentences with standard punctuation (. ! ?) and distinct prose paragraphs. Target range: 250–360 words. Ceiling: ${bounds.hardCeiling}. Floor: ${bounds.hardFloor}.`;
             }
-            return `Your previous output was ${wordCount} words, which exceeded the limit. Strictly condense into 250–360 words (target around 300 words).
+            const draftSection = previousText && typeof previousText === 'string' && previousText.trim().length > 0
+              ? `Here is the draft you produced:\n===\n${previousText.trim()}\n===\n\n`
+              : '';
+            return `Your previous attempt produced ${wordCount} words. ${draftSection}Condense this draft into 250–360 words without losing specificity. Preserve the strongest examples and all named entities. Cut lower-value content first, not specific facts.
+Return only the condensed output, starting with [TITLE: ...].
 The 500-word ceiling strictly includes all [Source N] citation markers. Do not exceed ${bounds.hardCeiling} total words under any circumstances.
+
 Rules:
 - The very first line of your output MUST be: [TITLE: <short chapter title>] followed by a blank line.
   Generate a concise title (3-8 words) that captures the chapter's core subject from the source material.
   Title must not include source markers, quotes, or punctuation beyond standard title casing.
   Must be the very first line of output, followed by a blank line.
-- Preserve every distinct concept, argument, example, and factual claim from the source.
+- Preserve the source's most important concepts, arguments, and causal relationships.
 - Structure the output as 3–5 paragraphs separated by blank lines.
 - Every sentence must cite its source chunk at the end: [Source N].
 - Do not exceed ${bounds.hardCeiling} words total.
 
 SOURCE MATERIAL:
 ${sourceMaterial}
+
+FINAL CONSTRAINT — the output MUST be 250-360 words, with an absolute ceiling of 500 words. The ceiling includes all [Source N] markers. If you cannot fit the source within 500 words, emit the [INSUFFICIENT_M: needs ~X words] marker and stop.
 
 OUTPUT:`;
           },
