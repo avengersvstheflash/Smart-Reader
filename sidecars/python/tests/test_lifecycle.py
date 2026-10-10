@@ -272,6 +272,80 @@ class TestLifecycleManager(unittest.TestCase):
         self.assertEqual(manager.get_state("reranker"), "UNLOADED")
         self.assertEqual(manager.get_state("embed"), "LOADED")
 
+    def test_t12_daemon_evicts_after_ttl(self):
+        """T12. Daemon evicts after TTL:
+        - Register a mock model with idle_ttl_sec=0.5
+        - Call warm() (state LOADED)
+        - Set daemon_interval to 0.1 (make configurable for tests)
+        - Start daemon, wait 1.0s
+        - Assert state == UNLOADED
+        - Assert unload_fn was called exactly once
+        """
+        manager = LifecycleManager()
+        unload_count = 0
+
+        def dummy_unload(inst=None):
+            nonlocal unload_count
+            unload_count += 1
+
+        manager.register(
+            name="m_t12",
+            loader=lambda: {"model": "m_t12"},
+            unloader=dummy_unload,
+            idle_ttl_sec=0.5,
+        )
+        self.assertTrue(manager.warm("m_t12"))
+        self.assertEqual(manager.get_state("m_t12"), "LOADED")
+
+        manager.set_daemon_interval(0.1)
+        manager.start_daemon()
+        try:
+            time.sleep(1.0)
+            self.assertEqual(manager.get_state("m_t12"), "UNLOADED")
+            self.assertEqual(unload_count, 1)
+        finally:
+            manager.stop_daemon()
+
+    def test_t13_daemon_respects_in_flight(self):
+        """T13. Daemon respects in_flight:
+        - Register mock with idle_ttl_sec=0.5
+        - warm() then acquire() (in_flight=1, hold context open)
+        - Start daemon, wait 1.0s
+        - Assert state still LOADED (unload refused)
+        - Release context, wait 1.0s
+        - Assert state UNLOADED
+        """
+        manager = LifecycleManager()
+        unload_count = 0
+
+        def dummy_unload(inst=None):
+            nonlocal unload_count
+            unload_count += 1
+
+        manager.register(
+            name="m_t13",
+            loader=lambda: {"model": "m_t13"},
+            unloader=dummy_unload,
+            idle_ttl_sec=0.5,
+        )
+        self.assertTrue(manager.warm("m_t13"))
+        self.assertEqual(manager.get_state("m_t13"), "LOADED")
+
+        manager.set_daemon_interval(0.1)
+        manager.start_daemon()
+        try:
+            with manager.acquire("m_t13"):
+                self.assertEqual(manager.get_in_flight("m_t13"), 1)
+                time.sleep(1.0)
+                self.assertEqual(manager.get_state("m_t13"), "LOADED")
+                self.assertEqual(unload_count, 0)
+
+            time.sleep(1.0)
+            self.assertEqual(manager.get_state("m_t13"), "UNLOADED")
+            self.assertEqual(unload_count, 1)
+        finally:
+            manager.stop_daemon()
+
 
 if __name__ == "__main__":
     unittest.main()

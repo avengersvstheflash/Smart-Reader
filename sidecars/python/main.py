@@ -44,6 +44,14 @@ def on_startup():
     threading.Thread(target=lambda: lifecycle_manager.warm('reranker'), daemon=True).start()
     # Warm BGE-M3 in FP16 so first import doesn't pay warmup penalty
     threading.Thread(target=lambda: lifecycle_manager.warm('embed'), daemon=True).start()
+    # F43 Phase 3: Start background daemon eviction tick
+    lifecycle_manager.start_daemon()
+
+
+@app.on_event("shutdown")
+def on_shutdown():
+    # F43 Phase 3: Stop background daemon eviction tick
+    lifecycle_manager.stop_daemon()
 
 
 @app.get("/v1/health")

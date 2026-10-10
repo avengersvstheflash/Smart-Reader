@@ -2,6 +2,8 @@
 # Rationale: sidecars/python/common.py is an existing file, not a directory.
 # Option 2 avoids converting common.py into a package, avoiding any risk to existing imports.
 
+import os
+import atexit
 import gc
 import sys
 import time
@@ -9,6 +11,7 @@ import inspect
 import threading
 from enum import Enum
 from typing import Callable, Optional, Dict, Any
+
 
 
 class ModelState(str, Enum):
@@ -68,9 +71,13 @@ class LifecycleManager:
     Manages neural model lifecycles (unloaded, loading, loaded, unloading).
     Provides thread-safe state transitions, idle tracking, and memory reclamation.
     """
-    def __init__(self):
+    def __init__(self, daemon_interval_sec: float = 10.0):
         self._models: Dict[str, ModelRegistration] = {}
         self._global_lock = threading.RLock()
+        self._daemon_thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+        self._daemon_interval_sec = float(daemon_interval_sec)
+        self._atexit_registered = False
 
     @property
     def models(self) -> Dict[str, ModelRegistration]:
@@ -272,6 +279,99 @@ class LifecycleManager:
                 if name not in res:
                     res[name] = m_stat
             return res
+
+    @property
+    def daemon_interval_sec(self) -> float:
+        """Returns the background daemon eviction tick interval in seconds."""
+        return self._daemon_interval_sec
+
+    @daemon_interval_sec.setter
+    def daemon_interval_sec(self, interval_sec: float):
+        """Sets the background daemon eviction tick interval in seconds (configurable for tests)."""
+        self._daemon_interval_sec = float(interval_sec)
+
+    def set_daemon_interval(self, interval_sec: float):
+        """Sets the background daemon eviction tick interval in seconds (configurable for tests)."""
+        self._daemon_interval_sec = float(interval_sec)
+
+    def start_daemon(self):
+        """
+        Starts the background eviction tick daemon. Idempotent (no-op if thread alive).
+        Spawns a daemon thread targeting _daemon_loop.
+        """
+        with self._global_lock:
+            if self._daemon_thread is not None and self._daemon_thread.is_alive():
+                return
+            self._stop_event.clear()
+            if not self._atexit_registered:
+                atexit.register(self.stop_daemon)
+                self._atexit_registered = True
+
+            enabled = os.environ.get("SIDECAR_IDLE_UNLOAD_ENABLED", "true").strip().lower() not in ("false", "0", "no", "off")
+            interval_str = f"{int(self._daemon_interval_sec)}s" if self._daemon_interval_sec.is_integer() else f"{self._daemon_interval_sec}s"
+            print(f"[Lifecycle] Daemon started (interval={interval_str}, enabled={enabled})", flush=True)
+
+            self._daemon_thread = threading.Thread(
+                target=self._daemon_loop,
+                name="LifecycleDaemon",
+                daemon=True
+            )
+            self._daemon_thread.start()
+
+    def stop_daemon(self, timeout: float = 5.0):
+        """
+        Signals the background daemon to stop, sets _stop_event, and joins the thread.
+        """
+        thread = None
+        with self._global_lock:
+            if self._daemon_thread is None or not self._daemon_thread.is_alive():
+                return
+            self._stop_event.set()
+            thread = self._daemon_thread
+            self._daemon_thread = None
+
+        if thread is not None:
+            thread.join(timeout=timeout)
+        print("[Lifecycle] Daemon stopped", flush=True)
+
+    def _daemon_loop(self):
+        """
+        Background loop ticking every _daemon_interval_sec.
+        Evaluates registered models and evicts idle models whose idle_ttl_sec has expired.
+        """
+        while not self._stop_event.wait(self._daemon_interval_sec):
+            try:
+                enabled = os.environ.get("SIDECAR_IDLE_UNLOAD_ENABLED", "true").strip().lower() not in ("false", "0", "no", "off")
+                if not enabled:
+                    continue
+
+                with self._global_lock:
+                    model_items = list(self._models.items())
+
+                for name, info in model_items:
+                    try:
+                        if info.state != ModelState.LOADED:
+                            continue
+                        if info.in_flight_requests > 0:
+                            continue
+                        idle_seconds = time.time() - info.last_accessed_timestamp
+                        if info.idle_ttl_sec is not None and idle_seconds >= info.idle_ttl_sec:
+                            rss_before = self._rss_mb()
+                            cuda_before = self._cuda_allocated_mb()
+                            evicted = self.unload(name)
+                            if evicted:
+                                rss_after = self._rss_mb()
+                                cuda_after = self._cuda_allocated_mb()
+                                idle_display = round(idle_seconds, 1)
+                                print(
+                                    f"[Lifecycle] Evicted '{name}' after {idle_display}s idle. "
+                                    f"RSS: {rss_before}->{rss_after}MB, CUDA: {cuda_before}->{cuda_after}MB",
+                                    flush=True
+                                )
+                    except Exception as model_err:
+                        print(f"[Lifecycle Error] Eviction check failed for '{name}': {model_err}", file=sys.stderr, flush=True)
+            except Exception as tick_err:
+                print(f"[Lifecycle Error] Daemon tick error: {tick_err}", file=sys.stderr, flush=True)
 
     def _reclaim_memory(self):
         """Runs garbage collection and clears CUDA cache if torch is available."""
