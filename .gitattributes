@@ -9,3 +9,6 @@
 *.woff binary
 *.woff2 binary
 *.ttf binary
+*.epub binary
+*.docx binary
+*.rtf -text

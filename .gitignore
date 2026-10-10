@@ -57,6 +57,13 @@ backend/tests/fixtures/stress/*.pdf
 # Exception: committed OCR calibration fixture (PD, NIST 500-20, rasterized pages 1-5)
 !backend/tests/fixtures/ocr_calibration_sample.pdf
 
+# Corpus fixtures (F42)
+!backend/tests/fixtures/corpus/**
+!backend/tests/fixtures/corpus/**/*.pdf
+!backend/tests/fixtures/corpus/**/*.epub
+!backend/tests/fixtures/corpus/**/*.docx
+!backend/tests/fixtures/corpus/**/*.rtf
+
 # Python venv + bytecode cache
 .venv/
 venv/
