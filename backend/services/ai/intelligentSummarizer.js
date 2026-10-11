@@ -107,6 +107,29 @@ class IntelligentSummarizer {
       const ch1FirstPara = extractFirstPara(ch1Chunk);
       const lastChFirstPara = extractFirstPara(lastChChunk);
 
+      const stripSectionMarkers = (text) => {
+        if (!text || typeof text !== 'string') return '';
+        return text
+          .replace(/\[Section:[^\]]*\]/gi, '')
+          .replace(/\[Source\b[^\]]*\]/gi, '')
+          .replace(/\(None provided\)/gi, '')
+          .trim();
+      };
+
+      const countWords = (text) => {
+        if (!text || typeof text !== 'string') return 0;
+        return text.trim().split(/\s+/).filter(Boolean).length;
+      };
+
+      const usableWords = countWords(
+        [
+          stripSectionMarkers(prefaceText),
+          stripSectionMarkers(tocText),
+          stripSectionMarkers(ch1FirstPara),
+          stripSectionMarkers(lastChFirstPara),
+        ].filter(Boolean).join(' ')
+      );
+
       const synopsisPrompt = `You are preparing a synopsis for a book — a concise, high-quality abstract that gives a reader an accurate sense of what the book is about, how it's structured, and what reading it feels like.
 
 INPUTS PROVIDED:
@@ -170,58 +193,70 @@ OUTPUT:`;
       let fellBack = false;
       let fallbackReason = null;
       let wordCountViolation = false;
+      let synopsisRetrySkipped = false;
 
-      try {
-        const guardResult = await aiRetryGuard.executeWithWordCountGuard({
-          generateFn: async (promptToRun) => {
-            return await this.executeAIGeneration(context, {
-              task: 'synopsis',
-              book,
-              options,
-              prompt: promptToRun,
-              maxTokens: 600,
-            });
-          },
-          prompt: synopsisPrompt,
-          tightenedPrompt: (wCount, b) =>
-            `${synopsisPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous attempt was ${wCount} words, which violates the required length. Return exactly 250 words. Do not exceed ${b.hardCeiling} words. Hard bounds: ${b.hardFloor} minimum, ${b.hardCeiling} maximum.`,
-          bounds: { targetWords: 250, hardFloor: 180, hardCeiling: 320 },
-          maxRetries: 1,
-          contextLabel: '[Synopsis]',
-          structuralCheck: false,
-        });
-
-        if (guardResult.text && guardResult.text.trim()) {
-          rawSynopsis = guardResult.text;
-          aiResult = guardResult.rawResponse || aiResult;
-          if (guardResult.violation) {
-            wordCountViolation = true;
-            console.warn(`[Synopsis Compression] Retry word count (${guardResult.wordCount}) still outside bounds [180, 320]. Flagging word_count_violation.`);
-          }
-        } else {
-          fellBack = true;
-          fallbackReason = (options && options.fast) ? 'deferred_fast_path' : 'provider_unavailable';
-        }
-      } catch (err) {
+      if (usableWords < 50) {
+        console.log(`[Synopsis] Skipping LLM — usable input words < 50 (found ${usableWords}). Returning honest [PARTIAL].`);
+        rawSynopsis = '[PARTIAL: inputs insufficient for full synopsis]';
         fellBack = true;
-        const msg = String(err.message || '').toLowerCase();
-        if (
-          msg.includes('timeout') ||
-          msg.includes('timed out') ||
-          err.code === 'ETIMEDOUT' ||
-          err.code === 'ESOCKETTIMEDOUT' ||
-          err.name === 'TimeoutError'
-        ) {
-          fallbackReason = 'provider_timeout';
-        } else if (
-          msg.includes('json') ||
-          msg.includes('parse') ||
-          msg.includes('syntaxerror') ||
-          err.name === 'SyntaxError'
-        ) {
-          fallbackReason = 'invalid_json';
-        } else {
-          fallbackReason = (options && options.fast) ? 'deferred_fast_path' : 'provider_unavailable';
+        fallbackReason = 'insufficient_inputs';
+      } else {
+        try {
+          const guardResult = await aiRetryGuard.executeWithWordCountGuard({
+            generateFn: async (promptToRun) => {
+              return await this.executeAIGeneration(context, {
+                task: 'synopsis',
+                book,
+                options,
+                prompt: promptToRun,
+                maxTokens: 600,
+              });
+            },
+            prompt: synopsisPrompt,
+            tightenedPrompt: (wCount, b) =>
+              `${synopsisPrompt}\n\nIMPORTANT CONSTRAINT CORRECTION: Your previous attempt was ${wCount} words, which violates the required length. Return exactly 250 words. Do not exceed ${b.hardCeiling} words. Hard bounds: ${b.hardFloor} minimum, ${b.hardCeiling} maximum.`,
+            bounds: { targetWords: 250, hardFloor: 180, hardCeiling: 320 },
+            maxRetries: 1,
+            contextLabel: '[Synopsis]',
+            structuralCheck: false,
+            skipRetry: Boolean(options && options.skipRetry),
+          });
+
+          if (guardResult.text && guardResult.text.trim()) {
+            rawSynopsis = guardResult.text;
+            aiResult = guardResult.rawResponse || aiResult;
+            if (guardResult.retrySkipped) {
+              synopsisRetrySkipped = true;
+            }
+            if (guardResult.violation) {
+              wordCountViolation = true;
+              console.warn(`[Synopsis Compression] Retry word count (${guardResult.wordCount}) still outside bounds [180, 320]. Flagging word_count_violation.`);
+            }
+          } else {
+            fellBack = true;
+            fallbackReason = (options && options.fast) ? 'deferred_fast_path' : 'provider_unavailable';
+          }
+        } catch (err) {
+          fellBack = true;
+          const msg = String(err.message || '').toLowerCase();
+          if (
+            msg.includes('timeout') ||
+            msg.includes('timed out') ||
+            err.code === 'ETIMEDOUT' ||
+            err.code === 'ESOCKETTIMEDOUT' ||
+            err.name === 'TimeoutError'
+          ) {
+            fallbackReason = 'provider_timeout';
+          } else if (
+            msg.includes('json') ||
+            msg.includes('parse') ||
+            msg.includes('syntaxerror') ||
+            err.name === 'SyntaxError'
+          ) {
+            fallbackReason = 'invalid_json';
+          } else {
+            fallbackReason = (options && options.fast) ? 'deferred_fast_path' : 'provider_unavailable';
+          }
         }
       }
 
@@ -259,7 +294,12 @@ OUTPUT:`;
         word_count: finalWordCount,
         word_count_violation: wordCountViolation,
         has_outline: hasOutline,
+        usable_words: usableWords,
       };
+
+      if (synopsisRetrySkipped) {
+        metadata.synopsis_retry_skipped = true;
+      }
 
       if (fellBack) {
         metadata.fell_back = true;
@@ -289,10 +329,14 @@ OUTPUT:`;
       jobRepository.complete(jobId);
 
       return {
+        synopsis: rawSynopsis,
         representation,
         canonicalBlocks,
         chunkCount: context.chunkCount,
         durationMs,
+        toString() {
+          return rawSynopsis;
+        },
       };
     } catch (err) {
       console.error(`Error generating synopsis for book ${bookId}:`, err);
@@ -600,10 +644,6 @@ OUTPUT:`;
     // Callers using this bypass must ensure fallback_reason is recorded as 'deferred_fast_path'.
     if (options && options.fast) return null;
     try {
-      const provider = aiService.getActiveProvider();
-      const health = await provider.checkHealth();
-      if (!health || !health.available) return null;
-
       const fullPrompt = prompt || `${context.groundingPrompt}\n\n${context.contextText}\n\nProduce the ${task.replace('_', ' ')} based strictly on the above source excerpts:`;
       const timeoutMs = (options && options.timeout) || 25000;
       const timeoutPromise = new Promise((_, reject) =>
@@ -611,6 +651,32 @@ OUTPUT:`;
       );
 
       const tokens = maxTokens || (task === 'book_summary' ? 1400 : 600);
+
+      // Prefer aiService.generateText to support mocking/spying in tests and unified generation
+      if (typeof aiService.generateText === 'function') {
+        const textResult = await Promise.race([
+          aiService.generateText(fullPrompt, {
+            title: book.title,
+            task,
+            contentType: book.content_type,
+            maxTokens: tokens,
+            reasoning: { enabled: false },
+            ...options,
+          }),
+          timeoutPromise,
+        ]);
+        return {
+          text: (textResult && (textResult.text || textResult.summary)) || '',
+          summary: (textResult && (textResult.text || textResult.summary)) || '',
+          provider: (textResult && textResult.provider) || (aiService.getActiveProvider && aiService.getActiveProvider().getName()) || 'gemini',
+          model: (textResult && textResult.model) || 'gemini-3.8-flash',
+          finish_reason: (textResult && textResult.finish_reason) || 'stop',
+        };
+      }
+
+      const provider = aiService.getActiveProvider();
+      const health = await provider.checkHealth();
+      if (!health || !health.available) return null;
 
       const result = await Promise.race([
         provider.summarize({

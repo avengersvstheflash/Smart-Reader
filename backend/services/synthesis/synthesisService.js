@@ -1145,6 +1145,15 @@ OUTPUT:`;
     }
     return rep || null;
   }
+
+  /**
+   * Editorial synopsis generation path.
+   * Delegates to intelligentSummarizer.generateSynopsis.
+   */
+  async generateSynopsis(bookId, options = {}) {
+    const intelligentSummarizer = require('../ai/intelligentSummarizer');
+    return await intelligentSummarizer.generateSynopsis(bookId, options);
+  }
 }
 
 const synthesisServiceInstance = new SynthesisService();

@@ -64,6 +64,7 @@ class AIRetryGuard {
     maxRetries = 1,
     contextLabel = '[AI Guard]',
     structuralCheck = true,
+    skipRetry = false,
   }) {
     if (typeof generateFn !== 'function') {
       throw new Error('[aiRetryGuard] generateFn must be a callable function');
@@ -120,6 +121,21 @@ class AIRetryGuard {
           attempt,
           violationType: null,
           rawResponse: lastResult,
+          retrySkipped: false,
+        };
+      }
+
+      if (skipRetry) {
+        return {
+          text: lastText,
+          wordCount: lastWordCount,
+          violation: true,
+          retried,
+          finishReason,
+          attempt,
+          violationType,
+          rawResponse: lastResult,
+          retrySkipped: true,
         };
       }
 
@@ -149,6 +165,7 @@ class AIRetryGuard {
       attempt,
       violationType,
       rawResponse: lastResult,
+      retrySkipped: false,
     };
   }
 }
