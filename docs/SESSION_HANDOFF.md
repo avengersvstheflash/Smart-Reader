@@ -1,6 +1,6 @@
 # Omnitome — Session Handoff
 
-> Last updated: 2026-10-11  
+> Last updated: 2026-10-12  
 > Repository: github.com/avengersvstheflash/Smart-Reader  
 > Purpose: Full orientation in one turn for any assistant. Answers: *where are we, how do we work, what is next.*
 
@@ -8,24 +8,27 @@
 
 ## 1. Current State
 
-- **HEAD:** 46232bb (before session close commit)
+- **HEAD:** 7a6a530 (before session close commit)
 - **Tree:** clean
 - **Origin:** synced with `main`
 - **Latest Tag:** `v0.6.0`
-- **Test suite count:** 41 registered suites (`node scripts/run-all-tests.js`)
+- **Test suite count:** 46 registered suites (`node scripts/run-all-tests.js`)
 - **Full suite status:** Passes cleanly (with build3a network-hang caveat)
 
-### Recent Commits Shipped (F43 / F38 series)
-- `46232bb` — F43 Phase 4 + 4a: Node-side lifecycle integration + regression fixes
-- `fc638b8` — F43 Phase 3: daemon eviction tick — models unload after idle TTL
-- `90d3046` — F43 Phase 2: wire embed, OCR, and reranker into LifecycleManager
-- `18f7097` — F43 Phase 1: sidecar lifecycle state machine + endpoints (no model wiring)
-- `3423233` — docs: F43 design — sidecar model lifecycle with idle unload
-- `ba021a6` — F42: scaffold diverse fixture corpus for cross-format regression
-- `72a5fb8` — F45: config-driven import size cap with frontend exposure
-- `cb62a6f` — F38.8: prefix generated chapter titles with 'Chapter N:' in reader UI
-- `d13dc0f` — F38.11: extend chunker merge-back to 75w + drop lone undersized fragments
-- `a30a379` — F38.12: soften density mandate, restate ceiling, raise maxTokens, retry with prior draft
+### Recent Commits Shipped (F51 / F48–F50 series)
+- `7a6a530` — F51g + F51h: Aozora chapter detection + bilingual sentence splitting
+- `370f86f` — F48 + F50: publisher validation + outline title deduplication
+- `779aea3` — F49c: synopsis input extraction rebuild + auto-refresh + badge honesty
+- `fc2c086` — F51f.1: make embed sidecar attention bounds env-configurable
+- `844c566` — F51a Tier 2: statistical encoding detection via jschardet
+- `2544dd8` — F49b: CJK-aware word counting shared across pipeline guards
+- `c67d970` — F51f: CJK sentence splitting + bounded Python embed attention
+- `2170586` — F51e: decouple synopsis from outline gate + allow single-chapter outlines
+- `155b3c7` — F51c: route .txt buffers through encoding detection + subdivide oversized preprocessor units
+- `98dfee0` — F51a Tier 1: character encoding detection for text and markdown parsers
+- `9fa8a1f` — F51b: max chunk size guard prevents oversized-chunk OOM
+- `bae9c5d` — F49a: restructure synopsis prompt — pure description, no evaluative language
+- `b663dc2` — F49: prevent synopsis retry from fabricating content on empty inputs
 
 ---
 
@@ -57,33 +60,23 @@
   - OpenRouter (cloud fallback) OR Local (OpenAI-compatible: Ollama at `http://localhost:11434/v1`, LM Studio, llama.cpp, vLLM).
   - *Principle:* Ollama-first UX, OpenAI-compatible architecture.
 - **Trust Boundaries:** Node owns LLM routing and provider selection. Python NEVER calls an LLM. Local-only configurations never make outbound cloud calls.
-- **Sidecar Endpoints:**
-  - `GET /v1/health` — process liveness check
-  - `GET /v1/lifecycle/status` — per-model FSM state, idle seconds, in-flight count, memory metrics
-  - `POST /v1/lifecycle/warm?model=<name>` — proactive model loading
-  - `POST /v1/lifecycle/unload?model=<name>` — explicit model eviction
-  - `POST /v1/ocr/pdf` — PaddleOCR direct sRGB rasterization, dynamic timeout
-  - `POST /v1/nlp/split` — sentence splitting via pysbd
-  - `POST /v1/nlp/chunk` — token-bounded chunking
-  - `POST /v1/nlp/slice` — surrogate-sanitized slice bounds
-  - `POST /v1/nlp/rerank` / `/v1/nlp/rerank-batch` / `/v1/nlp/rerank-batch-multi` — BGE-reranker-v2-m3 scoring
-  - `POST /v1/embed/batch` — BGE-M3 dense embeddings (FP16 optimized, 1024d)
-  - `POST /v1/parse/docx`, `/rtf` — document text extraction
-  - `POST /v1/parse/structure` — PyMuPDF TOC + font-size heuristics (Layer 0/1)
-  - `POST /v1/math/extract` — pdfmath LaTeX block extraction
+- **Architecture Additions (F51 & F48–F50 Series):**
+  - **Encoding detection layer:** Tier 1 BOM sniffing + UTF-8 validation + iconv fallback, plus Tier 2 `jschardet` sampling (64KB sample, <0.3ms UTF-8 fast-path, confidence threshold 0.15).
+  - **CJK-aware word counting:** Unified `countWords()` helper (space tokens + CJK chars * 0.7) guarding pre-LLM filters, chunker merge floors, and synthesis bounds.
+  - **Aozora structural detection:** Heading classification (`AOZORA_HEADING_REGEX` + `JAPANESE_CHAPTER_REGEX`) segmenting single-line annotations without dropping canonical block content.
+  - **Bounded embed attention:** Sidecar configuration (`max_seq_length = 2048`, `batch_size = 4`) avoiding quadratic VRAM explosion on large Japanese chapters.
+  - **Synopsis circular refresh:** Fire-and-forget synopsis regeneration triggered upon chapter synthesis completion to eliminate input starvation.
 
 ---
 
 ## 4. Pipeline (current)
 
 The ingestion pipeline executes sequentially across five stages:
-1. **Stage 1: Ingest & Parse (`ingestionService.js`):** Format detection, fast structure extraction (TOC/heuristics), OCR fallback on image-only PDFs, chapter building.
-2. **Stage 2: Semantic Indexing (`semanticLifecycle.js`):** Chunking (merge-back floor 75w) & BGE-M3 embedding (batch size 16, FP16 CUDA). Reuses identical vectors via content-hash caching. Await barrier ensures downstream stages execute on complete indexed data.
+1. **Stage 1: Ingest & Parse (`ingestionService.js`):** Format detection, encoding detection (`decodeTextBuffer`), structure extraction (TOC/heuristics/Aozora), OCR fallback on image-only PDFs, chapter building.
+2. **Stage 2: Semantic Indexing (`semanticLifecycle.js`):** Chunking (merge-back floor 75w, max chunk size guard 8K chars) & BGE-M3 embedding (batch size 16, FP16 CUDA, bounded attention). Reuses identical vectors via content-hash caching. Await barrier ensures downstream stages execute on complete indexed data.
 3. **Stage 3: Classification (`bookClassifier.js`):** Front-matter detection, structural roles, section classification.
-4. **Stage 4: Outline Generation (`editorialService.js`):** Single-book or multi-book outline planning with chapter grouping.
-5. **Stage 5: Synopsis & Synthesis (`intelligentSummarizer.js`, `synthesisService.js`):** Initial chapters auto-synthesized within range [150, 500] words with `[TITLE: ...]` generation and prior-draft retry context. Non-blocking provenance verification pass links claims to source chunks.
-
-*F38.5 note:* All pipeline stages await fully. Stage timings reflect actual execution.
+4. **Stage 4: Outline Generation (`editorialService.js`):** Single-book or multi-book outline planning with chapter deduplication (`deduplicateChapterTitles`).
+5. **Stage 5: Synopsis & Synthesis (`intelligentSummarizer.js`, `synthesisService.js`):** Opening prose extraction, initial chapters auto-synthesized within range [150, 500] words with `[TITLE: ...]` generation and prior-draft retry context. Non-blocking provenance verification pass links claims to source chunks.
 
 ---
 
@@ -98,7 +91,6 @@ The ingestion pipeline executes sequentially across five stages:
 - **Measured Impact:**
   - Eviction frees **3,256 MiB GPU VRAM** (3,359 MiB → 103 MiB) and **543 MB RSS**.
   - Transparent auto-reload on demand: cold embedding request loads BGE-M3 in **~6.5s**.
-- **Node Integration:** `checkReady()` verifies process liveness; `checkModelReady(name)` checks model state; `warmModel(name)` triggers proactive warmup. Callers in `pdfjsParser.js` and `synthesisService.js` actively warm before invocation.
 
 ---
 
@@ -109,15 +101,15 @@ The ingestion pipeline executes sequentially across five stages:
 - **Phase 5.8.0:** 🟢 CLOSED
 - **Phase 5.8a/c:** 🟢 CLOSED (Omnitome Rebrand & Omni Theme)
 - **F37.x series:** 🟢 CLOSED (FP16 breakthrough, sidecar warmup, pipeline ETA telemetry, batch sizing)
-- **F38 (core):** 🟢 CLOSED
-- **F38.1 / .2a / .2b / .3 / .8 / .9 / .11 / .12:** 🟢 CLOSED
+- **F38.x series (all):** 🟢 CLOSED
 - **F42:** 🟢 SCAFFOLDED (7 documents across 6 formats in `backend/tests/fixtures/corpus/`)
-- **F43 (Phases 1–4a):** 🟢 CLOSED (Sidecar model lifecycle with idle unload)
+- **F43 (all phases):** 🟢 CLOSED (Sidecar model lifecycle with idle unload)
 - **F45:** 🟢 CLOSED (Configurable `IMPORT_MAX_SIZE_MB`, 50–200 MB)
-- **F40, F41, F51a:** ⏳ DEFERRED to v1.x / v1.5
-- **F38.5 diagnostic-note:** ⚪ OPEN (non-blocking)
-- **F48, F49, F50, F51b:** 🟡 OPEN (active priority)
-- **F38.13–16:** ⚪ OPEN (polish)
+- **F48, F49, F49a, F49b, F49c, F50:** 🟢 CLOSED
+- **F51 series (a, b, c, e, f, f.1, g, h):** 🟢 CLOSED
+- **F51h.1:** 🟡 OPEN (next priority — editorial planner 29→1 chapter collapse)
+- **F49d:** ⚪ OPEN (cosmetic — LLM self-diagnosis marker stripping)
+- **F40, F41, F44, F51a Tier 3:** ⏳ DEFERRED to v1.x / v1.5
 
 ---
 
@@ -126,7 +118,7 @@ The ingestion pipeline executes sequentially across five stages:
 - **F40 — Layout-aware PDF parsing (Marker / LayoutParser style):** Current PyMuPDF + TOC pipeline handles Reddi ML Systems (508K words) without issue. Reopening layout parsing adds architectural complexity without justified gain. Deferred to v1.5.
 - **F41 — Hardware-aware model routing:** Superseded by F43 LifecycleManager idle eviction, which drops VRAM to 103 MiB automatically. Deferred to v1.5.
 - **F44 — Raise import size cap:** Superseded by F45 configurable `IMPORT_MAX_SIZE_MB` (50–200 MB).
-- **F51a — ShiftJIS / non-UTF-8 text encoding detection:** Deferred to v1.x. Recommendation: Tier 1 detection (BOM sniff + UTF-8 validation + iconv-lite fallback for Latin-1, Windows-1252, ShiftJIS; ~30 lines).
+- **F51a Tier 3 — Deep learning encoding detection:** Tier 1 + Tier 2 (BOM + UTF-8 + `jschardet`) cleanly solve all target formats without neural model overhead.
 
 ---
 
@@ -134,21 +126,21 @@ The ingestion pipeline executes sequentially across five stages:
 
 | Priority | ID | Description |
 | :---: | :---: | :--- |
-| **1** | **F49** | **Synopsis retry fabricates on empty inputs:** On empty section slices (e.g. *Reverend Insanity* Ch1), retry loop hallucinates unrelated text. Needs early bail-out when slice is below minimum word threshold. |
-| **2** | **F51b** | **Max chunk size guard:** Prevent OOM crashes on giant inputs (such as unformatted text or mojibake). Assert chunk < 8K chars after chunking; force-split at sentence boundary; reject honestly if unsplittable. Keep in v1.0. |
-| **3** | **F42** | **Fixture corpus regression suite:** Author automated test runner asserting pipeline success across the 7 scaffolded corpus fixtures. |
-| **4** | **F48** | **Bibliographer publisher validation:** Filter out anti-piracy, scanlation, and copyright disclaimers from extracted publisher fields (surfaced on *Overlord*). |
-| **5** | **F50** | **Outline heading deduplication:** Deduplicate redundant outline entries when sequential slices receive identical heading labels (*Eminence in Shadow* Ch1). |
-| **6** | **F38.13–16** | **Small polish items:** Duplicate chapter titles, recursive prefix pollution, synopsis retry short-circuit, and separator logging deduplication. |
+| **1** | **F51h.1** | **Editorial planner 29→1 chapter collapse:** `chapters` table has 29 rows but `smart_chapters` has only 1. Outline generation completes in 0.18s. Need to inspect chapter size heuristics and source-unit planning logic. |
+| **2** | **F42** | **Write fixture corpus test runner:** Automated runner asserting pipeline success across the 7 scaffolded corpus fixtures (v1.0 gate). |
+| **3** | **F49d** | **LLM self-diagnosis marker stripping:** `[PARTIAL: ...]` marker displayed inline in stored synopsis content; should be stripped and surfaced as `metadata.llm_flagged_partial` flag. |
+| **4** | **F54** | **Synopsis re-synthesize button:** Frontend UI control to trigger synopsis re-synthesis on demand. |
+| **5** | **F52** | **Library/Research coordination design doc:** Formalize boundary and interaction contracts between Original and Omni reading views. |
+| **6** | **5.8i** | **Frontend walkthrough:** Comprehensive UI verification and polish. |
 
 ---
 
 ## 9. Next Session Opener
 
 1. **Verify HEAD & Working Tree:** Ensure HEAD is clean on expected commit.
-2. **Execute Priority Findings:** F49 (synopsis retry guard) → F51b (max chunk size guard) → F42 (fixture tests) → F48 (publisher filter) → F50 (heading deduplication).
-3. **Phase 5.8i:** Frontend walkthrough and verification.
-4. **Phase 5.8d:** Background import tracking (prerequisite for Tauri desktop packaging).
+2. **Priority 1: F51h.1 diagnostic:** Trace `editorialPlanner.js` source-unit grouping to resolve the 29→1 chapter collapse on Aozora content.
+3. **Secondary: F42 test runner:** Author automated runner for the 7 corpus fixtures.
+4. **Then:** 5.8i frontend walkthrough OR F54 synopsis re-synthesis button.
 
 ---
 
@@ -169,15 +161,11 @@ The ingestion pipeline executes sequentially across five stages:
 
 ## 11. Reference
 
+- `docs/session-logs/2026-10-12.md` — F51 series close + Aozora/Japanese ingestion end-to-end
+- `docs/session-logs/2026-10-10.md` — F43 close, F38 polish, cross-format validation
 - `docs/PRODUCT_VISION.md` — Core thesis, invariants, three design laws
 - `docs/CONTINUITY.md` — 60-second orientation for new chats/assistants
 - `docs/ROADMAP_2026-09.md` — Long-term phase map
 - `docs/ARCHITECTURE_AUDIT.md` — Backend subsystem architecture
-- `docs/RIGHTS.md` — Licensing and fixture rights
-- `docs/CANONICAL_TEST_BOOK.md` — Ground truth test fixture specs
 - `docs/DESIGN_SIDECAR_LIFECYCLE.md` — F43 sidecar lifecycle architecture
-- `docs/DESIGN_SECTION_CLASSIFICATION.md` — F32 / F32.1 structure detection design
-- `docs/DESIGN_MATH_EXTRACTION.md` — F31 math extraction architecture
-- `docs/DESIGN_CHATLOG_PARSING.md` — F24 chat-log detection and parsing design
-- `docs/session-logs/2026-10-10.md` — F43 close, F38 polish, cross-format validation
 - `docs/session-logs/` — Detailed chronological build logs
