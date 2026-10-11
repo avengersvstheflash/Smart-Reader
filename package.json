@@ -21,6 +21,7 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "iconv-lite": "^0.7.3",
+    "jschardet": "^4.0.0",
     "multer": "^2.3.0",
     "pdfjs-dist": "^6.3.289"
   }

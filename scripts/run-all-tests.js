@@ -63,6 +63,10 @@ const SUITES = [
   'f37_5_pipeline_reliability_test.js',
   'f38_manual_resynthesize_test.js',
   'f43_node_lifecycle_test.js',
+  'f51a_encoding_detection_test.js',
+  'f51c_txt_import_test.js',
+  'f51e_single_chapter_outline_test.js',
+  'tier2_chardet_encoding_test.js',
 ];
 
 

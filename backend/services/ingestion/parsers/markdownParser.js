@@ -14,13 +14,14 @@ class MarkdownParser {
    * @returns {CanonicalDocument}
    */
   parse(input, options = {}) {
-    const originalFilename = typeof options === 'string'
-      ? options
-      : (options && options.originalFilename ? options.originalFilename : '');
+    const opts = typeof options === 'string'
+      ? { originalFilename: options }
+      : (options || {});
+    const originalFilename = opts.originalFilename || '';
 
     let markdownText = '';
-    if (Buffer.isBuffer(input)) {
-      markdownText = decodeTextBuffer(input, { originalFilename });
+    if (Buffer.isBuffer(input) || ArrayBuffer.isView(input) || input instanceof ArrayBuffer) {
+      markdownText = decodeTextBuffer(input, opts);
     } else if (typeof input === 'string') {
       markdownText = input;
     } else if (input) {
