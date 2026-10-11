@@ -11,6 +11,7 @@ const aiService = require('../ai/aiService');
 const aiRetryGuard = require('../ai/aiRetryGuard');
 const config = require('../../config');
 const nlpClient = require('../ai/nlpClient');
+const { countWords } = require('../../utils/wordCount');
 
 class PreLLMValidationError extends Error {
   constructor(message, details = {}) {
@@ -211,7 +212,7 @@ class SynthesisService {
         missingChunkIds.push(chunkId);
       } else {
         const text = chunk.textContent || chunk.content || chunk.text_content || '';
-        const wCount = text.trim().split(/\s+/).filter(Boolean).length;
+        const wCount = countWords(text);
         if (wCount < config.MIN_SOURCE_CHUNK_WORDS) {
           insufficientChunkIds.push({ id: chunkId, words: wCount });
         } else {
@@ -251,7 +252,7 @@ class SynthesisService {
     let totalSourceWords = 0;
     for (const c of chunks) {
       const text = c.textContent || c.content || c.text_content || '';
-      totalSourceWords += text.trim().split(/\s+/).filter(Boolean).length;
+      totalSourceWords += countWords(text);
     }
     const N = totalSourceWords;
     const sourceMaterial = context.sourceMaterialText || context.contextText || '';
@@ -692,7 +693,7 @@ OUTPUT:`;
       }
     }
 
-    const actualWordCount = cleanContent.trim().split(/\s+/).filter(Boolean).length;
+    const actualWordCount = countWords(cleanContent);
     const resynthesisAttempts = options.resynthesis_attempts || 0;
 
     const metadata = {

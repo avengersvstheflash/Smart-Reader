@@ -9,6 +9,8 @@
  * but filtered out from editorial outline planning.
  */
 
+const { countWords } = require('../../utils/wordCount');
+
 class SectionFilter {
   constructor(options = {}) {
     this.logger = options.logger || console;
@@ -63,7 +65,14 @@ class SectionFilter {
     const title = (section.sectionTitle || section.title || '').trim();
     const cleanTitle = title.toLowerCase().replace(/^[\[(]?source\s*\d+[^\])]*[\])]?\s*/i, '').trim();
     const type = (section.sectionType || section.type || '').toLowerCase();
-    const wordCount = typeof section.wordCount === 'number' ? section.wordCount : (section.content ? section.content.split(/\s+/).filter(Boolean).length : 0);
+    const contentText = section.content || section.textContent || '';
+    let wordCount = typeof section.wordCount === 'number' ? section.wordCount : 0;
+    if (contentText) {
+      const calculated = countWords(contentText);
+      if (calculated > wordCount) {
+        wordCount = calculated;
+      }
+    }
     const summary = (section.summary || '').trim();
     const hasSubstantiveSummary = summary.length >= 20;
 

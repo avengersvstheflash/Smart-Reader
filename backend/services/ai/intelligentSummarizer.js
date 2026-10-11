@@ -9,6 +9,7 @@ const chapterRepository = require('../../repositories/chapterRepository');
 const outlineRepository = require('../../repositories/outlineRepository');
 const jobRepository = require('../../repositories/jobRepository');
 const { getDatabase } = require('../../db/database');
+const { countWords } = require('../../utils/wordCount');
 
 class IntelligentSummarizer {
   /**
@@ -43,7 +44,8 @@ class IntelligentSummarizer {
       const sectionsForFilter = allChunks.map(c => ({
         id: c.id,
         sectionTitle: c.sectionHeading || c.sourceReference,
-        wordCount: c.tokenCount || (c.textContent || '').split(/\s+/).length,
+        wordCount: countWords(c.textContent || c.content || ''),
+        content: c.textContent || c.content || '',
       }));
       
       const sectionFilter = require('../synthesis/sectionFilter');
@@ -114,11 +116,6 @@ class IntelligentSummarizer {
           .replace(/\[Source\b[^\]]*\]/gi, '')
           .replace(/\(None provided\)/gi, '')
           .trim();
-      };
-
-      const countWords = (text) => {
-        if (!text || typeof text !== 'string') return 0;
-        return text.trim().split(/\s+/).filter(Boolean).length;
       };
 
       const usableWords = countWords(
@@ -218,7 +215,7 @@ class IntelligentSummarizer {
         rawSynopsis = this.fallbackSynthesizeSynopsis(book, context);
       }
 
-      const finalWordCount = rawSynopsis.trim().split(/\s+/).filter(Boolean).length;
+      const finalWordCount = countWords(rawSynopsis);
       if (!fellBack && (finalWordCount < 180 || finalWordCount > 320)) {
         wordCountViolation = true;
       }
@@ -488,7 +485,7 @@ OUTPUT:`;
         usedFallback = true;
       }
 
-      const finalWordCount = rawSummary.trim().split(/\s+/).filter(Boolean).length;
+      const finalWordCount = countWords(rawSummary);
       if (!usedFallback && (finalWordCount < 500 || finalWordCount > 1000)) {
         wordCountViolation = true;
       }
