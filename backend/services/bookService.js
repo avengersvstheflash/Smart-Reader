@@ -7,7 +7,30 @@ const ingestionService = require('./ingestion/ingestionService');
 const { resetAndSeedDatabase } = require('../db/database');
 const config = require('../config');
 
+/**
+ * Classifies which post-import pipeline stages should run based on chapter count and word count.
+ * @param {number} chapterCount
+ * @param {number} wordCount
+ * @returns {{ qualifiesForOutline: boolean, qualifiesForSynopsis: boolean, runOutline: boolean, runSynopsis: boolean }}
+ */
+function classifyPipelineStages(chapterCount, wordCount) {
+  const cCount = Number.isFinite(chapterCount) ? chapterCount : 0;
+  const wCount = Number.isFinite(wordCount) ? wordCount : 0;
+  const qualifiesForOutline = cCount >= 1 && wCount >= 2000;
+  const qualifiesForSynopsis = cCount >= 1 && wCount >= 500;
+  return {
+    qualifiesForOutline,
+    qualifiesForSynopsis,
+    runOutline: qualifiesForOutline,
+    runSynopsis: qualifiesForSynopsis,
+  };
+}
+
 class BookService {
+  classifyPipelineStages(chapterCount, wordCount) {
+    return classifyPipelineStages(chapterCount, wordCount);
+  }
+
   getAllBooks() {
     return bookRepository.getAll();
   }
@@ -369,8 +392,10 @@ class BookService {
         const totalWords =
           ingestionResult.totalWordCount ||
           chapterEntities.reduce((acc, c) => acc + (c.word_count || 0), 0);
-        const qualifiesForOutline =
-          chapterEntities.length >= 3 && totalWords >= 2000;
+        const { qualifiesForOutline, qualifiesForSynopsis } = classifyPipelineStages(
+          chapterEntities.length,
+          totalWords
+        );
 
         console.log(`[Import] Indexing ${book.id}...`);
         const indexJob = jobRepository.create({
@@ -395,14 +420,17 @@ class BookService {
             stageTimings.classifyMs = Date.now() - t0Classify;
             console.log(`[Pipeline] Stage 3/5: CLASSIFY complete in ${(stageTimings.classifyMs / 1000).toFixed(2)}s`);
 
+            let outline = null;
             if (qualifiesForOutline) {
               console.log(`[Import] Generating outline for ${book.id}...`);
               const t0Outline = Date.now();
               const editorialService = require('./synthesis/editorialService');
-              const outline = await editorialService.generateSingleBookOutline(book.id, { fast: true });
+              outline = await editorialService.generateSingleBookOutline(book.id, { fast: true });
               stageTimings.outlineMs = Date.now() - t0Outline;
               console.log(`[Pipeline] Stage 4/5: OUTLINE complete in ${(stageTimings.outlineMs / 1000).toFixed(2)}s`);
+            }
 
+            if (qualifiesForSynopsis) {
               console.log(`[Import] Generating synopsis for ${book.id}...`);
               const t0Synopsis = Date.now();
               const synopsisJob = jobRepository.create({
@@ -421,7 +449,9 @@ class BookService {
                 console.warn(`[Import] Synopsis failed: ${err.message}`);
                 jobRepository.fail(synopsisJob.id, err);
               }
+            }
 
+            if (qualifiesForOutline) {
               if (outline && outline.chapters && outline.chapters.length > 0) {
                 console.log(`[Import] Auto-synthesizing initial chapters for ${book.id}...`);
                 const synthesisJob = jobRepository.create({
@@ -431,6 +461,7 @@ class BookService {
                   progress: 0,
                 });
                 try {
+                  const editorialService = require('./synthesis/editorialService');
                   const result = await editorialService.synthesizeNextChapters(book.id, 3, { jobId: synthesisJob.id });
                   jobRepository.complete(synthesisJob.id);
                   if (result) {
@@ -501,4 +532,7 @@ class BookService {
   }
 }
 
-module.exports = new BookService();
+const bookServiceInstance = new BookService();
+bookServiceInstance.classifyPipelineStages = classifyPipelineStages;
+module.exports = bookServiceInstance;
+module.exports.classifyPipelineStages = classifyPipelineStages;
