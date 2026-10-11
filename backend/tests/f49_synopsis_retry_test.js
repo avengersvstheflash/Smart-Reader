@@ -193,6 +193,11 @@ async function runF49Tests() {
       const result = await intelligentSummarizer.generateSynopsis(book.id);
 
       assert.strictEqual(callAttempts, 2, 'LLM must be called twice (initial attempt + retry when < 180 words)');
+      assert.ok(!promptsReceived[0].includes('What reading it feels like'), 'Generated prompt must not contain "What reading it feels like"');
+      assert.ok(promptsReceived[0].includes('Core subject'), 'Generated prompt must contain "Core subject"');
+      assert.ok(promptsReceived[0].includes('Scope'), 'Generated prompt must contain "Scope"');
+      assert.ok(promptsReceived[0].includes('Structure'), 'Generated prompt must contain "Structure"');
+      assert.ok(promptsReceived[0].includes('Every sentence must be verifiable from the provided inputs'), 'Generated prompt must contain verifiability rule');
       assert.ok(promptsReceived[1].includes('IMPORTANT CONSTRAINT CORRECTION'), 'Retry prompt must include constraint correction');
       assert.ok(result.representation.content.includes('authoritative examination of distributed consensus'), 'Result must be the successful retry output');
       assert.strictEqual(result.representation.metadata.fell_back, false, 'Should not have fallen back');
@@ -278,8 +283,52 @@ async function runF49Tests() {
     }
   }
 
+  // --------------------------------------------------------------------------
+  // Test 6 (T6): F49a — Synopsis prompt template structure and verifiability rule
+  // --------------------------------------------------------------------------
+  console.log('Test 6: F49a synopsis prompt structure enforces pure description and verifiability');
+  {
+    const promptTemplate = intelligentSummarizer.buildSynopsisPrompt({
+      prefaceText: 'Author preface sample.',
+      tocText: 'Chapter 1: Intro',
+      ch1FirstPara: 'First chapter sample.',
+      lastChFirstPara: 'Last chapter sample.',
+    });
+
+    assert.ok(
+      !promptTemplate.includes('What reading it feels like'),
+      'Prompt must NOT contain subjective "What reading it feels like" section'
+    );
+    assert.ok(
+      !promptTemplate.toLowerCase().includes("reads like a working engineer's notebook"),
+      'Prompt must NOT contain "reads like" example'
+    );
+    assert.ok(
+      promptTemplate.includes('Core subject'),
+      'Prompt must contain "Core subject"'
+    );
+    assert.ok(
+      promptTemplate.includes('Scope'),
+      'Prompt must contain "Scope"'
+    );
+    assert.ok(
+      promptTemplate.includes('Structure'),
+      'Prompt must contain "Structure"'
+    );
+    assert.ok(
+      promptTemplate.includes('Every sentence must be verifiable from the provided inputs'),
+      'Prompt must contain the new verifiability rule'
+    );
+    assert.ok(
+      promptTemplate.includes('Avoid evaluative language'),
+      'Prompt must caution against evaluative language'
+    );
+
+    console.log('  ✓ Verified: Prompt excludes subjective "feels like" language, has exact 3-section structure, and enforces verifiability rule.\n');
+  }
+
   console.log('================================================================');
-  console.log('🎉 ALL F49 SYNOPSIS RETRY TESTS PASSED');
+  console.log('🎉 ALL F49 SYNOPSIS RETRY TESTS PASSED (6 tests)');
   console.log('================================================================');
 }
 

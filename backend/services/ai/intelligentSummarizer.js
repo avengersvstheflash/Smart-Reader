@@ -130,57 +130,7 @@ class IntelligentSummarizer {
         ].filter(Boolean).join(' ')
       );
 
-      const synopsisPrompt = `You are preparing a synopsis for a book — a concise, high-quality abstract that gives a reader an accurate sense of what the book is about, how it's structured, and what reading it feels like.
-
-INPUTS PROVIDED:
-
-Author's preface (their own framing of the book)
-
-Table of contents
-
-Opening paragraphs of the first body chapter
-
-Opening paragraphs of the last body chapter
-
-OUTPUT: 200–300 words. Hard bounds: 180 minimum, 320 maximum.
-
-Structure:
-
-Core subject — one or two sentences stating what the book is about.
-
-Scope and approach — what the book covers, how it treats its subject, who it is for.
-
-Content landscape — one or two sentences on what the interior is like: dense or accessible, exercises or arguments, case studies or theory, structure of the chapters.
-
-What reading it feels like — one sentence, like a short review. e.g. "Reads like a working engineer's notebook — terse, technical, and confident."
-
-Rules:
-
-Compress. Do not pad. Every sentence must carry information.
-
-Do not invent details not present in the inputs.
-
-Do not open with narrative framing ("This book represents…").
-
-Do not list chapters or restate the TOC as a list.
-
-Do not summarize the preface — describe the book.
-
-If the inputs are insufficient for a full synopsis, close with one honest line: "[PARTIAL: inputs insufficient for full synopsis]".
-
-INPUTS:
-${prefaceText}
-
-TOC:
-${tocText}
-
-CHAPTER 1 OPENING:
-${ch1FirstPara}
-
-LAST CHAPTER OPENING:
-${lastChFirstPara}
-
-OUTPUT:`;
+      const synopsisPrompt = this.buildSynopsisPrompt({ prefaceText, tocText, ch1FirstPara, lastChFirstPara });
       
       console.log('--- SYNOPSIS COMPRESSION PROMPT ---');
       console.log(synopsisPrompt);
@@ -801,6 +751,60 @@ OUTPUT:`;
 
     text += `\nBased directly on these excerpts, the text establishes the corresponding thematic or structural connection without extrapolation beyond the source material.\n`;
     return text;
+  }
+
+  buildSynopsisPrompt({ prefaceText = '(None provided)', tocText = '(None provided)', ch1FirstPara = '(None provided)', lastChFirstPara = '(None provided)' } = {}) {
+    return `You are preparing a synopsis for a book — a concise, high-quality abstract that gives a reader an accurate sense of what the book is about and how it's structured.
+
+INPUTS PROVIDED:
+
+Author's preface (their own framing of the book)
+
+Table of contents
+
+Opening paragraphs of the first body chapter
+
+Opening paragraphs of the last body chapter
+
+OUTPUT: 200–300 words. Hard bounds: 180 minimum, 320 maximum.
+
+Structure:
+
+Core subject — one or two sentences stating what the book is about.
+
+Scope — what the book covers, who it is intended for.
+
+Structure — how the interior is organized (chapters, sections, progression from topic to topic).
+
+Rules:
+
+Compress. Do not pad. Every sentence must carry information.
+
+Do not invent details not present in the inputs.
+
+Do not open with narrative framing ("This book represents…").
+
+Do not list chapters or restate the TOC as a list.
+
+Do not summarize the preface — describe the book.
+
+Every sentence must be verifiable from the provided inputs. Avoid evaluative language ("reads like", "feels", "engaging"). Describe structure and content, not subjective experience.
+
+If the inputs are insufficient for a full synopsis, close with one honest line: "[PARTIAL: inputs insufficient for full synopsis]".
+
+INPUTS:
+${prefaceText}
+
+TOC:
+${tocText}
+
+CHAPTER 1 OPENING:
+${ch1FirstPara}
+
+LAST CHAPTER OPENING:
+${lastChFirstPara}
+
+OUTPUT:`;
   }
 
   async classifyBook(bookId, options = {}) {
