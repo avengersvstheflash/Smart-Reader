@@ -218,7 +218,30 @@ class Preprocessor {
 
   textToBasicBlocks(text) {
     if (!text || typeof text !== 'string') return [];
-    const paragraphs = text.split(/\n\s*\n+/);
+
+    // First pass: double-newline paragraphs (existing behavior)
+    let paragraphs = text.split(/\n\s*\n+/);
+
+    // Second pass: if any paragraph exceeds threshold, and there
+    // are single-newline breaks available, subdivide
+    const OVERSIZED_THRESHOLD = 8000;
+    const subdivided = [];
+    for (const p of paragraphs) {
+      const trimmed = p.trim();
+      if (!trimmed) continue;
+      if (trimmed.length > OVERSIZED_THRESHOLD && trimmed.includes('\n')) {
+        // Split on single newlines within this oversized paragraph
+        const lines = trimmed.split(/\r?\n/);
+        for (const line of lines) {
+          const lt = line.trim();
+          if (lt) subdivided.push(lt);
+        }
+      } else {
+        subdivided.push(trimmed);
+      }
+    }
+    paragraphs = subdivided;
+
     const blocks = [];
 
     for (const p of paragraphs) {

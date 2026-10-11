@@ -267,7 +267,8 @@ class IngestionService {
     // 3. Text & Markdown Pipeline (buffer or text string)
     let text = rawText;
     if (!text && fileBuffer) {
-      text = fileBuffer.toString('utf-8');
+      const { decodeTextBuffer } = require('./parsers/textParser');
+      text = decodeTextBuffer(fileBuffer, { originalFilename });
     }
 
     if (!text || text.trim() === '') {
