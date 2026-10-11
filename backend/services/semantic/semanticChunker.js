@@ -353,9 +353,21 @@ class SemanticChunker {
 
   splitBySentences(text, maxTokensPerGroup) {
     if (!text) return [];
-    // Multilingual sentence matching: English [.!?] followed by whitespace/newline/EOF,
-    // CJK/Japanese [。！？] followed by optional quotes/whitespace/newline/EOF, or line breaks
-    const regex = /[^.!?\u3002\uFF01\uFF1F\r\n]+(?:[.!?]["'”’)]?(?:\s+|\r?\n|$)|[\u3002\uFF01\uFF1F]["'”’)]?\s*|(?:\r?\n)+)|[^.!?\u3002\uFF01\uFF1F\r\n]+$/g;
+    // Multilingual sentence matching: English [.!?] followed by whitespace/newline/EOF or closing brackets before CJK,
+    // CJK/Japanese [。！？] followed by optional quotes/whitespace/newline/EOF, or line breaks.
+    // Handles decimals (e.g. $3.00) and embedded periods without dropping text.
+    const CJK_LOOKAHEAD = '(?=[\\u3000-\\u303F\\u3040-\\u309F\\u30A0-\\u30FF\\u4E00-\\u9FFF\\uAC00-\\uD7AF]|$)';
+    const TERMINATOR_PATTERN = `(?:` +
+      `[.!?]["'”’)\\]」』】）〉》〕］]+(?:\\s+|\\r?\\n|${CJK_LOOKAHEAD})` +
+      `|[.!?]["'”’)\\]]?(?:\\s+|\\r?\\n|$)` +
+      `|[\\u3002\\uFF01\\uFF1F]["'”’)\\]」』】）〉》〕］]?\\s*` +
+      `|(?:\\r?\\n)+` +
+    `)`;
+    const NON_TERMINATOR = `(?:[^.!?\\u3002\\uFF01\\uFF1F\\r\\n]|[.!?](?!["'”’)\\]」』】）〉》〕］]*(?:\\s|\\r?\\n|[\\u3000-\\u303F\\u3040-\\u309F\\u30A0-\\u30FF\\u4E00-\\u9FFF\\uAC00-\\uD7AF]|$)))`;
+    const regex = new RegExp(
+      `${NON_TERMINATOR}+${TERMINATOR_PATTERN}|${NON_TERMINATOR}+$`,
+      'g'
+    );
     const rawSentences = text.match(regex) || [text];
     const groups = [];
     let currentGroup = [];

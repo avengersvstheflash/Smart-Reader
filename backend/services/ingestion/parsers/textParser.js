@@ -490,6 +490,26 @@ class TextParser {
         continue;
       }
 
+      // Check for Aozora section markers (F51h): preserve full original block text intact
+      if (lines.length === 1 && /［＃「([^」]+)」は(?:中|小|大)?見出し］/.test(trimmed)) {
+        doc.addBlock({
+          type: 'heading',
+          level: 1,
+          text: trimmed,
+        });
+        continue;
+      }
+
+      // Check for Japanese chapter markers: 第N章 / 第N節 / 第N篇 / 第N部
+      if (lines.length === 1 && /^第[一二三四五六七八九十百千0-9]+[章節篇部]/.test(trimmed)) {
+        doc.addBlock({
+          type: 'heading',
+          level: 1,
+          text: trimmed,
+        });
+        continue;
+      }
+
       // Default to paragraph (joining inner line wraps into a continuous readable paragraph)
       const paragraphText = lines.map((l) => l.trim()).join(' ');
       doc.addBlock({

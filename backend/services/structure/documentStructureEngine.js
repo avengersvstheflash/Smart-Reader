@@ -359,6 +359,24 @@ class DocumentStructureEngine {
       return null;
     }
 
+    // Aozora section markers (F51h): ［＃「X」は中見出し］, ［＃「X」は小見出し］, ［＃「X」は大見出し］
+    const aozoraMatch = trimmed.match(/［＃「([^」]+)」は(?:中|小|大)?見出し］/);
+    if (aozoraMatch) {
+      return { level: 1, text: trimmed, displayTitle: aozoraMatch[1].trim() };
+    }
+
+    // Rare Aozora numeral marker: ［＃一］, ［＃二］...
+    const aozoraNumMatch = trimmed.match(/^［＃([一二三四五六七八九十百]+)］$/);
+    if (aozoraNumMatch) {
+      return { level: 1, text: trimmed, displayTitle: aozoraNumMatch[1].trim() };
+    }
+
+    // Japanese chapter markers: 第N章 / 第N節 / 第N篇 / 第N部
+    const daiNMatch = trimmed.match(/^第([一二三四五六七八九十百千0-9]+)[章節篇部](?:[\s:.—–-]\s*(.*))?$/);
+    if (daiNMatch) {
+      return { level: 1, text: trimmed, displayTitle: trimmed };
+    }
+
     if (this.CHAPTER_EXPLICIT_REGEX.test(trimmed)) {
       return { level: 1, text: trimmed };
     }
@@ -629,6 +647,48 @@ class DocumentStructureEngine {
           sourcePage: block.sourcePage || 1,
           startOffset: block.startOffset || 0,
           detectionSignal: 'normalized_chapter_opener',
+          confidence: 0.93,
+        });
+        continue;
+      }
+
+      // Aozora section marker detection (F51h): ［＃「X」は中見出し］, ［＃「X」は小見出し］, ［＃「X」は大見出し］
+      const aozoraMatch = text.match(/［＃「([^」]+)」は(?:中|小|大)?見出し］/);
+      if (aozoraMatch) {
+        candidates.push({
+          blockIndex: i,
+          title: aozoraMatch[1].trim(), // Use X as the heading's displayed text
+          sourcePage: block.sourcePage || 1,
+          startOffset: block.startOffset || 0,
+          detectionSignal: 'aozora_heading',
+          confidence: 0.95,
+        });
+        continue;
+      }
+
+      // Rare Aozora numeral marker: ［＃一］, ［＃二］...
+      const aozoraNumMatch = text.match(/^［＃([一二三四五六七八九十百]+)］$/);
+      if (aozoraNumMatch) {
+        candidates.push({
+          blockIndex: i,
+          title: aozoraNumMatch[1].trim(),
+          sourcePage: block.sourcePage || 1,
+          startOffset: block.startOffset || 0,
+          detectionSignal: 'aozora_numeral_heading',
+          confidence: 0.92,
+        });
+        continue;
+      }
+
+      // Japanese chapter markers: 第N章 / 第N節 / 第N篇 / 第N部
+      const daiNMatch = text.match(/^第([一二三四五六七八九十百千0-9]+)[章節篇部](?:[\s:.—–-]\s*(.*))?$/);
+      if (daiNMatch) {
+        candidates.push({
+          blockIndex: i,
+          title: text,
+          sourcePage: block.sourcePage || 1,
+          startOffset: block.startOffset || 0,
+          detectionSignal: 'cjk_numbered_chapter',
           confidence: 0.93,
         });
         continue;
