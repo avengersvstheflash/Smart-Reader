@@ -1,4 +1,5 @@
 const { CanonicalDocument } = require('../models/canonicalContent');
+const { decodeTextBuffer } = require('./textParser');
 
 /**
  * Markdown Parser for Smart Reader
@@ -7,11 +8,24 @@ const { CanonicalDocument } = require('../models/canonicalContent');
  */
 class MarkdownParser {
   /**
-   * Parses markdown text into CanonicalDocument
-   * @param {string} markdownText
+   * Parses markdown text or buffer into CanonicalDocument
+   * @param {string|Buffer} input
+   * @param {Object} [options]
    * @returns {CanonicalDocument}
    */
-  parse(markdownText) {
+  parse(input, options = {}) {
+    const originalFilename = typeof options === 'string'
+      ? options
+      : (options && options.originalFilename ? options.originalFilename : '');
+
+    let markdownText = '';
+    if (Buffer.isBuffer(input)) {
+      markdownText = decodeTextBuffer(input, { originalFilename });
+    } else if (typeof input === 'string') {
+      markdownText = input;
+    } else if (input) {
+      markdownText = String(input);
+    }
     const doc = new CanonicalDocument();
     if (!markdownText || markdownText.trim() === '') {
       return doc;
