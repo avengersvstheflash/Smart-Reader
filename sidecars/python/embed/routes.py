@@ -22,7 +22,8 @@ def _load_embedder():
     t0 = time.time()
     try:
         model = SentenceTransformer("BAAI/bge-m3", model_kwargs=model_kwargs, device=device)
-        print(f"[Embed Warmup] BGE-M3 ready on {device} in {round(time.time() - t0, 2)}s")
+        model.max_seq_length = 2048
+        print(f"[Embed Warmup] BGE-M3 ready on {device} in {round(time.time() - t0, 2)}s (max_seq_length=2048)")
         return model
     except Exception as e:
         print(f"[Embed Error] Model warmup failed: {e}", file=sys.stderr)
@@ -88,7 +89,7 @@ def embed_batch(req: EmbedBatchRequest):
             if embedder is None:
                 raise RuntimeError("BGE-M3 model instance is not available")
             t0 = time.time()
-            vectors = embedder.encode(req.texts, normalize_embeddings=True)
+            vectors = embedder.encode(req.texts, batch_size=4, normalize_embeddings=True)
             embeddings = vectors.tolist() if hasattr(vectors, "tolist") else [v.tolist() for v in vectors]
             dur_ms = round((time.time() - t0) * 1000, 1)
             print(f"[Routing: Embed] Encoded {len(req.texts)} texts in {dur_ms}ms")

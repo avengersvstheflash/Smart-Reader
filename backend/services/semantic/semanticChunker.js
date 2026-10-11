@@ -1,5 +1,6 @@
 'use strict';
 const crypto = require('crypto');
+const { countWords } = require('../../utils/wordCount');
 
 const MAX_CHUNK_CHARS = 8000;
 const MAX_CHUNK_SPLIT_ATTEMPTS = 3;
@@ -212,10 +213,7 @@ class SemanticChunker {
     const atomicTypes = new Set(['table', 'callout', 'quote', 'list']);
     const postPassMerge = (arr) => {
       if (arr.length === 0) return arr;
-      const wordCount = (c) => {
-        const t = c.textContent || '';
-        return t.trim() === '' ? 0 : t.trim().split(/\s+/).length;
-      };
+      const wordCount = (c) => countWords(c.textContent);
       let changed = true;
       while (changed) {
         changed = false;
@@ -355,10 +353,23 @@ class SemanticChunker {
 
   splitBySentences(text, maxTokensPerGroup) {
     if (!text) return [];
-    const rawSentences = text.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g) || [text];
+    // Multilingual sentence matching: English [.!?] followed by whitespace/newline/EOF,
+    // CJK/Japanese [。！？] followed by optional quotes/whitespace/newline/EOF, or line breaks
+    const regex = /[^.!?\u3002\uFF01\uFF1F\r\n]+(?:[.!?]["'”’)]?(?:\s+|\r?\n|$)|[\u3002\uFF01\uFF1F]["'”’)]?\s*|(?:\r?\n)+)|[^.!?\u3002\uFF01\uFF1F\r\n]+$/g;
+    const rawSentences = text.match(regex) || [text];
     const groups = [];
     let currentGroup = [];
     let currentTokens = 0;
+
+    const joinGroup = (group) => {
+      return group.reduce((acc, s, idx) => {
+        if (idx === 0) return s;
+        const prev = group[idx - 1];
+        const isPrevCjk = /[\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]$/.test(prev);
+        const isCurrCjk = /^[\u3000-\u303F\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/.test(s);
+        return (isPrevCjk || isCurrCjk) ? acc + s : acc + ' ' + s;
+      }, '');
+    };
 
     for (const raw of rawSentences) {
       const sentence = raw.trim();
@@ -366,7 +377,7 @@ class SemanticChunker {
       const sentenceTokens = this.estimateTokens(sentence);
 
       if (currentTokens + sentenceTokens > maxTokensPerGroup && currentGroup.length > 0) {
-        groups.push(currentGroup.join(' '));
+        groups.push(joinGroup(currentGroup));
         currentGroup = [sentence];
         currentTokens = sentenceTokens;
       } else {
@@ -376,7 +387,7 @@ class SemanticChunker {
     }
 
     if (currentGroup.length > 0) {
-      groups.push(currentGroup.join(' '));
+      groups.push(joinGroup(currentGroup));
     }
 
     return groups;
