@@ -250,13 +250,87 @@ OUTPUT:`;
   }
 
   /**
+   * Validate candidate publisher string.
+   * Returns string unchanged if valid, or null if it matches a non-publisher pattern.
+   *
+   * Rejection criteria (case-insensitive):
+   * - Contains any of: "unlawful", "piracy", "theft", "copyright",
+   *   "warning", "notice", "disclaimer", "legal", "license", "dmca"
+   * - Starts with lowercase words like "is ", "the ", "this ", "please ",
+   *   "you ", "if " (proper-noun publishers start with capitals)
+   * - Longer than 6 words
+   * - Contains sentence terminators (. ! ?) mid-string
+   * - Empty or whitespace-only
+   *
+   * @param {string} str
+   * @returns {string|null}
+   */
+  validatePublisher(str) {
+    if (!str || typeof str !== 'string') return null;
+    const trimmed = str.trim();
+    if (!trimmed) return null;
+
+    let rejected = false;
+
+    // 1. Rejection keywords (case-insensitive)
+    const lower = trimmed.toLowerCase();
+    const REJECT_KEYWORDS = [
+      'unlawful',
+      'piracy',
+      'theft',
+      'copyright',
+      'warning',
+      'notice',
+      'disclaimer',
+      'legal',
+      'license',
+      'dmca',
+    ];
+    if (REJECT_KEYWORDS.some((kw) => lower.includes(kw))) {
+      rejected = true;
+    }
+
+    // 2. Starts with lowercase words like "is ", "the ", "this ", "please ", "you ", "if "
+    // (proper-noun publishers start with capitals, e.g. "The MIT Press" is accepted)
+    if (!rejected && /^(?:is|the|this|please|you|if)\s+/.test(trimmed)) {
+      rejected = true;
+    }
+
+    // 3. Longer than 6 words
+    if (!rejected) {
+      const words = trimmed.split(/\s+/).filter(Boolean);
+      if (words.length > 6) {
+        rejected = true;
+      }
+    }
+
+    // 4. Contains sentence terminators (. ! ?) mid-string
+    if (!rejected) {
+      const withoutTrailing = trimmed.replace(/[.!?]+$/, '');
+      if (/[.!?]\s+\S/.test(trimmed) || /[.!?]/.test(withoutTrailing)) {
+        rejected = true;
+      }
+    }
+
+    if (rejected) {
+      console.warn(
+        `[Bibliographer] Rejected publisher candidate "${trimmed}": matches anti-piracy/legal notice pattern. Setting null.`
+      );
+      return null;
+    }
+
+    return trimmed;
+  }
+
+  /**
    * Normalize and validate structured bibliographic JSON from LLM
    */
   normalizeBibliographic(raw) {
-    const publisher =
+    const rawPublisher =
       typeof raw.publisher === 'string' && raw.publisher.trim()
         ? raw.publisher.trim()
         : null;
+    const publisher = this.validatePublisher(rawPublisher);
 
     let publicationYear = null;
     if (
@@ -449,7 +523,7 @@ OUTPUT:`;
         : [];
 
     return {
-      publisher,
+      publisher: this.validatePublisher(publisher),
       publication_year,
       isbn,
       edition,
@@ -465,4 +539,9 @@ OUTPUT:`;
   }
 }
 
-module.exports = new BookBibliographer();
+const instance = new BookBibliographer();
+instance.validatePublisher = instance.validatePublisher.bind(instance);
+module.exports = instance;
+module.exports.BookBibliographer = BookBibliographer;
+module.exports.validatePublisher = instance.validatePublisher;
+

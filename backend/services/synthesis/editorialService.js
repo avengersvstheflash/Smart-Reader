@@ -185,6 +185,9 @@ class EditorialService {
       chapters = this.createAdaptiveOutlineChapters(books, rawSections, topic);
     }
 
+    // F50: Deduplicate chapter headings within outline
+    chapters = editorialPlanner.deduplicateChapterTitles(chapters);
+
     // Step 5: Persist outline and seed smart_chapters rows
     const outlineId = options.outlineId || `outline-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const targetBookId = (collectionId && collectionId !== 'default') ? collectionId : bookIds[0];

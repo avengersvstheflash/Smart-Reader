@@ -395,6 +395,99 @@ class EditorialPlanner {
   }
 
   /**
+   * Detect duplicate titles within the same outline and apply suffix disambiguation
+   * to the second and subsequent occurrences.
+   *
+   * Format:
+   *   First:  "Chapter 1: Starting the Shadowbroker Tutorial!"
+   *   Second: "Chapter 1: Starting the Shadowbroker Tutorial! (2)"
+   *   Third:  "Chapter 1: Starting the Shadowbroker Tutorial! (3)"
+   *
+   * Edge cases:
+   * - Titles already ending in "(N)" -> increment, don't double-suffix (detect /\(\d+\)$/ pattern)
+   * - Empty/null titles -> leave as-is
+   * - Case-insensitive comparison ("Chapter 1" == "chapter 1")
+   *
+   * Log:
+   *   [EditorialPlanner] Disambiguated duplicate chapter title "<original>" -> "<final>" (occurrence N)
+   *
+   * @param {Array<object|string>} chapters
+   * @returns {Array<object|string>}
+   */
+  deduplicateChapterTitles(chapters) {
+    if (!Array.isArray(chapters) || chapters.length === 0) {
+      return chapters;
+    }
+
+    const titleCounts = new Map();
+    const allocated = new Set();
+
+    return chapters.map((item) => {
+      const isString = typeof item === 'string';
+      const rawTitle = isString ? item : (item && item.title);
+
+      // Empty/null titles -> leave as-is
+      if (!rawTitle || typeof rawTitle !== 'string' || !rawTitle.trim()) {
+        return item;
+      }
+
+      const trimmed = rawTitle.trim();
+      const normKey = trimmed.toLowerCase();
+      const count = (titleCounts.get(normKey) || 0) + 1;
+      titleCounts.set(normKey, count);
+
+      if (count === 1 && !allocated.has(normKey)) {
+        allocated.add(normKey);
+        return item;
+      }
+
+      const occurrence = Math.max(count, 2);
+      let finalTitle;
+
+      // Detect if title already ends in (N), e.g. /\s*\((\d+)\)$/
+      const suffixMatch = trimmed.match(/\s*\((\d+)\)$/);
+      if (suffixMatch) {
+        const base = trimmed.slice(0, suffixMatch.index).trimEnd();
+        let n = parseInt(suffixMatch[1], 10) + 1;
+        let candidate = `${base} (${n})`;
+        while (allocated.has(candidate.toLowerCase())) {
+          n++;
+          candidate = `${base} (${n})`;
+        }
+        finalTitle = candidate;
+      } else {
+        let n = occurrence;
+        let candidate = `${trimmed} (${n})`;
+        while (allocated.has(candidate.toLowerCase())) {
+          n++;
+          candidate = `${trimmed} (${n})`;
+        }
+        finalTitle = candidate;
+      }
+
+      allocated.add(finalTitle.toLowerCase());
+
+      const logger = (this && this.logger) || console;
+      logger.log(
+        `[EditorialPlanner] Disambiguated duplicate chapter title "${trimmed}" -> "${finalTitle}" (occurrence ${occurrence})`
+      );
+
+      if (isString) {
+        return finalTitle;
+      } else {
+        if (item && typeof item === 'object') {
+          item.title = finalTitle;
+        }
+        return item;
+      }
+    });
+  }
+
+  deduplicateTitles(chapters) {
+    return this.deduplicateChapterTitles(chapters);
+  }
+
+  /**
    * Main planning entry point
    * @param {object} input
    * @param {object} [options]
@@ -563,7 +656,7 @@ class EditorialPlanner {
       return {
         status: 'success',
         organizationStrategy: finalStrategy,
-        chapters: sanitizedChapters,
+        chapters: this.deduplicateChapterTitles(sanitizedChapters),
       };
     } catch (err) {
       return {
@@ -736,7 +829,7 @@ class EditorialPlanner {
     return {
       status: 'success',
       organizationStrategy,
-      chapters,
+      chapters: this.deduplicateChapterTitles(chapters),
     };
   }
 
@@ -888,7 +981,7 @@ class EditorialPlanner {
     return {
       status: 'success',
       organizationStrategy,
-      chapters,
+      chapters: this.deduplicateChapterTitles(chapters),
     };
   }
 
@@ -943,4 +1036,10 @@ Return JSON only:`;
   }
 }
 
-module.exports = new EditorialPlanner();
+const instance = new EditorialPlanner();
+instance.deduplicateChapterTitles = instance.deduplicateChapterTitles.bind(instance);
+instance.deduplicateTitles = instance.deduplicateTitles.bind(instance);
+module.exports = instance;
+module.exports.EditorialPlanner = EditorialPlanner;
+module.exports.deduplicateChapterTitles = instance.deduplicateChapterTitles;
+module.exports.deduplicateTitles = instance.deduplicateTitles;
