@@ -198,6 +198,7 @@ class BookService {
    * canonical Ingestion Pipeline (Normalizer -> Structure Detector -> Parser -> Canonical Document)
    */
   async importBook({
+    id,
     title,
     author,
     description,
@@ -254,6 +255,7 @@ class BookService {
       : 'text';
 
     const book = this.createBook({
+      ...(id ? { id } : {}),
       title: provisionalTitle.trim(),
       author: (author || '').trim() || 'Unknown Author',
       description:

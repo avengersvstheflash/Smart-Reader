@@ -519,6 +519,22 @@ class EditorialService {
       }
     }
 
+    // Circular synergy: If Omni chapters were just synthesized and the synopsis was a fallback or partial,
+    // refresh the synopsis using the newly generated chapters in the background.
+    if (synthesizedCount > 0) {
+      try {
+        const representationRepository = require('../../repositories/representationRepository');
+        const existingSynopsis = representationRepository.getBookRepresentation(bookId, 'SYNOPSIS');
+        if (existingSynopsis && existingSynopsis.metadata && existingSynopsis.metadata.fell_back) {
+          const intelligentSummarizer = require('../ai/intelligentSummarizer');
+          intelligentSummarizer.generateSynopsis(bookId, { circular: true })
+            .catch(err => console.warn(`[Circular Synopsis] Background refresh failed for book ${bookId}:`, err.message));
+        }
+      } catch (e) {
+        // Non-fatal background refresh attempt
+      }
+    }
+
     return {
       requestedCount: count,
       synthesizedCount,

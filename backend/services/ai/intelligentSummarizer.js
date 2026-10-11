@@ -58,7 +58,11 @@ class IntelligentSummarizer {
       const tocChunks = allChunks.filter(c => tocIds.has(c.id));
       
       const chapters = chapterRepository.getByBookId(bookId) || [];
-      const bodyChapters = chapters.filter(ch => {
+      const excludedRoles = new Set(['front_matter', 'back_matter', 'appendix', 'index']);
+      let bodyChapters = chapters.filter(ch => {
+        const role = (ch.structural_role || '').toLowerCase();
+        if (excludedRoles.has(role)) return false;
+        if ((ch.word_count || 0) < 50) return false;
         const chChunks = allChunks.filter(c => c.chapterId === ch.id);
         if (chChunks.length === 0) return true;
         const isPreface = prefaceIds.has(chChunks[0].id);
@@ -66,14 +70,54 @@ class IntelligentSummarizer {
         return !isPreface && !isToc;
       });
 
+      // If strict filter removed all chapters (e.g. mock books, stub chapters in unit tests),
+      // fall back to candidates excluding only front/back matter roles, or all chapters
+      if (bodyChapters.length === 0) {
+        bodyChapters = chapters.filter(ch => {
+          const role = (ch.structural_role || '').toLowerCase();
+          if (excludedRoles.has(role)) return false;
+          const chChunks = allChunks.filter(c => c.chapterId === ch.id);
+          if (chChunks.length === 0) return true;
+          const isPreface = prefaceIds.has(chChunks[0].id);
+          const isToc = tocIds.has(chChunks[0].id);
+          return !isPreface && !isToc;
+        });
+      }
+      if (bodyChapters.length === 0) {
+        bodyChapters = chapters.filter(ch => {
+          const chChunks = allChunks.filter(c => c.chapterId === ch.id);
+          if (chChunks.length === 0) return true;
+          const isPreface = prefaceIds.has(chChunks[0].id);
+          const isToc = tocIds.has(chChunks[0].id);
+          return !isPreface && !isToc;
+        });
+      }
+
       let ch1Chunk = null;
       if (bodyChapters.length > 0) {
-        ch1Chunk = allChunks.find(c => c.chapterId === bodyChapters[0].id);
+        const ch1Chunks = allChunks.filter(c => c.chapterId === bodyChapters[0].id);
+        ch1Chunk = ch1Chunks.find(c => this.extractOpeningProse(c) !== '(None provided)') || ch1Chunks[0] || null;
+      }
+      if (!ch1Chunk && allChunks.length > 0) {
+        ch1Chunk = allChunks.find(c => this.extractOpeningProse(c) !== '(None provided)') || allChunks[0];
       }
       
       let lastChChunk = null;
       if (bodyChapters.length > 1) {
-        lastChChunk = allChunks.find(c => c.chapterId === bodyChapters[bodyChapters.length - 1].id);
+        const lastCh = bodyChapters[bodyChapters.length - 1];
+        const lastChChunks = allChunks.filter(c => c.chapterId === lastCh.id);
+        lastChChunk = lastChChunks.find(c => this.extractOpeningProse(c) !== '(None provided)') || lastChChunks[0] || null;
+      } else if (bodyChapters.length === 1) {
+        // For single-chapter works, sample lastChChunk from the final chunk of that chapter/book with prose
+        const candidateChunks = allChunks.filter(c => !ch1Chunk || c.id !== ch1Chunk.id);
+        lastChChunk = [...candidateChunks].reverse().find(c => this.extractOpeningProse(c) !== '(None provided)')
+          || candidateChunks[candidateChunks.length - 1]
+          || null;
+      } else if (allChunks.length > 1) {
+        const candidateChunks = allChunks.filter(c => !ch1Chunk || c.id !== ch1Chunk.id);
+        lastChChunk = [...candidateChunks].reverse().find(c => this.extractOpeningProse(c) !== '(None provided)')
+          || candidateChunks[candidateChunks.length - 1]
+          || null;
       }
       
       const selectedChunks = [
@@ -98,16 +142,12 @@ class IntelligentSummarizer {
         maxTokens: 5000,
       });
 
-      const extractFirstPara = (chunk) => {
-        if (!chunk || !chunk.textContent) return '(None provided)';
-        const paras = chunk.textContent.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
-        return paras[0] || chunk.textContent.trim();
-      };
+      const extractOpeningProse = (chunk, maxWords = 250) => this.extractOpeningProse(chunk, maxWords);
+      const extractFirstPara = extractOpeningProse;
 
-      const prefaceText = prefaceChunks.map(c => c.textContent).join('\n\n').trim() || '(None provided)';
-      const tocText = tocChunks.map(c => c.textContent).join('\n\n').trim() || '(None provided)';
-      const ch1FirstPara = extractFirstPara(ch1Chunk);
-      const lastChFirstPara = extractFirstPara(lastChChunk);
+      // Smart Chapter reuse if Omni chapters were previously synthesized
+      const smartChapterRepository = require('../../repositories/smartChapterRepository');
+      const generatedSmartChapters = smartChapterRepository.getGeneratedByBookId(bookId) || [];
 
       const stripSectionMarkers = (text) => {
         if (!text || typeof text !== 'string') return '';
@@ -117,6 +157,46 @@ class IntelligentSummarizer {
           .replace(/\(None provided\)/gi, '')
           .trim();
       };
+
+      const rawPreface = prefaceChunks.map(c => c.textContent).join('\n\n').trim();
+      const prefaceText = stripSectionMarkers(rawPreface) ? rawPreface : '(None provided)';
+      
+      let rawToc = tocChunks.map(c => c.textContent).join('\n\n').trim();
+      let tocText = stripSectionMarkers(rawToc) ? rawToc : '';
+      if (!tocText) {
+        const existingOutline = outlineRepository.getByBookId(book.id);
+        if (existingOutline && Array.isArray(existingOutline.chapters) && existingOutline.chapters.length > 0) {
+          tocText = existingOutline.chapters
+            .map((ch, idx) => `${idx + 1}. ${ch.title || `Chapter ${idx + 1}`}`)
+            .join('\n');
+        } else if (generatedSmartChapters.length > 0) {
+          tocText = generatedSmartChapters
+            .map((sc, idx) => `${sc.sequence || (idx + 1)}. ${sc.title || `Chapter ${sc.sequence || (idx + 1)}`}`)
+            .join('\n');
+        } else if (bodyChapters.length > 0) {
+          tocText = bodyChapters
+            .map((ch, idx) => `${ch.number || (idx + 1)}. ${ch.title || `Chapter ${ch.number || (idx + 1)}`}`)
+            .join('\n');
+        } else if (chapters.length > 0) {
+          tocText = chapters
+            .map((ch, idx) => `${ch.number || (idx + 1)}. ${ch.title || `Chapter ${ch.number || (idx + 1)}`}`)
+            .join('\n');
+        }
+      }
+      if (!tocText) {
+        tocText = '(None provided)';
+      }
+
+      let ch1FirstPara = extractOpeningProse(ch1Chunk, 250);
+      let lastChFirstPara = extractOpeningProse(lastChChunk, 250);
+
+      // If opening prose from raw chunks is sparse or missing, but Omni chapters exist, reuse them!
+      if ((!ch1FirstPara || ch1FirstPara === '(None provided)') && generatedSmartChapters.length > 0) {
+        ch1FirstPara = extractOpeningProse(generatedSmartChapters[0], 250);
+      }
+      if ((!lastChFirstPara || lastChFirstPara === '(None provided)') && generatedSmartChapters.length > 1) {
+        lastChFirstPara = extractOpeningProse(generatedSmartChapters[generatedSmartChapters.length - 1], 250);
+      }
 
       const usableWords = countWords(
         [
@@ -750,7 +830,16 @@ OUTPUT:`;
     return text;
   }
 
-  buildSynopsisPrompt({ prefaceText = '(None provided)', tocText = '(None provided)', ch1FirstPara = '(None provided)', lastChFirstPara = '(None provided)' } = {}) {
+  buildSynopsisPrompt({
+    prefaceText = '(None provided)',
+    tocText = '(None provided)',
+    ch1FirstPara = '(None provided)',
+    lastChFirstPara = '(None provided)',
+    ch1Opening = ch1FirstPara,
+    lastChOpening = lastChFirstPara,
+  } = {}) {
+    const opening1 = ch1Opening || ch1FirstPara || '(None provided)';
+    const openingLast = lastChOpening || lastChFirstPara || '(None provided)';
     return `You are preparing a synopsis for a book — a concise, high-quality abstract that gives a reader an accurate sense of what the book is about and how it's structured.
 
 INPUTS PROVIDED:
@@ -796,12 +885,87 @@ TOC:
 ${tocText}
 
 CHAPTER 1 OPENING:
-${ch1FirstPara}
+${opening1}
 
 LAST CHAPTER OPENING:
-${lastChFirstPara}
+${openingLast}
 
 OUTPUT:`;
+  }
+
+  truncateToWordLimit(text, limit) {
+    if (!text || countWords(text) <= limit) return text;
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      const segmenter = new Intl.Segmenter('und', { granularity: 'word' });
+      let acc = '';
+      for (const { segment } of segmenter.segment(text.trim())) {
+        const next = acc + segment;
+        if (countWords(next) > limit && acc) {
+          return acc.trimEnd() + '...';
+        }
+        acc = next;
+      }
+      return acc.trimEnd() + '...';
+    }
+    const parts = text.trim().split(/(\s+)/);
+    let acc = '';
+    for (const part of parts) {
+      const next = acc + part;
+      if (countWords(next) > limit && acc) {
+        return acc.trimEnd() + '...';
+      }
+      acc = next;
+    }
+    return acc.trimEnd() + '...';
+  }
+
+  extractOpeningProse(chunkOrChunks, maxWords = 250) {
+    if (!chunkOrChunks) return '(None provided)';
+    const chunks = Array.isArray(chunkOrChunks) ? chunkOrChunks : [chunkOrChunks];
+    const collected = [];
+    let accumulatedWords = 0;
+
+    for (const chunk of chunks) {
+      if (!chunk) continue;
+      const rawText = chunk.textContent || chunk.content || '';
+      if (!rawText || typeof rawText !== 'string') continue;
+
+      const paras = rawText.split(/\r?\n\s*\r?\n/).map(p => p.trim()).filter(Boolean);
+      for (const para of paras) {
+        const cleaned = para
+          .replace(/\[Section:[^\]]*\]/gi, '')
+          .replace(/\[Source\b[^\]]*\]/gi, '')
+          .trim();
+        if (!cleaned) continue;
+
+        const w = countWords(cleaned);
+        if (w === 0) continue;
+
+        collected.push(cleaned);
+        accumulatedWords += w;
+
+        if (accumulatedWords >= maxWords) {
+          break;
+        }
+      }
+      if (accumulatedWords >= maxWords) {
+        break;
+      }
+    }
+
+    if (collected.length === 0) {
+      return '(None provided)';
+    }
+
+    const combined = collected.join('\n\n').trim();
+    if (countWords(combined) > maxWords) {
+      return this.truncateToWordLimit(combined, maxWords);
+    }
+    return combined;
+  }
+
+  extractFirstPara(chunk) {
+    return this.extractOpeningProse(chunk, 250);
   }
 
   async classifyBook(bookId, options = {}) {
