@@ -1,12 +1,34 @@
 'use strict';
 const crypto = require('crypto');
 
+const MAX_CHUNK_CHARS = 8000;
+const MAX_CHUNK_SPLIT_ATTEMPTS = 3;
+
+// Regex matching sentence terminators (. ! ? 。 ！ ？) and paragraph breaks
+const SENTENCE_BOUNDARY_REGEX = /(?:[.!?]["'”’)]?(?:\s+|\n)|(?:\r?\n){2,}|[。！？]["'”’)]?\s*)/g;
+
+function findLastSentenceBoundary(text, limit) {
+  const candidate = text.slice(0, limit);
+  let lastIndex = -1;
+  let match;
+  SENTENCE_BOUNDARY_REGEX.lastIndex = 0;
+  while ((match = SENTENCE_BOUNDARY_REGEX.exec(candidate)) !== null) {
+    const end = match.index + match[0].length;
+    if (text.slice(0, end).trim().length > 0 && text.slice(end).trim().length > 0) {
+      lastIndex = end;
+    }
+  }
+  return lastIndex;
+}
+
 class SemanticChunker {
   constructor(options = {}) {
     this.targetMinTokens = options.targetMinTokens || 80;   // ~60 words activated (1b)
     this.targetMaxTokens = options.targetMaxTokens || 350;
     this.hardMaxTokens = options.hardMaxTokens || 550;
     this.minWordCount = options.minWordCount || 75; // post-pass merge threshold (1c)
+    this.maxChunkChars = options.maxChunkChars || MAX_CHUNK_CHARS;
+    this.maxChunkSplitAttempts = options.maxChunkSplitAttempts || MAX_CHUNK_SPLIT_ATTEMPTS;
   }
 
   chunkPreprocessedUnits(units, bookMetadata = {}) {
@@ -247,7 +269,88 @@ class SemanticChunker {
       return filtered;
     };
 
-    return postPassMerge(chunks);
+    return this.enforceMaxChunkSize(postPassMerge(chunks));
+  }
+
+  enforceMaxChunkSize(chunks) {
+    if (!Array.isArray(chunks) || chunks.length === 0) return chunks;
+    const maxChars = this.maxChunkChars || MAX_CHUNK_CHARS;
+    const maxAttempts = this.maxChunkSplitAttempts || MAX_CHUNK_SPLIT_ATTEMPTS;
+    const result = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const text = chunk.textContent || '';
+      const seq = chunk.sequence !== undefined ? chunk.sequence : i;
+
+      if (text.length <= maxChars) {
+        result.push(chunk);
+        continue;
+      }
+
+      let remainingText = text;
+      let attempts = 0;
+      const splitParts = [];
+
+      while (remainingText.length > maxChars) {
+        if (attempts >= maxAttempts) {
+          console.warn(
+            `[SemanticChunker] Chunk seq ${seq} still ${remainingText.length} chars after ${attempts} attempts. Rejecting — see CHUNK_TOO_LARGE error.`
+          );
+          throw new Error(
+            `CHUNK_TOO_LARGE: chunk ${seq} remained ${remainingText.length} chars ` +
+            `after ${maxAttempts} split attempts ` +
+            `(limit ${maxChars}). Source material may lack ` +
+            `sentence boundaries — check encoding or preprocessing.`
+          );
+        }
+
+        const splitIdx = findLastSentenceBoundary(remainingText, maxChars);
+        if (splitIdx <= 0) {
+          console.warn(
+            `[SemanticChunker] Chunk seq ${seq} still ${remainingText.length} chars after ${maxAttempts} attempts. Rejecting — see CHUNK_TOO_LARGE error.`
+          );
+          throw new Error(
+            `CHUNK_TOO_LARGE: chunk ${seq} remained ${remainingText.length} chars ` +
+            `after ${maxAttempts} split attempts ` +
+            `(limit ${maxChars}). Source material may lack ` +
+            `sentence boundaries — check encoding or preprocessing.`
+          );
+        }
+
+        attempts++;
+        const part1 = remainingText.slice(0, splitIdx).trim();
+        const part2 = remainingText.slice(splitIdx).trim();
+
+        console.log(
+          `[SemanticChunker] Split oversized chunk (seq ${seq}, ${remainingText.length} chars) at sentence boundary → ${part1.length} chars + ${part2.length} chars`
+        );
+
+        splitParts.push(part1);
+        remainingText = part2;
+      }
+
+      if (remainingText.length > 0) {
+        splitParts.push(remainingText);
+      }
+
+      for (let pIdx = 0; pIdx < splitParts.length; pIdx++) {
+        const partText = splitParts[pIdx];
+        result.push({
+          ...chunk,
+          id: chunk.id ? `${chunk.id}-p${pIdx}` : `chk-p${pIdx}-${Date.now()}`,
+          textContent: partText,
+          tokenCount: this.estimateTokens(partText),
+          contentHash: this.hashContent(`${chunk.sectionHeading || chunk.section_heading || ''}:${partText}`),
+        });
+      }
+    }
+
+    result.forEach((c, idx) => {
+      c.sequence = idx;
+    });
+
+    return result;
   }
 
   splitBySentences(text, maxTokensPerGroup) {
@@ -289,4 +392,11 @@ class SemanticChunker {
   }
 }
 
-module.exports = new SemanticChunker();
+SemanticChunker.MAX_CHUNK_CHARS = MAX_CHUNK_CHARS;
+SemanticChunker.MAX_CHUNK_SPLIT_ATTEMPTS = MAX_CHUNK_SPLIT_ATTEMPTS;
+
+const chunkerInstance = new SemanticChunker();
+chunkerInstance.MAX_CHUNK_CHARS = MAX_CHUNK_CHARS;
+chunkerInstance.MAX_CHUNK_SPLIT_ATTEMPTS = MAX_CHUNK_SPLIT_ATTEMPTS;
+
+module.exports = chunkerInstance;
