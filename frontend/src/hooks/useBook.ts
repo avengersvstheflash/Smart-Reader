@@ -134,6 +134,7 @@ export function useBookSynopsis(bookId: string) {
         let content = '';
         let fellBack: boolean | undefined = undefined;
         let fallbackReason: string | undefined = undefined;
+        let llmFlaggedPartial: boolean | undefined = undefined;
 
         const rep = res.representation;
         if (rep && typeof rep.content === 'string') {
@@ -169,6 +170,10 @@ export function useBookSynopsis(bookId: string) {
           if (typeof metaObj.fallback_reason === 'string') {
             fallbackReason = metaObj.fallback_reason;
           }
+
+          if (metaObj.llm_flagged_partial === true) {
+            llmFlaggedPartial = true;
+          }
         }
 
         let canonicalBlocks: CanonicalBlock[] | undefined = undefined;
@@ -184,7 +189,7 @@ export function useBookSynopsis(bookId: string) {
         }
 
         if (!content) return null;
-        return { content, canonicalBlocks, fellBack, fallbackReason };
+        return { content, canonicalBlocks, fellBack, fallbackReason, llmFlaggedPartial };
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
           return null;

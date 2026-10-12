@@ -161,6 +161,11 @@ export default function BookDetailsRoute() {
   };
 
   const providerLabel = formatAiProvider(book?.aiProvider);
+  const isPartialSynopsis = Boolean(
+    book?.metadata?.llm_flagged_partial ||
+    (book as any)?.metadata_json?.llm_flagged_partial ||
+    synopsis?.llmFlaggedPartial
+  );
 
   // Loading state
   if (isBookLoading) {
@@ -419,12 +424,20 @@ export default function BookDetailsRoute() {
                       .split(/\r?\n\s*\r?\n/)
                       .map((p) => p.trim())
                       .filter(Boolean)
-                ).map((para, idx) => (
-                  <p key={idx} className="text-body text-ink leading-relaxed m-0">
-                    {renderInlineText(para)}
-                  </p>
-                ))}
+                )
+                  .map((para) => para.replace(/\[PARTIAL:[^\]]*\]/gi, '').trim())
+                  .filter(Boolean)
+                  .map((para, idx) => (
+                    <p key={idx} className="text-body text-ink leading-relaxed m-0">
+                      {renderInlineText(para)}
+                    </p>
+                  ))}
               </div>
+              {isPartialSynopsis && (
+                <p className="text-caption text-ink-muted italic mt-2">
+                  Partial synopsis — source inputs were limited.
+                </p>
+              )}
             </div>
           ) : (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-caption text-ink-muted">

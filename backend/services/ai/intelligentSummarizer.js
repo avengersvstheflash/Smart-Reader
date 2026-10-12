@@ -339,19 +339,41 @@ class IntelligentSummarizer {
         metadata.model = (aiResult && aiResult.model) || 'gemini-3.8-flash';
       }
 
+      const isPartialSynopsis = /\[PARTIAL:[^\]]*\]/i.test(rawSynopsis) || usableWords < 50;
+      if (isPartialSynopsis) {
+        metadata.llm_flagged_partial = true;
+      }
+
+      let storedSynopsisContent = rawSynopsis;
+      if (/\[PARTIAL:[^\]]*\]/i.test(rawSynopsis) && rawSynopsis.trim() !== '[PARTIAL: inputs insufficient for full synopsis]') {
+        storedSynopsisContent = aiNormalizer.stripPartialMarkers(rawSynopsis);
+      }
+
       const representation = representationRepository.saveBookRepresentation({
         bookId: book.id,
         type: 'SYNOPSIS',
-        content: rawSynopsis,
-        canonicalBlocks,
+        content: storedSynopsisContent,
+        canonicalBlocks: (storedSynopsisContent !== rawSynopsis) ? aiNormalizer.normalize(storedSynopsisContent) : canonicalBlocks,
         metadata,
       });
 
-      // Also update books.description if appropriate (clean prose without markdown symbols)
-      const cleanDescription = aiNormalizer.stripMarkdownSymbols(rawSynopsis);
+      // Also update books.description if appropriate (clean prose without markdown symbols or inline PARTIAL marker)
+      let cleanDescription = aiNormalizer.stripMarkdownSymbols(aiNormalizer.stripPartialMarkers(rawSynopsis));
+      let bookMeta = {};
+      try {
+        bookMeta = typeof book.metadata_json === 'string'
+          ? JSON.parse(book.metadata_json || '{}')
+          : (book.metadata_json || {});
+      } catch (e) {
+        bookMeta = {};
+      }
+      if (isPartialSynopsis) {
+        bookMeta.llm_flagged_partial = true;
+      }
+
       const db = getDatabase();
-      db.prepare('UPDATE books SET description = ?, updated_at = ? WHERE id = ?')
-        .run(cleanDescription, new Date().toISOString(), book.id);
+      db.prepare('UPDATE books SET description = ?, metadata_json = ?, updated_at = ? WHERE id = ?')
+        .run(cleanDescription, JSON.stringify(bookMeta), new Date().toISOString(), book.id);
 
       jobRepository.complete(jobId);
 

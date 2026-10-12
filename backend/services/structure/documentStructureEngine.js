@@ -1,6 +1,7 @@
 const repeatedBlockDetector = require('./repeatedBlockDetector');
 const contentNormalizer = require('../ingestion/normalizers/contentNormalizer');
 const { CanonicalDocument } = require('../ingestion/models/canonicalContent');
+const { countWords } = require('../../utils/wordCount');
 
 /**
  * Document Structure Engine for Smart Reader (Build 3B.1.8)

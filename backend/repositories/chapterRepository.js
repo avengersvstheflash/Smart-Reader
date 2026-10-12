@@ -1,4 +1,5 @@
 const { getDatabase } = require('../db/database');
+const { countWords } = require('../utils/wordCount');
 
 class ChapterRepository {
   getByBookId(bookId) {
@@ -52,7 +53,7 @@ class ChapterRepository {
       title: chapter.title,
       content: chapter.content,
       canonical_content: canonicalContentJson,
-      word_count: chapter.word_count || (chapter.content ? chapter.content.split(/\s+/).length : 0),
+      word_count: chapter.word_count || (chapter.content ? countWords(chapter.content) : 0),
       status: chapter.status || 'unread',
       structural_role: chapter.structural_role || 'chapter',
       section_count: chapter.section_count || 0,
@@ -88,7 +89,7 @@ class ChapterRepository {
           title: item.title,
           content: item.content,
           canonical_content: canonicalContentJson,
-          word_count: item.word_count || (item.content ? item.content.split(/\s+/).length : 0),
+          word_count: item.word_count || (item.content ? countWords(item.content) : 0),
           status: item.status || 'unread',
           structural_role: item.structural_role || 'chapter',
           section_count: item.section_count || 0,

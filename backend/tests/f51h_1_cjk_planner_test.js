@@ -118,7 +118,9 @@ async function runF51h1Tests() {
   // --------------------------------------------------------------------------
   console.log('T5 — Live reproduction: load chijinno_ai chunks from DB and verify >10 units produced');
   {
-    const bookId = 'book-1791753310349-0kk8g';
+    const db = require('../db/database').getDatabase();
+    const candidateBook = db.prepare("SELECT id FROM books WHERE title LIKE '%chijinno%' ORDER BY created_at DESC LIMIT 1").get();
+    const bookId = candidateBook ? candidateBook.id : 'book-1791817340651-s0306';
     const chunks = semanticChunkRepository.getByBookId(bookId);
 
     assert.ok(chunks && chunks.length > 0, `Precondition: chunks for ${bookId} must exist in DB`);

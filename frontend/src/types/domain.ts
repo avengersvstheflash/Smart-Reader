@@ -90,6 +90,7 @@ export interface Book {
   hasSmartContent?: boolean;
   classification?: BookClassification;
   bibliographic?: BookBibliographic;
+  metadata?: Record<string, unknown>;
   aiProvider?: string;
 }
 
@@ -194,6 +195,7 @@ export function normalizeBook(raw: RawBook): Book {
     hasSmartContent: Boolean(raw.hasSmartContent ?? raw.has_smart_content ?? false),
     classification,
     bibliographic,
+    metadata: (raw.metadata as Record<string, unknown>) || (typeof raw.metadata_json === 'object' ? raw.metadata_json as Record<string, unknown> : undefined),
     aiProvider: raw.aiProvider || raw.ai_provider,
   };
 }
@@ -585,6 +587,7 @@ export interface BookSynopsis {
   fellBack?: boolean;
   fallbackReason?: string;
   canonicalBlocks?: CanonicalBlock[];
+  llmFlaggedPartial?: boolean;
 }
 
 export interface SemanticStatus {

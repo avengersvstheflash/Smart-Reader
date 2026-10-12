@@ -1,8 +1,5 @@
-/**
- * Canonical Content Model for Smart Reader
- * Defines the structured, format-agnostic representation of document content.
- * All parsers (TXT, Markdown, and future EPUB, PDF, Manga) normalize into this format.
- */
+const { countWords } = require('../../../utils/wordCount');
+
 
 class CanonicalDocument {
   constructor(blocks = []) {
@@ -89,7 +86,7 @@ class CanonicalDocument {
   calculateWordCount() {
     const plain = this.toPlainText();
     if (!plain) return 0;
-    return plain.split(/\s+/).filter(Boolean).length;
+    return countWords(plain);
   }
 
   toJSON() {

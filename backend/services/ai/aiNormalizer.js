@@ -297,6 +297,14 @@ class AINormalizer {
   }
 
   /**
+   * Strips [PARTIAL: ...] markers from synopsis prose
+   */
+  stripPartialMarkers(str) {
+    if (!str) return '';
+    return str.replace(/\[PARTIAL:[^\]]*\]/gi, '').trim();
+  }
+
+  /**
    * Formats inline markdown safely for rich typography:
    * Standardizes inline formatting without leaking raw HTML or broken tokens.
    */

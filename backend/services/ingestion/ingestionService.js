@@ -12,6 +12,7 @@ const documentStructureEngine = require('../structure/documentStructureEngine');
 const sectionClassifier = require('../ai/sectionClassifier');
 const { extractMath } = require('../ai/mathExtractor');
 const { CanonicalDocument } = require('./models/canonicalContent');
+const { countWords } = require('../../utils/wordCount');
 
 /**
  * Ingestion Service for Smart Reader
@@ -490,7 +491,7 @@ class IngestionService {
         canonicalBlocks: blocks,
         sections: ch.sections,
         sectionCount: sCount,
-        wordCount: ch.wordCount,
+        wordCount: typeof ch.wordCount === 'number' && ch.wordCount > 0 ? ch.wordCount : (ch.content ? countWords(ch.content) : 0),
         characterCount: ch.characterCount,
       };
     });

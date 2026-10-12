@@ -43,6 +43,7 @@ router.get('/', (req, res, next) => {
       return {
         ...b,
         metadata_json: parsedMeta,
+        metadata: parsedMeta,
         bibliographic: parsedMeta.bibliographic || null,
         classification: parsedMeta.classification || null,
         has_smart_content: smartSet.has(b.id),
@@ -149,6 +150,7 @@ router.get('/:id', (req, res, next) => {
       book: {
         ...book,
         metadata_json: parsedMeta,
+        metadata: parsedMeta,
         bibliographic: parsedMeta.bibliographic || null,
         classification: parsedMeta.classification || null,
         ai_provider: config.AI_PROVIDER,
