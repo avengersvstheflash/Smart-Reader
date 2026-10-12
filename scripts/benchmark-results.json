@@ -1,0 +1,178 @@
+{
+  "timestamp": "2026-10-12T22:28:29.481Z",
+  "environment": {
+    "platform": "Windows_NT 10.0.26300 (x64)",
+    "cpu": "AMD Ryzen 7 4800H with Radeon Graphics",
+    "vcpus": 16,
+    "ramGB": 15.4,
+    "node": "v22.23.2",
+    "gpu": "CUDA Accelerated (Allocated: 3424.9 MB, Reserved: 4782 MB)"
+  },
+  "ingestionResults": [
+    {
+      "fixture": "01-narrative/moby_dick.epub",
+      "format": "EPUB",
+      "fileSizeBytes": 728789,
+      "words": 212711,
+      "chapters": 27,
+      "medianMs": 118.6,
+      "wordsPerSec": 1793516,
+      "mbPerSec": 5.86
+    },
+    {
+      "fixture": "01-narrative/pride_and_prejudice.epub",
+      "format": "EPUB",
+      "fileSizeBytes": 561102,
+      "words": 128191,
+      "chapters": 16,
+      "medianMs": 77.4,
+      "wordsPerSec": 1656214,
+      "mbPerSec": 6.91
+    },
+    {
+      "fixture": "02-poetry/leaves_of_grass.epub",
+      "format": "EPUB",
+      "fileSizeBytes": 692147,
+      "words": 7515,
+      "chapters": 290,
+      "medianMs": 54.1,
+      "wordsPerSec": 138909,
+      "mbPerSec": 12.2
+    },
+    {
+      "fixture": "03-nonenglish/les_miserables_tome_1.epub",
+      "format": "EPUB",
+      "fileSizeBytes": 362787,
+      "words": 110567,
+      "chapters": 13,
+      "medianMs": 85.8,
+      "wordsPerSec": 1288660,
+      "mbPerSec": 4.03
+    },
+    {
+      "fixture": "06-docx-rtf/sample.docx",
+      "format": "DOCX",
+      "fileSizeBytes": 38668,
+      "words": 1343,
+      "chapters": 4,
+      "medianMs": 170.5,
+      "wordsPerSec": 7877,
+      "mbPerSec": 0.22
+    },
+    {
+      "fixture": "06-docx-rtf/sample.rtf",
+      "format": "RTF",
+      "fileSizeBytes": 7904,
+      "words": 1343,
+      "chapters": 1,
+      "medianMs": 23.6,
+      "wordsPerSec": 56907,
+      "mbPerSec": 0.32
+    },
+    {
+      "fixture": "07-epub/common_sense.epub",
+      "format": "EPUB",
+      "fileSizeBytes": 176329,
+      "words": 22637,
+      "chapters": 3,
+      "medianMs": 16.2,
+      "wordsPerSec": 1397346,
+      "mbPerSec": 10.38
+    },
+    {
+      "fixture": "08-edge-cases/chijinno_ai.txt",
+      "format": "TXT",
+      "fileSizeBytes": 223727,
+      "words": 76765,
+      "chapters": 15,
+      "medianMs": 73.5,
+      "wordsPerSec": 1044422,
+      "mbPerSec": 2.9
+    },
+    {
+      "fixture": "08-edge-cases/chat_11-slice.md",
+      "format": "MD",
+      "fileSizeBytes": 272919,
+      "words": 36906,
+      "chapters": 9,
+      "medianMs": 153.9,
+      "wordsPerSec": 239805,
+      "mbPerSec": 1.69
+    },
+    {
+      "fixture": "08-edge-cases/prologue-sample.md",
+      "format": "MD",
+      "fileSizeBytes": 1730,
+      "words": 317,
+      "chapters": 3,
+      "medianMs": 1.3,
+      "wordsPerSec": 243846,
+      "mbPerSec": 1.27
+    }
+  ],
+  "embeddingBatchResults": [
+    {
+      "batchSize": 1,
+      "batchTimeMs": 1174,
+      "perChunkMs": 1174,
+      "vectorsPerSec": 0.9
+    },
+    {
+      "batchSize": 4,
+      "batchTimeMs": 7175,
+      "perChunkMs": 1793.8,
+      "vectorsPerSec": 0.6
+    },
+    {
+      "batchSize": 8,
+      "batchTimeMs": 8177.9,
+      "perChunkMs": 1022.2,
+      "vectorsPerSec": 1
+    },
+    {
+      "batchSize": 16,
+      "batchTimeMs": 9539.8,
+      "perChunkMs": 596.2,
+      "vectorsPerSec": 1.7
+    },
+    {
+      "batchSize": 32,
+      "batchTimeMs": 12200.4,
+      "perChunkMs": 381.3,
+      "vectorsPerSec": 2.6
+    }
+  ],
+  "rerankResults": [
+    {
+      "candidateCount": 5,
+      "latencyMs": 3530.6,
+      "perPairMs": 706.1,
+      "pairsPerSec": 1.4
+    },
+    {
+      "candidateCount": 10,
+      "latencyMs": 6098.3,
+      "perPairMs": 609.8,
+      "pairsPerSec": 1.6
+    },
+    {
+      "candidateCount": 20,
+      "latencyMs": 16183.2,
+      "perPairMs": 809.2,
+      "pairsPerSec": 1.2
+    },
+    {
+      "candidateCount": 50,
+      "latencyMs": 23136.1,
+      "perPairMs": 462.7,
+      "pairsPerSec": 2.2
+    }
+  ],
+  "memory": {
+    "nodeRssMB": 118.7,
+    "nodeHeapMB": 44.3,
+    "sidecarRssMB": 312.2,
+    "cudaAllocMB": 3424.9,
+    "cudaResMB": 4782
+  }
+}
