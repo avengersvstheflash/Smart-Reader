@@ -48,8 +48,42 @@ async function runTests() {
 
   // Test 2: Semantic Chunker preserves atomic units and provenance
   console.log('Test 2: Semantic Chunker creates cohesive chunks with full provenance');
-  const chunks = semanticChunker.chunkPreprocessedUnits(preprocessedUnits, { title: 'Quantum Horizons' });
-  assert(chunks.length > 0, 'Chunker must return chunks');
+  // 2a. Verify F38.11 contract: lone undersized fragments without merge targets are dropped
+  const droppedChunks = semanticChunker.chunkPreprocessedUnits(preprocessedUnits, { title: 'Quantum Horizons' });
+  assert.strictEqual(droppedChunks.length, 0, 'Lone undersized fragments without merge targets must be dropped under F38.11 contract');
+  console.log('  ✓ Verified F38.11 contract: lone undersized fragments without merge targets are correctly dropped.');
+
+  // 2b. Verify chunks ARE produced when units have sufficient substance and merge targets
+  const cohesiveBlocks = [
+    { type: 'heading', level: 1, text: 'Principles of Wave Collapse' },
+    {
+      type: 'paragraph',
+      text: 'Quantum states evolve deterministically according to the linear Schrödinger differential equation until observation or environmental measurement occurs. In the standard Copenhagen interpretation, the act of physical measurement causes an instantaneous, non-unitary reduction of the state vector into an eigenstate of the observable operator being measured. This foundational principle forms the core foundation of modern quantum theory and has been verified through rigorous experiments across atomic physics, quantum optics, trapped ions, and superconducting circuits worldwide.'
+    },
+    {
+      type: 'table',
+      headers: ['Experiment', 'Apparatus Setup', 'Observable Result', 'Theoretical Implication'],
+      rows: [
+        ['Double Slit Diffraction', 'Coherent electron beam directed toward dual micro-slits with downstream phosphor screen detector', 'Interference fringes observed indicating wave superposition across spatial trajectories', 'Demonstrates intrinsic wave-particle duality for microscopic matter particles'],
+        ['Wheeler Delayed Choice', 'Split-beam Mach-Zehnder interferometer with removable second beam-splitter at final detection boundary', 'Complementarity pattern shifts between interference and which-way particle trajectories retroactively', 'Demonstrates that quantum measurement context determines physical wave-versus-particle reality retrospectively'],
+        ['EPR Bell Inequality', 'Entangled photon pairs emitted by spontaneous parametric down-conversion measured at distant polarization analyzers', 'Violation of Clauser-Horne-Shimony-Holt inequality exceeding classical statistical limits', 'Rules out local hidden variable theories, confirming non-local quantum entanglement correlations']
+      ]
+    },
+    {
+      type: 'paragraph',
+      text: 'Furthermore, the transition from quantum superposition to classical macroscopic reality can be understood through environmental decoherence. When an isolated quantum system interacts with surrounding atmospheric molecules or thermal radiation fields, phase relations between basis states rapidly decay into a statistical mixture, explaining why macroscopic superpositions are suppressed in everyday experience.'
+    }
+  ];
+
+  const cohesiveUnits = preprocessor.preprocessBlocks(cohesiveBlocks, {
+    bookId: 'test-book-1',
+    bookTitle: 'Quantum Horizons',
+    chapterId: 'test-ch-1',
+    chapterTitle: 'Chapter 1: Foundations',
+  });
+
+  const chunks = semanticChunker.chunkPreprocessedUnits(cohesiveUnits, { title: 'Quantum Horizons' });
+  assert(chunks.length > 0, 'Chunker must return chunks when units have sufficient substance');
   for (const chunk of chunks) {
     assert(chunk.id, 'Chunk must have unique ID');
     assert(chunk.bookId, 'Chunk must have bookId');

@@ -312,54 +312,6 @@ function initSchema(db) {
     console.warn('[DB Migration] books.description markdown cleanup skipped:', err.message);
   }
 
-  // F49d: Cleanup historical [PARTIAL: ...] markers in books.description and set llm_flagged_partial
-  try {
-    const partialBooks = db.prepare("SELECT id, description, metadata_json FROM books WHERE description LIKE '%[PARTIAL:%'").all();
-    const updatePartialBook = db.prepare('UPDATE books SET description = ?, metadata_json = ? WHERE id = ?');
-    for (const b of partialBooks) {
-      if (b.description) {
-        const cleanDesc = b.description.replace(/\[PARTIAL:[^\]]*\]/gi, '').trim();
-        let meta = {};
-        try {
-          meta = typeof b.metadata_json === 'string' ? JSON.parse(b.metadata_json || '{}') : (b.metadata_json || {});
-        } catch {
-          meta = {};
-        }
-        meta.llm_flagged_partial = true;
-        updatePartialBook.run(cleanDesc, JSON.stringify(meta), b.id);
-      }
-    }
-
-    const partialReps = db.prepare("SELECT id, book_id, content, canonical_content, metadata_json FROM book_representations WHERE type = 'SYNOPSIS' AND content LIKE '%[PARTIAL:%'").all();
-    const updatePartialRep = db.prepare('UPDATE book_representations SET content = ?, canonical_content = ?, metadata_json = ? WHERE id = ?');
-    for (const r of partialReps) {
-      let meta = {};
-      try {
-        meta = typeof r.metadata_json === 'string' ? JSON.parse(r.metadata_json || '{}') : (r.metadata_json || {});
-      } catch {
-        meta = {};
-      }
-      meta.llm_flagged_partial = true;
-      let cleanContent = r.content;
-      if (cleanContent && cleanContent.trim() !== '[PARTIAL: inputs insufficient for full synopsis]') {
-        cleanContent = cleanContent.replace(/\[PARTIAL:[^\]]*\]/gi, '').trim();
-      }
-      let cleanCanonical = r.canonical_content;
-      if (cleanCanonical) {
-        try {
-          const blocks = JSON.parse(cleanCanonical);
-          for (const blk of blocks) {
-            if (blk.text) blk.text = blk.text.replace(/\[PARTIAL:[^\]]*\]/gi, '').trim();
-          }
-          cleanCanonical = JSON.stringify(blocks);
-        } catch {}
-      }
-      updatePartialRep.run(cleanContent, cleanCanonical, JSON.stringify(meta), r.id);
-    }
-  } catch (err) {
-    console.warn('[DB Migration] books.description PARTIAL cleanup skipped:', err.message);
-  }
-
   // F51h.1b: Recalculate chapters.word_count through countWords() for chapters where word_count differs (e.g. CJK text)
   try {
     const { countWords } = require('../utils/wordCount');
@@ -419,6 +371,54 @@ function initSchema(db) {
   }
   if (!bookCols.some(c => c.name === 'semantic_indexed_at')) {
     db.exec(`ALTER TABLE books ADD COLUMN semantic_indexed_at TEXT;`);
+  }
+
+  // F49d: Cleanup historical [PARTIAL: ...] markers in books.description and set llm_flagged_partial
+  try {
+    const partialBooks = db.prepare("SELECT id, description, metadata_json FROM books WHERE description LIKE '%[PARTIAL:%'").all();
+    const updatePartialBook = db.prepare('UPDATE books SET description = ?, metadata_json = ? WHERE id = ?');
+    for (const b of partialBooks) {
+      if (b.description) {
+        const cleanDesc = b.description.replace(/\[PARTIAL:[^\]]*\]/gi, '').trim();
+        let meta = {};
+        try {
+          meta = typeof b.metadata_json === 'string' ? JSON.parse(b.metadata_json || '{}') : (b.metadata_json || {});
+        } catch {
+          meta = {};
+        }
+        meta.llm_flagged_partial = true;
+        updatePartialBook.run(cleanDesc, JSON.stringify(meta), b.id);
+      }
+    }
+
+    const partialReps = db.prepare("SELECT id, book_id, content, canonical_content, metadata_json FROM book_representations WHERE type = 'SYNOPSIS' AND content LIKE '%[PARTIAL:%'").all();
+    const updatePartialRep = db.prepare('UPDATE book_representations SET content = ?, canonical_content = ?, metadata_json = ? WHERE id = ?');
+    for (const r of partialReps) {
+      let meta = {};
+      try {
+        meta = typeof r.metadata_json === 'string' ? JSON.parse(r.metadata_json || '{}') : (r.metadata_json || {});
+      } catch {
+        meta = {};
+      }
+      meta.llm_flagged_partial = true;
+      let cleanContent = r.content;
+      if (cleanContent && cleanContent.trim() !== '[PARTIAL: inputs insufficient for full synopsis]') {
+        cleanContent = cleanContent.replace(/\[PARTIAL:[^\]]*\]/gi, '').trim();
+      }
+      let cleanCanonical = r.canonical_content;
+      if (cleanCanonical) {
+        try {
+          const blocks = JSON.parse(cleanCanonical);
+          for (const blk of blocks) {
+            if (blk.text) blk.text = blk.text.replace(/\[PARTIAL:[^\]]*\]/gi, '').trim();
+          }
+          cleanCanonical = JSON.stringify(blocks);
+        } catch {}
+      }
+      updatePartialRep.run(cleanContent, cleanCanonical, JSON.stringify(meta), r.id);
+    }
+  } catch (err) {
+    console.warn('[DB Migration] books.description PARTIAL cleanup skipped:', err.message);
   }
 
   // Ensure provenance columns exist on semantic_chunks table
