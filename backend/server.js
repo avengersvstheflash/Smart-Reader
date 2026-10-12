@@ -15,10 +15,12 @@ const representationRoutes = require('./routes/representationRoutes');
 const chunkRoutes = require('./routes/chunkRoutes');
 const smartChapterRoutes = require('./routes/smartChapterRoutes');
 const configRoutes = require('./routes/configRoutes');
+const importQueueRoutes = require('./routes/importQueueRoutes');
 const aiService = require('./services/ai/aiService');
 const bookService = require('./services/bookService');
 const embeddingService = require('./services/semantic/embeddingService');
 const jobRepository = require('./repositories/jobRepository');
+const importQueueService = require('./services/ingestion/importQueueService');
 
 const app = express();
 
@@ -33,8 +35,8 @@ getDatabase();
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 
 // Health check
@@ -51,6 +53,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/books', bookRoutes);
 app.use('/api/chapters', chapterRoutes);
 app.use('/api/jobs', jobRoutes);
+app.use('/api/import/queue', importQueueRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/web', webRoutes);
 app.use('/api/semantic', semanticRoutes);
@@ -111,6 +114,7 @@ app.use((err, req, res, next) => {
 try {
   const staleCount = jobRepository.markStaleJobsInterrupted();
   console.log(`[Boot] Marked ${staleCount} stale jobs as INTERRUPTED.`);
+  importQueueService.recoverOnBoot();
 } catch (err) {
   console.error('[Boot] Stale job reconciliation failed:', err.message);
 }

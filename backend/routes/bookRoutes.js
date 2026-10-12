@@ -23,6 +23,36 @@ router.get('/sources', (req, res, next) => {
   }
 });
 
+// GET /api/books/dossiers - list all research dossiers
+router.get('/dossiers', (req, res, next) => {
+  try {
+    const dossiers = bookService.getAllDossiers();
+    return res.json({ dossiers });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/books/dossiers - create a new dossier
+router.post('/dossiers', (req, res, next) => {
+  try {
+    const dossier = bookService.createDossier(req.body);
+    return res.status(201).json({ dossier });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/books/dossiers/:id/content - add pasted/document content to an existing dossier
+router.post('/dossiers/:id/content', async (req, res, next) => {
+  try {
+    const result = await bookService.addContentToDossier(req.params.id, req.body);
+    return res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/books - list all books
 router.get('/', (req, res, next) => {
   try {

@@ -59,15 +59,18 @@ class WebSearchService {
       searchPromises.push(this.searchWikipedia(trimmedQuery, 6));
     }
 
-    if (category === 'all' || category === 'books' || category === 'novel') {
-      searchPromises.push(this.searchOpenLibrary(trimmedQuery, 5));
+    if (category === 'all' || category === 'books' || category === 'novel' || category === 'literature') {
+      searchPromises.push(this.searchOpenLibrary(trimmedQuery, 4));
+      searchPromises.push(this.searchGutenberg(trimmedQuery, 4));
     }
 
     if (category === 'all' || category === 'research' || category === 'academic') {
-      searchPromises.push(this.searchCrossref(trimmedQuery, 5));
+      searchPromises.push(this.searchCrossref(trimmedQuery, 4));
+      searchPromises.push(this.searchArXiv(trimmedQuery, 4));
     }
 
     if (category === 'all' || category === 'tech' || category === 'reference') {
+      searchPromises.push(this.searchTechnicalDocs(trimmedQuery, 4));
       searchPromises.push(this.searchDuckDuckGo(trimmedQuery, 4));
     }
 
@@ -303,6 +306,185 @@ class WebSearchService {
       return results;
     } catch (err) {
       console.warn('[WebSearchService] DuckDuckGo search error:', err.message);
+      return [];
+    }
+  }
+
+  /**
+   * Search arXiv Academic & Science Repository
+   */
+  async searchArXiv(query, max = 4) {
+    try {
+      const url = `http://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=${max}`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'SmartReader/1.0 (Scholarly Knowledge Explorer)' },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+
+      if (!res.ok) return [];
+      const xml = await res.text();
+
+      const results = [];
+      const entryRegex = /<entry>([\s\S]*?)<\/entry>/gi;
+      let match;
+      while ((match = entryRegex.exec(xml)) !== null && results.length < max) {
+        const entryStr = match[1];
+        const titleMatch = /<title>([\s\S]*?)<\/title>/i.exec(entryStr);
+        const summaryMatch = /<summary>([\s\S]*?)<\/summary>/i.exec(entryStr);
+        const idMatch = /<id>([\s\S]*?)<\/id>/i.exec(entryStr);
+        const publishedMatch = /<published>([\s\S]*?)<\/published>/i.exec(entryStr);
+
+        const authors = [];
+        const authorRegex = /<author>\s*<name>([\s\S]*?)<\/name>/gi;
+        let authMatch;
+        while ((authMatch = authorRegex.exec(entryStr)) !== null) {
+          authors.push(authMatch[1].trim());
+        }
+
+        const rawTitle = titleMatch ? titleMatch[1].replace(/\s+/g, ' ').trim() : 'arXiv Research Paper';
+        const rawSummary = summaryMatch ? summaryMatch[1].replace(/\s+/g, ' ').trim() : '';
+        const rawId = idMatch ? idMatch[1].trim() : '';
+        const pubYear = publishedMatch ? new Date(publishedMatch[1].trim()).getFullYear() : null;
+
+        const articleUrl = rawId || `https://arxiv.org/abs/${encodeURIComponent(query)}`;
+
+        results.push({
+          id: `arxiv-${rawId.split('/').pop() || Math.random().toString(36).substring(2, 7)}`,
+          title: rawTitle,
+          url: articleUrl,
+          sourceSite: 'arXiv.org',
+          sourceType: 'research',
+          snippet: rawSummary.slice(0, 240) + (rawSummary.length > 240 ? '…' : ''),
+          author: authors.length > 0 ? (authors.slice(0, 3).join(', ') + (authors.length > 3 ? ' et al.' : '')) : 'arXiv Researcher',
+          publishedDate: pubYear ? String(pubYear) : null,
+          isAccessible: true,
+        });
+      }
+
+      return results;
+    } catch (err) {
+      console.warn('[WebSearchService] arXiv search error:', err.message);
+      return [];
+    }
+  }
+
+  /**
+   * Search Project Gutenberg Public Domain Books
+   */
+  async searchGutenberg(query, max = 4) {
+    try {
+      const url = `https://gutendex.com/books/?search=${encodeURIComponent(query)}`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'SmartReader/1.0 (Public Domain Library)' },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!Array.isArray(data.results)) return [];
+
+      return data.results.slice(0, max).map((book) => {
+        const title = book.title || 'Untitled Classic';
+        const authors = Array.isArray(book.authors)
+          ? book.authors.map((a) => a.name).join(', ')
+          : 'Classic Author';
+        const subjects = Array.isArray(book.subjects) ? book.subjects.slice(0, 3).join(', ') : '';
+        const snippet = subjects ? `Subjects: ${subjects}` : `Public domain classic literature by ${authors}.`;
+
+        // Direct readable format resolution: prefer text/html, then text/plain
+        let htmlUrl = null;
+        if (book.formats && typeof book.formats === 'object') {
+          const keys = Object.keys(book.formats);
+          const htmlKey = keys.find((k) => /^text\/html/i.test(k) && !k.includes('.zip'));
+          const plainKey = keys.find((k) => /^text\/plain/i.test(k) && !k.includes('.zip'));
+          if (htmlKey && book.formats[htmlKey]) {
+            htmlUrl = book.formats[htmlKey];
+          } else if (plainKey && book.formats[plainKey]) {
+            htmlUrl = book.formats[plainKey];
+          }
+        }
+        if (!htmlUrl) {
+          htmlUrl = `https://www.gutenberg.org/ebooks/${book.id}`;
+        }
+
+        return {
+          id: `gutenberg-${book.id}`,
+          title,
+          url: htmlUrl,
+          sourceSite: 'Project Gutenberg',
+          sourceType: 'book',
+          snippet,
+          author: authors,
+          publishedDate: null,
+          isAccessible: true,
+        };
+      });
+    } catch (err) {
+      console.warn('[WebSearchService] Gutenberg search error:', err.message);
+      return [];
+    }
+  }
+
+  /**
+   * Search IETF RFC Technical Specifications & Standards
+   */
+  async searchTechnicalDocs(query, max = 4) {
+    try {
+      const trimmed = query.trim();
+      const rfcMatch = trimmed.match(/^(?:rfc\s*)?(\d+)$/i);
+
+      let url;
+      if (rfcMatch) {
+        const num = rfcMatch[1];
+        url = `https://datatracker.ietf.org/api/v1/doc/document/?format=json&name=rfc${num}`;
+      } else {
+        url = `https://datatracker.ietf.org/api/v1/doc/document/?format=json&limit=${max}&type=rfc&title__contains=${encodeURIComponent(trimmed)}`;
+      }
+
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'SmartReader/1.0 (Technical Specifications Explorer)' },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+
+      if (!res.ok) return [];
+      const data = await res.json();
+      let objects = Array.isArray(data.objects) ? data.objects : [];
+
+      // Fallback if type=rfc returned 0 results for non-RFC-numbered queries
+      if (objects.length === 0 && !rfcMatch) {
+        const fallbackUrl = `https://datatracker.ietf.org/api/v1/doc/document/?format=json&limit=${max}&title__contains=${encodeURIComponent(trimmed)}`;
+        const fallbackRes = await fetch(fallbackUrl, {
+          headers: { 'User-Agent': 'SmartReader/1.0 (Technical Specifications Explorer)' },
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          if (Array.isArray(fallbackData.objects)) {
+            objects = fallbackData.objects;
+          }
+        }
+      }
+
+      return objects.slice(0, max).map((item) => {
+        const title = item.title || item.name || 'Technical Specification';
+        const rfcName = item.name || 'RFC Standard';
+        const docUrl = `https://www.rfc-editor.org/rfc/${rfcName}.html`;
+        const snippet = item.abstract || `IETF technical standard and RFC internet specification: ${title}.`;
+
+        return {
+          id: `ietf-${item.name || Math.random().toString(36).substring(2, 7)}`,
+          title: `${title} (${rfcName.toUpperCase()})`,
+          url: docUrl,
+          sourceSite: 'IETF / RFC Standards',
+          sourceType: 'technical',
+          snippet: snippet.slice(0, 240) + (snippet.length > 240 ? '…' : ''),
+          author: 'IETF Standards Group',
+          publishedDate: item.time ? String(new Date(item.time).getFullYear()) : null,
+          isAccessible: true,
+        };
+      });
+    } catch (err) {
+      console.warn('[WebSearchService] Technical docs search error:', err.message);
       return [];
     }
   }

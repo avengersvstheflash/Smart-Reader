@@ -7,8 +7,8 @@ const embeddingProvider = new LocalEmbeddingProvider();
 const config = require('../config');
 
 // Ensure storage subdirectories exist
-[config.STORAGE_DIR, config.BOOKS_DIR, config.COVERS_DIR, config.PAGES_DIR, config.GENERATED_DIR].forEach((dir) => {
-  if (!fs.existsSync(dir)) {
+[config.STORAGE_DIR, config.BOOKS_DIR, config.COVERS_DIR, config.PAGES_DIR, config.GENERATED_DIR, config.STAGING_DIR].forEach((dir) => {
+  if (dir && !fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 });
@@ -230,6 +230,25 @@ function initSchema(db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_para_attr_chapter ON paragraph_attributions(smart_chapter_id, paragraph_index);
+
+    CREATE TABLE IF NOT EXISTS import_queue (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      source_title TEXT NOT NULL,
+      source_meta TEXT DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'queued',
+      stage TEXT DEFAULT 'preparing',
+      stage_label TEXT DEFAULT 'Queued for processing',
+      progress INTEGER DEFAULT 0,
+      queue_order INTEGER NOT NULL DEFAULT 0,
+      book_id TEXT,
+      error TEXT,
+      created_at TEXT NOT NULL,
+      started_at TEXT,
+      completed_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_import_queue_status_order ON import_queue(status, queue_order);
   `);
 
   // Migrate chapter_representations if foreign key constraint blocks cross_source outline chapters
@@ -516,6 +535,7 @@ function resetAndSeedDatabase(db) {
       DELETE FROM book_representations;
       DELETE FROM book_supporting_materials;
       DELETE FROM processing_jobs;
+      DELETE FROM import_queue;
       DELETE FROM chapter_representations;
       DELETE FROM editorial_outlines;
       DELETE FROM chapters;

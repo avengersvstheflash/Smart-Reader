@@ -68,6 +68,8 @@ const SUITES = [
   'f51c_txt_import_test.js',
   'f51e_single_chapter_outline_test.js',
   'tier2_chardet_encoding_test.js',
+  'import_queue_pipeline_test.js',
+  'web_expanded_search_test.js',
 ];
 
 

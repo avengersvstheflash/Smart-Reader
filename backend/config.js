@@ -71,6 +71,7 @@ module.exports = {
   COVERS_DIR: path.join(STORAGE_DIR, 'covers'),
   PAGES_DIR: path.join(STORAGE_DIR, 'pages'),
   GENERATED_DIR: path.join(STORAGE_DIR, 'generated'),
+  STAGING_DIR: path.join(STORAGE_DIR, 'staging'),
   DB_PATH: process.env.DB_PATH || path.join(__dirname, '..', 'storage', 'data.db'),
   
   // AI Provider Configuration (strictly safe identifier, never secrets)

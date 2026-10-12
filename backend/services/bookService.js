@@ -26,6 +26,21 @@ function classifyPipelineStages(chapterCount, wordCount) {
   };
 }
 
+function countWordsFast(str) {
+  if (!str) return 0;
+  let count = 0;
+  let inWord = false;
+  for (let i = 0; i < str.length; i++) {
+    if (str.charCodeAt(i) <= 32) {
+      inWord = false;
+    } else if (!inWord) {
+      inWord = true;
+      count++;
+    }
+  }
+  return count;
+}
+
 class BookService {
   classifyPipelineStages(chapterCount, wordCount) {
     return classifyPipelineStages(chapterCount, wordCount);
@@ -37,6 +52,155 @@ class BookService {
 
   getAllSources() {
     return bookRepository.getAllSources();
+  }
+
+  getAllDossiers() {
+    const raw = bookRepository.getAllDossiers();
+    return raw.map((b) => {
+      let parsedMeta = {};
+      try {
+        parsedMeta = typeof b.metadata_json === 'string' ? JSON.parse(b.metadata_json || '{}') : (b.metadata_json || {});
+      } catch {}
+      return {
+        ...b,
+        metadata_json: parsedMeta,
+        metadata: parsedMeta,
+        isDossier: true,
+      };
+    });
+  }
+
+  createDossier({ title, description, author }) {
+    if (!title || !title.trim()) {
+      throw new Error('Dossier title is required.');
+    }
+    const id = `book-dossier-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    return this.createBook({
+      id,
+      title: title.trim(),
+      author: author ? author.trim() : 'Research Dossier',
+      description: description ? description.trim() : 'Research dossier compiling multiple documents and text sources.',
+      content_type: 'research',
+      source_format: 'dossier',
+      source_site: 'Multi-Source Dossier',
+      status: 'active',
+      metadata_json: {
+        isDossier: true,
+        isMultiSource: true,
+        sourcesCount: 0,
+        sources: [],
+        createdAt: new Date().toISOString(),
+      },
+    });
+  }
+
+  async addContentToDossier(dossierId, { title, author, text, description }) {
+    const dossier = this.getBook(dossierId);
+    if (!text || !text.trim()) {
+      throw new Error('Text content is required.');
+    }
+
+    const trimmedText = text.trim();
+    const docTitle = (title && title.trim()) || 'Pasted Research Material';
+    const docAuthor = (author && author.trim()) || 'Unknown Author';
+
+    let parsed = null;
+    try {
+      parsed = await ingestionService.ingest({
+        title: docTitle,
+        author: docAuthor,
+        rawText: trimmedText,
+        contentType: 'research',
+      });
+    } catch (err) {
+      console.warn('[addContentToDossier] Ingestion fallback:', err.message);
+    }
+
+    const existingChapters = chapterRepository.getByBookId(dossierId);
+    let nextNumber = existingChapters.length > 0
+      ? Math.max(...existingChapters.map((c) => c.number)) + 1
+      : 1;
+
+    const chaptersToAdd = (parsed && parsed.chapters && parsed.chapters.length > 0)
+      ? parsed.chapters
+      : [{
+          title: docTitle,
+          content: trimmedText,
+          canonicalBlocks: [{ type: 'paragraph', text: trimmedText }],
+          wordCount: countWordsFast(trimmedText),
+        }];
+
+    const createdChapters = [];
+    let addedWords = 0;
+    for (const ch of chaptersToAdd) {
+      const chapterId = `chap-${Date.now()}-${nextNumber}-${Math.random().toString(36).substring(2, 5)}`;
+      const savedCh = chapterRepository.create({
+        id: chapterId,
+        book_id: dossierId,
+        number: nextNumber++,
+        title: ch.title || docTitle,
+        structural_role: ch.structuralRole || 'chapter',
+        content: ch.content || trimmedText,
+        canonical_content: ch.canonicalBlocks ? JSON.stringify(ch.canonicalBlocks) : null,
+        word_count: ch.wordCount || countWordsFast(ch.content || trimmedText),
+        metadata_json: JSON.stringify({
+          sourceTitle: docTitle,
+          sourceAuthor: docAuthor,
+          addedAt: new Date().toISOString(),
+          ...(ch.metadata || {}),
+        }),
+      });
+      createdChapters.push(savedCh);
+      addedWords += savedCh.word_count || 0;
+    }
+
+    // Update dossier metadata
+    let currentMeta = {};
+    try {
+      currentMeta = typeof dossier.metadata_json === 'string'
+        ? JSON.parse(dossier.metadata_json || '{}')
+        : (dossier.metadata_json || {});
+    } catch {}
+
+    const sources = Array.isArray(currentMeta.sources) ? [...currentMeta.sources] : [];
+    sources.push({
+      title: docTitle,
+      author: docAuthor,
+      wordCount: addedWords,
+      chaptersCount: createdChapters.length,
+      addedAt: new Date().toISOString(),
+    });
+    currentMeta.sources = sources;
+    currentMeta.sourcesCount = sources.length;
+    currentMeta.isDossier = true;
+    currentMeta.isMultiSource = true;
+
+    const allChapters = chapterRepository.getByBookId(dossierId);
+    const totalWords = allChapters.reduce((sum, c) => sum + (c.word_count || 0), 0);
+    const totalPages = Math.max(1, Math.ceil(totalWords / 250));
+    const totalSections = allChapters.reduce((sum, c) => sum + (c.section_count || 0), 0);
+
+    bookRepository.update(dossierId, {
+      metadata_json: currentMeta,
+      page_count: totalPages,
+      section_count: totalSections,
+      updated_at: new Date().toISOString(),
+    });
+
+    // Semantic index update
+    try {
+      const semanticLifecycle = require('./semantic/semanticLifecycle');
+      semanticLifecycle.indexBook(dossierId, { skipJob: true }).catch((err) => {
+        console.warn(`[addContentToDossier] Indexing notice: ${err.message}`);
+      });
+    } catch (_) {}
+
+    return {
+      dossier: bookRepository.getById(dossierId),
+      chaptersAdded: createdChapters,
+      totalWords,
+      addedWords,
+    };
   }
 
   getBook(id) {

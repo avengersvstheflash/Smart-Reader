@@ -32,6 +32,27 @@ class BookRepository {
     return books;
   }
 
+  getAllDossiers() {
+    const db = getDatabase();
+    const books = db.prepare(`
+      SELECT b.*, 
+        (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id) as chapter_count,
+        (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id AND c.status = 'read') as read_chapter_count,
+        (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
+      FROM books b
+      WHERE b.status != 'failed'
+        AND (
+          b.source_site = 'Multi-Source Dossier'
+          OR b.id LIKE 'book-dossier-%'
+          OR b.content_type = 'research'
+          OR json_extract(b.metadata_json, '$.isDossier') = 1
+          OR json_extract(b.metadata_json, '$.isMultiSource') = 1
+        )
+      ORDER BY b.updated_at DESC
+    `).all();
+    return books;
+  }
+
   getById(id) {
     const db = getDatabase();
     const hasSmart = db.prepare('SELECT 1 FROM smart_chapters WHERE book_id = ? LIMIT 1').get(id);
