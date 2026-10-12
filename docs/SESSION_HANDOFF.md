@@ -1,41 +1,69 @@
 # Omnitome — Session Handoff
 
-> Last updated: 2026-10-12  
+> Last updated: 2026-10-13  
 > Repository: github.com/avengersvstheflash/Smart-Reader  
 > Purpose: Full orientation in one turn for any assistant. Answers: *where are we, how do we work, what is next.*
 
 ---
 
-## 1. Current State
+## Current State (2026-10-13)
 
-- **HEAD:** 7a6a530 (before session close commit)
-- **Tree:** clean
-- **Origin:** synced with `main`
-- **Latest Tag:** `v0.6.0`
-- **Test suite count:** 46 unit suites + 1 corpus gate (9 fixtures) (`node scripts/run-all-tests.js`)
-- **Full suite status:** Passes cleanly (with build3a network-hang caveat)
+**HEAD:** <pending docs-close commit>  
+**Tree:** clean  
+**Origin:** synced  
+**Tests:** 48 unit suites + 1 corpus gate (10 fixtures) green  
+**Latest tag:** v0.6.0  
 
-### Recent Commits Shipped (F42 / F51 / F49 series)
-- `9e5e4ef` — F42 Session 1: three-class corpus assertion engine + baseline
-- `de8c611` — F51h.3: restore prologue/epilogue as narrative chapters
-- `1de10e8` — F49d.2 + build3b fixture: fix migration ordering, align test with F38.11
-- `905de59` — F51h.2: editorialService display title
-- `5019425` — F51h.1b + F49d: word count, PARTIAL strip
-- `fe66031` — F56: section classifier + markdown fast path
-- `1a89222` — F51h.1: countWords in editorial planner/service
-- `7a6a530` — F51g + F51h: Aozora chapter detection + bilingual sentence splitting
-- `370f86f` — F48 + F50: publisher validation + outline title deduplication
-- `779aea3` — F49c: synopsis input extraction rebuild + auto-refresh + badge honesty
-- `fc2c086` — F51f.1: make embed sidecar attention bounds env-configurable
-- `844c566` — F51a Tier 2: statistical encoding detection via jschardet
-- `2544dd8` — F49b: CJK-aware word counting shared across pipeline guards
-- `c67d970` — F51f: CJK sentence splitting + bounded Python embed attention
-- `2170586` — F51e: decouple synopsis from outline gate + allow single-chapter outlines
-- `155b3c7` — F51c: route .txt buffers through encoding detection + subdivide oversized preprocessor units
-- `98dfee0` — F51a Tier 1: character encoding detection for text and markdown parsers
-- `9fa8a1f` — F51b: max chunk size guard prevents oversized-chunk OOM
-- `bae9c5d` — F49a: restructure synopsis prompt — pure description, no evaluative language
-- `b663dc2` — F49: prevent synopsis retry from fabricating content on empty inputs
+### Phase Status
+- Phase 5.8: IN PROGRESS
+- Phase 5.8.0: CLOSED
+- F51 series (a–h.3.1): CLOSED
+- F56 (section classifier bound): CLOSED
+- F58 (persistent import queue): CLOSED
+- F42 (corpus release gate): CLOSED
+- F49d + F49d.2: CLOSED
+- 5.8d + 5.8e + 5.8m: CLOSED (via F58)
+
+### Next Session Opener
+1. Verify HEAD, tree clean, origin synced
+2. Priority 1: **F49d.1** — narrow [PARTIAL] trigger
+   - Currently fires on books with TOC + opening + closing but no preface
+   - Bounded fix in intelligentSummarizer.js prompt wording
+3. Priority 2: **F57** — decide build3a disposition
+   - Network hang masks downstream red
+   - Either fix or move to a network-required tier
+4. Priority 3: **5.8i** — frontend walkthrough (bounded, high-value)
+5. Priority 4: **F58.1** — dossier dedup hardening
+6. Priority 5: **F39.1** — ancestor regex false-positive on prose
+
+### Findings Ledger (recent)
+| ID | Name | Status | Location |
+|---|---|---|---|
+| F42 | Corpus release gate | CLOSED | scripts/run-corpus-tests.js |
+| F49d | [PARTIAL] strip from stored synopsis | CLOSED | intelligentSummarizer.js |
+| F49d.1 | [PARTIAL] trigger too aggressive | OPEN | intelligentSummarizer.js prompt |
+| F49d.2 | Migration ordering: metadata_json ref before ALTER | CLOSED | database.js |
+| F51h.3.1 | Non-TOC prologue/epilogue classification (follow-up to F51h.3) | CLOSED | documentStructureEngine.js |
+| F56 | Section classifier LLM bound + fast path | CLOSED | sectionClassifier.js |
+| F57 | build3a network hang masks downstream red | OPEN | build3a_test.js |
+| F58 | Persistent import queue + expanded web discovery | CLOSED | importQueueService.js |
+| F58.1 | Dossier dedup by title collides | OPEN | importQueueService.js |
+| F39.1 | Ancestor regex false-positive on prose | OPEN | editorialPlanner.js |
+| F38.11.x | Lone-fragment dropping for narrative content | OBSERVATION | semanticChunker.js |
+| F54 | Synopsis re-synthesize button | OPEN | BookDetailsRoute.tsx |
+
+### Standing Rules
+- **Raw Evidence Over Summaries:** Every test claim requires verbatim terminal output. Summaries without real filenames are rejected.
+- **No Commits on Dirty Tree or Red Suite:** Preconditions and postconditions checked before every commit and push.
+- **Agents Never Declare Phase Closure:** Phase closure is declared by user after docs-close and tagging.
+- **One Workstream Per Session:** Stick to the active task boundaries.
+- **Strict Blast Radius:** Touch only explicitly permitted files. Stop immediately if unexpected changes occur.
+- **Node Owns SQLite & LLM Routing:** Sole writer boundary. Python is purely stateless/sidecar compute.
+- **Verify-Before-Stage:** Check file byte counts (`> 0`) and search patterns before staging.
+- **Never `git reset --hard`:** Use targeted `git checkout HEAD -- <file>` for drift recovery.
+- **Never `git add -f` on gitignored files.**
+- **Attempt at Most N Times, Then Stop:** Bounded iteration.
+- **Diagnostic Prompts Are Read-Only:** In diagnostic prompts, agent must not modify any file — even to fix a real bug. Fixes discovered during diagnostics are filed and handled in a follow-up task with explicit approval.
 
 ---
 
@@ -101,27 +129,7 @@ The ingestion pipeline executes sequentially across five stages:
 
 ---
 
-## 6. Phase Status
-
-- **Phase 5:** 🟢 CLOSED
-- **Phase 5.7.3:** 🟢 CLOSED
-- **Phase 5.8.0:** 🟢 CLOSED
-- **Phase 5.8a/c:** 🟢 CLOSED (Omnitome Rebrand & Omni Theme)
-- **F37.x series:** 🟢 CLOSED (FP16 breakthrough, sidecar warmup, pipeline ETA telemetry, batch sizing)
-- **F38.x series (all):** 🟢 CLOSED
-- **F42:** 🟢 CLOSED (Multi-tier corpus release gate, 9 fixtures across 6 formats, Class A universal + Class B bands + Class C guards)
-- **F43 (all phases):** 🟢 CLOSED (Sidecar model lifecycle with idle unload)
-- **F45:** 🟢 CLOSED (Configurable `IMPORT_MAX_SIZE_MB`, 50–200 MB)
-- **F48, F49, F49a, F49b, F49c, F50:** 🟢 CLOSED
-- **F49d, F49d.2:** 🟢 CLOSED (migration ordering fixed, metadata_json column aligned)
-- **F51 series (a, b, c, e, f, f.1, g, h):** 🟢 CLOSED
-- **F51h.1, F51h.1b, F51h.2, F51h.3:** 🟢 CLOSED (CJK countWords in planner, Aozora display titles, narrative prologue preservation)
-- **F56:** 🟢 CLOSED (Markdown fast-path classification + circuit breaker)
-- **F40, F41, F44, F51a Tier 3:** ⏳ DEFERRED to v1.x / v1.5
-
----
-
-## 7. Deferred to v1.x / v1.5
+## 6. Deferred to v1.x / v1.5
 
 - **F40 — Layout-aware PDF parsing (Marker / LayoutParser style):** Current PyMuPDF + TOC pipeline handles Reddi ML Systems (508K words) without issue. Reopening layout parsing adds architectural complexity without justified gain. Deferred to v1.5.
 - **F41 — Hardware-aware model routing:** Superseded by F43 LifecycleManager idle eviction, which drops VRAM to 103 MiB automatically. Deferred to v1.5.
@@ -130,43 +138,9 @@ The ingestion pipeline executes sequentially across five stages:
 
 ---
 
-## 8. Open Findings (Prioritized)
+## 7. Reference
 
-| Priority | ID | Description |
-| :---: | :---: | :--- |
-| **1** | **F57** | **`build3a_test.js` network hang behavior:** `build3a_test.js` makes live OpenLibrary / Wikipedia network calls and can hang indefinitely or timeout in restricted sandbox environments. Needs explicit network probing or isolation so offline/sandboxed runs skip gracefully without stalling test runners. |
-| **2** | **F54** | **Synopsis re-synthesize button:** Frontend UI control to trigger synopsis re-synthesis on demand. |
-| **3** | **F52** | **Library/Research coordination design doc:** Formalize boundary and interaction contracts between Original and Omni reading views. |
-| **4** | **5.8i** | **Frontend walkthrough:** Comprehensive UI verification and polish. |
-
----
-
-## 9. Next Session Opener
-
-1. **Verify HEAD & Working Tree:** Ensure HEAD is clean on expected commit.
-2. **Release Gate Verification:** Run `node scripts/run-all-tests.js` (46 unit suites + 1 corpus gate with 9 fixtures).
-3. **Priority 1: F57 network isolation for `build3a_test.js`** OR **5.8i frontend walkthrough**.
-4. **Secondary:** F54 synopsis re-synthesis button.
-
----
-
-## 10. Standing Rules
-
-- **Raw Evidence Over Summaries:** Every test claim requires verbatim terminal output. Summaries without real filenames are rejected.
-- **No Commits on Dirty Tree or Red Suite:** Preconditions and postconditions checked before every commit and push.
-- **Agents Never Declare Phase Closure:** Phase closure is declared by user after docs-close and tagging.
-- **One Workstream Per Session:** Stick to the active task boundaries.
-- **Strict Blast Radius:** Touch only explicitly permitted files. Stop immediately if unexpected changes occur.
-- **Node Owns SQLite & LLM Routing:** Sole writer boundary. Python is purely stateless/sidecar compute.
-- **Verify-Before-Stage:** Check file byte counts (`> 0`) and search patterns before staging.
-- **Never `git reset --hard`:** Use targeted `git checkout HEAD -- <file>` for drift recovery.
-- **Never `git add -f` on gitignored files.**
-- **Attempt at Most N Times, Then Stop:** Bounded iteration.
-
----
-
-## 11. Reference
-
+- `docs/session-logs/2026-10-13.md` — F51h arc close + F58 super-prompt + F42 corpus gate
 - `docs/session-logs/2026-10-12.md` — F51 series close + Aozora/Japanese ingestion end-to-end
 - `docs/session-logs/2026-10-10.md` — F43 close, F38 polish, cross-format validation
 - `docs/PRODUCT_VISION.md` — Core thesis, invariants, three design laws
