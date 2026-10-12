@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-10-12T19:28:09.601Z"
+    "generated_at": "2026-10-12T21:29:47.525Z"
   },
   "01-narrative/moby_dick.epub": {
     "format": "epub",
@@ -46,5 +46,10 @@
     "format": "txt",
     "chapters": 15,
     "words": 76765
+  },
+  "08-edge-cases/prologue-sample.md": {
+    "format": "md",
+    "chapters": 3,
+    "words": 317
   }
 }

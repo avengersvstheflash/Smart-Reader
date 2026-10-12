@@ -739,6 +739,23 @@ class DocumentStructureEngine {
         continue;
       }
 
+      // Narrative bookend chapter openers (F51h.3): Prologue, Epilogue, 序章, 終章, etc.
+      if (
+        (/^(?:prologue|epilogue)\b(?:\s*[:.—–-]\s*(.*))?$/i.test(text) ||
+         /^(?:序章|終章|プロローグ|エピローグ)(?:[\s:.—–-]\s*(.*))?$/i.test(text)) &&
+        (block.type === 'heading' || text.length < 80)
+      ) {
+        candidates.push({
+          blockIndex: i,
+          title: text,
+          sourcePage: block.sourcePage || 1,
+          startOffset: block.startOffset || 0,
+          detectionSignal: 'prologue_epilogue',
+          confidence: 0.91,
+        });
+        continue;
+      }
+
       // Standalone Numbered Chapter: "1 The Foundations of Learning"
       const standaloneMatch = text.match(this.STANDALONE_NUMBERED_CHAPTER_REGEX);
       if (standaloneMatch && !text.includes('.')) {
@@ -883,7 +900,7 @@ class DocumentStructureEngine {
       const doc = new CanonicalDocument(frontBlocks);
       const wCount = doc.calculateWordCount();
 
-      if (wCount > 0) {
+      if (wCount > 0 && frontBlocks.some((b) => b.type !== 'heading')) {
         const firstHeading = frontBlocks.find((b) => b.type === 'heading');
         const frontTitle = firstHeading ? firstHeading.text : 'Front Matter & Overview';
         const role = this.classifyRoleFromTitle(frontTitle, frontBlocks[0]?.sourcePage || 1, totalPages);

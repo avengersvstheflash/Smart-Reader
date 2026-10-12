@@ -42,6 +42,12 @@ const FIXTURE_CONFIGS = {
   '07-epub/common_sense.epub': { format: 'epub', requirement: 'none', guards: ['C5'] },
   '08-edge-cases/chijinno_ai.txt': { format: 'txt', requirement: 'none', guards: ['C1', 'C2', 'C4', 'C5'] },
   '08-edge-cases/chat_11-slice.md': { format: 'md', requirement: 'none', guards: ['C4', 'C5'] },
+  '08-edge-cases/prologue-sample.md': {
+    format: 'md',
+    requirement: 'none',
+    guards: ['C3', 'C4', 'C5'],
+    hasPrologue: true,
+  },
 };
 
 function normalizeFormat(fmt) {
