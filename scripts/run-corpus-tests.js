@@ -1,6 +1,20 @@
-// Slow-tier cross-format test. Run manually:
-//   node scripts/run-corpus-tests.js
-// Not part of the default test suite. See docs/ROADMAP for context.
+#!/usr/bin/env node
+'use strict';
+
+/**
+ * scripts/run-corpus-tests.js
+ *
+ * F42: v1.0 Corpus Release Gate runner with three-class assertion engine:
+ * - Class A: Universal Invariants (every fixture, no exceptions)
+ * - Class B: Band Assertions (compared against scripts/corpus-baselines.json)
+ * - Class C: Cross-Cutting Invariant Guards (session bug locks)
+ *
+ * CLI flags:
+ *   --dry-run          Evaluates Class A invariants (and Class C guards) without
+ *                      checking Class B baseline bands or writing to the baseline file.
+ *   --update-baseline  Evaluates Class A invariants first; only if they pass,
+ *                      writes/updates scripts/corpus-baselines.json.
+ */
 
 const fs = require('fs');
 const path = require('path');
@@ -9,11 +23,72 @@ const path = require('path');
 process.env.DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'storage', 'test-data.db');
 
 const ingestionService = require('../backend/services/ingestion/ingestionService');
+const preprocessor = require('../backend/services/semantic/preprocessor');
+const semanticChunker = require('../backend/services/semantic/semanticChunker');
 
 const CORPUS_DIR = path.join(__dirname, '..', 'backend', 'tests', 'fixtures', 'corpus');
-const VALID_EXTENSIONS = new Set(['.epub', '.pdf', '.docx', '.rtf', '.txt', '.md', '.html', '.htm']);
+const BASELINE_FILE = path.join(__dirname, 'corpus-baselines.json');
+const VALID_EXTENSIONS = new Set(['.epub', '.pdf', '.docx', '.rtf', '.txt', '.text', '.md', '.markdown', '.html', '.htm']);
 
-async function findCorpusFiles() {
+// Fixture requirements and declared format configurations
+const FIXTURE_CONFIGS = {
+  '01-narrative/moby_dick.epub': { format: 'epub', requirement: 'none' },
+  '01-narrative/pride_and_prejudice.epub': { format: 'epub', requirement: 'none' },
+  '02-poetry/leaves_of_grass.epub': { format: 'epub', requirement: 'none' },
+  '03-nonenglish/les_miserables_tome_1.epub': { format: 'epub', requirement: 'none' },
+  '06-docx-rtf/sample.docx': { format: 'docx', requirement: 'sidecar' },
+  '06-docx-rtf/sample.rtf': { format: 'rtf', requirement: 'sidecar' },
+  '07-epub/common_sense.epub': { format: 'epub', requirement: 'none' },
+  '08-edge-cases/chijinno_ai.txt': { format: 'txt', requirement: 'none' },
+  '08-edge-cases/chat_11-slice.md': { format: 'md', requirement: 'none' },
+};
+
+function normalizeFormat(fmt) {
+  if (!fmt) return '';
+  const f = fmt.toLowerCase().replace(/^\./, '');
+  if (f === 'markdown') return 'md';
+  if (f === 'text') return 'txt';
+  return f;
+}
+
+function getFixtureConfig(relPath, filename) {
+  const norm = relPath.replace(/\\/g, '/');
+  if (FIXTURE_CONFIGS[norm]) {
+    return FIXTURE_CONFIGS[norm];
+  }
+  const ext = path.extname(filename).toLowerCase().replace(/^\./, '');
+  let format = ext;
+  if (ext === 'markdown') format = 'md';
+  if (ext === 'text') format = 'txt';
+  const requirement = (ext === 'docx' || ext === 'rtf' || ext === 'pdf') ? 'sidecar' : 'none';
+  return { format, requirement };
+}
+
+async function checkRequirement(req) {
+  if (!req || req === 'none') return { available: true };
+  if (req === 'sidecar') {
+    const sidecarUrl = process.env.PYTHON_SIDECAR_URL || 'http://127.0.0.1:8765';
+    try {
+      const res = await fetch(`${sidecarUrl}/v1/health`, { signal: AbortSignal.timeout(1500) });
+      if (res.ok) return { available: true };
+      return { available: false, reason: `Sidecar returned HTTP ${res.status}` };
+    } catch (_err) {
+      return { available: false, reason: 'Python sidecar unreachable on port 8765' };
+    }
+  }
+  if (req === 'network') {
+    try {
+      const res = await fetch('https://www.google.com', { signal: AbortSignal.timeout(2000) });
+      if (res.ok) return { available: true };
+      return { available: false, reason: `Network probe returned HTTP ${res.status}` };
+    } catch (_err) {
+      return { available: false, reason: 'External network unreachable' };
+    }
+  }
+  return { available: true };
+}
+
+function findCorpusFiles() {
   if (!fs.existsSync(CORPUS_DIR)) {
     throw new Error(`Corpus directory not found: ${CORPUS_DIR}`);
   }
@@ -33,19 +108,22 @@ async function findCorpusFiles() {
       .sort();
 
     for (const file of entries) {
+      const upper = file.toUpperCase();
+      if (upper === 'README.MD' || upper === 'NOTICE.MD') continue;
       const ext = path.extname(file).toLowerCase();
       if (VALID_EXTENSIONS.has(ext)) {
+        const relPath = `${subdir}/${file}`.replace(/\\/g, '/');
         files.push({
           subdir,
           filename: file,
           fullPath: path.join(subdirPath, file),
-          relPath: `${subdir}/${file}`,
+          relPath,
         });
       }
     }
   }
 
-  return files;
+  return files.sort((a, b) => a.relPath.localeCompare(b.relPath));
 }
 
 function formatDuration(ms) {
@@ -53,100 +131,373 @@ function formatDuration(ms) {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
+function loadBaselines() {
+  if (!fs.existsSync(BASELINE_FILE)) {
+    return null;
+  }
+  try {
+    const raw = fs.readFileSync(BASELINE_FILE, 'utf8');
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`Failed to parse baseline file ${BASELINE_FILE}: ${err.message}`);
+  }
+}
+
+function formatFailure(itemRelPath, failure) {
+  const lines = [
+    `❌ [FAIL] ${itemRelPath}`,
+    `   Class:    ${failure.class}`,
+    `   Check:    ${failure.check}`,
+  ];
+  if (failure.baseline !== undefined) {
+    lines.push(`   Baseline: ${failure.baseline}`);
+  }
+  if (failure.actual !== undefined) {
+    lines.push(`   Actual:   ${failure.actual}`);
+  }
+  if (failure.delta !== undefined) {
+    lines.push(`   Delta:    ${failure.delta}`);
+  }
+  if (failure.expected !== undefined && failure.baseline === undefined) {
+    lines.push(`   Expected: ${failure.expected}`);
+  }
+  if (failure.message && failure.baseline === undefined && failure.expected === undefined) {
+    lines.push(`   Message:  ${failure.message}`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Class A: Universal Invariants (Every Fixture, No Exceptions)
+ */
+function evaluateClassA(res, chunks, _item, fixtureConfig) {
+  const failures = [];
+  const chapterCount = Array.isArray(res.chapters) ? res.chapters.length : 0;
+  let wordCount = res.totalWordCount || 0;
+  if (!wordCount && Array.isArray(res.chapters)) {
+    wordCount = res.chapters.reduce((sum, ch) => sum + (ch.wordCount || 0), 0);
+  }
+
+  // 1. Chapter Count Invariant (>= 1)
+  if (chapterCount < 1) {
+    failures.push({
+      class: 'Class A (Universal Invariant)',
+      check: 'Chapter Count (>= 1)',
+      actual: chapterCount,
+      expected: '>= 1',
+      message: `Expected chapter count >= 1, but got ${chapterCount}`,
+    });
+  }
+
+  // 2. Word Count Invariant (>= 100)
+  if (wordCount < 100) {
+    failures.push({
+      class: 'Class A (Universal Invariant)',
+      check: 'Word Count (>= 100)',
+      actual: wordCount,
+      expected: '>= 100',
+      message: `Expected total word count >= 100, but got ${wordCount}`,
+    });
+  }
+
+  // 3. Format Fidelity Invariant
+  const detectedNorm = normalizeFormat(res.format);
+  const declaredNorm = normalizeFormat(fixtureConfig.format);
+  if (detectedNorm !== declaredNorm) {
+    failures.push({
+      class: 'Class A (Universal Invariant)',
+      check: 'Format Fidelity',
+      actual: res.format,
+      expected: fixtureConfig.format,
+      message: `Detected format '${res.format}' (${detectedNorm}) does not match declared format '${fixtureConfig.format}' (${declaredNorm})`,
+    });
+  }
+
+  // 4. No Orphaned Chunks Invariant
+  const chunkCount = Array.isArray(chunks) ? chunks.length : 0;
+  if (chapterCount > 0 && chunkCount === 0) {
+    failures.push({
+      class: 'Class A (Universal Invariant)',
+      check: 'No Orphaned Chunks',
+      actual: 0,
+      expected: '> 0 chunks',
+      message: `Chapters present (${chapterCount}), but semantic chunking produced 0 chunks`,
+    });
+  }
+
+  return failures;
+}
+
+/**
+ * Class B: Band Assertions (Compared against scripts/corpus-baselines.json)
+ */
+function evaluateClassB(chapterCount, wordCount, item, baselines) {
+  const failures = [];
+  if (!baselines) {
+    failures.push({
+      class: 'Class B (Band Assertion)',
+      check: 'Baseline Catalog Presence',
+      message: `Baseline file '${BASELINE_FILE}' not found. Run with --update-baseline to generate.`,
+    });
+    return failures;
+  }
+
+  const baseline = baselines[item.relPath];
+  if (!baseline) {
+    failures.push({
+      class: 'Class B (Band Assertion)',
+      check: 'Baseline Fixture Entry',
+      message: `No baseline entry found for '${item.relPath}' in baseline catalog. Run with --update-baseline to add.`,
+    });
+    return failures;
+  }
+
+  // Word Count Band (±10%)
+  const minWords = Math.floor(baseline.words * 0.90);
+  const maxWords = Math.ceil(baseline.words * 1.10);
+  if (wordCount < minWords || wordCount > maxWords) {
+    const rawDelta = ((wordCount - baseline.words) / baseline.words) * 100;
+    const deltaSign = rawDelta > 0 ? '+' : '';
+    const deltaPercent = `${deltaSign}${rawDelta.toFixed(2)}%`;
+    failures.push({
+      class: 'Class B (Band Assertion)',
+      check: 'Word Count Tolerance (±10%)',
+      baseline: `${baseline.words.toLocaleString()} words`,
+      actual: `${wordCount.toLocaleString()} words`,
+      delta: `${deltaPercent} (exceeds allowable range [-10.00%, +10.00%])`,
+      message: `Word count ${wordCount} out of allowable band [${minWords}, ${maxWords}] against baseline ${baseline.words}`,
+    });
+  }
+
+  // Chapter Count Band (±20%)
+  const minChapters = Math.floor(baseline.chapters * 0.80);
+  const maxChapters = Math.ceil(baseline.chapters * 1.20);
+  if (chapterCount < minChapters || chapterCount > maxChapters) {
+    const rawDelta = ((chapterCount - baseline.chapters) / baseline.chapters) * 100;
+    const deltaSign = rawDelta > 0 ? '+' : '';
+    const deltaPercent = `${deltaSign}${rawDelta.toFixed(2)}%`;
+    failures.push({
+      class: 'Class B (Band Assertion)',
+      check: 'Chapter Count Tolerance (±20%)',
+      baseline: `${baseline.chapters} chapters`,
+      actual: `${chapterCount} chapters`,
+      delta: `${deltaPercent} (exceeds allowable range [-20.00%, +20.00%])`,
+      message: `Chapter count ${chapterCount} out of allowable band [${minChapters}, ${maxChapters}] against baseline ${baseline.chapters}`,
+    });
+  }
+
+  return failures;
+}
+
+/**
+ * Class C: Cross-Cutting Invariant Guards (Session bug locks)
+ * In Session 1, this returns empty. Targeted guards land in Session 2.
+ */
+function evaluateClassC(_res, _chunks, _item) {
+  // Session 2 will populate:
+  // - F51h.1 (CJK Word Count Guard)
+  // - F49d (No Partial Markers)
+  // - F51h.2 (No Raw Aozora Markup in Semantic Chunk Headings)
+  // - F51h.3 (Prologue Preservation Guard)
+  // - F38.11 (Lone-Fragment Content Guard)
+  return [];
+}
+
 async function main() {
+  const args = process.argv.slice(2);
+  const isDryRun = args.includes('--dry-run');
+  const isUpdateBaseline = args.includes('--update-baseline');
+
   console.log('================================================================');
   console.log('📚 RUNNING CROSS-FORMAT CORPUS TESTS (F42)');
   console.log(`Corpus root: ${CORPUS_DIR}`);
+  if (isDryRun) {
+    console.log('Mode: --dry-run (evaluating Class A invariants only)');
+  } else if (isUpdateBaseline) {
+    console.log('Mode: --update-baseline (evaluating Class A, generating baselines on pass)');
+  } else {
+    console.log('Mode: Standard Gate (evaluating Class A invariants + Class B baseline bands)');
+  }
   console.log('================================================================\n');
 
-  const files = await findCorpusFiles();
+  const files = findCorpusFiles();
   if (files.length === 0) {
     console.warn('[Warning] No valid test fixtures found in corpus directories.');
     process.exit(0);
+  }
+
+  let baselines = null;
+  if (!isDryRun && !isUpdateBaseline) {
+    baselines = loadBaselines();
+    if (!baselines) {
+      console.error(`❌ Baseline file not found: ${BASELINE_FILE}`);
+      console.error('Run with --update-baseline to generate initial baselines.\n');
+      process.exit(1);
+    }
   }
 
   const results = [];
   const failures = [];
 
   for (const item of files) {
+    const fixtureConfig = getFixtureConfig(item.relPath, item.filename);
+    const reqCheck = await checkRequirement(fixtureConfig.requirement);
+
+    if (!reqCheck.available) {
+      console.log(`[SKIP] ${item.relPath} — Required '${fixtureConfig.requirement}' is unavailable (${reqCheck.reason})`);
+      results.push({
+        fixture: item.relPath,
+        format: fixtureConfig.format,
+        time: '-',
+        chapters: '-',
+        words: '-',
+        chunks: '-',
+        result: 'SKIP',
+        reason: reqCheck.reason,
+      });
+      continue;
+    }
+
     process.stdout.write(`Testing ${item.relPath}... `);
     const t0 = Date.now();
+    let res;
+    let chunks = [];
+
     try {
       const fileBuffer = fs.readFileSync(item.fullPath);
-      const res = await ingestionService.ingest({
+      res = await ingestionService.ingest({
         originalFilename: item.filename,
         fileBuffer,
         title: item.filename,
       });
-
-      const elapsedMs = Date.now() - t0;
-      const format = res.format || path.extname(item.filename).slice(1);
-      const chapterCount = Array.isArray(res.chapters) ? res.chapters.length : 0;
-      let wordCount = res.totalWordCount || 0;
-      if (!wordCount && Array.isArray(res.chapters)) {
-        wordCount = res.chapters.reduce((sum, ch) => sum + (ch.wordCount || 0), 0);
-      }
-
-      // Assertions: chapter_count > 0, word_count > 100
-      let passed = true;
-      let errorMsg = null;
-
-      if (chapterCount <= 0) {
-        passed = false;
-        errorMsg = `Assertion failed: chapter_count must be > 0 (got ${chapterCount})`;
-      } else if (wordCount <= 100) {
-        passed = false;
-        errorMsg = `Assertion failed: word_count must be > 100 (got ${wordCount})`;
-      }
-
-      const row = {
-        fixture: item.relPath,
-        format,
-        time: formatDuration(elapsedMs),
-        chapters: chapterCount,
-        words: wordCount,
-        result: passed ? 'PASS' : 'FAIL',
-        error: errorMsg,
-      };
-
-      results.push(row);
-      if (!passed) {
-        failures.push({ fixture: item.relPath, error: errorMsg });
-        console.log(`FAIL (${errorMsg})`);
-      } else {
-        console.log(`PASS (${row.format}, ${chapterCount} ch, ${wordCount} words in ${row.time})`);
-      }
     } catch (err) {
       const elapsedMs = Date.now() - t0;
-      const errorMsg = err.message || String(err);
-      const row = {
+      const failure = {
+        class: 'Class A (Universal Invariant)',
+        check: 'Non-throwing Ingestion',
+        message: err.message || String(err),
+        stack: err.stack,
+      };
+      results.push({
         fixture: item.relPath,
-        format: path.extname(item.filename).slice(1) || 'unknown',
+        format: fixtureConfig.format,
         time: formatDuration(elapsedMs),
         chapters: 0,
         words: 0,
+        chunks: 0,
         result: 'FAIL',
-        error: errorMsg,
+        failures: [failure],
+      });
+      failures.push({ fixture: item.relPath, details: [failure] });
+      console.log(`FAIL (Exception: ${err.message})`);
+      console.log(formatFailure(item.relPath, failure));
+      continue;
+    }
+
+    // Replicate pipeline chunking via preprocessor and semanticChunker
+    try {
+      const bookEntity = {
+        id: `corpus-${path.basename(item.filename, path.extname(item.filename))}`,
+        title: item.filename,
       };
-      results.push(row);
-      failures.push({ fixture: item.relPath, error: errorMsg, stack: err.stack });
-      console.log(`FAIL (Exception: ${errorMsg})`);
+      const allUnits = [];
+      if (Array.isArray(res.chapters)) {
+        for (const ch of res.chapters) {
+          const units = preprocessor.preprocessChapter(
+            {
+              ...ch,
+              canonical_content: ch.canonicalBlocks || ch.canonical_content,
+              structural_role: ch.structuralRole || ch.structural_role || 'chapter',
+            },
+            bookEntity
+          );
+          allUnits.push(...units);
+        }
+      }
+      chunks = semanticChunker.chunkPreprocessedUnits(allUnits, bookEntity);
+    } catch (chunkErr) {
+      const elapsedMs = Date.now() - t0;
+      const failure = {
+        class: 'Class A (Universal Invariant)',
+        check: 'Semantic Chunking Pipeline',
+        message: `Chunking pipeline threw: ${chunkErr.message}`,
+        stack: chunkErr.stack,
+      };
+      results.push({
+        fixture: item.relPath,
+        format: normalizeFormat(res.format || fixtureConfig.format),
+        time: formatDuration(elapsedMs),
+        chapters: res.chapters ? res.chapters.length : 0,
+        words: res.totalWordCount || 0,
+        chunks: 0,
+        result: 'FAIL',
+        failures: [failure],
+      });
+      failures.push({ fixture: item.relPath, details: [failure] });
+      console.log(`FAIL (Chunking exception: ${chunkErr.message})`);
+      console.log(formatFailure(item.relPath, failure));
+      continue;
+    }
+
+    const elapsedMs = Date.now() - t0;
+    const chapterCount = Array.isArray(res.chapters) ? res.chapters.length : 0;
+    let wordCount = res.totalWordCount || 0;
+    if (!wordCount && Array.isArray(res.chapters)) {
+      wordCount = res.chapters.reduce((sum, ch) => sum + (ch.wordCount || 0), 0);
+    }
+    const detectedFormat = normalizeFormat(res.format || fixtureConfig.format);
+
+    // Evaluate Class A invariants
+    const classAFailures = evaluateClassA(res, chunks, item, fixtureConfig);
+    const fixtureFailures = [...classAFailures];
+
+    // Evaluate Class B band assertions (only in standard mode)
+    if (!isDryRun && !isUpdateBaseline) {
+      const classBFailures = evaluateClassB(chapterCount, wordCount, item, baselines);
+      fixtureFailures.push(...classBFailures);
+    }
+
+    // Evaluate Class C guards
+    const classCFailures = evaluateClassC(res, chunks, item);
+    fixtureFailures.push(...classCFailures);
+
+    const passed = fixtureFailures.length === 0;
+    results.push({
+      fixture: item.relPath,
+      format: detectedFormat,
+      time: formatDuration(elapsedMs),
+      chapters: chapterCount,
+      words: wordCount,
+      chunks: chunks.length,
+      result: passed ? 'PASS' : 'FAIL',
+      failures: fixtureFailures,
+    });
+
+    if (!passed) {
+      failures.push({ fixture: item.relPath, details: fixtureFailures });
+      console.log(`FAIL (${fixtureFailures.length} assertion failure(s))`);
+      for (const f of fixtureFailures) {
+        console.log(formatFailure(item.relPath, f));
+      }
+    } else {
+      console.log(`PASS (${detectedFormat}, ${chapterCount} ch, ${wordCount} words, ${chunks.length} chunks in ${formatDuration(elapsedMs)})`);
     }
   }
 
-  // Print Summary Table
+  // Summary Table
   console.log('\n================================================================');
   console.log('📊 CORPUS TEST SUMMARY TABLE');
   console.log('================================================================');
 
-  const headers = ['Fixture', 'Format', 'Time', 'Chapters', 'Words', 'Result'];
+  const headers = ['Fixture', 'Format', 'Time', 'Chapters', 'Words', 'Chunks', 'Result'];
   const colWidths = {
     fixture: Math.max(...results.map((r) => r.fixture.length), headers[0].length),
     format: Math.max(...results.map((r) => r.format.length), headers[1].length),
-    time: Math.max(...results.map((r) => r.time.length), headers[2].length),
+    time: Math.max(...results.map((r) => String(r.time).length), headers[2].length),
     chapters: Math.max(...results.map((r) => String(r.chapters).length), headers[3].length),
     words: Math.max(...results.map((r) => String(r.words).length), headers[4].length),
-    result: Math.max(...results.map((r) => r.result.length), headers[5].length),
+    chunks: Math.max(...results.map((r) => String(r.chunks).length), headers[5].length),
+    result: Math.max(...results.map((r) => r.result.length), headers[6].length),
   };
 
   const pad = (str, len, right = false) => {
@@ -160,7 +511,8 @@ async function main() {
     pad(headers[2], colWidths.time, true),
     pad(headers[3], colWidths.chapters, true),
     pad(headers[4], colWidths.words, true),
-    pad(headers[5], colWidths.result),
+    pad(headers[5], colWidths.chunks, true),
+    pad(headers[6], colWidths.result),
   ].join(' | ');
 
   const separator = [
@@ -169,6 +521,7 @@ async function main() {
     '-'.repeat(colWidths.time),
     '-'.repeat(colWidths.chapters),
     '-'.repeat(colWidths.words),
+    '-'.repeat(colWidths.chunks),
     '-'.repeat(colWidths.result),
   ].join('-+-');
 
@@ -179,9 +532,10 @@ async function main() {
     const line = [
       pad(r.fixture, colWidths.fixture),
       pad(r.format, colWidths.format),
-      pad(r.time, colWidths.time, true),
-      pad(r.chapters, colWidths.chapters, true),
-      pad(r.words, colWidths.words, true),
+      pad(r.time, colWidths.time, r.time !== '-'),
+      pad(r.chapters, colWidths.chapters, r.chapters !== '-'),
+      pad(r.words, colWidths.words, r.words !== '-'),
+      pad(r.chunks, colWidths.chunks, r.chunks !== '-'),
       pad(r.result, colWidths.result),
     ].join(' | ');
     console.log(line);
@@ -189,17 +543,78 @@ async function main() {
 
   console.log('================================================================');
 
-  if (failures.length > 0) {
-    console.error(`\n❌ ${failures.length} fixture(s) failed ingestion:\n`);
+  // Handle --update-baseline
+  if (isUpdateBaseline) {
+    if (failures.length > 0) {
+      console.error(`\n❌ Baseline update aborted: ${failures.length} fixture(s) failed invariants.`);
+      process.exit(1);
+    }
+
+    let existingBaseline = {};
+    if (fs.existsSync(BASELINE_FILE)) {
+      try {
+        existingBaseline = JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8'));
+      } catch (_e) {
+        existingBaseline = {};
+      }
+    }
+
+    const newBaselineData = {
+      _meta: {
+        generated_at: new Date().toISOString(),
+      },
+    };
+
+    // Preserve existing entries for skipped fixtures if present
+    const skippedFixtures = new Set(results.filter((r) => r.result === 'SKIP').map((r) => r.fixture));
+    for (const [k, v] of Object.entries(existingBaseline)) {
+      if (k !== '_meta' && skippedFixtures.has(k)) {
+        newBaselineData[k] = v;
+      }
+    }
+
+    // Write updated baseline for passed fixtures
+    for (const r of results) {
+      if (r.result === 'PASS') {
+        newBaselineData[r.fixture] = {
+          format: r.format,
+          chapters: r.chapters,
+          words: r.words,
+        };
+      }
+    }
+
+    const sortedKeys = Object.keys(newBaselineData).filter((k) => k !== '_meta').sort();
+    const outputObj = {
+      _meta: newBaselineData._meta,
+    };
+    for (const k of sortedKeys) {
+      outputObj[k] = newBaselineData[k];
+    }
+
+    fs.writeFileSync(BASELINE_FILE, JSON.stringify(outputObj, null, 2) + '\n', 'utf8');
+    console.log(`\n✅ Baseline written to ${path.relative(process.cwd(), BASELINE_FILE)} with ${sortedKeys.length} fixtures.\n`);
+    process.exit(0);
+  }
+
+  const passCount = results.filter((r) => r.result === 'PASS').length;
+  const skipCount = results.filter((r) => r.result === 'SKIP').length;
+  const failCount = results.filter((r) => r.result === 'FAIL').length;
+
+  if (failCount > 0) {
+    console.error(`\n❌ ${failCount} fixture(s) failed corpus validation.\n`);
     for (const f of failures) {
-      console.error(`[${f.fixture}]: ${f.error}`);
-      if (f.stack) {
-        console.error(`  Stack: ${f.stack}\n`);
+      for (const d of f.details) {
+        console.error(formatFailure(f.fixture, d));
       }
     }
     process.exit(1);
   } else {
-    console.log(`\n✅ All ${results.length} corpus fixtures passed ingestion validation.\n`);
+    let msg = `\n✅ All ${passCount} corpus fixture(s) passed validation`;
+    if (skipCount > 0) {
+      msg += ` (${skipCount} skipped)`;
+    }
+    console.log(`${msg}.\n`);
     process.exit(0);
   }
 }
@@ -208,4 +623,3 @@ main().catch((err) => {
   console.error('Fatal runner error:', err);
   process.exit(1);
 });
-

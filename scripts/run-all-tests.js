@@ -105,6 +105,31 @@ for (const name of SUITES) {
   passed += 1;
 }
 
-process.stdout.write(`\nALL ${passed} SUITES PASS\n`);
+process.stdout.write(`\n=== run-corpus-tests.js ===\n`);
+const corpusScript = path.join(ROOT, 'scripts', 'run-corpus-tests.js');
+const corpusResult = spawnSync(process.execPath, [corpusScript], {
+  stdio: 'inherit',
+  cwd: ROOT,
+  timeout: TIMEOUT_MS,
+  killSignal: 'SIGTERM',
+});
+
+const corpusTimedOut = corpusResult.error && corpusResult.error.code === 'ETIMEDOUT';
+if (corpusTimedOut) {
+  process.stderr.write(`\nFAILED: CORPUS GATE - timed out after ${TIMEOUT_MS / 1000}s\n`);
+  process.exit(1);
+}
+
+if (corpusResult.error) {
+  process.stderr.write(`\nFAILED: CORPUS GATE - spawn error: ${corpusResult.error.message}\n`);
+  process.exit(1);
+}
+
+if (corpusResult.status !== 0) {
+  process.stderr.write(`\nFAILED: CORPUS GATE - exited with code ${corpusResult.status}\n`);
+  process.exit(corpusResult.status || 1);
+}
+
+process.stdout.write(`\nALL ${passed} UNIT SUITES + 1 CORPUS GATE PASS\n`);
 process.exit(0);
 

@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "generated_at": "2026-10-12T18:55:33.949Z"
+  },
+  "01-narrative/moby_dick.epub": {
+    "format": "epub",
+    "chapters": 27,
+    "words": 212711
+  },
+  "01-narrative/pride_and_prejudice.epub": {
+    "format": "epub",
+    "chapters": 16,
+    "words": 128191
+  },
+  "02-poetry/leaves_of_grass.epub": {
+    "format": "epub",
+    "chapters": 290,
+    "words": 7515
+  },
+  "03-nonenglish/les_miserables_tome_1.epub": {
+    "format": "epub",
+    "chapters": 13,
+    "words": 110567
+  },
+  "06-docx-rtf/sample.docx": {
+    "format": "docx",
+    "chapters": 4,
+    "words": 1343
+  },
+  "06-docx-rtf/sample.rtf": {
+    "format": "rtf",
+    "chapters": 1,
+    "words": 1343
+  },
+  "07-epub/common_sense.epub": {
+    "format": "epub",
+    "chapters": 3,
+    "words": 22637
+  }
+}
