@@ -1,178 +1,219 @@
 {
-  "timestamp": "2026-10-12T22:28:29.481Z",
+  "timestamp": "2026-10-12T22:55:34.038Z",
   "environment": {
     "platform": "Windows_NT 10.0.26300 (x64)",
     "cpu": "AMD Ryzen 7 4800H with Radeon Graphics",
     "vcpus": 16,
     "ramGB": 15.4,
     "node": "v22.23.2",
-    "gpu": "CUDA Accelerated (Allocated: 3424.9 MB, Reserved: 4782 MB)"
+    "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU (4,096 MiB VRAM, FP16 CUDA)"
+  },
+  "aggregates": {
+    "totalWords": 598295,
+    "totalChapters": 381,
+    "totalBytes": 3066102,
+    "totalChunks": 2668,
+    "totalParseTimeMs": 486.7,
+    "overallWordsPerSec": 1229289,
+    "overallMBPerSec": 6.01,
+    "chunkWordsPerSec": 338077
   },
   "ingestionResults": [
     {
       "fixture": "01-narrative/moby_dick.epub",
       "format": "EPUB",
       "fileSizeBytes": 728789,
+      "fileSizeStr": "711.7 KB",
       "words": 212711,
       "chapters": 27,
-      "medianMs": 118.6,
-      "wordsPerSec": 1793516,
-      "mbPerSec": 5.86
+      "medianMs": 86.9,
+      "minMs": 84,
+      "wordsPerSec": 2447768,
+      "mbPerSec": 8
     },
     {
       "fixture": "01-narrative/pride_and_prejudice.epub",
       "format": "EPUB",
       "fileSizeBytes": 561102,
+      "fileSizeStr": "548.0 KB",
       "words": 128191,
       "chapters": 16,
-      "medianMs": 77.4,
-      "wordsPerSec": 1656214,
-      "mbPerSec": 6.91
+      "medianMs": 54.3,
+      "minMs": 53.4,
+      "wordsPerSec": 2360792,
+      "mbPerSec": 9.85
     },
     {
       "fixture": "02-poetry/leaves_of_grass.epub",
       "format": "EPUB",
       "fileSizeBytes": 692147,
+      "fileSizeStr": "675.9 KB",
       "words": 7515,
       "chapters": 290,
-      "medianMs": 54.1,
-      "wordsPerSec": 138909,
-      "mbPerSec": 12.2
+      "medianMs": 40.2,
+      "minMs": 37,
+      "wordsPerSec": 186940,
+      "mbPerSec": 16.42
     },
     {
       "fixture": "03-nonenglish/les_miserables_tome_1.epub",
       "format": "EPUB",
       "fileSizeBytes": 362787,
+      "fileSizeStr": "354.3 KB",
       "words": 110567,
       "chapters": 13,
-      "medianMs": 85.8,
-      "wordsPerSec": 1288660,
-      "mbPerSec": 4.03
+      "medianMs": 54.2,
+      "minMs": 50.8,
+      "wordsPerSec": 2039982,
+      "mbPerSec": 6.38
     },
     {
       "fixture": "06-docx-rtf/sample.docx",
       "format": "DOCX",
       "fileSizeBytes": 38668,
+      "fileSizeStr": "37.8 KB",
       "words": 1343,
       "chapters": 4,
-      "medianMs": 170.5,
-      "wordsPerSec": 7877,
-      "mbPerSec": 0.22
+      "medianMs": 95.3,
+      "minMs": 87.7,
+      "wordsPerSec": 14092,
+      "mbPerSec": 0.39
     },
     {
       "fixture": "06-docx-rtf/sample.rtf",
       "format": "RTF",
       "fileSizeBytes": 7904,
+      "fileSizeStr": "7.7 KB",
       "words": 1343,
       "chapters": 1,
-      "medianMs": 23.6,
-      "wordsPerSec": 56907,
-      "mbPerSec": 0.32
+      "medianMs": 16,
+      "minMs": 12.1,
+      "wordsPerSec": 83938,
+      "mbPerSec": 0.47
     },
     {
       "fixture": "07-epub/common_sense.epub",
       "format": "EPUB",
       "fileSizeBytes": 176329,
+      "fileSizeStr": "172.2 KB",
       "words": 22637,
       "chapters": 3,
-      "medianMs": 16.2,
-      "wordsPerSec": 1397346,
-      "mbPerSec": 10.38
+      "medianMs": 11,
+      "minMs": 10.2,
+      "wordsPerSec": 2057909,
+      "mbPerSec": 15.29
     },
     {
       "fixture": "08-edge-cases/chijinno_ai.txt",
       "format": "TXT",
       "fileSizeBytes": 223727,
+      "fileSizeStr": "218.5 KB",
       "words": 76765,
       "chapters": 15,
-      "medianMs": 73.5,
-      "wordsPerSec": 1044422,
-      "mbPerSec": 2.9
+      "medianMs": 45.8,
+      "minMs": 42.8,
+      "wordsPerSec": 1676092,
+      "mbPerSec": 4.66
     },
     {
       "fixture": "08-edge-cases/chat_11-slice.md",
       "format": "MD",
       "fileSizeBytes": 272919,
+      "fileSizeStr": "266.5 KB",
       "words": 36906,
       "chapters": 9,
-      "medianMs": 153.9,
-      "wordsPerSec": 239805,
-      "mbPerSec": 1.69
+      "medianMs": 82.2,
+      "minMs": 78.3,
+      "wordsPerSec": 448978,
+      "mbPerSec": 3.17
     },
     {
       "fixture": "08-edge-cases/prologue-sample.md",
       "format": "MD",
       "fileSizeBytes": 1730,
+      "fileSizeStr": "1.7 KB",
       "words": 317,
       "chapters": 3,
-      "medianMs": 1.3,
-      "wordsPerSec": 243846,
-      "mbPerSec": 1.27
+      "medianMs": 0.8,
+      "minMs": 0.8,
+      "wordsPerSec": 396250,
+      "mbPerSec": 2.06
     }
   ],
   "embeddingBatchResults": [
     {
       "batchSize": 1,
-      "batchTimeMs": 1174,
-      "perChunkMs": 1174,
-      "vectorsPerSec": 0.9
+      "batchTimeMs": 167.5,
+      "perChunkMs": 167.5,
+      "vectorsPerSec": 6
     },
     {
       "batchSize": 4,
-      "batchTimeMs": 7175,
-      "perChunkMs": 1793.8,
-      "vectorsPerSec": 0.6
+      "batchTimeMs": 562.7,
+      "perChunkMs": 140.7,
+      "vectorsPerSec": 7.1
     },
     {
       "batchSize": 8,
-      "batchTimeMs": 8177.9,
-      "perChunkMs": 1022.2,
-      "vectorsPerSec": 1
+      "batchTimeMs": 691.9,
+      "perChunkMs": 86.5,
+      "vectorsPerSec": 11.6
     },
     {
       "batchSize": 16,
-      "batchTimeMs": 9539.8,
-      "perChunkMs": 596.2,
-      "vectorsPerSec": 1.7
+      "batchTimeMs": 899,
+      "perChunkMs": 56.2,
+      "vectorsPerSec": 17.8
     },
     {
       "batchSize": 32,
-      "batchTimeMs": 12200.4,
-      "perChunkMs": 381.3,
-      "vectorsPerSec": 2.6
+      "batchTimeMs": 1302.5,
+      "perChunkMs": 40.7,
+      "vectorsPerSec": 24.6
     }
   ],
   "rerankResults": [
     {
       "candidateCount": 5,
-      "latencyMs": 3530.6,
-      "perPairMs": 706.1,
-      "pairsPerSec": 1.4
+      "latencyMs": 216.8,
+      "perPairMs": 43.4,
+      "pairsPerSec": 23.1
     },
     {
       "candidateCount": 10,
-      "latencyMs": 6098.3,
-      "perPairMs": 609.8,
-      "pairsPerSec": 1.6
+      "latencyMs": 387,
+      "perPairMs": 38.7,
+      "pairsPerSec": 25.8
     },
     {
       "candidateCount": 20,
-      "latencyMs": 16183.2,
-      "perPairMs": 809.2,
-      "pairsPerSec": 1.2
+      "latencyMs": 1214.1,
+      "perPairMs": 60.7,
+      "pairsPerSec": 16.5
     },
     {
       "candidateCount": 50,
-      "latencyMs": 23136.1,
-      "perPairMs": 462.7,
-      "pairsPerSec": 2.2
+      "latencyMs": 3848.5,
+      "perPairMs": 77,
+      "pairsPerSec": 13
     }
   ],
+  "queueBenchResults": {
+    "taskCount": 50,
+    "enqueueDurationMs": 53.7,
+    "enqueuesPerSec": 931,
+    "reorderDurationMs": 0.49,
+    "readDurationMs": 0.51
+  },
   "memory": {
-    "nodeRssMB": 118.7,
+    "nodeRssMB": 118,
     "nodeHeapMB": 44.3,
-    "sidecarRssMB": 312.2,
-    "cudaAllocMB": 3424.9,
-    "cudaResMB": 4782
+    "sidecarActiveRssMB": 2220.5,
+    "cudaAllocActiveMB": 3431.9,
+    "cudaResActiveMB": 3994,
+    "sidecarEvictedRssMB": 1762.3,
+    "cudaAllocEvictedMB": 174,
+    "cudaResEvictedMB": 476,
+    "vramRecoveredMB": 3257.9
   }
 }

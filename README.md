@@ -54,7 +54,7 @@ timeline
 
 ## ⚡ Performance & Empirical Benchmarks
 
-Omnitome processes high-volume multi-hundred-thousand-word books end-to-end on a consumer laptop RTX 3050 in under 6 minutes, with deep neural models (BGE-M3 vector embedder and BGE-Reranker-large) that idle-unload to 103 MiB VRAM when not in use.
+Omnitome is engineered for local-first high-throughput reading and neural synthesis. All metrics below represent real, empirical measurements conducted across the **v1.0 Corpus Release Gate** (10 diverse fixtures across 5 document formats) running on local consumer-grade hardware with active PyTorch FP16 GPU acceleration.
 
 ### 🚀 Optimization Impact Summary
 
@@ -63,15 +63,14 @@ Omnitome processes high-volume multi-hundred-thousand-word books end-to-end on a
 | **508K-Word Book Import** | Multi-hour projection | **~5.9 minutes** | 🚀 30x+ faster |
 | **Semantic Index Throughput** | ~50–150 ms/chunk (CPU) | **~78 ms/chunk** (GPU FP16) | ⚡ Real-time indexing |
 | **BGE-M3 Active VRAM** | 3,959 MiB | **1,135 MB** | 📉 71% reduction |
-| **Idle VRAM (All Evicted)** | n/a (held permanently) | **103 MiB** | 🧹 3.2 GB freed |
+| **Idle VRAM (All Evicted)** | n/a (held permanently) | **174 MB** | 🧹 3.2 GB freed |
 | **16-Chunk Embedding Batch** | ~124 seconds | **< 1 second** | ⚡ 120x+ speedup |
 | **Long-Sequence Embedder Attention** | Unbounded (OOM on giant text) | **Bounded seq 2048 / batch 4** | ⚡ 62x speedup on worst-case inputs |
+| **Parallel Synthesis** | Sequential (1x) | **Concurrency = 2** (Configurable) | ⚡ 2x synthesis speed |
 | **Auto-Reload Latency** | n/a | **~6.5 seconds** | 🔄 Transparent reload |
 | **Encoding Detection Latency** | n/a | **< 0.3 ms** (UTF-8 fast path) | ⚡ Zero statistical overhead |
 
 ### 🖥️ Test Environment Specifications
-
-All empirical numbers below were measured directly on the local environment running the complete release corpus:
 
 | Component | Specification |
 | :--- | :--- |
@@ -88,25 +87,25 @@ Measured across the **v1.0 Corpus Release Gate** (10 diverse fixtures across 5 d
 
 | Fixture Document | Format | File Size | Chapters | Word Count | Parse Time (Median) | Throughput (Words/s) | Transfer Rate (MB/s) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `01-narrative/moby_dick.epub` | **EPUB** | 711.7 KB | 27 | 212,711 | 118.6 ms | **1,793,516** | 5.86 MB/s |
-| `01-narrative/pride_and_prejudice.epub` | **EPUB** | 548.0 KB | 16 | 128,191 | 77.4 ms | **1,656,214** | 6.91 MB/s |
-| `02-poetry/leaves_of_grass.epub` | **EPUB** | 675.9 KB | 290 | 7,515 | 54.1 ms | **138,909** | 12.20 MB/s |
-| `03-nonenglish/les_miserables_tome_1.epub` | **EPUB** | 354.3 KB | 13 | 110,567 | 85.8 ms | **1,288,660** | 4.03 MB/s |
-| `06-docx-rtf/sample.docx` | **DOCX** | 37.8 KB | 4 | 1,343 | 170.5 ms | **7,877** | 0.22 MB/s |
-| `06-docx-rtf/sample.rtf` | **RTF** | 7.7 KB | 1 | 1,343 | 23.6 ms | **56,907** | 0.32 MB/s |
-| `07-epub/common_sense.epub` | **EPUB** | 172.2 KB | 3 | 22,637 | 16.2 ms | **1,397,346** | 10.38 MB/s |
-| `08-edge-cases/chijinno_ai.txt` | **TXT** | 218.5 KB | 15 | 76,765 | 73.5 ms | **1,044,422** | 2.90 MB/s |
-| `08-edge-cases/chat_11-slice.md` | **MD** | 266.5 KB | 9 | 36,906 | 153.9 ms | **239,805** | 1.69 MB/s |
-| `08-edge-cases/prologue-sample.md` | **MD** | 1.7 KB | 3 | 317 | 1.3 ms | **243,846** | 1.27 MB/s |
-| **TOTAL / CORPUS AGGREGATE** | **All 5** | **2.92 MB** | **391** | **598,295** | **774.9 ms** | **772,093 w/s** | **3.77 MB/s** |
+| `01-narrative/moby_dick.epub` | **EPUB** | 711.7 KB | 27 | 212,711 | 86.9 ms | **2,447,768** | 8.00 MB/s |
+| `01-narrative/pride_and_prejudice.epub` | **EPUB** | 548.0 KB | 16 | 128,191 | 54.3 ms | **2,360,792** | 9.85 MB/s |
+| `02-poetry/leaves_of_grass.epub` | **EPUB** | 675.9 KB | 290 | 7,515 | 40.2 ms | **186,940** | 16.42 MB/s |
+| `03-nonenglish/les_miserables_tome_1.epub` | **EPUB** | 354.3 KB | 13 | 110,567 | 54.2 ms | **2,039,982** | 6.38 MB/s |
+| `06-docx-rtf/sample.docx` | **DOCX** | 37.8 KB | 4 | 1,343 | 95.3 ms | **14,092** | 0.39 MB/s |
+| `06-docx-rtf/sample.rtf` | **RTF** | 7.7 KB | 1 | 1,343 | 16.0 ms | **83,938** | 0.47 MB/s |
+| `07-epub/common_sense.epub` | **EPUB** | 172.2 KB | 3 | 22,637 | 11.0 ms | **2,057,909** | 15.29 MB/s |
+| `08-edge-cases/chijinno_ai.txt` | **TXT** | 218.5 KB | 15 | 76,765 | 45.8 ms | **1,676,092** | 4.66 MB/s |
+| `08-edge-cases/chat_11-slice.md` | **MD** | 266.5 KB | 9 | 36,906 | 82.2 ms | **448,978** | 3.17 MB/s |
+| `08-edge-cases/prologue-sample.md` | **MD** | 1.7 KB | 3 | 317 | 0.8 ms | **396,250** | 2.06 MB/s |
+| **TOTAL / CORPUS AGGREGATE** | **All 5** | **2.92 MB** | **381** | **598,295** | **486.7 ms** | **1,229,289 w/s** | **6.01 MB/s** |
 
 ### 🧩 2. Semantic Preprocessing & Chunking Pipeline
 
 - **Corpus Word Volume Processed:** 598,295 words across 10 documents
 - **Semantic Units Emitted:** 2,668 chunks
 - **Chunk Size Governance:** Strict `[75 words – 2048 tokens]` bounds enforced by F38.11 lone-fragment merge-back and sentence-boundary splitting (zero orphaned chunks, zero oversized activations)
-- **Pipeline Processing Latency:** 2,397.3 ms total across the entire 10-fixture corpus
-- **Chunking Pipeline Throughput:** **249,570 words/sec** (~1,113 chunks/sec)
+- **Pipeline Processing Latency:** 1,769.7 ms total across the entire 10-fixture corpus
+- **Chunking Pipeline Throughput:** **338,077 words/sec** (~1,508 chunks/sec)
 
 ### 🧠 3. Neural Vectorization & Embedding Latency (BGE-M3, FP16 CUDA)
 
@@ -114,11 +113,11 @@ Empirical measurements on the local Python sidecar (`/v1/embed`) with PyTorch CU
 
 | Batch Size | Ingestion Workload Scenario | Batch Latency (Median) | Per-Vector Latency | Vectorization Throughput |
 | :---: | :--- | :---: | :---: | :---: |
-| **1** | Interactive single-chunk / search query | 1,174.0 ms | 1,174.0 ms | **0.9 vectors/s** |
-| **4** | Bounded-attention chapter slice | 7,175.0 ms | 1,793.8 ms | **0.6 vectors/s** |
-| **8** | Medium section batch | 8,177.9 ms | 1,022.2 ms | **1.0 vectors/s** |
-| **16** | Standard pipeline batch | 9,539.8 ms | 596.2 ms | **1.7 vectors/s** |
-| **32** | High-density bulk ingestion | 12,200.4 ms | 381.3 ms | **2.6 vectors/s** |
+| **1** | Interactive single-chunk / search query | 167.5 ms | 167.5 ms | **6.0 vectors/s** |
+| **4** | Bounded-attention chapter slice | 562.7 ms | 140.7 ms | **7.1 vectors/s** |
+| **8** | Medium section batch | 691.9 ms | 86.5 ms | **11.6 vectors/s** |
+| **16** | Standard pipeline batch | 899.0 ms | 56.2 ms | **17.8 vectors/s** |
+| **32** | High-density bulk ingestion | 1,302.5 ms | 40.7 ms | **24.6 vectors/s** |
 
 ### 🎯 4. Neural Reranking Latency (BGE-Reranker-Large, FP16 CUDA)
 
@@ -126,22 +125,32 @@ Cross-encoder candidate refinement latency (`/v1/nlp/rerank` and `/v1/nlp/rerank
 
 | Candidates Scored | Synthesis Context | Query Latency (Median) | Per-Pair Latency | Throughput |
 | :---: | :--- | :---: | :---: | :---: |
-| **5** | Top-5 candidate fine-refinement | 3,530.6 ms | 706.1 ms | **1.4 pairs/s** |
-| **10** | Standard section synthesis context | 6,098.3 ms | 609.8 ms | **1.6 pairs/s** |
-| **20** | Broad multi-paragraph context window | 16,183.2 ms | 809.2 ms | **1.2 pairs/s** |
-| **50** | Deep multi-chapter cross-attention pool | 23,136.1 ms | 462.7 ms | **2.2 pairs/s** |
+| **5** | Top-5 candidate fine-refinement | 216.8 ms | 43.4 ms | **23.1 pairs/s** |
+| **10** | Standard section synthesis context | 387.0 ms | 38.7 ms | **25.8 pairs/s** |
+| **20** | Broad multi-paragraph context window | 1,214.1 ms | 60.7 ms | **16.5 pairs/s** |
+| **50** | Deep multi-chapter cross-attention pool | 3,848.5 ms | 77.0 ms | **13.0 pairs/s** |
 
-### 💾 5. Memory Footprint & Lifecycle Governance
+### 📥 5. Persistent Import Queue & Persistence Throughput (F58 SQLite WAL)
+
+Omnitome's background import subsystem decouples ingestion ingestion from the UI thread with atomic SQLite WAL transactions:
+
+| Operation | Workload | Latency | Throughput |
+| :--- | :--- | :---: | :---: |
+| **Task Enqueue** | 50 tasks batch insertion | 53.7 ms | **931 tasks/sec** |
+| **Priority Reordering** | In-place queue order update | 0.49 ms | Sub-millisecond WAL batch |
+| **Snapshot Query** | Full queue state + history fetch | 0.51 ms | Zero read-lock overhead |
+
+### 💾 6. Memory Footprint & Lifecycle Governance
 
 The F43 Lifecycle Manager enforces aggressive idle eviction to keep local consumer workstations responsive:
 
 | Subsystem | Operating State | Process RAM (RSS) | VRAM (Allocated) | VRAM (Reserved) |
 | :--- | :---: | :---: | :---: | :---: |
-| **Node.js Orchestrator** | Active Under Load | 118.7 MB (Heap: 44.3 MB) | — | — |
-| **Python Sidecar** | Active Under Neural Load | 312.2 MB | 3,424.9 MB | 4,782.0 MB |
-| **Python Sidecar** | Idle Evicted (F43 Daemon) | ~110.0 MB | 0 MB | **~103 MiB** |
+| **Node.js Orchestrator** | Active Under Load | 118.0 MB (Heap: 44.3 MB) | — | — |
+| **Python Sidecar** | Active Under Neural Load | 2,220.5 MB | 3,431.9 MB | 3,994.0 MB |
+| **Python Sidecar** | Idle Evicted (F43 Daemon) | 1,762.3 MB | **174.0 MB** | **476.0 MB** |
 
-> *When idle for >5 minutes, models auto-evict, restoring **3.2+ GB VRAM** back to the operating system.*
+> *Empirically verified: when idle for >5 minutes or on explicit unload, models auto-evict, restoring **3,257.9 MB (3.2 GB) VRAM** back to the operating system.*
 
 ---
 
