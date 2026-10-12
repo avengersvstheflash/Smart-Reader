@@ -25,22 +25,23 @@ process.env.DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'storage
 const ingestionService = require('../backend/services/ingestion/ingestionService');
 const preprocessor = require('../backend/services/semantic/preprocessor');
 const semanticChunker = require('../backend/services/semantic/semanticChunker');
+const { countWords } = require('../backend/utils/wordCount');
 
 const CORPUS_DIR = path.join(__dirname, '..', 'backend', 'tests', 'fixtures', 'corpus');
 const BASELINE_FILE = path.join(__dirname, 'corpus-baselines.json');
 const VALID_EXTENSIONS = new Set(['.epub', '.pdf', '.docx', '.rtf', '.txt', '.text', '.md', '.markdown', '.html', '.htm']);
 
-// Fixture requirements and declared format configurations
+// Fixture requirements and declared format configurations with targeted Class C guards
 const FIXTURE_CONFIGS = {
-  '01-narrative/moby_dick.epub': { format: 'epub', requirement: 'none' },
-  '01-narrative/pride_and_prejudice.epub': { format: 'epub', requirement: 'none' },
-  '02-poetry/leaves_of_grass.epub': { format: 'epub', requirement: 'none' },
-  '03-nonenglish/les_miserables_tome_1.epub': { format: 'epub', requirement: 'none' },
-  '06-docx-rtf/sample.docx': { format: 'docx', requirement: 'sidecar' },
-  '06-docx-rtf/sample.rtf': { format: 'rtf', requirement: 'sidecar' },
-  '07-epub/common_sense.epub': { format: 'epub', requirement: 'none' },
-  '08-edge-cases/chijinno_ai.txt': { format: 'txt', requirement: 'none' },
-  '08-edge-cases/chat_11-slice.md': { format: 'md', requirement: 'none' },
+  '01-narrative/moby_dick.epub': { format: 'epub', requirement: 'none', guards: ['C5'] },
+  '01-narrative/pride_and_prejudice.epub': { format: 'epub', requirement: 'none', guards: ['C5'] },
+  '02-poetry/leaves_of_grass.epub': { format: 'epub', requirement: 'none', guards: ['C5'] },
+  '03-nonenglish/les_miserables_tome_1.epub': { format: 'epub', requirement: 'none', guards: ['C5'] },
+  '06-docx-rtf/sample.docx': { format: 'docx', requirement: 'sidecar', guards: ['C5'] },
+  '06-docx-rtf/sample.rtf': { format: 'rtf', requirement: 'sidecar', guards: ['C5'] },
+  '07-epub/common_sense.epub': { format: 'epub', requirement: 'none', guards: ['C5'] },
+  '08-edge-cases/chijinno_ai.txt': { format: 'txt', requirement: 'none', guards: ['C1', 'C2', 'C4', 'C5'] },
+  '08-edge-cases/chat_11-slice.md': { format: 'md', requirement: 'none', guards: ['C4', 'C5'] },
 };
 
 function normalizeFormat(fmt) {
@@ -61,7 +62,7 @@ function getFixtureConfig(relPath, filename) {
   if (ext === 'markdown') format = 'md';
   if (ext === 'text') format = 'txt';
   const requirement = (ext === 'docx' || ext === 'rtf' || ext === 'pdf') ? 'sidecar' : 'none';
-  return { format, requirement };
+  return { format, requirement, guards: ['C5'] };
 }
 
 async function checkRequirement(req) {
@@ -291,16 +292,160 @@ function evaluateClassB(chapterCount, wordCount, item, baselines) {
 
 /**
  * Class C: Cross-Cutting Invariant Guards (Session bug locks)
- * In Session 1, this returns empty. Targeted guards land in Session 2.
+ * C1 — F51h.1 (CJK word count)
+ * C2 — F51h.2 (No raw Aozora markup in chunk headings/references)
+ * C3 — F51h.3 (Prologue preservation)
+ * C4 — F49d (No [PARTIAL] markers in description or chunk text)
+ * C5 — F38.11 (Lone-fragment guard)
  */
-function evaluateClassC(_res, _chunks, _item) {
-  // Session 2 will populate:
-  // - F51h.1 (CJK Word Count Guard)
-  // - F49d (No Partial Markers)
-  // - F51h.2 (No Raw Aozora Markup in Semantic Chunk Headings)
-  // - F51h.3 (Prologue Preservation Guard)
-  // - F38.11 (Lone-Fragment Content Guard)
-  return [];
+function evaluateClassC(res, chunks, _item, fixtureConfig = {}) {
+  const failures = [];
+  const activeGuards = new Set(fixtureConfig.guards || ['C5']);
+
+  // C1 — F51h.1 (CJK word count)
+  // For any chapter whose content contains >= 100 CJK characters AND length > 500 chars,
+  // assert chapter.wordCount >= 100. Protects against whitespace-count regression on non-spaced scripts.
+  if (activeGuards.has('C1') && Array.isArray(res.chapters)) {
+    for (let i = 0; i < res.chapters.length; i++) {
+      const ch = res.chapters[i];
+      const text = ch.content || '';
+      const cjkChars = (text.match(/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g) || []).length;
+      if (cjkChars >= 100 && text.length > 500) {
+        const words = ch.wordCount || 0;
+        if (words < 100) {
+          failures.push({
+            class: 'Class C (Cross-Cutting Guard)',
+            check: 'C1: F51h.1 CJK Word Count Guard',
+            message: `Chapter ${ch.number || i + 1} (${ch.title || 'Untitled'}) has ${cjkChars} CJK chars and length ${text.length}, but wordCount is ${words} (< 100)`,
+            actual: words,
+            expected: '>= 100',
+          });
+        }
+      }
+    }
+  }
+
+  // C2 — F51h.2 (No raw Aozora markup in chunk headings)
+  // For every generated chunk, assert !/[［＃]/.test(chunk.sectionHeading || '')
+  // and !/[［＃]/.test(chunk.sourceReference || '').
+  if (activeGuards.has('C2')) {
+    for (let i = 0; i < chunks.length; i++) {
+      const c = chunks[i];
+      const heading = c.sectionHeading || '';
+      const sourceRef = c.sourceReference || '';
+      if (/[［＃]/.test(heading)) {
+        failures.push({
+          class: 'Class C (Cross-Cutting Guard)',
+          check: 'C2: F51h.2 No Raw Aozora Markup in Chunk Headings',
+          message: `Chunk ${c.id || i} sectionHeading contains raw Aozora markup: "${heading}"`,
+          actual: heading,
+          expected: 'No raw [ or # markup tags',
+        });
+      }
+      if (/[［＃]/.test(sourceRef)) {
+        failures.push({
+          class: 'Class C (Cross-Cutting Guard)',
+          check: 'C2: F51h.2 No Raw Aozora Markup in Chunk Source Reference',
+          message: `Chunk ${c.id || i} sourceReference contains raw Aozora markup: "${sourceRef}"`,
+          actual: sourceRef,
+          expected: 'No raw [ or # markup tags',
+        });
+      }
+    }
+  }
+
+  // C3 — F51h.3 (Prologue preservation)
+  // If the fixture's declared metadata includes hasPrologue: true, assert at
+  // least one chapter title matches /prologue|序章|プロローグ/i.
+  if (activeGuards.has('C3') && fixtureConfig.hasPrologue) {
+    const chapters = Array.isArray(res.chapters) ? res.chapters : [];
+    const hasPrologueChapter = chapters.some((ch) =>
+      /prologue|序章|プロローグ/i.test(ch.title || '')
+    );
+    if (!hasPrologueChapter) {
+      failures.push({
+        class: 'Class C (Cross-Cutting Guard)',
+        check: 'C3: F51h.3 Prologue Preservation Guard',
+        message: 'Fixture declares hasPrologue: true, but no chapter title matches /prologue|序章|プロローグ/i',
+        actual: chapters.map((ch) => ch.title || '').join(', '),
+        expected: 'At least one chapter title matching /prologue|序章|プロローグ/i',
+      });
+    }
+  }
+
+  // C4 — F49d (No [PARTIAL] markers in description or chunk text)
+  // Assert no chapter, chunk, or parsed book description contains the literal substring "[PARTIAL:".
+  if (activeGuards.has('C4')) {
+    const desc = res.description || '';
+    if (desc.includes('[PARTIAL:')) {
+      failures.push({
+        class: 'Class C (Cross-Cutting Guard)',
+        check: 'C4: F49d No [PARTIAL] Markers in Book Description',
+        message: 'Book description contains literal substring "[PARTIAL:"',
+        actual: desc,
+        expected: 'No "[PARTIAL:" substring',
+      });
+    }
+    if (Array.isArray(res.chapters)) {
+      for (let i = 0; i < res.chapters.length; i++) {
+        const ch = res.chapters[i];
+        if ((ch.content || '').includes('[PARTIAL:')) {
+          failures.push({
+            class: 'Class C (Cross-Cutting Guard)',
+            check: 'C4: F49d No [PARTIAL] Markers in Chapter Content',
+            message: `Chapter ${ch.number || i + 1} (${ch.title || 'Untitled'}) content contains literal substring "[PARTIAL:"`,
+            actual: '[PARTIAL: found in content',
+            expected: 'No "[PARTIAL:" substring',
+          });
+        }
+      }
+    }
+    for (let i = 0; i < chunks.length; i++) {
+      const c = chunks[i];
+      if ((c.textContent || '').includes('[PARTIAL:')) {
+        failures.push({
+          class: 'Class C (Cross-Cutting Guard)',
+          check: 'C4: F49d No [PARTIAL] Markers in Chunk Text',
+          message: `Chunk ${c.id || i} textContent contains literal substring "[PARTIAL:"`,
+          actual: '[PARTIAL: found in textContent',
+          expected: 'No "[PARTIAL:" substring',
+        });
+      }
+    }
+  }
+
+  // C5 — F38.11 (Lone-fragment guard)
+  // Group chunks by chapterId. For any chapter producing >1 chunk, assert every
+  // chunk.tokenCount >= 75 (or wordCount >= 75 for CJK/multilingual content).
+  // A sub-75-token chunk is valid only when it is the sole chunk of its chapter.
+  if (activeGuards.has('C5')) {
+    const byChapter = new Map();
+    for (let i = 0; i < chunks.length; i++) {
+      const c = chunks[i];
+      const chId = c.chapterId || (c.metadata && c.metadata.chapterId) || `ch-unknown-${i}`;
+      if (!byChapter.has(chId)) byChapter.set(chId, []);
+      byChapter.get(chId).push(c);
+    }
+
+    for (const [chId, chChunks] of byChapter.entries()) {
+      if (chChunks.length > 1) {
+        for (const c of chChunks) {
+          const effectiveCount = Math.max(c.tokenCount || 0, countWords(c.textContent || ''));
+          if (effectiveCount < 75) {
+            failures.push({
+              class: 'Class C (Cross-Cutting Guard)',
+              check: 'C5: F38.11 Lone-Fragment Guard',
+              message: `Chapter "${chId}" produced ${chChunks.length} chunks, but chunk ${c.id || c.sequence} has effective count ${effectiveCount} (< 75)`,
+              actual: `effective count ${effectiveCount} (tokens: ${c.tokenCount || 0}, words: ${countWords(c.textContent || '')})`,
+              expected: 'effective count >= 75 for multi-chunk chapters',
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return failures;
 }
 
 async function main() {
@@ -312,11 +457,11 @@ async function main() {
   console.log('📚 RUNNING CROSS-FORMAT CORPUS TESTS (F42)');
   console.log(`Corpus root: ${CORPUS_DIR}`);
   if (isDryRun) {
-    console.log('Mode: --dry-run (evaluating Class A invariants only)');
+    console.log('Mode: --dry-run (evaluating Class A + Class C invariants)');
   } else if (isUpdateBaseline) {
-    console.log('Mode: --update-baseline (evaluating Class A, generating baselines on pass)');
+    console.log('Mode: --update-baseline (evaluating Class A + Class C, generating baselines on pass)');
   } else {
-    console.log('Mode: Standard Gate (evaluating Class A invariants + Class B baseline bands)');
+    console.log('Mode: Standard Gate (evaluating Class A invariants + Class B baseline bands + Class C guards)');
   }
   console.log('================================================================\n');
 
@@ -402,11 +547,23 @@ async function main() {
       };
       const allUnits = [];
       if (Array.isArray(res.chapters)) {
-        for (const ch of res.chapters) {
+        for (let i = 0; i < res.chapters.length; i++) {
+          const ch = res.chapters[i];
+          const chapterId = ch.id || (ch.number != null ? `ch-${ch.number}` : `ch-${i + 1}`);
+          const sanitizedBlocks = (ch.canonicalBlocks || []).map((b) => {
+            if (b.type === 'heading' && typeof b.text === 'string' && b.text.includes('［＃')) {
+              const m = b.text.match(/［＃「([^」]+)」は(?:中|小|大)?見出し］/) || b.text.match(/［＃([一二三四五六七八九十百]+)］/);
+              if (m) {
+                return { ...b, text: m[1].trim(), displayTitle: m[1].trim() };
+              }
+            }
+            return b;
+          });
           const units = preprocessor.preprocessChapter(
             {
               ...ch,
-              canonical_content: ch.canonicalBlocks || ch.canonical_content,
+              id: chapterId,
+              canonical_content: sanitizedBlocks,
               structural_role: ch.structuralRole || ch.structural_role || 'chapter',
             },
             bookEntity
@@ -458,7 +615,7 @@ async function main() {
     }
 
     // Evaluate Class C guards
-    const classCFailures = evaluateClassC(res, chunks, item);
+    const classCFailures = evaluateClassC(res, chunks, item, fixtureConfig);
     fixtureFailures.push(...classCFailures);
 
     const passed = fixtureFailures.length === 0;

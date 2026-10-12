@@ -4,7 +4,7 @@
 
 *Ingests PDFs, EPUBs, DOCX, RTF, web articles, and raw text. Enforces a clean architectural split: **Import** is the entry point, **Library** holds curated Omni Readings only, and **Research** holds immutable original sources where every compressed sentence traces deterministically to its source passage.*
 
-[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/) [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/) [![React 18.3](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/) [![SQLite](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3) [![Tests 46/46](https://img.shields.io/badge/Tests-46%2F46_Passing-3fb950)](https://github.com/avengersvstheflash/Smart-Reader) [![Local-First](https://img.shields.io/badge/Local--First-enabled-2ea043)](https://github.com/avengersvstheflash/Smart-Reader) [![Status](https://img.shields.io/badge/Status-F51_Japanese_Complete-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Encoding](https://img.shields.io/badge/Encoding-Tier_1%2B2_Auto_Detect-teal)](https://github.com/avengersvstheflash/Smart-Reader) [![Lifecycle](https://img.shields.io/badge/Sidecar_Lifecycle-Idle_Unload-555555)](https://github.com/avengersvstheflash/Smart-Reader) [![Corpus](https://img.shields.io/badge/Fixture_Corpus-7_docs-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Release](https://img.shields.io/badge/Release-v0.6.0-purple.svg)](https://github.com/avengersvstheflash/Smart-Reader/releases/tag/v0.6.0) [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/) [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/) [![React 18.3](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/) [![SQLite](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3) [![Tests](https://img.shields.io/badge/Tests-46_Suites_%2B_Corpus_Gate-3fb950)](https://github.com/avengersvstheflash/Smart-Reader) [![Local-First](https://img.shields.io/badge/Local--First-enabled-2ea043)](https://github.com/avengersvstheflash/Smart-Reader) [![Status](https://img.shields.io/badge/Status-F51_Japanese_Complete-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Encoding](https://img.shields.io/badge/Encoding-Tier_1%2B2_Auto_Detect-teal)](https://github.com/avengersvstheflash/Smart-Reader) [![Lifecycle](https://img.shields.io/badge/Sidecar_Lifecycle-Idle_Unload-555555)](https://github.com/avengersvstheflash/Smart-Reader) [![Corpus](https://img.shields.io/badge/Fixture_Corpus-9_docs-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Release](https://img.shields.io/badge/Release-v0.6.0-purple.svg)](https://github.com/avengersvstheflash/Smart-Reader/releases/tag/v0.6.0) [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ---
 
@@ -167,13 +167,21 @@ nvm use && npm install && cp .env.example .env
 cd sidecars/python && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && cd ../..
 ```
 
-### Running the App & Testing
+### Running the App
 ```bash
 # Terminal 1 (Sidecar :8765): cd sidecars/python && uvicorn main:app --port 8765
 # Terminal 2 (Node :3000):    node backend/server.js
 # Terminal 3 (Vite :5173):    cd frontend && npm run dev
+```
 
-node scripts/run-all-tests.js  # 46/46 test suites passing
+### Running the Test Suite
+```bash
+# Full release gate: 46 unit suites + 1 corpus gate (9 fixtures)
+node scripts/run-all-tests.js
+
+# Corpus gate standalone:
+node scripts/run-corpus-tests.js              # Standard gate (Class A + B + C)
+node scripts/run-corpus-tests.js --dry-run    # Invariant checks only (Class A + C)
 ```
 
 ---
@@ -188,7 +196,7 @@ node scripts/run-all-tests.js  # 46/46 test suites passing
 | **5.8a/c** | Rebrand + Omni Theme System | 🟢 CLOSED |
 | **F37.x** | FP16 Embedding Breakthrough | 🟢 CLOSED |
 | **F38.x** | Synthesis Contract + Chunker + Titles | 🟢 CLOSED |
-| **F42** | Diverse Fixture Corpus | 🟢 SCAFFOLDED |
+| **F42** | Diverse Fixture Corpus Gate (9 fixtures) | 🟢 CLOSED |
 | **F43** | Sidecar Lifecycle + Idle Unload | 🟢 CLOSED |
 | **F45** | Configurable Import Cap | 🟢 CLOSED |
 | **F48-F50** | Publisher Validation, Synopsis Extraction & Title Dedup | 🟢 CLOSED |
@@ -198,7 +206,7 @@ node scripts/run-all-tests.js  # 46/46 test suites passing
 | **5.9** | Kokoro TTS | ⏳ QUEUED |
 | **6.0** | Tauri Packaging → v1.0 | ⏳ QUEUED |
 
-**Current Focus:** resolving F51h.1 editorial planner chapter grouping and authoring F42 fixture corpus runner before moving to 5.8i frontend walkthrough.
+**Current Focus:** v1.0 release preparation (5.8i frontend walkthrough).
 
 > For deep architectural insights, see [`docs/SESSION_HANDOFF.md`](./docs/SESSION_HANDOFF.md).
 

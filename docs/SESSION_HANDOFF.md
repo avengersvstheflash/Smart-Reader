@@ -12,10 +12,17 @@
 - **Tree:** clean
 - **Origin:** synced with `main`
 - **Latest Tag:** `v0.6.0`
-- **Test suite count:** 46 registered suites (`node scripts/run-all-tests.js`)
+- **Test suite count:** 46 unit suites + 1 corpus gate (9 fixtures) (`node scripts/run-all-tests.js`)
 - **Full suite status:** Passes cleanly (with build3a network-hang caveat)
 
-### Recent Commits Shipped (F51 / F48–F50 series)
+### Recent Commits Shipped (F42 / F51 / F49 series)
+- `9e5e4ef` — F42 Session 1: three-class corpus assertion engine + baseline
+- `de8c611` — F51h.3: restore prologue/epilogue as narrative chapters
+- `1de10e8` — F49d.2 + build3b fixture: fix migration ordering, align test with F38.11
+- `905de59` — F51h.2: editorialService display title
+- `5019425` — F51h.1b + F49d: word count, PARTIAL strip
+- `fe66031` — F56: section classifier + markdown fast path
+- `1a89222` — F51h.1: countWords in editorial planner/service
 - `7a6a530` — F51g + F51h: Aozora chapter detection + bilingual sentence splitting
 - `370f86f` — F48 + F50: publisher validation + outline title deduplication
 - `779aea3` — F49c: synopsis input extraction rebuild + auto-refresh + badge honesty
@@ -102,13 +109,14 @@ The ingestion pipeline executes sequentially across five stages:
 - **Phase 5.8a/c:** 🟢 CLOSED (Omnitome Rebrand & Omni Theme)
 - **F37.x series:** 🟢 CLOSED (FP16 breakthrough, sidecar warmup, pipeline ETA telemetry, batch sizing)
 - **F38.x series (all):** 🟢 CLOSED
-- **F42:** 🟢 SCAFFOLDED (7 documents across 6 formats in `backend/tests/fixtures/corpus/`)
+- **F42:** 🟢 CLOSED (Multi-tier corpus release gate, 9 fixtures across 6 formats, Class A universal + Class B bands + Class C guards)
 - **F43 (all phases):** 🟢 CLOSED (Sidecar model lifecycle with idle unload)
 - **F45:** 🟢 CLOSED (Configurable `IMPORT_MAX_SIZE_MB`, 50–200 MB)
 - **F48, F49, F49a, F49b, F49c, F50:** 🟢 CLOSED
+- **F49d, F49d.2:** 🟢 CLOSED (migration ordering fixed, metadata_json column aligned)
 - **F51 series (a, b, c, e, f, f.1, g, h):** 🟢 CLOSED
-- **F51h.1:** 🟡 OPEN (next priority — editorial planner 29→1 chapter collapse)
-- **F49d:** ⚪ OPEN (cosmetic — LLM self-diagnosis marker stripping)
+- **F51h.1, F51h.1b, F51h.2, F51h.3:** 🟢 CLOSED (CJK countWords in planner, Aozora display titles, narrative prologue preservation)
+- **F56:** 🟢 CLOSED (Markdown fast-path classification + circuit breaker)
 - **F40, F41, F44, F51a Tier 3:** ⏳ DEFERRED to v1.x / v1.5
 
 ---
@@ -126,21 +134,19 @@ The ingestion pipeline executes sequentially across five stages:
 
 | Priority | ID | Description |
 | :---: | :---: | :--- |
-| **1** | **F51h.1** | **Editorial planner 29→1 chapter collapse:** `chapters` table has 29 rows but `smart_chapters` has only 1. Outline generation completes in 0.18s. Need to inspect chapter size heuristics and source-unit planning logic. |
-| **2** | **F42** | **Write fixture corpus test runner:** Automated runner asserting pipeline success across the 7 scaffolded corpus fixtures (v1.0 gate). |
-| **3** | **F49d** | **LLM self-diagnosis marker stripping:** `[PARTIAL: ...]` marker displayed inline in stored synopsis content; should be stripped and surfaced as `metadata.llm_flagged_partial` flag. |
-| **4** | **F54** | **Synopsis re-synthesize button:** Frontend UI control to trigger synopsis re-synthesis on demand. |
-| **5** | **F52** | **Library/Research coordination design doc:** Formalize boundary and interaction contracts between Original and Omni reading views. |
-| **6** | **5.8i** | **Frontend walkthrough:** Comprehensive UI verification and polish. |
+| **1** | **F57** | **`build3a_test.js` network hang behavior:** `build3a_test.js` makes live OpenLibrary / Wikipedia network calls and can hang indefinitely or timeout in restricted sandbox environments. Needs explicit network probing or isolation so offline/sandboxed runs skip gracefully without stalling test runners. |
+| **2** | **F54** | **Synopsis re-synthesize button:** Frontend UI control to trigger synopsis re-synthesis on demand. |
+| **3** | **F52** | **Library/Research coordination design doc:** Formalize boundary and interaction contracts between Original and Omni reading views. |
+| **4** | **5.8i** | **Frontend walkthrough:** Comprehensive UI verification and polish. |
 
 ---
 
 ## 9. Next Session Opener
 
 1. **Verify HEAD & Working Tree:** Ensure HEAD is clean on expected commit.
-2. **Priority 1: F51h.1 diagnostic:** Trace `editorialPlanner.js` source-unit grouping to resolve the 29→1 chapter collapse on Aozora content.
-3. **Secondary: F42 test runner:** Author automated runner for the 7 corpus fixtures.
-4. **Then:** 5.8i frontend walkthrough OR F54 synopsis re-synthesis button.
+2. **Release Gate Verification:** Run `node scripts/run-all-tests.js` (46 unit suites + 1 corpus gate with 9 fixtures).
+3. **Priority 1: F57 network isolation for `build3a_test.js`** OR **5.8i frontend walkthrough**.
+4. **Secondary:** F54 synopsis re-synthesis button.
 
 ---
 

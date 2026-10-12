@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-10-12T18:55:33.949Z"
+    "generated_at": "2026-10-12T19:28:09.601Z"
   },
   "01-narrative/moby_dick.epub": {
     "format": "epub",
@@ -36,5 +36,15 @@
     "format": "epub",
     "chapters": 3,
     "words": 22637
+  },
+  "08-edge-cases/chat_11-slice.md": {
+    "format": "md",
+    "chapters": 9,
+    "words": 36906
+  },
+  "08-edge-cases/chijinno_ai.txt": {
+    "format": "txt",
+    "chapters": 15,
+    "words": 76765
   }
 }
