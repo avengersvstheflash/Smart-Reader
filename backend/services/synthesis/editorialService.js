@@ -13,6 +13,7 @@ const redundancyDetector = require('./redundancyDetector');
 const editorialPlanner = require('./editorialPlanner');
 const nlpClient = require('../ai/nlpClient');
 const { getDatabase } = require('../../db/database');
+const { countWords } = require('../../utils/wordCount');
 
 const progressByBook = new Map();
 
@@ -86,7 +87,7 @@ class EditorialService {
                 sectionTitle: c.heading || 'Topical Section',
                 sectionType: 'paragraph',
                 contentType: 'research',
-                wordCount: (c.content || '').split(/\s+/).filter(Boolean).length,
+                wordCount: countWords(c.content || ''),
                 summary: (c.content || '').slice(0, 140),
                 keywords: (c.heading || '').split(/\s+/).filter((w) => w.length > 3),
                 content: c.content,
@@ -121,7 +122,7 @@ class EditorialService {
             sectionType: c.contentType || 'paragraph',
             structuralRole: role || 'chapter',
             contentType: b.content_type || 'research',
-            wordCount: text.split(/\s+/).filter(Boolean).length,
+            wordCount: countWords(text),
             summary: text.slice(0, 140),
             keywords: (c.sectionHeading || '').split(/\s+/).filter((w) => w.length > 3),
             content: text,

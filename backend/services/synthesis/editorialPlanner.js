@@ -11,6 +11,7 @@
 
 const sectionFilter = require('./sectionFilter');
 const redundancyDetector = require('./redundancyDetector');
+const { countWords } = require('../../utils/wordCount');
 
 class EditorialPlanner {
   constructor(options = {}) {
@@ -105,11 +106,14 @@ class EditorialPlanner {
     }
 
     const getWordCount = (sec) => {
+      if (!sec) return 0;
+      const text = sec.content || sec.textContent || '';
+      const calculated = text ? countWords(text) : 0;
       if (typeof sec.wordCount === 'number' && sec.wordCount > 0) {
-        return sec.wordCount;
+        return Math.max(sec.wordCount, calculated);
       }
-      if (sec.content || sec.textContent) {
-        return (sec.content || sec.textContent).trim().split(/\s+/).filter(Boolean).length;
+      if (calculated > 0) {
+        return calculated;
       }
       return 250;
     };
@@ -153,13 +157,13 @@ class EditorialPlanner {
       // If a paragraph is itself >2500 words, split at sentence boundaries ([.!?] followed by whitespace)
       const blocks = [];
       for (const para of paragraphs) {
-        const paraWords = para.split(/\s+/).filter(Boolean).length;
+        const paraWords = countWords(para);
         if (paraWords <= 2500) {
           blocks.push({ text: para, words: paraWords });
         } else {
           const sentences = para.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
           for (const sentence of sentences) {
-            const sentWords = sentence.split(/\s+/).filter(Boolean).length;
+            const sentWords = countWords(sentence);
             if (sentWords <= 2500) {
               blocks.push({ text: sentence, words: sentWords });
             } else {
@@ -328,12 +332,12 @@ class EditorialPlanner {
     for (const sid of sourceSectionIds) {
       const sec = sectionLookup.get(sid);
       if (sec) {
+        const text = sec.content || sec.textContent || '';
+        const calculated = text ? countWords(text) : 0;
         if (typeof sec.wordCount === 'number' && sec.wordCount > 0) {
-          rawSourceWordCount += sec.wordCount;
-        } else if (sec.content) {
-          rawSourceWordCount += sec.content.split(/\s+/).filter(Boolean).length;
-        } else if (sec.content || sec.textContent) {
-          rawSourceWordCount += (sec.content || sec.textContent).split(/\s+/).filter(Boolean).length;
+          rawSourceWordCount += Math.max(sec.wordCount, calculated);
+        } else if (calculated > 0) {
+          rawSourceWordCount += calculated;
         } else {
           rawSourceWordCount += 250; // reasonable baseline estimate per section
         }
@@ -529,9 +533,11 @@ class EditorialPlanner {
       const sourceTitle = sec.sourceTitle || sec.bookTitle || 'Source Document';
       const contentType = sec.contentType || input.contentType || 'general';
       const excerpt = this.extractContentExcerpt(sec);
-      const wordCount = typeof sec.wordCount === 'number'
-        ? sec.wordCount
-        : (sec.content ? sec.content.split(/\s+/).filter(Boolean).length : excerpt.split(/\s+/).filter(Boolean).length);
+      const text = sec.content || sec.textContent || '';
+      const calculated = text ? countWords(text) : (excerpt ? countWords(excerpt) : 0);
+      const wordCount = (typeof sec.wordCount === 'number' && sec.wordCount > 0)
+        ? Math.max(sec.wordCount, calculated)
+        : (calculated > 0 ? calculated : 250);
 
       return {
         sectionId: id,
