@@ -26,8 +26,8 @@ const { countWords } = require('../../utils/wordCount');
 
 class DocumentStructureEngine {
   constructor() {
-    this.FRONT_MATTER_REGEX = /^(?:title\s*page|half\s*title|copyright|dedication|table\s*of\s*contents|contents|preface|foreword|prologue|acknowledg(?:e)?ments|about\s*the\s*author(?:s)?|overview|brief\s*contents)$/i;
-    this.BACK_MATTER_REGEX = /^(?:epilogue|afterword|bibliography|references|glossary|further\s*reading|colophon|notes)$/i;
+    this.FRONT_MATTER_REGEX = /^(?:title\s*page|half\s*title|copyright|dedication|table\s*of\s*contents|contents|preface|foreword|acknowledg(?:e)?ments|about\s*the\s*author(?:s)?|overview|brief\s*contents)$/i;
+    this.BACK_MATTER_REGEX = /^(?:afterword|bibliography|references|glossary|further\s*reading|colophon|notes)$/i;
     this.CHAPTER_LOCAL_BACK_MATTER_REGEX = /^(?:further\s+reading|exercises?|references?|summary|notes?|problems?|review\s+questions?)\b/i;
     this.APPENDIX_REGEX = /^(?:appendix(?:\s+[a-z0-9]+)?)$/i;
     this.INDEX_REGEX = /^(?:index|subject\s*index|author\s*index)$/i;
@@ -848,6 +848,7 @@ class DocumentStructureEngine {
    */
   classifyRoleFromTitle(title = '', sourcePage = null, totalPages = null) {
     const clean = title.trim().toLowerCase().replace(/^#+\s*/, '').replace(/[:.—–-].*$/, '').trim();
+    if (/^(?:prologue|epilogue)\b/i.test(clean)) return 'chapter';
     if (this.INDEX_REGEX.test(clean)) return 'index';
     if (this.APPENDIX_REGEX.test(clean)) return 'appendix';
     if (this.FRONT_MATTER_REGEX.test(clean)) return 'front_matter';
@@ -1111,13 +1112,18 @@ class DocumentStructureEngine {
     const getStructuralRole = (title = '') => {
       const clean = title.trim().toLowerCase().replace(/^#+\s*/, '').replace(/[:.—–-].*$/, '').trim();
 
+      // Narrative openers/closers in novels and literary books are story chapters, not apparatus
+      if (/^(?:prologue|epilogue)\b/i.test(clean)) {
+        return 'chapter';
+      }
+
       // Front-matter titles (Author's Note, Notation, Acknowledgments, A Note on AI Assistance, Preface, Foreword, etc.)
-      if (/^(?:author'?s?\s+note|notation|(?:a\s+)?note\s+on\s+ai\s+assistance|acknowledg(?:e)?ments?|preface|foreword|prologue|dedication|copyright|about\s+the\s+author(?:s)?|table\s+of\s+contents|contents)\b/i.test(clean)) {
+      if (/^(?:author'?s?\s+note|notation|(?:a\s+)?note\s+on\s+ai\s+assistance|acknowledg(?:e)?ments?|preface|foreword|dedication|copyright|about\s+the\s+author(?:s)?|table\s+of\s+contents|contents)\b/i.test(clean)) {
         return 'front_matter';
       }
 
       // Back-matter titles (Index, References, Bibliography, Glossary, Appendix, etc.)
-      if (/^(?:index|subject\s*index|author\s*index|appendix(?:\s+[a-z0-9]+)?|references|bibliography|glossary|further\s*reading|epilogue|afterword|colophon|notes)\b/i.test(clean)) {
+      if (/^(?:index|subject\s*index|author\s*index|appendix(?:\s+[a-z0-9]+)?|references|bibliography|glossary|further\s*reading|afterword|colophon|notes)\b/i.test(clean)) {
         return 'back_matter';
       }
 

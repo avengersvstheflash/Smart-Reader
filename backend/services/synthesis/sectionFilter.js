@@ -85,7 +85,7 @@ class SectionFilter {
     const role = (section.structuralRole || section.structural_role || '').toLowerCase();
     if (role && (role === 'front_matter' || role === 'back_matter' || role === 'index' || role === 'appendix')) {
       // If it looks like a preface, preserve reason: 'preface' for intelligentSummarizer
-      if (/^(?:preface|foreword|prologue|introduction to the (?:edition|book))$/i.test(cleanTitle)) {
+      if (/^(?:preface|foreword|introduction to the (?:edition|book))$/i.test(cleanTitle)) {
         return { isCandidate: false, reason: 'preface', status: 'front_matter' };
       }
       return { isCandidate: false, reason: role, status: 'excluded_structural_role' };
@@ -93,7 +93,7 @@ class SectionFilter {
 
     // 1.5 Preface & Front Matter
     const prefacePatterns = [
-      /^(?:preface|foreword|prologue|introduction to the (?:edition|book))$/i,
+      /^(?:preface|foreword|introduction to the (?:edition|book))$/i,
     ];
     for (const pat of prefacePatterns) {
       if (pat.test(cleanTitle)) {

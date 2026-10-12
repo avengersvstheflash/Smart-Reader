@@ -122,10 +122,13 @@ class IngestionService {
       if (pdfResult?.chapters && structureMap?.method === 'toc' && Array.isArray(structureMap.toc)) {
         for (const ch of pdfResult.chapters) {
           const clean = (ch.title || '').trim().toLowerCase().replace(/^#+\s*/, '').replace(/[:.—–-].*$/, '').trim();
-          if (/^(?:author'?s?\s+note|notation|(?:a\s+)?note\s+on\s+ai\s+assistance|acknowledg(?:e)?ments?|preface|foreword|prologue|dedication|copyright|about\s+the\s+author(?:s)?|table\s+of\s+contents|contents)\b/i.test(clean)) {
+          if (/^(?:prologue|epilogue)\b/i.test(clean)) {
+            ch.structuralRole = 'chapter';
+            if (ch.metadata) ch.metadata.structuralRole = 'chapter';
+          } else if (/^(?:author'?s?\s+note|notation|(?:a\s+)?note\s+on\s+ai\s+assistance|acknowledg(?:e)?ments?|preface|foreword|dedication|copyright|about\s+the\s+author(?:s)?|table\s+of\s+contents|contents)\b/i.test(clean)) {
             ch.structuralRole = 'front_matter';
             if (ch.metadata) ch.metadata.structuralRole = 'front_matter';
-          } else if (/^(?:index|subject\s*index|author\s*index|appendix(?:\s+[a-z0-9]+)?|references|bibliography|glossary|further\s*reading|epilogue|afterword|colophon|notes)\b/i.test(clean)) {
+          } else if (/^(?:index|subject\s*index|author\s*index|appendix(?:\s+[a-z0-9]+)?|references|bibliography|glossary|further\s*reading|afterword|colophon|notes)\b/i.test(clean)) {
             ch.structuralRole = 'back_matter';
             if (ch.metadata) ch.metadata.structuralRole = 'back_matter';
           }

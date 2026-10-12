@@ -331,6 +331,39 @@ function initSchema(db) {
     console.warn('[DB Migration] chapters.word_count CJK recalculation skipped:', err.message);
   }
 
+  // F51h.3: Reclassify narrative prologue and epilogue chapters from front_matter / back_matter to chapter
+  try {
+    const narrativeChapters = db.prepare(`
+      SELECT id, title, metadata_json, structural_role
+      FROM chapters
+      WHERE (structural_role = 'front_matter' AND (title LIKE '%prologue%' OR title LIKE '%序章%' OR title LIKE '%プロローグ%'))
+         OR (structural_role = 'back_matter' AND (title LIKE '%epilogue%' OR title LIKE '%終章%' OR title LIKE '%エピローグ%'))
+    `).all();
+
+    if (narrativeChapters.length > 0) {
+      const updateCh = db.prepare('UPDATE chapters SET structural_role = ?, metadata_json = ? WHERE id = ?');
+      const updateChunks = db.prepare('UPDATE semantic_chunks SET structural_role = ? WHERE chapter_id = ?');
+
+      const reclassifyTx = db.transaction((rows) => {
+        for (const row of rows) {
+          let meta = {};
+          try {
+            meta = typeof row.metadata_json === 'string' ? JSON.parse(row.metadata_json || '{}') : (row.metadata_json || {});
+          } catch {
+            meta = {};
+          }
+          meta.structuralRole = 'chapter';
+          updateCh.run('chapter', JSON.stringify(meta), row.id);
+          updateChunks.run('chapter', row.id);
+        }
+      });
+      reclassifyTx(narrativeChapters);
+      console.log(`[DB Migration] Reclassified ${narrativeChapters.length} narrative prologue/epilogue chapters and chunks to 'chapter'`);
+    }
+  } catch (err) {
+    console.warn('[DB Migration] prologue/epilogue reclassification skipped:', err.message);
+  }
+
   // Ensure metadata columns exist on books table
   const bookCols = db.prepare(`PRAGMA table_info(books)`).all();
   if (!bookCols.some(c => c.name === 'status')) {
