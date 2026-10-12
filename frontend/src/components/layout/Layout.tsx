@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
 import { Nav } from './Nav';
 import { useThemeStore } from '../../store/useThemeStore';
+import { PersistentImportWidget } from '../import/PersistentImportWidget';
 
 export interface LayoutProps {
   mode?: 'app' | 'reader';
@@ -39,6 +40,9 @@ export const Layout: React.FC<LayoutProps> = ({ mode = 'app', children }) => {
       >
         {children || <Outlet />}
       </main>
+
+      {/* Persistent Ingestion Pipeline Widget */}
+      <PersistentImportWidget />
     </div>
   );
 };

@@ -14,10 +14,10 @@ export interface ImportDropzoneProps {
 export const ImportDropzone: React.FC<ImportDropzoneProps> = ({
   onFiles,
   accept = '.txt,.epub,.pdf,.html,.htm,.md,.docx,.rtf',
-  multiple = false,
+  multiple = true,
   disabled = false,
   compact = false,
-  hint = 'TXT Â· EPUB Â· PDF Â· HTML Â· Markdown',
+  hint = 'TXT · EPUB · PDF · HTML · Markdown',
 }) => {
   const [maxImportSizeMB, setMaxImportSizeMB] = useState<number>(50);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -143,7 +143,7 @@ export const ImportDropzone: React.FC<ImportDropzoneProps> = ({
 
       <div className="mt-4 flex flex-col gap-1 items-center">
         <p className="font-ui font-medium text-ui text-ink">
-          <span className="text-[rgb(var(--accent))] hover:underline">Choose a file</span> or drag and drop
+          <span className="text-[rgb(var(--accent))] hover:underline">Choose files</span> or drag and drop
         </p>
         <p className="text-caption text-ink-muted">{hint}</p>
         <p className="text-micro text-ink-light mt-0.5">Up to {maxImportSizeMB}MB per file</p>

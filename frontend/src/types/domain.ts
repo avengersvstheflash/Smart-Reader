@@ -44,6 +44,83 @@ export function normalizeJob(raw: RawJob): Job {
   };
 }
 
+export type ImportTaskType = 'file' | 'paste' | 'web' | 'web_multi';
+export type ImportTaskStatus = 'queued' | 'initializing' | 'processing' | 'finalizing' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
+export type ImportStageKey = 'preparing' | 'acquiring' | 'extracting' | 'structuring' | 'indexing' | 'synthesizing' | 'ready';
+
+export interface ImportTask {
+  id: string;
+  type: ImportTaskType;
+  sourceTitle: string;
+  sourceMeta: Record<string, any>;
+  status: ImportTaskStatus;
+  stage: ImportStageKey;
+  stageLabel: string;
+  progress: number;
+  queueOrder: number;
+  bookId?: string | null;
+  error?: string | null;
+  createdAt: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface RawImportTask {
+  id: string;
+  type: string;
+  source_title?: string;
+  sourceTitle?: string;
+  source_meta?: Record<string, any> | string;
+  sourceMeta?: Record<string, any>;
+  status: string;
+  stage?: string;
+  stage_label?: string;
+  stageLabel?: string;
+  progress?: number;
+  queue_order?: number;
+  queueOrder?: number;
+  book_id?: string | null;
+  bookId?: string | null;
+  error?: string | null;
+  created_at?: string;
+  createdAt?: string;
+  started_at?: string | null;
+  startedAt?: string | null;
+  completed_at?: string | null;
+  completedAt?: string | null;
+}
+
+export function normalizeImportTask(raw: RawImportTask): ImportTask {
+  let meta: Record<string, any> = {};
+  const rawMeta = raw.sourceMeta || raw.source_meta;
+  if (typeof rawMeta === 'string') {
+    try {
+      meta = JSON.parse(rawMeta);
+    } catch {
+      meta = {};
+    }
+  } else if (rawMeta && typeof rawMeta === 'object') {
+    meta = rawMeta;
+  }
+
+  return {
+    id: raw.id,
+    type: (raw.type as ImportTaskType) || 'file',
+    sourceTitle: raw.sourceTitle || raw.source_title || 'Untitled Import',
+    sourceMeta: meta,
+    status: (raw.status as ImportTaskStatus) || 'queued',
+    stage: (raw.stage as ImportStageKey) || 'preparing',
+    stageLabel: raw.stageLabel || raw.stage_label || 'Queued for processing',
+    progress: typeof raw.progress === 'number' ? raw.progress : 0,
+    queueOrder: typeof (raw.queueOrder ?? raw.queue_order) === 'number' ? (raw.queueOrder ?? raw.queue_order)! : 0,
+    bookId: raw.bookId || raw.book_id || null,
+    error: raw.error || null,
+    createdAt: raw.createdAt || raw.created_at || new Date().toISOString(),
+    startedAt: raw.startedAt || raw.started_at || null,
+    completedAt: raw.completedAt || raw.completed_at || null,
+  };
+}
+
 export interface BookClassification {
   contentType: string;
   tags: string[];
