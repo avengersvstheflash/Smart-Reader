@@ -15,6 +15,19 @@ const nlpClient = require('../ai/nlpClient');
 const { getDatabase } = require('../../db/database');
 const { countWords } = require('../../utils/wordCount');
 
+function extractDisplayTitle(c) {
+  if (!c) return null;
+  if (c.displayTitle) return c.displayTitle;
+  if (c.display_title) return c.display_title;
+  if (c.canonicalBlock && c.canonicalBlock.displayTitle) return c.canonicalBlock.displayTitle;
+  const heading = c.sectionHeading || c.section_heading || '';
+  if (typeof heading === 'string' && heading.includes('［＃')) {
+    const aozoraMatch = heading.match(/［＃「([^」]+)」は(?:中|小|大)?見出し］/) || heading.match(/［＃([一二三四五六七八九十百]+)］/);
+    if (aozoraMatch) return aozoraMatch[1].trim();
+  }
+  return null;
+}
+
 const progressByBook = new Map();
 
 class EditorialService {
@@ -112,19 +125,20 @@ class EditorialService {
         if (!seenChunkIds.has(c.id)) {
           seenChunkIds.add(c.id);
           const text = c.textContent || '';
+          const displayTitle = extractDisplayTitle(c);
           rawSections.push({
             sectionId: c.id,
             id: c.id,
             sourceId: b.id,
             bookId: b.id,
             sourceTitle: b.title,
-            sectionTitle: c.sectionHeading || c.sourceReference || 'Section',
+            sectionTitle: displayTitle || c.displayTitle || c.sectionHeading || c.sourceReference || 'Section',
             sectionType: c.contentType || 'paragraph',
             structuralRole: role || 'chapter',
             contentType: b.content_type || 'research',
             wordCount: countWords(text),
             summary: text.slice(0, 140),
-            keywords: (c.sectionHeading || '').split(/\s+/).filter((w) => w.length > 3),
+            keywords: (displayTitle || c.sectionHeading || '').split(/\s+/).filter((w) => w.length > 3),
             content: text,
           });
         }
