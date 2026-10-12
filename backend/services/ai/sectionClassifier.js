@@ -35,6 +35,25 @@ const SECTION_TYPES = [
   'UNKNOWN',
 ];
 
+const DEFAULT_MAX_SECTION_LLM_CALLS = 20;
+const docCallTracker = new Map();
+const trippedLoggedKeys = new Set();
+
+function getEffectiveMaxLlmCalls() {
+  const envVal = parseInt(process.env.MAX_SECTION_LLM_CALLS, 10);
+  return Number.isFinite(envVal) && envVal > 0 ? envVal : DEFAULT_MAX_SECTION_LLM_CALLS;
+}
+
+function resetCircuitBreaker(docKey) {
+  if (docKey) {
+    docCallTracker.delete(docKey);
+    trippedLoggedKeys.delete(docKey);
+  } else {
+    docCallTracker.clear();
+    trippedLoggedKeys.clear();
+  }
+}
+
 /**
  * Heuristic classification rules (fast, deterministic, zero-cost)
  * @param {object} block
@@ -60,13 +79,16 @@ function classifyHeuristically(block, context = {}) {
   const hasDotLeadersWithPages = /(?:\.{2,}|…+)\s*(?:\d+|[ivxlcdm]+)\b/i.test(text);
   const tocLineCount = (text.match(/(?:\.{2,}|\s{3,}|\t+)(?:\d+|[ivxlcdm]+)\s*$/gim) || []).length;
   const isExplicitTocHeading = /^(?:table of contents|contents|brief contents|toc)$/i.test(cleanHeading);
-  if (hasDotLeadersWithPages || tocLineCount >= 2 || (isExplicitTocHeading && tocLineCount >= 1)) {
+  if (hasDotLeadersWithPages || tocLineCount >= 2 || (isExplicitTocHeading && (headingLevel > 0 || tocLineCount >= 1 || cleanHeading.length < 30))) {
     return { section: 'TOC', confidence: 0.9 };
   }
 
-  // 2. COPYRIGHT: "Copyright", "All rights reserved", "ISBN", year pattern near start
-  const copyrightRegex = /\b(?:copyright|all rights reserved|isbn(?:-1[03])?:?|\(c\)|©)\b/i;
-  if (copyrightRegex.test(text)) {
+  // 2. COPYRIGHT: Explicit copyright notice, ISBN, rights declaration near start or in copyright stream
+  const isExplicitCopyrightHeading = /^(?:copyright|copyright notice|rights and permissions)$/i.test(cleanHeading);
+  const copyrightPattern = /\b(?:all rights reserved|isbn(?:-1[03])?:?|(?:copyright|©|\(c\))\s*(?:[12]\d{3}|by\b|all\b)|printed in (?:the )?[a-z]+)\b/i;
+  const isCopyrightBlock = isExplicitCopyrightHeading || copyrightPattern.test(text) ||
+    ((!context.priorSection || context.priorSection === 'COPYRIGHT' || context.isFirstBlock) && /\b(?:copyright|©|\(c\))\b/i.test(text));
+  if (isCopyrightBlock) {
     return { section: 'COPYRIGHT', confidence: 0.85 };
   }
 
@@ -110,17 +132,88 @@ function classifyHeuristically(block, context = {}) {
     return { section: 'COLOPHON', confidence: 0.9 };
   }
 
-  // 6. If prior section is BODY and block has < 30 words -> BODY (0.7)
-  if (context && context.priorSection === 'BODY' && wordCount < 30) {
-    return { section: 'BODY', confidence: 0.7 };
+  // 6. Explicit body chapter/section structural headings (e.g. Chapter 1, Section 2, Part 1)
+  if (headingLevel > 0 && /^(?:chapter|part|section|scene|act|canto|volume|book|\d+[\.\:\s])/i.test(cleanHeading)) {
+    return { section: 'BODY', confidence: 0.85 };
   }
 
-  // 7. Long body paragraph (substantial prose without front/back markers) -> BODY (0.8)
-  if (wordCount >= 40 && headingLevel === 0) {
-    return { section: 'BODY', confidence: 0.8 };
+  // 7. Dynamic stream continuation: intelligent section tracking based on active document state
+  const FRONT_MATTER_SECTIONS = new Set(['PREFACE', 'FOREWORD', 'INTRODUCTION', 'ACKNOWLEDGMENTS', 'DEDICATION']);
+  const BACK_MATTER_SECTIONS = new Set(['APPENDIX', 'GLOSSARY', 'BIBLIOGRAPHY', 'INDEX', 'COLOPHON']);
+  const prior = context && context.priorSection;
+
+  if (prior) {
+    if (prior === 'BODY') {
+      if (headingLevel === 0) {
+        // Body continuation paragraph — dynamically scales confidence with prose length (no 30-39 gap)
+        const dynamicConfidence = wordCount >= 30 ? 0.85 : (wordCount >= 10 ? 0.8 : 0.7);
+        return { section: 'BODY', confidence: dynamicConfidence };
+      }
+      if (block && (block.type === 'code' || block.type === 'table')) {
+        return { section: 'BODY', confidence: 0.9 };
+      }
+      // Non-matter headings or subheadings inside an active BODY stream (e.g. markdown headers, chat speakers)
+      return { section: 'BODY', confidence: 0.85 };
+    }
+
+    if (FRONT_MATTER_SECTIONS.has(prior)) {
+      if (headingLevel === 0) {
+        // Front-matter continuation paragraph
+        const dynamicConfidence = wordCount >= 30 ? 0.85 : (wordCount >= 10 ? 0.8 : 0.75);
+        return { section: prior, confidence: dynamicConfidence };
+      }
+      if (block && (block.type === 'code' || block.type === 'table')) {
+        return { section: prior, confidence: 0.85 };
+      }
+      if (headingLevel >= 2) {
+        // Subheading inside front matter (e.g. ## Note to Instructors inside Preface)
+        return { section: prior, confidence: 0.8 };
+      }
+      if (headingLevel === 1) {
+        // Top-level major heading after front matter transitions to BODY (e.g. # The Journey)
+        return { section: 'BODY', confidence: 0.8 };
+      }
+    }
+
+    if (BACK_MATTER_SECTIONS.has(prior)) {
+      if (headingLevel === 0) {
+        // Back-matter continuation paragraph
+        const dynamicConfidence = wordCount >= 30 ? 0.85 : (wordCount >= 10 ? 0.8 : 0.75);
+        return { section: prior, confidence: dynamicConfidence };
+      }
+      if (block && (block.type === 'code' || block.type === 'table')) {
+        return { section: prior, confidence: 0.9 };
+      }
+      if (headingLevel >= 2) {
+        // Subheading inside back matter (e.g. ### Proof of Lemma A in Appendix)
+        return { section: prior, confidence: 0.85 };
+      }
+    }
+
+    if (prior === 'TOC') {
+      if (headingLevel === 0 && (tocLineCount >= 1 || hasDotLeadersWithPages || wordCount < 40)) {
+        return { section: 'TOC', confidence: 0.85 };
+      }
+    }
+
+    if (prior === 'COPYRIGHT') {
+      if (headingLevel === 0 && wordCount < 60) {
+        return { section: 'COPYRIGHT', confidence: 0.8 };
+      }
+    }
   }
 
-  // 8. Default: UNKNOWN (0.3) -> triggers LLM
+  // 8. Explicit structural content blocks without active front/back stream
+  if (block && (block.type === 'code' || block.type === 'table')) {
+    return { section: 'BODY', confidence: 0.9 };
+  }
+
+  // 9. Substantial prose paragraph without prior section (closes the 30-39 word gap for standalone prose)
+  if (wordCount >= 30 && headingLevel === 0) {
+    return { section: 'BODY', confidence: wordCount >= 40 ? 0.85 : 0.8 };
+  }
+
+  // 10. Default: UNKNOWN (0.3) -> triggers LLM if not constrained by circuit breaker / skipLlm
   return { section: 'UNKNOWN', confidence: 0.3 };
 }
 
@@ -129,8 +222,8 @@ function classifyHeuristically(block, context = {}) {
  * Runs fast heuristics first; if confidence < 0.6 or UNKNOWN, queries LLM.
  *
  * @param {object} block - { text, wordCount, headingLevel, position }
- * @param {object} context - { bookTitle, bookId, isFirstBlock, isLastBlock, priorSection, aiService }
- * @returns {Promise<{ section: string, confidence: number, method: 'heuristic' | 'llm' | 'fallback' }>}
+ * @param {object} context - { bookTitle, bookId, isFirstBlock, isLastBlock, priorSection, aiService, circuitBreaker, maxLlmCalls, skipLlm }
+ * @returns {Promise<{ section: string, confidence: number, method: 'heuristic' | 'llm' | 'fallback', circuitBreakerTriggered?: boolean }>}
  */
 async function classifySection(block, context = {}) {
   const text = (block && block.text) ? String(block.text).trim() : '';
@@ -152,7 +245,61 @@ async function classifySection(block, context = {}) {
     };
   }
 
-  // 2. Ambiguous block -> Call resolved LLM provider
+  // Fast path / skip LLM check: caller requested no LLM (e.g. text/md fast path)
+  if (context.skipLlm || context.allowLlm === false) {
+    const fallbackSection = (context.priorSection && context.priorSection !== 'UNKNOWN')
+      ? context.priorSection
+      : 'BODY';
+    return {
+      section: fallbackSection,
+      confidence: 0.6,
+      method: 'fallback',
+    };
+  }
+
+  // 2. Safety Circuit Breaker: cap max LLM calls per document to avoid runaway API stalls
+  const maxCalls = typeof context.maxLlmCalls === 'number'
+    ? context.maxLlmCalls
+    : (context.circuitBreaker?.maxCalls ?? getEffectiveMaxLlmCalls());
+
+  const docKey = context.documentId || context.bookId || context.bookTitle;
+  const circuitBreaker = context.circuitBreaker;
+  const effectiveDocKey = docKey || '__anonymous_session__';
+
+  let currentCalls = 0;
+  if (circuitBreaker && typeof circuitBreaker.calls === 'number') {
+    currentCalls = circuitBreaker.calls;
+  } else if (docCallTracker.has(effectiveDocKey)) {
+    currentCalls = docCallTracker.get(effectiveDocKey);
+  }
+
+  if (currentCalls >= maxCalls) {
+    const logKey = docKey || 'unnamed_document';
+    if (!trippedLoggedKeys.has(logKey)) {
+      console.warn(`[SectionClassifier] Circuit breaker tripped for "${logKey}": reached max LLM calls (${maxCalls}). Defaulting remaining ambiguous blocks to BODY.`);
+      trippedLoggedKeys.add(logKey);
+    }
+    return {
+      section: 'BODY',
+      confidence: 0.5,
+      method: 'fallback',
+      circuitBreakerTriggered: true,
+    };
+  }
+
+  // Increment call tracker
+  if (circuitBreaker) {
+    circuitBreaker.calls = currentCalls + 1;
+  } else {
+    docCallTracker.set(effectiveDocKey, currentCalls + 1);
+    if (docCallTracker.size > 500) {
+      const oldestKey = docCallTracker.keys().next().value;
+      docCallTracker.delete(oldestKey);
+      trippedLoggedKeys.delete(oldestKey);
+    }
+  }
+
+  // 3. Ambiguous block -> Call resolved LLM provider
   const providerClient = (context && context.aiService) || aiService;
 
   const prompt = `Classify the following book document block into exactly one section type from this list:
@@ -344,10 +491,15 @@ module.exports = {
   classifySection,
   classifyHeuristically,
   buildSectionMapFast,
+  resetCircuitBreaker,
+  DEFAULT_MAX_SECTION_LLM_CALLS,
   SECTION_TYPES,
 };
 module.exports.classifySection = classifySection;
+module.exports.classifyHeuristically = classifyHeuristically;
 module.exports.buildSectionMapFast = buildSectionMapFast;
+module.exports.resetCircuitBreaker = resetCircuitBreaker;
+module.exports.DEFAULT_MAX_SECTION_LLM_CALLS = DEFAULT_MAX_SECTION_LLM_CALLS;
 module.exports.default = classifySection;
 
 

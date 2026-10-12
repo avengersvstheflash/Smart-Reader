@@ -304,6 +304,8 @@ class IngestionService {
     const classifiedBlocks = [];
     const storedSections = [];
 
+    const isTextOrMarkdown = format === 'text' || format === 'markdown' || format === 'txt' || format === 'md';
+
     if (structureMap && (structureMap.method === 'toc' || structureMap.method === 'heuristic')) {
       console.log(`[Ingestion] Structure: fast path (${structureMap.method})`);
       // Fast path: skip front-matter pages, mark heading candidates; do NOT run per-block loop
@@ -335,11 +337,9 @@ class IngestionService {
           type: block.type,
         });
       }
-    } else {
-      if (structureMap && structureMap.method === 'none') {
-        console.log('[Ingestion] Structure: fallback to per-block classifier');
-      }
-      // Current per-block loop
+    } else if (isTextOrMarkdown) {
+      console.log(`[Ingestion] Structure: fast heuristic path for ${format} (${rawBlocks.length} blocks)`);
+      // Fast path for text and markdown: deterministic heuristic classification without unbounded per-block LLM calls
       for (let i = 0; i < rawBlocks.length; i++) {
         const block = rawBlocks[i];
         const context = {
@@ -347,6 +347,45 @@ class IngestionService {
           isFirstBlock: i === 0,
           isLastBlock: i === rawBlocks.length - 1,
           priorSection,
+          format,
+        };
+        const heuristic = sectionClassifier.classifyHeuristically(block, context);
+        const section = (heuristic.section && heuristic.section !== 'UNKNOWN')
+          ? heuristic.section
+          : (priorSection || 'BODY');
+        const confidence = (heuristic.section && heuristic.section !== 'UNKNOWN')
+          ? heuristic.confidence
+          : 0.7;
+
+        block.section = section;
+        block.sectionConfidence = confidence;
+        priorSection = section;
+        classifiedBlocks.push(block);
+        storedSections.push({
+          id: block.id,
+          section,
+          confidence,
+          text: block.text,
+          type: block.type,
+        });
+      }
+    } else {
+      if (structureMap && structureMap.method === 'none') {
+        console.log('[Ingestion] Structure: fallback to per-block classifier');
+      }
+      const circuitBreaker = {
+        maxCalls: parseInt(process.env.MAX_SECTION_LLM_CALLS, 10) || 20,
+        calls: 0,
+      };
+      // Current per-block loop with circuit breaker protection
+      for (let i = 0; i < rawBlocks.length; i++) {
+        const block = rawBlocks[i];
+        const context = {
+          bookTitle: title || 'Full Text',
+          isFirstBlock: i === 0,
+          isLastBlock: i === rawBlocks.length - 1,
+          priorSection,
+          circuitBreaker,
         };
         const result = await sectionClassifier.classifySection(block, context);
         block.section = result.section;
