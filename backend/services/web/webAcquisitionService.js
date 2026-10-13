@@ -317,7 +317,7 @@ class WebAcquisitionService {
       // Mark WEB_IMPORT job complete
       jobRepository.complete(ingestJob.id);
 
-      // Trigger post-import background pipeline (same chain as bookService.importBook)
+      // Trigger post-import pipeline (same chain as bookService.importBook)
       const isValidContent = totalWords > 0 && savedChapters.length > 0;
       if (isValidContent) {
         const qualifiesForOutline = savedChapters.length >= 3 && totalWords >= 2000;
@@ -329,77 +329,70 @@ class WebAcquisitionService {
           progress: 0,
         });
 
-        Promise.resolve()
-          .then(() => {
-            const semanticLifecycle = require('../semantic/semanticLifecycle');
-            return semanticLifecycle.indexBook(bookId, { skipJob: false, jobId: indexJob.id });
-          })
-          .then(() => {
-            jobRepository.complete(indexJob.id);
-          })
-          .catch((err) => {
-            console.warn(`[importMulti] Indexing failed: ${err.message}`);
-            jobRepository.fail(indexJob.id, err);
-          })
-          .then(() => {
-            const bookClassifier = require('../ai/bookClassifier');
-            return bookClassifier.classifyBook(bookId, { fast: false })
-              .catch((err) => {
-                console.warn(`[importMulti] Classification failed: ${err.message}`);
-              });
-          })
-          .then(() => {
-            if (!qualifiesForOutline) return null;
+        try {
+          const semanticLifecycle = require('../semantic/semanticLifecycle');
+          await semanticLifecycle.indexBook(bookId, { skipJob: false, jobId: indexJob.id });
+          jobRepository.complete(indexJob.id);
+        } catch (err) {
+          console.warn(`[importMulti] Indexing failed: ${err.message}`);
+          jobRepository.fail(indexJob.id, err);
+        }
+
+        try {
+          const bookClassifier = require('../ai/bookClassifier');
+          await bookClassifier.classifyBook(bookId, { fast: false });
+        } catch (err) {
+          console.warn(`[importMulti] Classification failed: ${err.message}`);
+        }
+
+        let outline = null;
+        if (qualifiesForOutline) {
+          try {
             const editorialService = require('../synthesis/editorialService');
-            return editorialService.generateSingleBookOutline(bookId, { fast: true })
-              .catch((err) => {
-                console.warn(`[importMulti] Outline failed: ${err.message}`);
-                return null;
-              });
-          })
-          .then((outline) => {
-            const synopsisJob = jobRepository.create({
-              book_id: bookId,
-              type: 'SYNOPSIS',
-              status: 'PROCESSING',
-              progress: 0,
-            });
-            const intelligentSummarizer = require('../ai/intelligentSummarizer');
-            return intelligentSummarizer
-              .generateSynopsis(bookId, { fast: true, jobId: synopsisJob.id })
-              .then(() => {
-                jobRepository.complete(synopsisJob.id);
-              })
-              .catch((err) => {
-                console.warn(`[importMulti] Synopsis failed: ${err.message}`);
-                jobRepository.fail(synopsisJob.id, err);
-              })
-              .then(() => outline);
-          })
-          .then((outline) => {
-            if (!outline || !outline.chapters || outline.chapters.length === 0) return null;
-            const synthesisJob = jobRepository.create({
-              book_id: bookId,
-              type: 'SYNTHESIS',
-              status: 'PROCESSING',
-              progress: 0,
-            });
-            const editorialService = require('../synthesis/editorialService');
-            return editorialService
-              .synthesizeNextChapters(bookId, 3, { jobId: synthesisJob.id })
-              .then((result) => {
-                jobRepository.complete(synthesisJob.id);
-                return result;
-              })
-              .catch((err) => {
-                console.warn(`[importMulti] Synthesis failed: ${err.message}`);
-                jobRepository.fail(synthesisJob.id, err);
-                return null;
-              });
-          })
-          .catch((err) => {
-            console.error(`[importMulti] Background pipeline failed for ${bookId}:`, err.message);
+            outline = await editorialService.generateSingleBookOutline(bookId, { fast: true });
+          } catch (err) {
+            console.warn(`[importMulti] Outline failed: ${err.message}`);
+          }
+        }
+
+        const synopsisJob = jobRepository.create({
+          book_id: bookId,
+          type: 'SYNOPSIS',
+          status: 'PROCESSING',
+          progress: 0,
+        });
+        const intelligentSummarizer = require('../ai/intelligentSummarizer');
+        try {
+          await intelligentSummarizer.generateSynopsis(bookId, { fast: true, jobId: synopsisJob.id });
+          jobRepository.complete(synopsisJob.id);
+        } catch (err) {
+          console.warn(`[importMulti] Synopsis failed: ${err.message}`);
+          jobRepository.fail(synopsisJob.id, err);
+        }
+
+        if (qualifiesForOutline && outline && outline.chapters && outline.chapters.length > 0) {
+          const synthesisJob = jobRepository.create({
+            book_id: bookId,
+            type: 'SYNTHESIS',
+            status: 'PROCESSING',
+            progress: 0,
           });
+          const editorialService = require('../synthesis/editorialService');
+          try {
+            await editorialService.synthesizeNextChapters(bookId, 3, { jobId: synthesisJob.id });
+            jobRepository.complete(synthesisJob.id);
+          } catch (err) {
+            console.warn(`[importMulti] Synthesis failed: ${err.message}`);
+            jobRepository.fail(synthesisJob.id, err);
+          }
+        }
+
+        try {
+          const provenanceResolver = require('../semantic/provenanceResolver');
+          await provenanceResolver.triggerVerificationForBook(bookId);
+        } catch (err) {
+          console.warn(`[importMulti] Attribution warning: ${err.message}`);
+        }
       }
 
       return {

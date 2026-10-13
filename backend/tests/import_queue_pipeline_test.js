@@ -1,3 +1,5 @@
+process.env.DB_PATH = process.env.DB_PATH || 'storage/test-data.db';
+
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');

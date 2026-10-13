@@ -257,7 +257,7 @@ export function QueueManager() {
                       </p>
                       <p className="text-caption text-ink-muted truncate">
                         {isCompleted
-                          ? 'Import ready'
+                          ? 'Book ready'
                           : isFailed
                           ? task.error || 'Failed'
                           : 'Cancelled'}

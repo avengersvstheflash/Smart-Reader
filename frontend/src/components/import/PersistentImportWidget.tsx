@@ -110,7 +110,7 @@ export function PersistentImportWidget() {
                 {activeTask
                   ? activeTask.sourceTitle
                   : recentFinished?.status === 'completed'
-                  ? 'Import completed'
+                  ? 'Book ready'
                   : 'Import pipeline'}
               </h4>
               {queuedTasks.length > 0 && (

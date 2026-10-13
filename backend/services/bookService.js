@@ -547,6 +547,125 @@ class BookService {
           (chapterEntities.length > 0 &&
             chapterEntities[0].word_count > 0));
 
+/**
+ * Post-ingest pipeline: SEMANTIC_INDEX -> CLASSIFY -> OUTLINE -> SYNOPSIS -> SYNTHESIS -> ATTRIBUTION.
+ * Blocks sequentially until all downstream pipeline operations conclude.
+ */
+async function _runPostIngestPipeline(book, options = {}) {
+  const {
+    jobId,
+    taskId,
+    chapterEntities = [],
+    totalWords = 0,
+    pipelineT0 = Date.now(),
+    stageTimings = {},
+    qualifiesForOutline = false,
+    qualifiesForSynopsis = false,
+  } = options;
+
+  try {
+    const semanticLifecycle = require('./semantic/semanticLifecycle');
+    const indexJob = jobRepository.create({
+      book_id: book.id,
+      type: 'SEMANTIC_INDEX',
+      status: 'PROCESSING',
+      progress: 0,
+    });
+
+    const t0Index = Date.now();
+    await semanticLifecycle.indexBook(book.id, { skipJob: false, jobId: indexJob.id });
+    stageTimings.indexMs = Date.now() - t0Index;
+    jobRepository.complete(indexJob.id);
+    console.log(`[Pipeline] Stage 2/5: SEMANTIC_INDEX complete in ${(stageTimings.indexMs / 1000).toFixed(2)}s`);
+
+    console.log(`[Import] Classifying ${book.id}...`);
+    const t0Classify = Date.now();
+    const bookClassifier = require('./ai/bookClassifier');
+    await bookClassifier.classifyBook(book.id, { fast: false });
+    stageTimings.classifyMs = Date.now() - t0Classify;
+    console.log(`[Pipeline] Stage 3/5: CLASSIFY complete in ${(stageTimings.classifyMs / 1000).toFixed(2)}s`);
+
+    let outline = null;
+    if (qualifiesForOutline) {
+      console.log(`[Import] Generating outline for ${book.id}...`);
+      const t0Outline = Date.now();
+      const editorialService = require('./synthesis/editorialService');
+      outline = await editorialService.generateSingleBookOutline(book.id, { fast: true });
+      stageTimings.outlineMs = Date.now() - t0Outline;
+      console.log(`[Pipeline] Stage 4/5: OUTLINE complete in ${(stageTimings.outlineMs / 1000).toFixed(2)}s`);
+    }
+
+    if (qualifiesForSynopsis) {
+      console.log(`[Import] Generating synopsis for ${book.id}...`);
+      const t0Synopsis = Date.now();
+      const synopsisJob = jobRepository.create({
+        book_id: book.id,
+        type: 'SYNOPSIS',
+        status: 'PROCESSING',
+        progress: 0,
+      });
+      const intelligentSummarizer = require('./ai/intelligentSummarizer');
+      try {
+        await intelligentSummarizer.generateSynopsis(book.id, { jobId: synopsisJob.id });
+        stageTimings.synopsisMs = Date.now() - t0Synopsis;
+        console.log(`[Pipeline] Stage 5/5: SYNOPSIS complete in ${(stageTimings.synopsisMs / 1000).toFixed(2)}s`);
+        jobRepository.complete(synopsisJob.id);
+      } catch (err) {
+        console.warn(`[Import] Synopsis failed: ${err.message}`);
+        jobRepository.fail(synopsisJob.id, err);
+      }
+    }
+
+    if (qualifiesForOutline) {
+      if (outline && outline.chapters && outline.chapters.length > 0) {
+        console.log(`[Import] Auto-synthesizing initial chapters for ${book.id}...`);
+        const synthesisJob = jobRepository.create({
+          book_id: book.id,
+          type: 'SYNTHESIS',
+          status: 'PROCESSING',
+          progress: 0,
+        });
+        try {
+          const editorialService = require('./synthesis/editorialService');
+          const result = await editorialService.synthesizeNextChapters(book.id, 3, { jobId: synthesisJob.id });
+          jobRepository.complete(synthesisJob.id);
+          if (result) {
+            console.log(`[Import] Auto-synthesized ${result.synthesizedCount}/3 chapters for ${book.id}`);
+          }
+
+          // Awaited PROVENANCE_VERIFY pass
+          const provenanceResolver = require('./semantic/provenanceResolver');
+          try {
+            const pvRes = await provenanceResolver.triggerVerificationForBook(book.id);
+            console.log(`[Import] Provenance verified for ${book.id}: ${pvRes.verifiedCount} chapter(s)`);
+          } catch (pvErr) {
+            console.warn(`[Import] Provenance verification warning for ${book.id}:`, pvErr.message);
+          }
+        } catch (err) {
+          console.warn(`[Import] Synthesis failed: ${err.message}`);
+          jobRepository.fail(synthesisJob.id, err);
+        }
+      } else {
+        console.warn(`[Import] No outline for ${book.id}; skipping auto-synthesis`);
+      }
+    }
+  } catch (err) {
+    console.error(`[Import] Post-ingest pipeline failed for ${book.id}:`, err.message);
+  } finally {
+    const totalSec = ((Date.now() - pipelineT0) / 1000).toFixed(1);
+    console.log(
+      `\n============================================================\n` +
+      `📊 PIPELINE TELEMETRY SUMMARY: "${book.title}" (${totalSec}s total)\n` +
+      `  - 1. Ingest & Parse:   ${((stageTimings.ingestMs || 0) / 1000).toFixed(1)}s\n` +
+      `  - 2. Semantic Index:   ${((stageTimings.indexMs || 0) / 1000).toFixed(1)}s\n` +
+      `  - 3. Classification:   ${((stageTimings.classifyMs || 0) / 1000).toFixed(1)}s\n` +
+      `  - 4. Outline Gen:      ${((stageTimings.outlineMs || 0) / 1000).toFixed(1)}s\n` +
+      `  - 5. Synopsis Gen:     ${((stageTimings.synopsisMs || 0) / 1000).toFixed(1)}s\n` +
+      `============================================================\n`
+    );
+  }
+}
+
       if (isValidContent) {
         if (config.USE_PYTHON_EMBEDDER) {
           try {
@@ -554,7 +673,6 @@ class BookService {
             warmModel('embed', null, { fireAndForget: true }).catch(() => {});
           } catch (_) {}
         }
-        const semanticLifecycle = require('./semantic/semanticLifecycle');
         const totalWords =
           ingestionResult.totalWordCount ||
           chapterEntities.reduce((acc, c) => acc + (c.word_count || 0), 0);
@@ -564,110 +682,18 @@ class BookService {
         );
 
         console.log(`[Import] Indexing ${book.id}...`);
-        const indexJob = jobRepository.create({
-          book_id: book.id,
-          type: 'SEMANTIC_INDEX',
-          status: 'PROCESSING',
-          progress: 0,
+        await _runPostIngestPipeline(book, {
+          jobId: job.id,
+          chapterEntities,
+          totalWords,
+          pipelineT0,
+          stageTimings,
+          qualifiesForOutline,
+          qualifiesForSynopsis,
         });
-
-        const t0Index = Date.now();
-        (async () => {
-          try {
-            await semanticLifecycle.indexBook(book.id, { skipJob: false, jobId: indexJob.id });
-            stageTimings.indexMs = Date.now() - t0Index;
-            jobRepository.complete(indexJob.id);
-            console.log(`[Pipeline] Stage 2/5: SEMANTIC_INDEX complete in ${(stageTimings.indexMs / 1000).toFixed(2)}s`);
-
-            console.log(`[Import] Classifying ${book.id}...`);
-            const t0Classify = Date.now();
-            const bookClassifier = require('./ai/bookClassifier');
-            await bookClassifier.classifyBook(book.id, { fast: false });
-            stageTimings.classifyMs = Date.now() - t0Classify;
-            console.log(`[Pipeline] Stage 3/5: CLASSIFY complete in ${(stageTimings.classifyMs / 1000).toFixed(2)}s`);
-
-            let outline = null;
-            if (qualifiesForOutline) {
-              console.log(`[Import] Generating outline for ${book.id}...`);
-              const t0Outline = Date.now();
-              const editorialService = require('./synthesis/editorialService');
-              outline = await editorialService.generateSingleBookOutline(book.id, { fast: true });
-              stageTimings.outlineMs = Date.now() - t0Outline;
-              console.log(`[Pipeline] Stage 4/5: OUTLINE complete in ${(stageTimings.outlineMs / 1000).toFixed(2)}s`);
-            }
-
-            if (qualifiesForSynopsis) {
-              console.log(`[Import] Generating synopsis for ${book.id}...`);
-              const t0Synopsis = Date.now();
-              const synopsisJob = jobRepository.create({
-                book_id: book.id,
-                type: 'SYNOPSIS',
-                status: 'PROCESSING',
-                progress: 0,
-              });
-              const intelligentSummarizer = require('./ai/intelligentSummarizer');
-              try {
-                await intelligentSummarizer.generateSynopsis(book.id, { jobId: synopsisJob.id });
-                stageTimings.synopsisMs = Date.now() - t0Synopsis;
-                console.log(`[Pipeline] Stage 5/5: SYNOPSIS complete in ${(stageTimings.synopsisMs / 1000).toFixed(2)}s`);
-                jobRepository.complete(synopsisJob.id);
-              } catch (err) {
-                console.warn(`[Import] Synopsis failed: ${err.message}`);
-                jobRepository.fail(synopsisJob.id, err);
-              }
-            }
-
-            if (qualifiesForOutline) {
-              if (outline && outline.chapters && outline.chapters.length > 0) {
-                console.log(`[Import] Auto-synthesizing initial chapters for ${book.id}...`);
-                const synthesisJob = jobRepository.create({
-                  book_id: book.id,
-                  type: 'SYNTHESIS',
-                  status: 'PROCESSING',
-                  progress: 0,
-                });
-                try {
-                  const editorialService = require('./synthesis/editorialService');
-                  const result = await editorialService.synthesizeNextChapters(book.id, 3, { jobId: synthesisJob.id });
-                  jobRepository.complete(synthesisJob.id);
-                  if (result) {
-                    console.log(`[Import] Auto-synthesized ${result.synthesizedCount}/3 chapters for ${book.id}`);
-                  }
-                  
-                  // Non-blocking PROVENANCE_VERIFY pass
-                  const provenanceResolver = require('./semantic/provenanceResolver');
-                  provenanceResolver.triggerVerificationForBook(book.id).then((pvRes) => {
-                    console.log(`[Import] Provenance verified for ${book.id}: ${pvRes.verifiedCount} chapter(s)`);
-                  }).catch((pvErr) => {
-                    console.warn(`[Import] Provenance verification warning for ${book.id}:`, pvErr.message);
-                  });
-                } catch (err) {
-                  console.warn(`[Import] Synthesis failed: ${err.message}`);
-                  jobRepository.fail(synthesisJob.id, err);
-                }
-              } else {
-                console.warn(`[Import] No outline for ${book.id}; skipping auto-synthesis`);
-              }
-            }
-          } catch (err) {
-            console.error(`[Import] Background pipeline failed for ${book.id}:`, err.message);
-          } finally {
-            const totalSec = ((Date.now() - pipelineT0) / 1000).toFixed(1);
-            console.log(
-              `\n============================================================\n` +
-              `📊 PIPELINE TELEMETRY SUMMARY: "${book.title}" (${totalSec}s total)\n` +
-              `  - 1. Ingest & Parse:   ${((stageTimings.ingestMs || 0) / 1000).toFixed(1)}s\n` +
-              `  - 2. Semantic Index:   ${((stageTimings.indexMs || 0) / 1000).toFixed(1)}s\n` +
-              `  - 3. Classification:   ${((stageTimings.classifyMs || 0) / 1000).toFixed(1)}s\n` +
-              `  - 4. Outline Gen:      ${((stageTimings.outlineMs || 0) / 1000).toFixed(1)}s\n` +
-              `  - 5. Synopsis Gen:     ${((stageTimings.synopsisMs || 0) / 1000).toFixed(1)}s\n` +
-              `============================================================\n`
-            );
-          }
-        })();
       }
 
-      // 8. Return HTTP response immediately
+      // 8. Return final book state with full pipeline results
       return {
         book: bookRepository.getById(book.id) || book,
         format: ingestionResult.format,
