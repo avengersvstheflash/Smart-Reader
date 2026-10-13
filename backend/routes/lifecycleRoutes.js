@@ -241,10 +241,6 @@ function usageSummaryHandler(req, res, next) {
 
 // Routes mounted directly on /api/lifecycle
 router.get('/usage/summary', usageSummaryHandler);
-router.get('/books/:id', getLifecycleHandler);
-router.post('/books/:id/read-progress', readProgressHandler);
-router.get('/:id', getLifecycleHandler);
-router.post('/:id/read-progress', readProgressHandler);
 
 module.exports = router;
 module.exports.getLifecycleHandler = getLifecycleHandler;

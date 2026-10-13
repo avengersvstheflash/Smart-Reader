@@ -1,45 +1,83 @@
 const { getDatabase } = require('../db/database');
 
 class BookRepository {
-  getAll() {
+  getAll({ libraryOnly = false } = {}) {
     const db = getDatabase();
+    const hasLifecycle = db.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type='table' AND name='book_lifecycle'"
+    ).get();
+
+    const lifecycleClause = libraryOnly && hasLifecycle
+      ? 'AND (lc.book_id IS NULL OR lc.in_library = 1)'
+      : '';
+    const lifecycleJoin = libraryOnly && hasLifecycle
+      ? 'LEFT JOIN book_lifecycle lc ON lc.book_id = b.id'
+      : '';
+
     const books = db.prepare(`
       SELECT b.*, 
         (SELECT COUNT(*) FROM smart_chapters sc WHERE sc.book_id = b.id) as chapter_count,
         (SELECT COUNT(*) FROM smart_chapters sc WHERE sc.book_id = b.id AND sc.read_at IS NOT NULL) as read_chapter_count,
         (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
       FROM books b
+      ${lifecycleJoin}
       WHERE b.status != 'failed'
         AND EXISTS (
           SELECT 1 FROM smart_chapters sc WHERE sc.book_id = b.id
         )
+        ${lifecycleClause}
       ORDER BY b.updated_at DESC
     `).all();
     return books;
   }
 
-  getAllSources() {
+  getAllSources({ researchOnly = false } = {}) {
     const db = getDatabase();
+    const hasLifecycle = db.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type='table' AND name='book_lifecycle'"
+    ).get();
+
+    const lifecycleClause = researchOnly && hasLifecycle
+      ? 'AND (lc.book_id IS NULL OR lc.in_research = 1)'
+      : '';
+    const lifecycleJoin = researchOnly && hasLifecycle
+      ? 'LEFT JOIN book_lifecycle lc ON lc.book_id = b.id'
+      : '';
+
     const books = db.prepare(`
       SELECT b.*, 
         (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id) as chapter_count,
         (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id AND c.status = 'read') as read_chapter_count,
         (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
       FROM books b
+      ${lifecycleJoin}
       WHERE b.status != 'failed'
+        ${lifecycleClause}
       ORDER BY b.updated_at DESC
     `).all();
     return books;
   }
 
-  getAllDossiers() {
+  getAllDossiers({ researchOnly = false } = {}) {
     const db = getDatabase();
+    const hasLifecycle = db.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type='table' AND name='book_lifecycle'"
+    ).get();
+
+    const lifecycleClause = researchOnly && hasLifecycle
+      ? 'AND (lc.book_id IS NULL OR lc.in_research = 1)'
+      : '';
+    const lifecycleJoin = researchOnly && hasLifecycle
+      ? 'LEFT JOIN book_lifecycle lc ON lc.book_id = b.id'
+      : '';
+
     const books = db.prepare(`
       SELECT b.*, 
         (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id) as chapter_count,
         (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id AND c.status = 'read') as read_chapter_count,
         (SELECT COALESCE(SUM(c.word_count), 0) FROM chapters c WHERE c.book_id = b.id) as total_words
       FROM books b
+      ${lifecycleJoin}
       WHERE b.status != 'failed'
         AND (
           b.source_site = 'Multi-Source Dossier'
@@ -48,6 +86,7 @@ class BookRepository {
           OR json_extract(b.metadata_json, '$.isDossier') = 1
           OR json_extract(b.metadata_json, '$.isMultiSource') = 1
         )
+        ${lifecycleClause}
       ORDER BY b.updated_at DESC
     `).all();
     return books;

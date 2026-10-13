@@ -221,57 +221,16 @@ class BookService {
   }
 
   getAllBooks() {
-    const books = bookRepository.getAll();
-    const { getDatabase } = require('../db/database');
-    const db = getDatabase();
-    const hasLifecycle = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='book_lifecycle'").get();
-    if (!hasLifecycle) return books;
-
-    const rows = db.prepare('SELECT book_id, in_library FROM book_lifecycle').all();
-    const map = new Map(rows.map((r) => [r.book_id, r.in_library]));
-    return books.filter((b) => {
-      if (map.has(b.id)) {
-        return map.get(b.id) === 1;
-      }
-      return true;
-    });
+    return bookRepository.getAll({ libraryOnly: true });
   }
 
   getAllSources() {
-    const books = bookRepository.getAllSources();
-    const { getDatabase } = require('../db/database');
-    const db = getDatabase();
-    const hasLifecycle = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='book_lifecycle'").get();
-    if (!hasLifecycle) return books;
-
-    const rows = db.prepare('SELECT book_id, in_research FROM book_lifecycle').all();
-    const map = new Map(rows.map((r) => [r.book_id, r.in_research]));
-    return books.filter((b) => {
-      if (map.has(b.id)) {
-        return map.get(b.id) === 1;
-      }
-      return true;
-    });
+    return bookRepository.getAllSources({ researchOnly: true });
   }
 
   getAllDossiers() {
-    const raw = bookRepository.getAllDossiers();
-    const { getDatabase } = require('../db/database');
-    const db = getDatabase();
-    const hasLifecycle = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='book_lifecycle'").get();
-    let filtered = raw;
-    if (hasLifecycle) {
-      const rows = db.prepare('SELECT book_id, in_research FROM book_lifecycle').all();
-      const map = new Map(rows.map((r) => [r.book_id, r.in_research]));
-      filtered = raw.filter((b) => {
-        if (map.has(b.id)) {
-          return map.get(b.id) === 1;
-        }
-        return true;
-      });
-    }
-
-    return filtered.map((b) => {
+    const raw = bookRepository.getAllDossiers({ researchOnly: true });
+    return raw.map((b) => {
       let parsedMeta = {};
       try {
         parsedMeta = typeof b.metadata_json === 'string' ? JSON.parse(b.metadata_json || '{}') : (b.metadata_json || {});

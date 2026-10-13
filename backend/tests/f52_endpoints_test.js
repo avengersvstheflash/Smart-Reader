@@ -12,6 +12,8 @@
  * - T6: GET /api/lifecycle/usage/summary by_stage breakdown is correct
  * - T7: Library catalog excludes books with in_library = 0
  * - T8: Research catalog excludes books with in_research = 0
+ * - T9: Verify alias routes are gone (F75)
+ * - T10: Verify canonical route works and filters correctly (F76)
  */
 
 'use strict';
@@ -277,8 +279,69 @@ async function runF52EndpointTests() {
       passedCount++;
     }
 
+    // -------------------------------------------------------------------------
+    // T9: Verify alias routes are gone (F75)
+    // -------------------------------------------------------------------------
+    {
+      const resBooksAlias = await fetch(`${baseUrl}/api/lifecycle/books/${testBookId}`);
+      assert.strictEqual(resBooksAlias.status, 404, 'Alias route /api/lifecycle/books/:id should return 404');
+
+      const resDirectAlias = await fetch(`${baseUrl}/api/lifecycle/${testBookId}`);
+      assert.strictEqual(resDirectAlias.status, 404, 'Alias route /api/lifecycle/:id should return 404');
+
+      console.log('  ✓ T9: Verify alias routes are gone (F75)');
+      passedCount++;
+    }
+
+    // -------------------------------------------------------------------------
+    // T10: Verify canonical route works and filters correctly (F76)
+    // -------------------------------------------------------------------------
+    {
+      const hiddenBookId = `book-canon-test-${testRunId}`;
+      db.prepare(`
+        INSERT INTO books (id, title, author, description, content_type, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(hiddenBookId, 'Canonical Filter Test', 'Tester', 'Canonical route test', 'novel', 'ready', now, now);
+
+      db.prepare(`
+        INSERT INTO smart_chapters (id, book_id, sequence, title, status, planned_word_count, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(`sc-canon-${testRunId}`, hiddenBookId, 1, 'Ch 1', 'generated', 500, now, now);
+
+      bookLifecycleRepository.create({
+        book_id: hiddenBookId,
+        in_library: 0,
+        in_research: 1,
+        lifecycle_state: 'research_only',
+      });
+
+      // GET /api/books -> book NOT present (SQL JOIN filter)
+      const resCatalog = await fetch(`${baseUrl}/api/books`);
+      assert.strictEqual(resCatalog.status, 200);
+      const catalogData = await resCatalog.json();
+      const inCatalog = catalogData.books.find((b) => b.id === hiddenBookId);
+      assert.strictEqual(inCatalog, undefined, 'Book with in_library = 0 must not appear in /api/books');
+
+      // GET /api/books/:id/lifecycle -> 200 with in_library = 0
+      const resLifecycle = await fetch(`${baseUrl}/api/books/${hiddenBookId}/lifecycle`);
+      assert.strictEqual(resLifecycle.status, 200);
+      const lifecycleData = await resLifecycle.json();
+      assert.strictEqual(lifecycleData.lifecycle.in_library, 0);
+      assert.strictEqual(lifecycleData.lifecycle.lifecycle_state, 'research_only');
+
+      console.log('  ✓ T10: Verify canonical route works and filters correctly (F76)');
+      passedCount++;
+    }
+
     console.log(`\nResults: ${passedCount} passed, 0 failed.\n`);
   } finally {
+    try {
+      db.prepare('DELETE FROM books WHERE id LIKE ?').run(`%${testRunId}%`);
+      db.prepare('DELETE FROM book_lifecycle WHERE book_id LIKE ?').run(`%${testRunId}%`);
+      db.prepare('DELETE FROM smart_chapters WHERE id LIKE ? OR book_id LIKE ?').run(`%${testRunId}%`, `%${testRunId}%`);
+      db.prepare('DELETE FROM chapters WHERE id LIKE ? OR book_id LIKE ?').run(`%${testRunId}%`, `%${testRunId}%`);
+      db.prepare('DELETE FROM llm_usage WHERE book_id LIKE ?').run(`%${testRunId}%`);
+    } catch (_) {}
     await new Promise((resolve) => server.close(resolve));
   }
 }
