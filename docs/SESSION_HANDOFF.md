@@ -1,69 +1,101 @@
 # Omnitome — Session Handoff
 
-> Last updated: 2026-10-13  
+> Last updated: 2026-10-14  
 > Repository: github.com/avengersvstheflash/Smart-Reader  
 > Purpose: Full orientation in one turn for any assistant. Answers: *where are we, how do we work, what is next.*
 
 ---
 
-## Current State (2026-10-13)
+## Current State (2026-10-14)
 
-**HEAD:** <pending docs-close commit>  
-**Tree:** clean  
-**Origin:** synced  
-**Tests:** 48 unit suites + 1 corpus gate (10 fixtures) green  
-**Latest tag:** v0.6.0  
+**HEAD:** 9888bed (chore(f52): remove duplicate route aliases and migrate
+          catalog filters to SQL JOIN)
+**Tree:** clean
+**Origin:** synced
+**Tests:** 52 unit suites + 1 corpus gate (10 fixtures) green
+**Latest tag:** v0.6.0
 
 ### Phase Status
-- Phase 5.8: IN PROGRESS
-- Phase 5.8.0: CLOSED
+- Phase 5.8: IN PROGRESS (close to complete)
 - F51 series (a–h.3.1): CLOSED
+- F52 (Library/Research State Coordination): CLOSED — 5 sessions
 - F56 (section classifier bound): CLOSED
 - F58 (persistent import queue): CLOSED
 - F42 (corpus release gate): CLOSED
-- F49d + F49d.2: CLOSED
-- 5.8d + 5.8e + 5.8m: CLOSED (via F58)
+- F49d + F49d.1 + F49d.2: CLOSED
+- F65–F72 (pipeline reliability arc): CLOSED
+- 5.8a–5.8m: CLOSED
 
 ### Next Session Opener
-1. Verify HEAD, tree clean, origin synced
-2. Priority 1: **F49d.1** — narrow [PARTIAL] trigger
-   - Currently fires on books with TOC + opening + closing but no preface
-   - Bounded fix in intelligentSummarizer.js prompt wording
-3. Priority 2: **F57** — decide build3a disposition
-   - Network hang masks downstream red
-   - Either fix or move to a network-required tier
-4. Priority 3: **5.8i** — frontend walkthrough (bounded, high-value)
-5. Priority 4: **F58.1** — dossier dedup hardening
-6. Priority 5: **F39.1** — ancestor regex false-positive on prose
+1. Verify HEAD = 9888bed, tree clean, origin synced
+2. Priority 1: **5.8i — frontend walkthrough**
+   - Boot all three servers
+   - Click through every route: Library, Research, Import, Reader,
+     Settings, Help
+   - Screenshot anomalies
+   - Verify F52 surfaces: 4-option delete modal, "Synthesize Omni Reading"
+     button, Compute pill on BookDetails, Dossier Manifest on ResearchViewer
+   - Verify F66/F69: stage checklist and "Book ready" state
+   - Produce a bug list, do not fix in-session
+3. Priority 2: Small polish batch (F73, F74, F54, F57, F58.1, F39.1)
+4. Priority 3: Kokoro TTS (Phase 5.9, 3 sessions)
+5. Priority 4: Tauri (Phase 6, 5–8 sessions)
+6. Priority 5: Release (3 sessions)
 
 ### Findings Ledger (recent)
 | ID | Name | Status | Location |
 |---|---|---|---|
 | F42 | Corpus release gate | CLOSED | scripts/run-corpus-tests.js |
 | F49d | [PARTIAL] strip from stored synopsis | CLOSED | intelligentSummarizer.js |
-| F49d.1 | [PARTIAL] trigger too aggressive | OPEN | intelligentSummarizer.js prompt |
+| F49d.1 | [PARTIAL] trigger too aggressive | CLOSED | intelligentSummarizer.js |
 | F49d.2 | Migration ordering: metadata_json ref before ALTER | CLOSED | database.js |
-| F51h.3.1 | Non-TOC prologue/epilogue classification (follow-up to F51h.3) | CLOSED | documentStructureEngine.js |
+| F51h.3.1 | Non-TOC prologue/epilogue classification | CLOSED | documentStructureEngine.js |
+| F52 | Library/Research State Coordination | CLOSED | database.js, bookLifecycleService.js |
 | F56 | Section classifier LLM bound + fast path | CLOSED | sectionClassifier.js |
-| F57 | build3a network hang masks downstream red | OPEN | build3a_test.js |
-| F58 | Persistent import queue + expanded web discovery | CLOSED | importQueueService.js |
+| F57 | build3a network hang | OPEN | build3a_test.js |
+| F58 | Persistent import queue + expanded web | CLOSED | importQueueService.js |
 | F58.1 | Dossier dedup by title collides | OPEN | importQueueService.js |
+| F61 | OCR scan throughput (~7–10 s/page) | v1.x | sidecars/python/ocr |
+| F62 | Sidecar structure detection dup work | CLOSED | parse/structure.py |
+| F64 | Frontend bundle >500 KB | v1.x | frontend build |
+| F65 | Sequential pipeline | CLOSED | bookService.js |
+| F66 | "Ready" after full pipeline | CLOSED | importQueueService.js |
+| F67 | Test fixture leak into data.db | CLOSED | import_queue_pipeline_test.js |
+| F68 | Parallel synthesis opt-in setting | CLOSED | settingsService.js |
+| F69 | Rich stage labels | CLOSED | PersistentImportWidget.tsx |
+| F70 | Book lifecycle timestamps | CLOSED | database.js |
+| F71 | Dynamic reranker timeout | CLOSED | synthesisService.js |
+| F72 | Capacity-aware sidecar | CLOSED | sidecarBase.js |
+| F73 | 2.0s latency warning too aggressive | OPEN | synthesisService.js |
+| F74 | LOADING state race in reranker | OPEN | synthesisService.js |
+| F75 | Duplicate route aliases | CLOSED | lifecycleRoutes.js |
+| F76 | JS-side catalog filter | CLOSED | bookRepository.js |
 | F39.1 | Ancestor regex false-positive on prose | OPEN | editorialPlanner.js |
-| F38.11.x | Lone-fragment dropping for narrative content | OBSERVATION | semanticChunker.js |
+| F38.11.x | Lone-fragment dropping for narrative | OBSERVATION | semanticChunker.js |
 | F54 | Synopsis re-synthesize button | OPEN | BookDetailsRoute.tsx |
 
-### Standing Rules
-- **Raw Evidence Over Summaries:** Every test claim requires verbatim terminal output. Summaries without real filenames are rejected.
-- **No Commits on Dirty Tree or Red Suite:** Preconditions and postconditions checked before every commit and push.
-- **Agents Never Declare Phase Closure:** Phase closure is declared by user after docs-close and tagging.
-- **One Workstream Per Session:** Stick to the active task boundaries.
-- **Strict Blast Radius:** Touch only explicitly permitted files. Stop immediately if unexpected changes occur.
-- **Node Owns SQLite & LLM Routing:** Sole writer boundary. Python is purely stateless/sidecar compute.
-- **Verify-Before-Stage:** Check file byte counts (`> 0`) and search patterns before staging.
-- **Never `git reset --hard`:** Use targeted `git checkout HEAD -- <file>` for drift recovery.
-- **Never `git add -f` on gitignored files.**
-- **Attempt at Most N Times, Then Stop:** Bounded iteration.
-- **Diagnostic Prompts Are Read-Only:** In diagnostic prompts, agent must not modify any file — even to fix a real bug. Fixes discovered during diagnostics are filed and handled in a follow-up task with explicit approval.
+### Standing Rules (unchanged)
+- Raw evidence over summaries
+- No commits on dirty tree or red suite
+- Agents never declare phase closure
+- One workstream per commit (not per day)
+- VS Code closed during Antigravity edits
+- Never git add -f on gitignored files
+- Compress evidence before transmitting to LLM
+- Prefer targeted git checkout HEAD -- <file> over destructive reset
+- Every prompt includes "attempt at most N times, then stop"
+- Kill servers before running full suite
+- Diagnostic prompts must not modify files even for real bugs
+
+### Roadmap to v1.0
+Remaining (approximate):
+- 5.8i frontend walkthrough (1 session)
+- Small polish batch (F73, F74, F54, F57, F58.1, F39.1) — 1.5 sessions
+- Kokoro TTS (Phase 5.9) — 3 sessions
+- Tauri packaging (Phase 6) — 5–8 sessions
+- Release (Series 5) — 3 sessions
+
+Total: ~13–17 sessions. Realistic timeline: 6–9 days at current pace.
 
 ---
 
