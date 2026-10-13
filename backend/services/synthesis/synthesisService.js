@@ -22,6 +22,25 @@ class PreLLMValidationError extends Error {
 }
 const { getDatabase } = require('../../db/database');
 
+/**
+ * Dynamically computes a calibrated timeout for reranking requests based on input dimensions.
+ * Calibrated against observed local sidecar latencies:
+ *   - Base latency: 8000ms (sufficient floor for neural warmup/inference)
+ *   - Per candidate-query pair: 400ms
+ *   - Per paragraph overhead: 300ms
+ *   - Bounded: [8000ms, 60000ms]
+ *
+ * @param {object} params
+ * @param {number} [params.candidates=5]
+ * @param {number} [params.paragraphs=1]
+ * @returns {number} timeout in milliseconds
+ */
+function computeRerankerTimeout({ candidates = 5, paragraphs = 1 } = {}) {
+  const pairs = candidates * paragraphs;
+  const ms = 8000 + pairs * 400 + paragraphs * 300;
+  return Math.min(60000, Math.max(8000, ms));
+}
+
 class SynthesisService {
   /**
    * Synthesize an editorial chapter across source materials.
@@ -508,7 +527,11 @@ OUTPUT:`;
       .filter((c) => c.id && c.text);
 
     const client = options.nlpClient || nlpClient;
-    const timeoutMs = options.timeoutMs || 10000;
+    const timeoutMs = options.timeoutMs || computeRerankerTimeout({
+      candidates: normalizedChunks.length,
+      paragraphs: rawParagraphs.length,
+    });
+    console.log(`[Reranker] timeout=${timeoutMs}ms (candidates=${normalizedChunks.length}, paragraphs=${rawParagraphs.length})`);
     const startMultiMs = Date.now();
 
     const batchInputs = rawParagraphs.map((para, pIdx) => ({
@@ -1058,8 +1081,11 @@ OUTPUT:`;
 
     try {
       const client = options.nlpClient || nlpClient;
-      // 5.8.0i (2026-10-03): default timeout bumped 1500 -> 4000 -> 10000ms.
-      const timeoutMs = options.timeoutMs || 10000;
+      const timeoutMs = options.timeoutMs || computeRerankerTimeout({
+        candidates: normalizedCandidates.length,
+        paragraphs: 1,
+      });
+      console.log(`[Reranker] timeout=${timeoutMs}ms (candidates=${normalizedCandidates.length}, paragraphs=1)`);
       const rerankFn = typeof client.rerankCandidatesBatch === 'function'
         ? client.rerankCandidatesBatch
         : client.rerankCandidates;
