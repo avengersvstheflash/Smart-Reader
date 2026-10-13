@@ -201,8 +201,9 @@ router.post('/:id/lifecycle/read-progress', readProgressHandler);
 // DELETE /api/books/:id - delete book
 router.delete('/:id', (req, res, next) => {
   try {
-    const success = bookService.deleteBook(req.params.id);
-    res.json({ success });
+    const operation = (req.body && req.body.operation) || 'B';
+    const result = bookService.deleteBook(req.params.id, operation);
+    res.json(result);
   } catch (err) {
     next(err);
   }

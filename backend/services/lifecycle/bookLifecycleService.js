@@ -172,6 +172,67 @@ class BookLifecycleService {
     };
   }
 
+  executeOperationA(bookId, options = {}) {
+    const db = getDatabase();
+    this.ensureLifecycle(bookId);
+
+    // Snapshot reading progress from smart_chapters if present
+    const hasSmart = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='smart_chapters'").get();
+    if (hasSmart) {
+      const activeProgress = db.prepare(`
+        SELECT id, sequence, title,
+               COALESCE(read_at, opened_at) as last_touched,
+               CASE WHEN read_at IS NOT NULL THEN 1.0 ELSE 0.0 END as scroll_pct
+        FROM smart_chapters
+        WHERE book_id = ? AND (read_at IS NOT NULL OR opened_at IS NOT NULL)
+        ORDER BY last_touched DESC
+        LIMIT 1
+      `).get(bookId);
+
+      if (activeProgress) {
+        this.updateReadingProgress(bookId, {
+          chapterId: activeProgress.id,
+          sequence: activeProgress.sequence,
+          title: activeProgress.title,
+          scrollPct: activeProgress.scroll_pct,
+          readAt: activeProgress.last_touched,
+        });
+      }
+
+      // Snapshot chapter titles into chapter_name_history
+      const chapters = db.prepare('SELECT sequence, title FROM smart_chapters WHERE book_id = ? ORDER BY sequence ASC').all(bookId);
+      for (const ch of chapters) {
+        if (ch.title) {
+          try {
+            this.recordChapterRename(bookId, {
+              sequence: ch.sequence,
+              oldTitle: null,
+              newTitle: ch.title,
+              renameSource: 'library_delete_snapshot',
+            });
+          } catch {}
+        }
+      }
+
+      // Invalidate active outline and derived entities
+      const hasAttr = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='paragraph_attributions'").get();
+      if (hasAttr) {
+        db.prepare('DELETE FROM paragraph_attributions WHERE smart_chapter_id IN (SELECT id FROM smart_chapters WHERE book_id = ?)').run(bookId);
+      }
+      db.prepare('DELETE FROM smart_chapters WHERE book_id = ?').run(bookId);
+      const hasReps = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chapter_representations'").get();
+      if (hasReps) {
+        db.prepare("DELETE FROM chapter_representations WHERE book_id = ? AND synthesisType != 'source'").run(bookId);
+      }
+      const hasOutlines = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='editorial_outlines'").get();
+      if (hasOutlines) {
+        db.prepare('DELETE FROM editorial_outlines WHERE outlineId = ? OR collectionId = ?').run(bookId, bookId);
+      }
+    }
+
+    return this.deleteFromLibrary(bookId, options);
+  }
+
   /**
    * Operation B: Delete from Library + delete source. Stays archived for history.
    */
@@ -186,6 +247,75 @@ class BookLifecycleService {
     };
   }
 
+  executeOperationB(bookId, options = {}) {
+    const db = getDatabase();
+    this.ensureLifecycle(bookId);
+
+    // Snapshot reading progress before purge
+    const hasSmart = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='smart_chapters'").get();
+    if (hasSmart) {
+      const activeProgress = db.prepare(`
+        SELECT id, sequence, title,
+               COALESCE(read_at, opened_at) as last_touched,
+               CASE WHEN read_at IS NOT NULL THEN 1.0 ELSE 0.0 END as scroll_pct
+        FROM smart_chapters
+        WHERE book_id = ? AND (read_at IS NOT NULL OR opened_at IS NOT NULL)
+        ORDER BY last_touched DESC
+        LIMIT 1
+      `).get(bookId);
+      if (activeProgress) {
+        this.updateReadingProgress(bookId, {
+          chapterId: activeProgress.id,
+          sequence: activeProgress.sequence,
+          title: activeProgress.title,
+          scrollPct: activeProgress.scroll_pct,
+          readAt: activeProgress.last_touched,
+        });
+      }
+      const hasAttr = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='paragraph_attributions'").get();
+      if (hasAttr) {
+        db.prepare('DELETE FROM paragraph_attributions WHERE smart_chapter_id IN (SELECT id FROM smart_chapters WHERE book_id = ?)').run(bookId);
+      }
+      db.prepare('DELETE FROM smart_chapters WHERE book_id = ?').run(bookId);
+    }
+
+    const hasChapters = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chapters'").get();
+    if (hasChapters) {
+      db.prepare('DELETE FROM chapters WHERE book_id = ?').run(bookId);
+    }
+    const hasReps = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chapter_representations'").get();
+    if (hasReps) {
+      db.prepare('DELETE FROM chapter_representations WHERE book_id = ?').run(bookId);
+    }
+    const hasChunks = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='semantic_chunks'").get();
+    if (hasChunks) {
+      db.prepare('DELETE FROM semantic_chunks WHERE book_id = ?').run(bookId);
+    }
+
+    // Clean up cover files if any
+    try {
+      const config = require('../../config');
+      const fs = require('fs');
+      const path = require('path');
+      const book = db.prepare('SELECT cover_path FROM books WHERE id = ?').get(bookId);
+      if (book && book.cover_path && !book.cover_path.includes('default-') && !book.cover_path.startsWith('data:')) {
+        const fullCoverPath = path.isAbsolute(book.cover_path) ? book.cover_path : path.join(config.STORAGE_DIR, book.cover_path);
+        if (fs.existsSync(fullCoverPath)) fs.unlinkSync(fullCoverPath);
+      }
+    } catch (_) {}
+
+    // If book is already archived, unanchor llm_usage records
+    const currentLc = bookLifecycleRepository.getByBookId(bookId);
+    if (currentLc && currentLc.lifecycle_state === 'archived') {
+      const hasUsage = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='llm_usage'").get();
+      if (hasUsage) {
+        db.prepare('UPDATE llm_usage SET lifecycle_id = NULL WHERE book_id = ?').run(bookId);
+      }
+    }
+
+    return this.deleteFromLibraryAndSource(bookId, options);
+  }
+
   /**
    * Operation C: Delete from Research only. Derived reading orphaned.
    */
@@ -198,6 +328,37 @@ class BookLifecycleService {
       bookId,
       lifecycle: updated,
     };
+  }
+
+  executeOperationC(bookId, options = {}) {
+    const db = getDatabase();
+    this.ensureLifecycle(bookId);
+
+    // Delete raw source chapters and representations
+    const hasChapters = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chapters'").get();
+    if (hasChapters) {
+      db.prepare('DELETE FROM chapters WHERE book_id = ?').run(bookId);
+    }
+    const hasReps = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chapter_representations'").get();
+    if (hasReps) {
+      db.prepare("DELETE FROM chapter_representations WHERE book_id = ? AND synthesisType = 'source'").run(bookId);
+    }
+    const hasChunks = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='semantic_chunks'").get();
+    if (hasChunks) {
+      db.prepare('DELETE FROM semantic_chunks WHERE book_id = ?').run(bookId);
+    }
+
+    // Set provenance fallback on paragraph_attributions
+    const hasAttr = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='paragraph_attributions'").get();
+    if (hasAttr) {
+      db.prepare(`
+        UPDATE paragraph_attributions
+        SET fell_back = 1, fallback_reason = 'Source detached'
+        WHERE smart_chapter_id IN (SELECT id FROM smart_chapters WHERE book_id = ?)
+      `).run(bookId);
+    }
+
+    return this.deleteFromResearchOnly(bookId, options);
   }
 
   /**
@@ -219,8 +380,13 @@ class BookLifecycleService {
       success: deleted,
       operation: 'D',
       bookId,
+      lifecycle: null,
       message: 'Lifecycle record purged. LLM usage retained with NULL lifecycle_id.',
     };
+  }
+
+  executeOperationD(bookId, options = {}) {
+    return this.purgeLifecycle(bookId);
   }
 
   getReadingSnapshot(bookId) {

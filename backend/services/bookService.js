@@ -464,41 +464,21 @@ class BookService {
     });
   }
 
-  deleteBook(id) {
-    const book = this.getBook(id);
-
-    // Clean up local uploaded cover file if custom (not default shared asset)
-    if (
-      book.cover_path &&
-      !book.cover_path.includes('default-') &&
-      !book.cover_path.startsWith('data:')
-    ) {
-      try {
-        const fullCoverPath = path.isAbsolute(book.cover_path)
-          ? book.cover_path
-          : path.join(config.STORAGE_DIR, book.cover_path);
-        if (fs.existsSync(fullCoverPath)) {
-          fs.unlinkSync(fullCoverPath);
-        }
-      } catch (err) {
-        console.warn(
-          `[BookService] Could not remove cover file for book ${id}:`,
-          err.message
-        );
-      }
+  deleteBook(id, operation = 'B') {
+    const bookLifecycleService = require('./lifecycle/bookLifecycleService');
+    const upperOp = (operation || 'B').toUpperCase();
+    switch (upperOp) {
+      case 'A':
+        return bookLifecycleService.executeOperationA(id);
+      case 'B':
+        return bookLifecycleService.executeOperationB(id);
+      case 'C':
+        return bookLifecycleService.executeOperationC(id);
+      case 'D':
+        return bookLifecycleService.executeOperationD(id);
+      default:
+        throw new Error(`Invalid delete operation: ${operation}. Must be one of A, B, C, D.`);
     }
-
-    const deleted = bookRepository.delete(book.id);
-    if (!deleted) {
-      throw new Error(`Failed to delete book '${id}' from database.`);
-    }
-
-    return {
-      success: true,
-      id: book.id,
-      title: book.title,
-      message: `Book "${book.title}", its chapters, generated representations, and processing jobs were permanently removed.`,
-    };
   }
 
   getChapters(bookId) {

@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, FileText, Globe } from 'lucide-react';
+import { ArrowLeft, FileText, Globe, Sparkles } from 'lucide-react';
 import { useBook } from '../hooks/useBook';
 import { useChapters, useChapter } from '../hooks/useChapters';
 import { useLifecycle } from '../hooks/useLifecycle';
+import { useResynthesizeDossier } from '../hooks/useResynthesis';
 import { CanonicalBlock } from '../components/reader/CanonicalBlock';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { apiClient } from '../api/client';
@@ -193,7 +194,29 @@ export default function ResearchViewerRoute() {
     book?.sourceSite === 'Multi-Source Dossier'
   );
 
-  const { data: lifecycleData } = useLifecycle(isDossier ? bookId : null);
+  const { data: lifecycleData } = useLifecycle(bookId || null);
+  const resynthesisMutation = useResynthesizeDossier(bookId);
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const [newBookId, setNewBookId] = React.useState<string | null>(null);
+
+  const canSynthesize = Boolean(
+    (book?.contentType === 'research' || (book as any)?.content_type === 'research') &&
+    lifecycleData?.lifecycle &&
+    lifecycleData.lifecycle.in_library === 0 &&
+    lifecycleData.lifecycle.in_research === 1
+  );
+
+  const handleSynthesize = async () => {
+    try {
+      const res = await resynthesisMutation.mutateAsync();
+      setToastMessage('Synthesis queued — you can leave this page');
+      if (res?.bookId) {
+        setNewBookId(res.bookId);
+      }
+    } catch (err) {
+      setToastMessage(err instanceof Error ? err.message : 'Failed to queue synthesis');
+    }
+  };
 
   const [activeChapterId, setActiveChapterId] = React.useState<string | null>(null);
 
@@ -326,7 +349,7 @@ export default function ResearchViewerRoute() {
   return (
     <div className="min-h-screen bg-surface text-ink">
       <div className="sticky top-0 z-10 bg-surface backdrop-blur-sm border-b border-line">
-        <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2">
+        <div className="max-w-5xl mx-auto px-4 py-2 flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={handleReturn}
@@ -336,7 +359,43 @@ export default function ResearchViewerRoute() {
             <ArrowLeft className="w-4 h-4" />
             <span>{returnTo.startsWith('/read') ? 'Return to Omni Reading' : 'Research'}</span>
           </button>
+
+          {canSynthesize && (
+            <button
+              type="button"
+              onClick={handleSynthesize}
+              disabled={resynthesisMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded bg-brand text-white hover:bg-brand/90 transition-colors shadow-sm disabled:opacity-50"
+            >
+              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{resynthesisMutation.isPending ? 'Queuing…' : 'Synthesize Omni Reading'}</span>
+            </button>
+          )}
         </div>
+        {toastMessage && (
+          <div className="bg-brand/10 border-t border-brand/20 px-4 py-1.5 text-xs text-brand font-medium flex items-center justify-between max-w-5xl mx-auto">
+            <div className="flex items-center gap-2">
+              <span>{toastMessage}</span>
+              {newBookId && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/books/${newBookId}`)}
+                  className="underline hover:no-underline font-semibold ml-2"
+                >
+                  View Book →
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setToastMessage(null)}
+              className="text-brand hover:opacity-70 ml-2"
+              aria-label="Dismiss message"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-8">

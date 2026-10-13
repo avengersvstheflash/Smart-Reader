@@ -28,6 +28,50 @@ function extractDisplayTitle(c) {
   return null;
 }
 
+function calculateLevenshteinSimilarity(s1, s2) {
+  if (!s1 || !s2) return 0;
+  const a = s1.trim().toLowerCase();
+  const b = s2.trim().toLowerCase();
+  if (a === b) return 1.0;
+
+  const matrix = Array(a.length + 1).fill(null).map(() => Array(b.length + 1).fill(null));
+  for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+  for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+
+  const distance = matrix[a.length][b.length];
+  const maxLen = Math.max(a.length, b.length);
+  return maxLen === 0 ? 1.0 : (1.0 - distance / maxLen);
+}
+
+function titleOverlapScore(t1, t2) {
+  if (!t1 || !t2) return 0;
+  const sim = calculateLevenshteinSimilarity(t1, t2);
+  if (sim > 0.75) return sim;
+
+  const words1 = new Set(t1.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean));
+  const words2 = new Set(t2.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean));
+  if (words1.size === 0 || words2.size === 0) return sim;
+
+  let intersection = 0;
+  for (const w of words1) {
+    if (words2.has(w)) intersection++;
+  }
+  const union = new Set([...words1, ...words2]).size;
+  const jaccard = union === 0 ? 0 : intersection / union;
+  return Math.max(sim, jaccard);
+}
+
 const progressByBook = new Map();
 
 class EditorialService {
@@ -235,6 +279,12 @@ class EditorialService {
     }
 
     smartChapterRepository.createBatch(smartChaptersToSeed);
+
+    try {
+      this.reconcileReadingProgress(targetBookId);
+    } catch (e) {
+      console.warn(`[EditorialService] Progress reconciliation notice: ${e.message}`);
+    }
 
     const saved = outlineRepository.saveOutline({
       outlineId,
@@ -585,6 +635,105 @@ class EditorialService {
     }
     smartChapterRepository.deleteByBookId(outlineId);
     return outlineRepository.delete(outlineId);
+  }
+
+  /**
+   * 3-tier reading progress reconciliation algorithm (F52 Section 6.3)
+   * Tier 1: Sequence match -> set opened_at on matching chapter
+   * Tier 2: Title fuzzy overlap (normalized edit distance > 0.75)
+   * Tier 3: Bounded sequence fallback (cap at max sequence)
+   */
+  reconcileReadingProgress(bookId) {
+    if (!bookId) return null;
+    const bookLifecycleRepository = require('../../repositories/bookLifecycleRepository');
+    const { getDatabase } = require('../../db/database');
+    const db = getDatabase();
+
+    const lifecycle = bookLifecycleRepository.getByBookId(bookId);
+    if (!lifecycle || lifecycle.last_read_sequence === null || lifecycle.last_read_sequence === undefined) {
+      return null;
+    }
+
+    const hasSmart = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='smart_chapters'").get();
+    if (!hasSmart) return null;
+
+    const smartChapters = db.prepare(`
+      SELECT id, sequence, title
+      FROM smart_chapters
+      WHERE book_id = ?
+      ORDER BY sequence ASC
+    `).all(bookId);
+
+    if (!smartChapters || smartChapters.length === 0) {
+      return null;
+    }
+
+    const lastSeq = Number(lifecycle.last_read_sequence);
+    const lastTitle = lifecycle.last_read_title || '';
+    let targetChapter = null;
+    let matchedTier = null;
+
+    // Tier 1: Sequence match
+    const seqMatch = smartChapters.find((c) => Number(c.sequence) === lastSeq);
+    if (seqMatch) {
+      targetChapter = seqMatch;
+      matchedTier = 1;
+    }
+
+    // Tier 2: Title fuzzy overlap (normalized edit distance > 0.75)
+    if (!targetChapter && lastTitle.trim().length > 0) {
+      let bestSim = 0;
+      let bestChapter = null;
+
+      for (const ch of smartChapters) {
+        if (!ch.title) continue;
+        const score = titleOverlapScore(lastTitle, ch.title);
+        if (score > bestSim) {
+          bestSim = score;
+          bestChapter = ch;
+        }
+      }
+
+      if (bestSim > 0.75 && bestChapter) {
+        targetChapter = bestChapter;
+        matchedTier = 2;
+      }
+    }
+
+    // Tier 3: Bounded sequence fallback (cap at max sequence or chapter 1)
+    if (!targetChapter) {
+      if (lastSeq > smartChapters.length) {
+        targetChapter = smartChapters[smartChapters.length - 1];
+      } else {
+        targetChapter = smartChapters[0];
+      }
+      matchedTier = 3;
+    }
+
+    const openedAt = lifecycle.last_read_at || new Date().toISOString();
+    const isRead = (lifecycle.last_read_scroll_pct !== null && lifecycle.last_read_scroll_pct !== undefined && Number(lifecycle.last_read_scroll_pct) >= 0.95);
+    const readAt = isRead ? openedAt : null;
+
+    db.prepare(`
+      UPDATE smart_chapters
+      SET opened_at = ?,
+          read_at = COALESCE(?, read_at)
+      WHERE id = ?
+    `).run(openedAt, readAt, targetChapter.id);
+
+    // Update book_lifecycle: last_read_chapter_id = new chapter id
+    bookLifecycleRepository.update(bookId, {
+      last_read_chapter_id: targetChapter.id,
+    });
+
+    console.log(`[Re-synthesis] Progress restored: ch ${targetChapter.sequence} (source: tier ${matchedTier})`);
+
+    return {
+      restored: true,
+      chapterId: targetChapter.id,
+      sequence: targetChapter.sequence,
+      tier: matchedTier,
+    };
   }
 }
 

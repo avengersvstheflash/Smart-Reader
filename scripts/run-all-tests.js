@@ -73,6 +73,7 @@ const SUITES = [
   'f63_settings_service_test.js',
   'f52_schema_and_lifecycle_test.js',
   'f52_endpoints_test.js',
+  'f52_delete_resynthesis_recovery_test.js',
 ];
 
 

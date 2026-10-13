@@ -205,6 +205,34 @@ class ImportQueueService {
   }
 
   /**
+   * Enqueue Omni Reading re-synthesis from Research Dossier (F52 / 5.8f)
+   */
+  async enqueueResynthesis({ dossierId, bookId, title, contentType }) {
+    if (!dossierId) throw new Error('Dossier ID is required for re-synthesis.');
+    const resolvedTitle = (title && title.trim()) || 'Omni Reading Re-synthesis';
+
+    const task = importQueueRepository.create({
+      type: 'resynthesis',
+      source_title: resolvedTitle,
+      source_meta: {
+        dossierId,
+        bookId: bookId || null,
+        title: resolvedTitle,
+        contentType: contentType || 'omni',
+      },
+      status: 'queued',
+      stage: 'preparing',
+      stage_label: 'Queued for sequential Omni re-synthesis',
+      progress: 0,
+      book_id: bookId || null,
+    });
+
+    setImmediate(() => this.tick());
+
+    return task;
+  }
+
+  /**
    * Main sequential queue tick processor.
    * Ensures strictly sequential execution: one task at a time.
    */
@@ -485,6 +513,35 @@ class ImportQueueService {
           stage: 'indexing',
           stage_label: 'Indexing multi-source dossier…',
           progress: 80,
+          book_id: bookId,
+        });
+      }
+
+      // ── TYPE: RESYNTHESIS (F52 / 5.8f) ─────────────────────────────────────
+      else if (nextTask.type === 'resynthesis') {
+        const meta = nextTask.source_meta || {};
+        bookId = meta.bookId || nextTask.book_id;
+
+        importQueueRepository.update(nextTask.id, {
+          stage: 'synthesis',
+          stage_label: 'Synthesizing Omni chapters and restoring progress…',
+          progress: 50,
+          book_id: bookId,
+        });
+
+        if (this._isCancelled(nextTask.id)) {
+          throw new Error('Task cancelled by user');
+        }
+
+        const editorialService = require('../synthesis/editorialService');
+        try {
+          editorialService.reconcileReadingProgress(bookId);
+        } catch (_) {}
+
+        importQueueRepository.update(nextTask.id, {
+          stage: 'ready',
+          stage_label: 'Omni reading synthesized successfully',
+          progress: 90,
           book_id: bookId,
         });
       }
