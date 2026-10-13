@@ -35,7 +35,7 @@ const STAGES: StageDefinition[] = [
   { key: 'extracting', label: 'Extracting', description: 'Recovering text, headings, and clean blocks' },
   { key: 'structuring', label: 'Structuring', description: 'Detecting chapters, hierarchy, and sections' },
   { key: 'indexing', label: 'Semantic Memory', description: 'Generating BGE-M3 vector embeddings', computational: true },
-  { key: 'synthesizing', label: 'Synthesis', description: 'Writing editorial thesis and omni chapters', computational: true },
+  { key: 'synthesizing', label: 'Compression', description: 'Writing editorial thesis and omni chapters', computational: true },
   { key: 'ready', label: 'Ready', description: 'Persisted to library and ready to read' },
 ];
 
@@ -345,7 +345,7 @@ export function ImportCinematic({
                 <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center animate-pulse">
                   <Sparkles className="w-5 h-5" />
                 </div>
-                <p className="text-caption text-ink font-medium">Generating editorial thesis & omni synthesis…</p>
+                <p className="text-caption text-ink font-medium">Generating editorial thesis & omni compression…</p>
                 <span className="text-micro text-ink-muted font-mono">BGE-M3 Grounded Context</span>
               </div>
             )}
@@ -359,7 +359,7 @@ export function ImportCinematic({
           <Sparkles className="w-4 h-4 text-brand shrink-0 mt-0.5" aria-hidden="true" />
           <p className="leading-relaxed">
             <strong className="text-ink">Omnitome is actively running computational processing.</strong> Vector
-            indexing and synthesis may pause momentarily while models run. You can explore your library or research
+            indexing and compression may pause momentarily while models run. You can explore your library or research
             workspace while this runs in the background.
           </p>
         </div>

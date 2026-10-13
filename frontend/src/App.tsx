@@ -9,6 +9,8 @@ import ReaderRoute from './routes/ReaderRoute';
 import { ImportRoute } from './routes/ImportRoute';
 import { ResearchRoute } from './routes/ResearchRoute';
 import ResearchViewerRoute from './routes/ResearchViewerRoute';
+import { SettingsRoute } from './routes/SettingsRoute';
+import { HelpRoute } from './routes/HelpRoute';
 import { ThemeDecor } from './components/decor/ThemeDecor';
 
 const queryClient = new QueryClient({
@@ -35,6 +37,8 @@ export default function App() {
               <Route path="/book/:bookId" element={<BookDetailsRoute />} />
               <Route path="/import" element={<ImportRoute />} />
               <Route path="/read/:bookId/:chapterId" element={<ReaderRoute />} />
+              <Route path="/settings" element={<SettingsRoute />} />
+              <Route path="/help" element={<HelpRoute />} />
             </Routes>
           </ErrorBoundary>
           <ModalHost />

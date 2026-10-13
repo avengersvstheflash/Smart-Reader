@@ -1,0 +1,182 @@
+{
+  "quickQuestions": [
+    {
+      "id": "citations-quick",
+      "label": "How do citations work?",
+      "categoryId": "reading",
+      "itemId": "citations-provenance"
+    },
+    {
+      "id": "formats-quick",
+      "label": "What file formats can I import?",
+      "categoryId": "import",
+      "itemId": "supported-formats"
+    },
+    {
+      "id": "slow-pdf-quick",
+      "label": "Why is my PDF taking time?",
+      "categoryId": "troubleshooting",
+      "itemId": "slow-pdf-parsing"
+    },
+    {
+      "id": "privacy-quick",
+      "label": "Is my reading data private?",
+      "categoryId": "getting-started",
+      "itemId": "privacy-architecture"
+    },
+    {
+      "id": "local-ai-quick",
+      "label": "How do I switch to local AI?",
+      "categoryId": "troubleshooting",
+      "itemId": "switch-local-ai"
+    }
+  ],
+  "categories": [
+    {
+      "id": "getting-started",
+      "label": "Getting Started",
+      "icon": "BookOpen",
+      "description": "Core concepts, navigation fundamentals, and library setup.",
+      "items": [
+        {
+          "id": "what-is-omnitome",
+          "question": "What is Omnitome?",
+          "answer": "Omnitome is a local-first neural reading library purpose-built for deep research, books, and complex technical documents. It bridges dense source material with editorial-grade compression, allowing readers to master extensive literature faster while preserving instant provenance back to the original text."
+        },
+        {
+          "id": "dual-representation",
+          "question": "What is the Dual-Representation Model?",
+          "answer": "Every document imported into Omnitome is preserved in two synchronized representations:\n\n1. **Original Immutable Source**: The pristine text, block hierarchy, tables, and pagination recovered from your original file.\n2. **Omni Compressed Chapters**: Dense, high-signal editorial summaries synthesized with deep thesis coverage and paragraph-level citations.\n\nYou can switch perspectives at any moment to review full context or inspect primary evidence."
+        },
+        {
+          "id": "first-import",
+          "question": "How do I import my first document?",
+          "answer": "Navigate to the **Import** tab or drag and drop files directly onto your Library workspace. Omnitome supports single documents, bulk batches, and multi-source dossiers. Ingestion runs asynchronously in the background so you can continue reading while files process."
+        },
+        {
+          "id": "keyboard-shortcuts",
+          "question": "What keyboard shortcuts are available?",
+          "answer": "Omnitome offers seamless keyboard navigation in the reading view:\n\n- `j` / `k`: Smooth scroll downward and upward through the active chapter.\n- `[` / `]`: Navigate to the previous and next chapter in sequence.\n- `o`: Toggle between original source text and Omni compressed view.\n- `Escape`: Close modals, previews, or drawer overlays."
+        },
+        {
+          "id": "privacy-architecture",
+          "question": "Is my reading data private?",
+          "answer": "Yes. Omnitome is designed strictly local-first:\n\n- **Zero Telemetry**: No usage metrics, telemetry pings, or event tracking are collected or transmitted.\n- **Local Database**: All library contents, reading state, notes, and highlights are stored in your local SQLite database on disk.\n- **Local Embeddings**: Semantic embeddings (BGE-M3) are calculated entirely on your machine via the local sidecar on port 8765.\n- **Local LLM Support**: You can configure local providers (such as Ollama or LM Studio) in `/settings` for 100% offline compression."
+        }
+      ]
+    },
+    {
+      "id": "reading",
+      "label": "Reading & Navigation",
+      "icon": "Compass",
+      "description": "Editorial compression, grounded citations, and progress tracking.",
+      "items": [
+        {
+          "id": "omni-reading-explained",
+          "question": "How does Omni Reading work?",
+          "answer": "Omni Reading transforms dense, sprawling chapters into focused editorial essays. Rather than stripping details, it synthesizes the core thesis, supporting arguments, and structural conclusions while anchoring every substantive claim to original passage chunks."
+        },
+        {
+          "id": "citations-provenance",
+          "question": "How do citations and provenance chips work?",
+          "answer": "Every synthesized paragraph includes interactive provenance chips. Clicking any chip displays a floating excerpt of the exact source passages that informed that synthesis. Clicking **View in Source** instantly jumps to the canonical source paragraph in the Research viewer with surrounding context highlighted."
+        },
+        {
+          "id": "reading-progress",
+          "question": "How is reading progress tracked?",
+          "answer": "Omnitome automatically records your scroll position and active chapter as you read. You can manually mark chapters as read using the **✓ Read** button in the header bar. Your last read position is indexed on the Book Details screen for instant resumption."
+        }
+      ]
+    },
+    {
+      "id": "import",
+      "label": "Ingestion & Formats",
+      "icon": "Upload",
+      "description": "File format compatibility, pipeline stages, and queue management.",
+      "items": [
+        {
+          "id": "supported-formats",
+          "question": "What file formats can I import?",
+          "answer": "Omnitome supports direct ingestion of the following formats:\n\n- **EPUB**: E-books with complete chapter navigation and typography.\n- **PDF**: Native digital publications and scanned papers.\n- **DOCX & RTF**: Microsoft Word and rich text documents.\n- **Markdown & TXT**: Plain text notes, research writeups, and articles.\n- **Web Captures**: Wikipedia articles, ArXiv preprints, and IETF RFC specifications via the discovery panel."
+        },
+        {
+          "id": "import-size-limits",
+          "question": "What are the import size limits?",
+          "answer": "The default maximum file size ceiling is **50 MB**, configurable up to **200 MB** under **Settings** (`/settings`). This ceiling ensures responsive in-memory chunking, vector indexing, and smooth browser rendering."
+        },
+        {
+          "id": "native-vs-scanned",
+          "question": "What is the difference between native and scanned PDFs?",
+          "answer": "Native PDFs contain embedded digital text streams and are parsed rapidly. Scanned or image-only PDFs automatically route through the Python Sidecar OCR engine using high-accuracy optical character recognition to extract clean text blocks."
+        },
+        {
+          "id": "persistent-queue",
+          "question": "How does the persistent ingestion queue work?",
+          "answer": "Ingestion runs as a resilient sequential background queue. You can monitor progress via the floating indicator or expand the cinematic view. If you navigate to other pages or close the panel, jobs continue running in the background."
+        }
+      ]
+    },
+    {
+      "id": "research",
+      "label": "Research Workspace",
+      "icon": "FileText",
+      "description": "Multi-source dossiers, raw text notes, and web discoveries.",
+      "items": [
+        {
+          "id": "what-are-dossiers",
+          "question": "What are Dossiers?",
+          "answer": "Dossiers allow you to aggregate multiple related research documents—such as papers, book chapters, web articles, and pasted notes—into a single coherent subject folder. All items within a dossier share semantic memory and can be cross-referenced seamlessly."
+        },
+        {
+          "id": "pasting-raw-text",
+          "question": "How do I paste raw text into my library?",
+          "answer": "Under the **Import** workspace, switch to the **Paste Text** tab. You can paste lecture notes, interview transcripts, or excerpts directly, assign a title and author, and optionally attach it to an existing dossier or create a new one."
+        },
+        {
+          "id": "web-discovery",
+          "question": "How does Web Discovery work?",
+          "answer": "The Web Discovery tool inside the Import view connects directly to open academic and reference sources including **ArXiv**, **Wikipedia**, and **IETF RFCs**. Search by topic or identifier to pull verified publications straight into your library."
+        },
+        {
+          "id": "cross-referencing",
+          "question": "How does cross-referencing work?",
+          "answer": "In the Research viewer, you can inspect canonical blocks and jump between citations across multiple documents within a dossier. This illuminates how different authors and studies correlate on shared concepts."
+        }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "label": "Troubleshooting & Diagnostics",
+      "icon": "AlertCircle",
+      "description": "Resolving parsing delays, model offline states, and sidecar checks.",
+      "items": [
+        {
+          "id": "slow-pdf-parsing",
+          "question": "Why is my PDF taking time to process?",
+          "answer": "PDF processing time depends on document structure:\n\n- Documents containing complex tables, full-page diagrams, or scanned images require OCR analysis.\n- Dense academic manuscripts generate extensive BGE-M3 embedding vectors.\n- You can track current progress stage details in the persistent queue drawer."
+        },
+        {
+          "id": "ai-provider-offline",
+          "question": "What should I do if the AI Provider shows offline?",
+          "answer": "Visit `/settings` to verify your provider configuration:\n\n- **Ollama**: Ensure your Ollama server is running locally (`ollama serve`) and the target model is downloaded (`ollama pull llama3`).\n- **OpenRouter**: Verify your API key has available credits and your network permits outbound TLS connections to `openrouter.ai`.\n- Click **Test Connection** in `/settings` to inspect connection latency and diagnostics."
+        },
+        {
+          "id": "sidecar-health",
+          "question": "How do I check Python Sidecar health?",
+          "answer": "The Python sidecar powers vector embeddings and document parsing on port 8765. You can check its health status by visiting `http://127.0.0.1:8765/v1/health` in your browser or running `curl http://127.0.0.1:8765/v1/health`. It should respond with `{\"status\": \"ok\"}`."
+        },
+        {
+          "id": "stalled-queue",
+          "question": "What if an import task appears stalled?",
+          "answer": "Open the floating queue drawer in the lower corner of the screen. You can cancel a stalled task or click **Retry** to re-queue the task from the beginning without losing already imported library files."
+        },
+        {
+          "id": "switch-local-ai",
+          "question": "How do I switch to local AI?",
+          "answer": "To run completely offline with local models:\n\n1. Install Ollama from [ollama.com](https://ollama.com).\n2. Pull a recommended model: `ollama run llama3` (or `mistral`, `qwen2.5`).\n3. Navigate to **Settings** (`/settings`) in Omnitome.\n4. Under AI Provider, select **Local (OpenAI-compatible)** and ensure the **Ollama** preset is selected (`http://localhost:11434/v1`).\n5. Click **Test Connection** to confirm connectivity, then click **Save Settings**."
+        }
+      ]
+    }
+  ]
+}
+

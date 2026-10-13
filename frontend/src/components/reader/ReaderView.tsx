@@ -232,7 +232,7 @@ export function ReaderView({
             <p className="text-caption text-ink-muted mt-1 mb-0">
               {meta.duplicate === true
                 ? 'Duplicate fallback — the AI was unable to generate distinct content for this chapter.'
-                : 'Structured extract — model unavailable. This chapter was not synthesized by the AI.'}
+                : 'Structured extract — model unavailable. This chapter was not compressed by the AI.'}
             </p>
           )}
 

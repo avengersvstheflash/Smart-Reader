@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Palette, Settings, ArrowLeft } from 'lucide-react';
+import { Palette, Settings, ArrowLeft, HelpCircle } from 'lucide-react';
 import { useThemeStore } from '../../store/useThemeStore';
 import { ThemeSigil } from './ThemeSigil';
 
@@ -107,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {/* Right: Actions (Theme cycle + Settings) */}
+        {/* Right: Actions (Theme cycle + Help + Settings) */}
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -119,17 +119,23 @@ export const Header: React.FC<HeaderProps> = ({
             <Palette className="w-4 h-4" aria-hidden="true" />
           </button>
 
-          <button
-            type="button"
+          <Link
+            to="/help"
+            className="p-2 rounded-md text-ink-muted hover:text-ink hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            title="Help & Documentation"
+            aria-label="Help & Documentation"
+          >
+            <HelpCircle className="w-4 h-4" aria-hidden="true" />
+          </Link>
+
+          <Link
+            to="/settings"
             className="p-2 rounded-md text-ink-muted hover:text-ink hover:bg-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             title="Settings"
             aria-label="Settings"
-            onClick={() => {
-              // placeholder for settings modal
-            }}
           >
             <Settings className="w-4 h-4" aria-hidden="true" />
-          </button>
+          </Link>
         </div>
       </div>
     </header>

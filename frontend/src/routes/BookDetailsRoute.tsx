@@ -151,9 +151,9 @@ export default function BookDetailsRoute() {
         chapter?.metadata?.fallback_reason ||
         chapter?.metadata?.error ||
         err?.message ||
-        'Synthesis failed';
+        'Compression failed';
       setResynthesizeToast(
-        `Chapter ${chapter?.sequence ?? ''} synthesis failed: ${failureReason}`
+        `Chapter ${chapter?.sequence ?? ''} compression failed: ${failureReason}`
       );
     } finally {
       setResynthesizingId(null);

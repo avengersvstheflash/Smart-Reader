@@ -24,7 +24,7 @@ export function SmartChapterList({
     return (
       <div className="py-8 text-center">
         <p className="text-caption text-ink-muted">No Omni chapters yet.</p>
-        <p className="text-micro text-ink-faint mt-1">They will appear here once synthesis begins.</p>
+        <p className="text-micro text-ink-faint mt-1">They will appear here once compression begins.</p>
       </div>
     );
   }
@@ -90,10 +90,10 @@ export function SmartChapterList({
                   await onResynthesize(sc.id);
                 }}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-err/30 bg-err/10 text-err hover:bg-err/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                title="Synthesize failed chapter"
+                title="Compress failed chapter"
               >
                 <RotateCw className="w-3.5 h-3.5" />
-                Synthesize Chapter
+                Compress Chapter
               </button>
             </div>
           ) : null;

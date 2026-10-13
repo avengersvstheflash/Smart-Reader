@@ -324,7 +324,7 @@ export default function ResearchViewerRoute() {
             aria-label="Return to previous view"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>{returnTo.startsWith('/read') ? 'Return to Smart View' : 'Research'}</span>
+            <span>{returnTo.startsWith('/read') ? 'Return to Omni Reading' : 'Research'}</span>
           </button>
         </div>
       </div>

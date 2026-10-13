@@ -73,7 +73,7 @@ function SmartChapterStatus({
           Chapter {sequence}
         </h2>
         <p className="text-body text-ink-muted">
-          Synthesizing Omni chapter content with citations and provenance…
+          Compressing Omni chapter content with citations and provenance…
         </p>
         <Link
           to={`/book/${bookId}`}
@@ -104,7 +104,7 @@ function SmartChapterStatus({
             className="inline-flex items-center gap-1.5 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             <RotateCw className="w-3.5 h-3.5" />
-            <span>Retry Synthesis</span>
+            <span>Retry Compression</span>
           </button>
           <Link
             to={`/book/${bookId}`}
@@ -126,7 +126,7 @@ function SmartChapterStatus({
         Chapter {sequence}
       </h2>
       <p className="text-body text-ink-muted">
-        This Omni chapter is queued and has not been synthesized yet.
+        This Omni chapter is queued and has not been compressed yet.
       </p>
       <div className="flex items-center justify-center gap-3 pt-2">
         <button
@@ -136,7 +136,7 @@ function SmartChapterStatus({
           className="inline-flex items-center gap-1.5 px-4 py-2 text-ui-sm font-medium rounded-md bg-brand text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
         >
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Synthesize this chapter</span>
+          <span>Compress this chapter</span>
         </button>
         <Link
           to={`/book/${bookId}`}

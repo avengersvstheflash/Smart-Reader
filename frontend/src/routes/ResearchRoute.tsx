@@ -366,7 +366,7 @@ function SourceCard({ book, isSynthesized, onClick }: SourceCardProps) {
           {/* Synthesis Status Badge */}
           {!isSynthesized && (
             <span className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded bg-[rgb(var(--accent-4)/0.15)] text-[rgb(var(--accent-4))] border border-[rgb(var(--accent-4)/0.4)]">
-              Imported, not yet synthesized
+              Imported, not yet compressed
             </span>
           )}
         </div>
