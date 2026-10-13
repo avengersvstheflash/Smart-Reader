@@ -80,7 +80,6 @@ def detect_structure(pdf_bytes: bytes) -> Dict[str, Any]:
         try:
             raw_toc = doc.get_toc(simple=True)
             if raw_toc and len(raw_toc) >= 2:
-                has_embedded_toc = True
                 for entry in raw_toc:
                     if len(entry) >= 3:
                         toc_entries.append({
@@ -88,8 +87,31 @@ def detect_structure(pdf_bytes: bytes) -> Dict[str, Any]:
                             "title": str(entry[1]).strip(),
                             "page": int(entry[2])
                         })
+                if len(toc_entries) >= 2:
+                    has_embedded_toc = True
         except Exception as toc_err:
             warnings.append(f"toc_extraction_error: {str(toc_err)}")
+
+        # Early return if no embedded TOC:
+        # Avoid expensive page-by-page font statistics (34-50s on large documents)
+        # when heading_candidates are unused downstream.
+        MIN_TOC_ENTRIES = 3
+        if len(toc_entries) < MIN_TOC_ENTRIES:
+            return {
+                "has_embedded_toc": False,
+                "hasEmbeddedToc": False,
+                "toc": [],
+                "heading_candidates": [],
+                "headingCandidates": [],
+                "front_matter_page_range": None,
+                "frontMatterPageRange": None,
+                "back_matter_page_range": None,
+                "backMatterPageRange": None,
+                "estimated_chapter_count": 0,
+                "estimatedChapterCount": 0,
+                "method": "none",
+                "warnings": warnings,
+            }
 
         # --- Layer 1: Heuristic structure extraction ---
         heading_candidates: List[Dict[str, Any]] = []
