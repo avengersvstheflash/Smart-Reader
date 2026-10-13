@@ -13,6 +13,7 @@ import {
 import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
 import { useSmartChapters, useResumeTarget, useResynthesizeSmartChapter } from '../hooks/useSmartChapters';
+import { useLifecycle } from '../hooks/useLifecycle';
 import { useModal } from '../store/useModalStore';
 import { getCoverTheme } from '../components/library/BookCard';
 import { ExpandableTagPanel } from '../components/library/ExpandableTagPanel';
@@ -136,6 +137,7 @@ export default function BookDetailsRoute() {
   } = useSemanticStatus(bookId);
 
   const { resumeTarget } = useResumeTarget(bookId);
+  const { data: lifecycleData } = useLifecycle(bookId);
 
   const { mutateAsync: resynthesizeChapter } = useResynthesizeSmartChapter(bookId);
   const [resynthesizingId, setResynthesizingId] = useState<string | null>(null);
@@ -282,6 +284,28 @@ export default function BookDetailsRoute() {
   };
   const lifecycleTimingLabel = getLifecycleTimingLabel();
 
+  // Compute pill (F52)
+  const computePill = (() => {
+    const usage = lifecycleData?.usage_summary;
+    if (!usage || !usage.total_tokens || usage.total_tokens <= 0) return null;
+
+    const providerName = formatAiProvider(book.aiProvider) || 'LLM';
+    const totalTokensFormatted = usage.total_tokens.toLocaleString();
+
+    if (usage.total_cost_usd > 0) {
+      return `Synthesis: $${usage.total_cost_usd.toFixed(2)} (${totalTokensFormatted} tokens via ${providerName})`;
+    }
+
+    // Local / $0 cost with tokens
+    const promptTokens = usage.total_prompt_tokens || 0;
+    const completionTokens = usage.total_completion_tokens || 0;
+    // baseline: $0.14 / 1M prompt, $0.28 / 1M completion
+    const cloudValue = (promptTokens * 0.14 / 1_000_000) + (completionTokens * 0.28 / 1_000_000);
+    const cloudValueFormatted = cloudValue < 0.01 ? '<$0.01' : `$${cloudValue.toFixed(2)}`;
+
+    return `Local ${providerName} (${totalTokensFormatted} tokens — $0.00 actual / ~${cloudValueFormatted} cloud value saved)`;
+  })();
+
   return (
     <div className="space-y-8 pb-16">
       {/* ── TOP BAR ── */}
@@ -358,23 +382,28 @@ export default function BookDetailsRoute() {
             {formatAuthorList(book.bibliographic?.authors, book.author)}
           </p>
 
-          {/* Classification Chips Row */}
-          {book.classification && (
+          {/* Classification & Compute Chips Row */}
+          {(book.classification || computePill) && (
             <div className="space-y-2 pt-0.5">
-              <div className="flex flex-wrap items-center gap-2" aria-label="Book classification">
-                {book.classification.contentType && (
+              <div className="flex flex-wrap items-center gap-2" aria-label="Book metadata pills">
+                {book.classification?.contentType && (
                   <span className="text-micro uppercase font-semibold px-2.5 py-0.5 rounded-md bg-brand/10 text-brand tracking-wider select-none">
                     {book.classification.contentType}
                   </span>
                 )}
-                {book.classification.readingLevel && (
+                {book.classification?.readingLevel && (
                   <span className="text-caption font-medium px-2.5 py-0.5 rounded-md bg-subtle text-ink-muted capitalize select-none">
                     {book.classification.readingLevel}
                   </span>
                 )}
+                {computePill && (
+                  <span className="text-caption font-medium px-2.5 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/20 select-none">
+                    ⚡ {computePill}
+                  </span>
+                )}
               </div>
               {/* Hero panel tag chips: rendered via ExpandableTagPanel (styled with accent-2: bg-accent-2-soft text-accent-2 border border-accent-2-soft) */}
-              {Array.isArray(book.classification.tags) && book.classification.tags.length > 0 && (
+              {Array.isArray(book.classification?.tags) && book.classification.tags.length > 0 && (
                 <ExpandableTagPanel
                   tags={book.classification.tags}
                   interactive={false}

@@ -12,6 +12,7 @@ const upload = multer({
 
 const { getDatabase } = require('../db/database');
 const smartChapterRepository = require('../repositories/smartChapterRepository');
+const { getLifecycleHandler, readProgressHandler } = require('./lifecycleRoutes');
 
 // GET /api/books/sources - list all source items
 router.get('/sources', (req, res, next) => {
@@ -190,6 +191,12 @@ router.get('/:id', (req, res, next) => {
     next(err);
   }
 });
+
+// GET /api/books/:id/lifecycle - get complete lifecycle coordination record
+router.get('/:id/lifecycle', getLifecycleHandler);
+
+// POST /api/books/:id/lifecycle/read-progress - update reading progress snapshot
+router.post('/:id/lifecycle/read-progress', readProgressHandler);
 
 // DELETE /api/books/:id - delete book
 router.delete('/:id', (req, res, next) => {

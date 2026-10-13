@@ -717,3 +717,126 @@ export interface SemanticStatus {
   status?: string;
 }
 
+// ---------------------------------------------------------------------------
+// F52: Lifecycle State Coordination & LLM Token/Cost Types
+// ---------------------------------------------------------------------------
+
+export type LifecycleState = 'active' | 'library_only' | 'research_only' | 'archived';
+
+export interface BookLifecycle {
+  id: string;
+  book_id: string;
+  in_library: number;
+  in_research: number;
+  source_preserved: number;
+  lifecycle_state: LifecycleState;
+  deleted_at: string | null;
+  deleted_reason: string | null;
+  deleted_from: string | null;
+  last_read_chapter_id: string | null;
+  last_read_sequence: number | null;
+  last_read_title: string | null;
+  last_read_scroll_pct: number | null;
+  last_read_at: string | null;
+  re_synthesis_source_id: string | null;
+  synthesis_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReadingProgressSnapshot {
+  last_read_sequence: number | null;
+  last_read_title: string | null;
+  last_read_scroll_pct: number | null;
+  last_read_at: string | null;
+}
+
+export interface ChapterRenameEntry {
+  id: string;
+  lifecycle_id: string;
+  book_id: string;
+  chapter_sequence: number;
+  old_title: string | null;
+  new_title: string;
+  rename_source: string;
+  synthesis_cycle: number;
+  created_at: string;
+}
+
+export interface SynopsisVersionEntry {
+  version: number;
+  word_count: number;
+  created_at: string;
+  generator_type: string;
+  model_used?: string | null;
+}
+
+export interface DossierAppendEntry {
+  id: string;
+  dossier_id: string;
+  book_id: string | null;
+  source_id: string;
+  source_type: string;
+  file_name: string | null;
+  file_hash: string | null;
+  file_size: number | null;
+  source_url: string | null;
+  char_count: number;
+  word_count: number;
+  appended_at: string;
+  metadata_json?: string;
+}
+
+export interface LlmUsageByStage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  calls: number;
+}
+
+export interface BookLlmUsageSummary {
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  by_stage?: Record<string, LlmUsageByStage | null>;
+}
+
+export interface BookLifecycleDetails {
+  lifecycle: BookLifecycle;
+  reading: ReadingProgressSnapshot;
+  chapter_history: ChapterRenameEntry[];
+  synopsis_versions: SynopsisVersionEntry[];
+  append_log: DossierAppendEntry[];
+  usage_summary: BookLlmUsageSummary;
+}
+
+export interface LlmUsageSummary {
+  total_cost_usd: number;
+  total_tokens: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  by_provider: Record<string, {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    cost_usd: number;
+    calls: number;
+  }>;
+  by_stage: Record<string, {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    cost_usd: number;
+    calls: number;
+  }>;
+  by_book: Array<{
+    book_id: string;
+    title: string;
+    total_cost_usd: number;
+    total_tokens: number;
+  }>;
+}
+
+

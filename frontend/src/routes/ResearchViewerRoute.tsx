@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FileText, Globe } from 'lucide-react';
 import { useBook } from '../hooks/useBook';
 import { useChapters, useChapter } from '../hooks/useChapters';
+import { useLifecycle } from '../hooks/useLifecycle';
 import { CanonicalBlock } from '../components/reader/CanonicalBlock';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { apiClient } from '../api/client';
@@ -184,6 +185,15 @@ export default function ResearchViewerRoute() {
 
   const { book, isLoading: bookLoading, isError: bookError } = useBook(bookId || '');
   const { chapters, isLoading: chaptersLoading } = useChapters(bookId || '');
+
+  const isDossier = Boolean(
+    book?.contentType === 'research' ||
+    (book as any)?.content_type === 'research' ||
+    book?.sourceFormat === 'dossier' ||
+    book?.sourceSite === 'Multi-Source Dossier'
+  );
+
+  const { data: lifecycleData } = useLifecycle(isDossier ? bookId : null);
 
   const [activeChapterId, setActiveChapterId] = React.useState<string | null>(null);
 
@@ -369,6 +379,52 @@ export default function ResearchViewerRoute() {
                   ))}
                 </nav>
               )}
+
+              {/* Dossier Manifest (F52) */}
+              {isDossier && (
+                <div className="pt-4 border-t border-line space-y-2">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                    Dossier Manifest
+                  </h2>
+                  {lifecycleData?.append_log && lifecycleData.append_log.length > 0 ? (
+                    <div className="space-y-2 text-xs">
+                      {lifecycleData.append_log.map((entry) => {
+                        const dateStr = entry.appended_at ? new Date(entry.appended_at).toLocaleDateString() : '';
+                        const hashShort = entry.file_hash ? entry.file_hash.substring(0, 8) : null;
+                        const label = entry.file_name || entry.source_url || entry.source_id;
+                        const isWeb = entry.source_type === 'web' || Boolean(entry.source_url);
+
+                        return (
+                          <div
+                            key={entry.id}
+                            className="p-2 rounded border border-line bg-card/60 space-y-1"
+                          >
+                            <div className="flex items-center gap-1.5 font-medium text-ink">
+                              {isWeb ? (
+                                <Globe className="w-3.5 h-3.5 text-accent shrink-0" aria-hidden="true" />
+                              ) : (
+                                <FileText className="w-3.5 h-3.5 text-brand shrink-0" aria-hidden="true" />
+                              )}
+                              <span className="truncate" title={label}>{label}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-ink-muted">
+                              <span>{(entry.word_count || 0).toLocaleString()} words</span>
+                              <span>{dateStr}</span>
+                            </div>
+                            {hashShort && (
+                              <div className="text-[10px] text-ink-faint font-mono">
+                                hash: {hashShort}…
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-ink-muted italic">No sources appended yet</p>
+                  )}
+                </div>
+              )}
             </div>
           </aside>
 
@@ -393,6 +449,52 @@ export default function ResearchViewerRoute() {
                     </option>
                   ))}
                 </select>
+              )}
+
+              {/* Mobile Dossier Manifest (F52) */}
+              {isDossier && (
+                <div className="mt-4 pt-3 border-t border-line space-y-2">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                    Dossier Manifest
+                  </h2>
+                  {lifecycleData?.append_log && lifecycleData.append_log.length > 0 ? (
+                    <div className="space-y-2 text-xs">
+                      {lifecycleData.append_log.map((entry) => {
+                        const dateStr = entry.appended_at ? new Date(entry.appended_at).toLocaleDateString() : '';
+                        const hashShort = entry.file_hash ? entry.file_hash.substring(0, 8) : null;
+                        const label = entry.file_name || entry.source_url || entry.source_id;
+                        const isWeb = entry.source_type === 'web' || Boolean(entry.source_url);
+
+                        return (
+                          <div
+                            key={entry.id}
+                            className="p-2 rounded border border-line bg-card/60 space-y-1"
+                          >
+                            <div className="flex items-center gap-1.5 font-medium text-ink">
+                              {isWeb ? (
+                                <Globe className="w-3.5 h-3.5 text-accent shrink-0" aria-hidden="true" />
+                              ) : (
+                                <FileText className="w-3.5 h-3.5 text-brand shrink-0" aria-hidden="true" />
+                              )}
+                              <span className="truncate" title={label}>{label}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-ink-muted">
+                              <span>{(entry.word_count || 0).toLocaleString()} words</span>
+                              <span>{dateStr}</span>
+                            </div>
+                            {hashShort && (
+                              <div className="text-[10px] text-ink-faint font-mono">
+                                hash: {hashShort}…
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-ink-muted italic">No sources appended yet</p>
+                  )}
+                </div>
               )}
             </div>
 

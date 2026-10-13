@@ -17,6 +17,7 @@ const smartChapterRoutes = require('./routes/smartChapterRoutes');
 const configRoutes = require('./routes/configRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const importQueueRoutes = require('./routes/importQueueRoutes');
+const lifecycleRoutes = require('./routes/lifecycleRoutes');
 const aiService = require('./services/ai/aiService');
 const bookService = require('./services/bookService');
 const embeddingService = require('./services/semantic/embeddingService');
@@ -71,6 +72,7 @@ app.use('/api/chunks', chunkRoutes);
 app.use('/api/smart-chapters', smartChapterRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/lifecycle', lifecycleRoutes);
 
 // Development Reset & Sample Seed Endpoint
 app.post('/api/dev/reset', (req, res, next) => {
