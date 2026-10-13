@@ -174,10 +174,10 @@ async function warmModel(modelName, baseUrl, options = {}) {
  *
  * @param {string} modelName - Model name (e.g., 'embed', 'ocr', 'reranker')
  * @param {string|number} [baseUrl]
- * @param {number} [timeoutMs=1000]
- * @returns {Promise<{ ready: boolean, state: string, in_flight?: number, idle_seconds?: number, error?: string }>}
+ * @param {number} [timeoutMs=2000]
+ * @returns {Promise<{ ready: boolean, state: string, in_flight?: number, idle_seconds?: number, reason: string, error?: string }>}
  */
-async function checkModelReady(modelName, baseUrl, timeoutMs = 1000) {
+async function checkModelReady(modelName, baseUrl, timeoutMs = 2000) {
   if (typeof baseUrl === 'number') {
     timeoutMs = baseUrl;
     baseUrl = undefined;
@@ -185,21 +185,25 @@ async function checkModelReady(modelName, baseUrl, timeoutMs = 1000) {
   const targetUrl = resolveBaseUrl(baseUrl);
   try {
     const signal = AbortSignal.timeout(timeoutMs);
-    const res = await fetch(`${targetUrl}/v1/lifecycle/status?check=/ready`, { signal });
+    const res = await fetch(`${targetUrl}/v1/lifecycle/status?model=${encodeURIComponent(modelName)}`, { signal });
     if (res.ok) {
       const data = typeof res.json === 'function' ? await res.json().catch(() => null) : null;
       if (!data) {
-        return { ready: true, state: 'LOADED' };
+        return { ready: true, state: 'LOADED', in_flight: 0, reason: 'ready' };
       }
-      const modelInfo = data?.models?.[modelName] || data?.[modelName];
-      if (!modelInfo) {
-        return { ready: false, state: 'NOT_FOUND' };
+      const modelInfo = (data?.model === modelName ? data : null) || data?.models?.[modelName] || data?.[modelName];
+      if (!modelInfo || !modelInfo.state) {
+        return { ready: false, state: 'NOT_FOUND', in_flight: 0, reason: 'unreachable' };
       }
       return {
-        ready: modelInfo.state === 'LOADED',
+        ready: modelInfo.state === 'LOADED' || modelInfo.state === 'LOADING',
         state: modelInfo.state,
-        in_flight: modelInfo.in_flight,
+        in_flight: modelInfo.in_flight || 0,
         idle_seconds: modelInfo.idle_seconds,
+        reason: modelInfo.state === 'LOADED' ? 'ready'
+              : modelInfo.state === 'LOADING' ? 'loading'
+              : modelInfo.state === 'UNLOADED' ? 'unloaded'
+              : 'unreachable',
       };
     }
     if (res.status === 404) {
@@ -208,11 +212,13 @@ async function checkModelReady(modelName, baseUrl, timeoutMs = 1000) {
       return {
         ready: healthStatus.ready,
         state: healthStatus.ready ? 'LOADED' : 'UNLOADED',
+        in_flight: 0,
+        reason: healthStatus.ready ? 'ready' : 'unreachable',
       };
     }
-    return { ready: false, state: 'UNKNOWN', error: `Status ${res.status}` };
+    return { ready: false, state: 'UNKNOWN', in_flight: 0, reason: 'unreachable', error: `Status ${res.status}` };
   } catch (err) {
-    return { ready: false, state: 'DOWN', error: err?.message || String(err) };
+    return { ready: false, state: 'DOWN', in_flight: 0, reason: 'unreachable', error: err?.message || String(err) };
   }
 }
 

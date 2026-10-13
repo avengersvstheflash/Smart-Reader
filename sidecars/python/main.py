@@ -64,8 +64,17 @@ def health_check():
     }
 
 @app.get("/v1/lifecycle/status")
-def lifecycle_status():
-    return lifecycle_manager.status()
+async def lifecycle_status(model: str | None = None):
+    full = lifecycle_manager.status()
+    if model:
+        model_info = full.get("models", {}).get(model, {})
+        return {
+            "model": model,
+            "state": model_info.get("state"),
+            "in_flight": model_info.get("in_flight", 0),
+            "idle_seconds": model_info.get("idle_seconds"),
+        }
+    return full
 
 @app.post("/v1/lifecycle/warm")
 def lifecycle_warm(model: str):

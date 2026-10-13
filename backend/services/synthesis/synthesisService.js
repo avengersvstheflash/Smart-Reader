@@ -595,12 +595,20 @@ OUTPUT:`;
           try {
             if (config.USE_PYTHON_EMBEDDER) {
               const { checkModelReady, warmModel } = require('../ai/sidecarBase');
-              const embedStatus = await checkModelReady('embed', null, 500);
-              if (embedStatus.state === 'DOWN') {
+              const cap = await checkModelReady('embed', null, 2000);
+              if (cap.reason === 'unreachable') {
                 embeddingFallbackDisabled = true;
                 throw new Error('Python sidecar unavailable for embedding fallback');
               }
-              if (embedStatus.state === 'UNLOADED' || embedStatus.state === 'LOADING') {
+              if (cap.state === 'LOADED' && cap.in_flight >= 4) {
+                await new Promise((r) => setTimeout(r, 400 + Math.random() * 400));
+                const retry = await checkModelReady('embed', null, 2000);
+                if (retry.reason === 'unreachable') {
+                  embeddingFallbackDisabled = true;
+                  throw new Error('Python sidecar unavailable for embedding fallback');
+                }
+              }
+              if (cap.state === 'UNLOADED' || cap.state === 'LOADING') {
                 await warmModel('embed', null, { timeoutMs: 15000 });
               }
             }

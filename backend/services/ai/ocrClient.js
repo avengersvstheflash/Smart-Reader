@@ -18,14 +18,14 @@ const { resolveBaseUrl, warmModel, checkModelReady } = require('./sidecarBase');
  * Checks /v1/lifecycle/status for 'ocr' state, falling back to legacy /v1/ready.
  *
  * @param {string} [baseUrl]
- * @param {number} [timeoutMs=500]
+ * @param {number} [timeoutMs=2000]
  * @returns {Promise<{ ready: boolean, reason?: 'down' | 'warming' }>}
  */
-async function checkOcrReady(baseUrl, timeoutMs = 500) {
+async function checkOcrReady(baseUrl, timeoutMs = 2000) {
   const targetUrl = resolveBaseUrl(baseUrl);
   try {
     const status = await checkModelReady('ocr', targetUrl, timeoutMs);
-    if (status.ready) {
+    if (status.ready && status.state === 'LOADED') {
       return { ready: true, state: 'LOADED' };
     }
     if (status.state === 'LOADING') {
@@ -103,8 +103,11 @@ async function ocrPdf(pdfBuffer, options = {}) {
   // If normal execution timeout, proactively check or warm OCR model without blocking non-OCR workloads
   if (timeoutMs > 1000) {
     try {
-      const ocrStatus = await checkModelReady('ocr', targetUrl, 500);
-      if (!ocrStatus.ready && ocrStatus.state === 'UNLOADED') {
+      const ocrStatus = await checkModelReady('ocr', targetUrl, 2000);
+      if (ocrStatus.state === 'LOADED' && ocrStatus.in_flight >= 4) {
+        await new Promise((r) => setTimeout(r, 400 + Math.random() * 400));
+        await checkModelReady('ocr', targetUrl, 2000);
+      } else if (!ocrStatus.ready && ocrStatus.state === 'UNLOADED') {
         await warmModel('ocr', targetUrl, { timeoutMs: 15000 });
       }
     } catch (_) {

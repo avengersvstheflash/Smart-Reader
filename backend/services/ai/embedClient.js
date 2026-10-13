@@ -52,10 +52,13 @@ async function embedBatch(texts, options = {}) {
     throw unavailableErr;
   }
 
-  // Proactively warm embed model if unloaded/idle
+  // Proactively warm embed model if unloaded/idle, respecting backpressure
   try {
-    const embedStatus = await checkModelReady('embed', targetUrl, 1000);
-    if (!embedStatus.ready && embedStatus.state !== 'DOWN') {
+    const embedStatus = await checkModelReady('embed', targetUrl, 2000);
+    if (embedStatus.state === 'LOADED' && embedStatus.in_flight >= 4) {
+      await new Promise((r) => setTimeout(r, 400 + Math.random() * 400));
+      await checkModelReady('embed', targetUrl, 2000);
+    } else if (!embedStatus.ready && embedStatus.state !== 'DOWN') {
       await warmModel('embed', targetUrl, { timeoutMs: 15000 });
     }
   } catch (_warmErr) {
