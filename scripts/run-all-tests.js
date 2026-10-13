@@ -71,6 +71,7 @@ const SUITES = [
   'import_queue_pipeline_test.js',
   'web_expanded_search_test.js',
   'f63_settings_service_test.js',
+  'f52_schema_and_lifecycle_test.js',
 ];
 
 

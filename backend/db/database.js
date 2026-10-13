@@ -88,6 +88,263 @@ if (version < 2) {
   db.pragma('user_version = 2');
   version = 2;
 }
+
+if (version < 3) {
+  // Migration 3 (F52): Coordination Layer & History Tables
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS book_lifecycle (
+      id TEXT PRIMARY KEY,
+      book_id TEXT UNIQUE NOT NULL,
+      in_library INTEGER NOT NULL DEFAULT 1,
+      in_research INTEGER NOT NULL DEFAULT 1,
+      source_preserved INTEGER NOT NULL DEFAULT 1,
+      lifecycle_state TEXT NOT NULL DEFAULT 'active',
+      deleted_at TEXT,
+      deleted_reason TEXT,
+      deleted_from TEXT,
+      last_read_chapter_id TEXT,
+      last_read_sequence INTEGER,
+      last_read_title TEXT,
+      last_read_scroll_pct REAL,
+      last_read_at TEXT,
+      re_synthesis_source_id TEXT,
+      synthesis_count INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_book_lifecycle_book_id ON book_lifecycle(book_id);
+    CREATE INDEX IF NOT EXISTS idx_book_lifecycle_state ON book_lifecycle(lifecycle_state);
+    CREATE INDEX IF NOT EXISTS idx_book_lifecycle_library ON book_lifecycle(in_library);
+    CREATE INDEX IF NOT EXISTS idx_book_lifecycle_research ON book_lifecycle(in_research);
+
+    CREATE TABLE IF NOT EXISTS chapter_name_history (
+      id TEXT PRIMARY KEY,
+      lifecycle_id TEXT NOT NULL,
+      book_id TEXT NOT NULL,
+      chapter_sequence INTEGER NOT NULL,
+      old_title TEXT,
+      new_title TEXT NOT NULL,
+      rename_source TEXT NOT NULL,
+      synthesis_cycle INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (lifecycle_id) REFERENCES book_lifecycle(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_cnh_lifecycle_seq ON chapter_name_history(lifecycle_id, chapter_sequence);
+    CREATE INDEX IF NOT EXISTS idx_cnh_book ON chapter_name_history(book_id);
+
+    CREATE TABLE IF NOT EXISTS synopsis_history (
+      id TEXT PRIMARY KEY,
+      lifecycle_id TEXT NOT NULL,
+      book_id TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      synopsis_text TEXT NOT NULL,
+      generator_type TEXT NOT NULL,
+      model_used TEXT,
+      word_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (lifecycle_id) REFERENCES book_lifecycle(id) ON DELETE CASCADE,
+      CONSTRAINT uq_syn_version UNIQUE (lifecycle_id, version)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_synopsis_hist_lifecycle ON synopsis_history(lifecycle_id, version);
+    CREATE INDEX IF NOT EXISTS idx_synopsis_hist_book ON synopsis_history(book_id);
+
+    CREATE TABLE IF NOT EXISTS dossier_append_log (
+      id TEXT PRIMARY KEY,
+      dossier_id TEXT NOT NULL,
+      book_id TEXT,
+      source_id TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      file_name TEXT,
+      file_hash TEXT,
+      file_size INTEGER,
+      source_url TEXT,
+      char_count INTEGER DEFAULT 0,
+      word_count INTEGER DEFAULT 0,
+      appended_at TEXT NOT NULL,
+      metadata_json TEXT DEFAULT '{}',
+      CONSTRAINT uq_dossier_hash UNIQUE (dossier_id, file_hash)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_append_log_dossier ON dossier_append_log(dossier_id);
+    CREATE INDEX IF NOT EXISTS idx_append_log_hash ON dossier_append_log(file_hash);
+    CREATE INDEX IF NOT EXISTS idx_append_log_book ON dossier_append_log(book_id);
+
+    CREATE TABLE IF NOT EXISTS llm_usage (
+      id TEXT PRIMARY KEY,
+      lifecycle_id TEXT,
+      book_id TEXT NOT NULL,
+      chapter_id TEXT,
+      stage TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      total_tokens INTEGER NOT NULL DEFAULT 0,
+      cost_estimate_usd REAL NOT NULL DEFAULT 0.0,
+      latency_ms INTEGER NOT NULL DEFAULT 0,
+      finish_reason TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (lifecycle_id) REFERENCES book_lifecycle(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_book ON llm_usage(book_id);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_chapter ON llm_usage(chapter_id);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_lifecycle ON llm_usage(lifecycle_id);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_stage ON llm_usage(stage);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_created ON llm_usage(created_at);
+  `);
+
+  try {
+    backfillBookLifecycles(db);
+  } catch (err) {
+    console.warn('[DB Migration] backfillBookLifecycles notice:', err.message);
+  }
+
+  db.pragma('user_version = 3');
+  version = 3;
+}
+}
+
+function backfillBookLifecycles(db) {
+  const hasBooksTable = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='books'").get();
+  if (!hasBooksTable) return;
+
+  const hasLifecycleTable = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='book_lifecycle'").get();
+  if (!hasLifecycleTable) return;
+
+  const books = db.prepare('SELECT id, title, description, content_type, created_at, updated_at FROM books').all();
+  if (!books || books.length === 0) return;
+
+  const findLifecycle = db.prepare('SELECT id FROM book_lifecycle WHERE book_id = ?');
+  const insertLifecycle = db.prepare(`
+    INSERT INTO book_lifecycle (
+      id, book_id, in_library, in_research, source_preserved,
+      lifecycle_state, deleted_at, deleted_reason, deleted_from,
+      last_read_chapter_id, last_read_sequence, last_read_title,
+      last_read_scroll_pct, last_read_at,
+      re_synthesis_source_id, synthesis_count,
+      created_at, updated_at
+    ) VALUES (
+      @id, @book_id, @in_library, @in_research, @source_preserved,
+      @lifecycle_state, @deleted_at, @deleted_reason, @deleted_from,
+      @last_read_chapter_id, @last_read_sequence, @last_read_title,
+      @last_read_scroll_pct, @last_read_at,
+      @re_synthesis_source_id, @synthesis_count,
+      @created_at, @updated_at
+    )
+  `);
+
+  const hasSynopsisHistTable = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='synopsis_history'").get();
+  const insertInitialSynopsis = hasSynopsisHistTable ? db.prepare(`
+    INSERT OR IGNORE INTO synopsis_history (
+      id, lifecycle_id, book_id, version, synopsis_text,
+      generator_type, model_used, word_count, created_at
+    ) VALUES (
+      @id, @lifecycle_id, @book_id, @version, @synopsis_text,
+      @generator_type, @model_used, @word_count, @created_at
+    )
+  `) : null;
+
+  const hasSmartTable = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='smart_chapters'").get();
+  const hasChaptersTable = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chapters'").get();
+
+  const countGeneratedSmart = hasSmartTable
+    ? db.prepare("SELECT COUNT(*) as count FROM smart_chapters WHERE book_id = ? AND status = 'generated'")
+    : null;
+
+  const countSourceChapters = hasChaptersTable
+    ? db.prepare("SELECT COUNT(*) as count FROM chapters WHERE book_id = ?")
+    : null;
+
+  const getLatestReading = hasSmartTable
+    ? db.prepare(`
+        SELECT id, sequence, title,
+               COALESCE(read_at, opened_at) as last_touched,
+               CASE WHEN read_at IS NOT NULL THEN 1.0 ELSE 0.0 END as scroll_pct
+        FROM smart_chapters
+        WHERE book_id = ? AND (read_at IS NOT NULL OR opened_at IS NOT NULL)
+        ORDER BY last_touched DESC
+        LIMIT 1
+      `)
+    : null;
+
+  const now = new Date().toISOString();
+
+  const runBackfillBatch = db.transaction((bookList) => {
+    for (const b of bookList) {
+      const existing = findLifecycle.get(b.id);
+      if (existing) continue;
+
+      const generatedSmartCount = countGeneratedSmart ? (countGeneratedSmart.get(b.id)?.count || 0) : 0;
+      const sourceCount = countSourceChapters ? (countSourceChapters.get(b.id)?.count || 0) : 0;
+
+      const inLibrary = generatedSmartCount > 0 ? 1 : 0;
+      const inResearch = (sourceCount > 0 || b.content_type === 'research') ? 1 : 0;
+      const sourcePreserved = 1;
+
+      let lifecycleState = 'active';
+      if (inLibrary && inResearch) {
+        lifecycleState = 'active';
+      } else if (inLibrary && !inResearch) {
+        lifecycleState = 'library_only';
+      } else if (!inLibrary && inResearch) {
+        lifecycleState = 'research_only';
+      } else {
+        lifecycleState = 'archived';
+      }
+
+      const reading = getLatestReading ? getLatestReading.get(b.id) : null;
+      const lifecycleId = `lc-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+      insertLifecycle.run({
+        id: lifecycleId,
+        book_id: b.id,
+        in_library: inLibrary,
+        in_research: inResearch,
+        source_preserved: sourcePreserved,
+        lifecycle_state: lifecycleState,
+        deleted_at: null,
+        deleted_reason: null,
+        deleted_from: null,
+        last_read_chapter_id: reading ? reading.id : null,
+        last_read_sequence: reading ? reading.sequence : null,
+        last_read_title: reading ? reading.title : null,
+        last_read_scroll_pct: reading ? reading.scroll_pct : null,
+        last_read_at: reading ? reading.last_touched : null,
+        re_synthesis_source_id: null,
+        synthesis_count: inLibrary ? 1 : 0,
+        created_at: b.created_at || now,
+        updated_at: b.updated_at || now,
+      });
+
+      if (insertInitialSynopsis && b.description && b.description.trim().length > 0) {
+        let wordCount = 0;
+        try {
+          const { countWords } = require('../utils/wordCount');
+          wordCount = countWords(b.description);
+        } catch {
+          wordCount = b.description.split(/\s+/).length;
+        }
+
+        insertInitialSynopsis.run({
+          id: `syn-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+          lifecycle_id: lifecycleId,
+          book_id: b.id,
+          version: 1,
+          synopsis_text: b.description.trim(),
+          generator_type: 'ai_initial',
+          model_used: null,
+          word_count: wordCount,
+          created_at: b.created_at || now,
+        });
+      }
+    }
+  });
+
+  runBackfillBatch(books);
 }
 
 function initSchema(db) {
@@ -254,6 +511,110 @@ function initSchema(db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_import_queue_status_order ON import_queue(status, queue_order);
+
+    CREATE TABLE IF NOT EXISTS book_lifecycle (
+      id TEXT PRIMARY KEY,
+      book_id TEXT UNIQUE NOT NULL,
+      in_library INTEGER NOT NULL DEFAULT 1,
+      in_research INTEGER NOT NULL DEFAULT 1,
+      source_preserved INTEGER NOT NULL DEFAULT 1,
+      lifecycle_state TEXT NOT NULL DEFAULT 'active',
+      deleted_at TEXT,
+      deleted_reason TEXT,
+      deleted_from TEXT,
+      last_read_chapter_id TEXT,
+      last_read_sequence INTEGER,
+      last_read_title TEXT,
+      last_read_scroll_pct REAL,
+      last_read_at TEXT,
+      re_synthesis_source_id TEXT,
+      synthesis_count INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_book_lifecycle_book_id ON book_lifecycle(book_id);
+    CREATE INDEX IF NOT EXISTS idx_book_lifecycle_state ON book_lifecycle(lifecycle_state);
+    CREATE INDEX IF NOT EXISTS idx_book_lifecycle_library ON book_lifecycle(in_library);
+    CREATE INDEX IF NOT EXISTS idx_book_lifecycle_research ON book_lifecycle(in_research);
+
+    CREATE TABLE IF NOT EXISTS chapter_name_history (
+      id TEXT PRIMARY KEY,
+      lifecycle_id TEXT NOT NULL,
+      book_id TEXT NOT NULL,
+      chapter_sequence INTEGER NOT NULL,
+      old_title TEXT,
+      new_title TEXT NOT NULL,
+      rename_source TEXT NOT NULL,
+      synthesis_cycle INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (lifecycle_id) REFERENCES book_lifecycle(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_cnh_lifecycle_seq ON chapter_name_history(lifecycle_id, chapter_sequence);
+    CREATE INDEX IF NOT EXISTS idx_cnh_book ON chapter_name_history(book_id);
+
+    CREATE TABLE IF NOT EXISTS synopsis_history (
+      id TEXT PRIMARY KEY,
+      lifecycle_id TEXT NOT NULL,
+      book_id TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      synopsis_text TEXT NOT NULL,
+      generator_type TEXT NOT NULL,
+      model_used TEXT,
+      word_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (lifecycle_id) REFERENCES book_lifecycle(id) ON DELETE CASCADE,
+      CONSTRAINT uq_syn_version UNIQUE (lifecycle_id, version)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_synopsis_hist_lifecycle ON synopsis_history(lifecycle_id, version);
+    CREATE INDEX IF NOT EXISTS idx_synopsis_hist_book ON synopsis_history(book_id);
+
+    CREATE TABLE IF NOT EXISTS dossier_append_log (
+      id TEXT PRIMARY KEY,
+      dossier_id TEXT NOT NULL,
+      book_id TEXT,
+      source_id TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      file_name TEXT,
+      file_hash TEXT,
+      file_size INTEGER,
+      source_url TEXT,
+      char_count INTEGER DEFAULT 0,
+      word_count INTEGER DEFAULT 0,
+      appended_at TEXT NOT NULL,
+      metadata_json TEXT DEFAULT '{}',
+      CONSTRAINT uq_dossier_hash UNIQUE (dossier_id, file_hash)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_append_log_dossier ON dossier_append_log(dossier_id);
+    CREATE INDEX IF NOT EXISTS idx_append_log_hash ON dossier_append_log(file_hash);
+    CREATE INDEX IF NOT EXISTS idx_append_log_book ON dossier_append_log(book_id);
+
+    CREATE TABLE IF NOT EXISTS llm_usage (
+      id TEXT PRIMARY KEY,
+      lifecycle_id TEXT,
+      book_id TEXT NOT NULL,
+      chapter_id TEXT,
+      stage TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      total_tokens INTEGER NOT NULL DEFAULT 0,
+      cost_estimate_usd REAL NOT NULL DEFAULT 0.0,
+      latency_ms INTEGER NOT NULL DEFAULT 0,
+      finish_reason TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (lifecycle_id) REFERENCES book_lifecycle(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_book ON llm_usage(book_id);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_chapter ON llm_usage(chapter_id);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_lifecycle ON llm_usage(lifecycle_id);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_stage ON llm_usage(stage);
+    CREATE INDEX IF NOT EXISTS idx_llm_usage_created ON llm_usage(created_at);
   `);
 
   // Migrate chapter_representations if foreign key constraint blocks cross_source outline chapters
@@ -543,6 +904,7 @@ function initSchema(db) {
     }
   } catch {}
 
+  backfillBookLifecycles(db);
   seedDefaultBookIfEmpty(db);
 }
 
@@ -551,6 +913,11 @@ function resetAndSeedDatabase(db) {
   
   db.transaction(() => {
     db.exec(`
+      DELETE FROM llm_usage;
+      DELETE FROM dossier_append_log;
+      DELETE FROM synopsis_history;
+      DELETE FROM chapter_name_history;
+      DELETE FROM book_lifecycle;
       DELETE FROM paragraph_attributions;
       DELETE FROM smart_chapters;
       DELETE FROM semantic_chunks;
@@ -1458,6 +1825,8 @@ function seedSampleBooks(db) {
     metadata_json: JSON.stringify({ model: 'smart_reader_v4', provider: 'deterministic_synthesizer' }),
     created_at: now,
   });
+
+  backfillBookLifecycles(db);
 }
 
 function closeDatabase() {
@@ -1475,5 +1844,6 @@ module.exports = {
   getDatabase,
   closeDatabase,
   resetAndSeedDatabase,
+  backfillBookLifecycles,
 };
 
