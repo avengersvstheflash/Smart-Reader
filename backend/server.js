@@ -15,6 +15,7 @@ const representationRoutes = require('./routes/representationRoutes');
 const chunkRoutes = require('./routes/chunkRoutes');
 const smartChapterRoutes = require('./routes/smartChapterRoutes');
 const configRoutes = require('./routes/configRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
 const importQueueRoutes = require('./routes/importQueueRoutes');
 const aiService = require('./services/ai/aiService');
 const bookService = require('./services/bookService');
@@ -35,6 +36,13 @@ getDatabase();
 
 // Middleware
 app.use(cors());
+
+// Security: disable request body logging for sensitive settings routes
+app.use('/api/settings', (req, res, next) => {
+  req._skipBodyLogging = true;
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -62,6 +70,7 @@ app.use('/api/representations', representationRoutes);
 app.use('/api/chunks', chunkRoutes);
 app.use('/api/smart-chapters', smartChapterRoutes);
 app.use('/api/config', configRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Development Reset & Sample Seed Endpoint
 app.post('/api/dev/reset', (req, res, next) => {
@@ -102,7 +111,18 @@ app.use('/api', (req, res) => {
 
 // Centralized error handling (MUST be the last middleware in the chain)
 app.use((err, req, res, next) => {
-  console.error('[API Error]:', err);
+  if (req.originalUrl && req.originalUrl.startsWith('/api/settings')) {
+    const { scrubSecret } = require('./services/settings/settingsService');
+    const safeMsg = scrubSecret(err.message || 'Internal Server Error', req.body?.openrouter?.apiKey || req.body?.apiKey);
+    console.error(`[API Error] ${req.method} ${req.originalUrl}:`, safeMsg);
+    const status = err.status || (err.name === 'MulterError' ? 400 : 500);
+    return res.status(status).json({
+      error: safeMsg,
+      code: err.code || undefined,
+    });
+  } else {
+    console.error('[API Error]:', err);
+  }
   const status = err.status || (err.name === 'MulterError' ? 400 : 500);
   res.status(status).json({
     error: err.message || 'Internal Server Error',

@@ -60,13 +60,15 @@ function resolveImportMaxSizeMB() {
   return parsed;
 }
 
-const IMPORT_MAX_SIZE_MB = resolveImportMaxSizeMB();
+const settingsService = require('./services/settings/settingsService');
 
 module.exports = {
   PORT: 3000,
   ROOT_DIR,
   STORAGE_DIR,
-  IMPORT_MAX_SIZE_MB,
+  get IMPORT_MAX_SIZE_MB() {
+    return settingsService.get().importMaxSizeMB;
+  },
   BOOKS_DIR: path.join(STORAGE_DIR, 'books'),
   COVERS_DIR: path.join(STORAGE_DIR, 'covers'),
   PAGES_DIR: path.join(STORAGE_DIR, 'pages'),
@@ -75,13 +77,28 @@ module.exports = {
   DB_PATH: process.env.DB_PATH || path.join(__dirname, '..', 'storage', 'data.db'),
   
   // AI Provider Configuration (strictly safe identifier, never secrets)
-  AI_PROVIDER: resolveSafeProvider(process.env.AI_PROVIDER || 'ollama'),
-  OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
-  OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'llama3',
-  OLLAMA_TIMEOUT_MS: parseInt(process.env.OLLAMA_TIMEOUT_MS || '30000', 10),
-  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || '',
-  OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash',
-  OPENROUTER_TIMEOUT_MS: parseInt(process.env.OPENROUTER_TIMEOUT_MS || '30000', 10),
+  get AI_PROVIDER() {
+    return resolveSafeProvider(settingsService.get().aiProvider);
+  },
+  get OLLAMA_BASE_URL() {
+    const raw = settingsService.get().local?.baseUrl || process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
+    return typeof raw === 'string' ? raw.trim().replace(/\/+$/, '').replace(/\/v1$/, '') : raw;
+  },
+  get OLLAMA_MODEL() {
+    return settingsService.get().local?.model || process.env.OLLAMA_MODEL || 'llama3';
+  },
+  get OLLAMA_TIMEOUT_MS() {
+    return parseInt(settingsService.get().local?.timeoutMs || process.env.OLLAMA_TIMEOUT_MS || '30000', 10);
+  },
+  get OPENROUTER_API_KEY() {
+    return settingsService.get().openrouter?.apiKey ?? (process.env.OPENROUTER_API_KEY || '');
+  },
+  get OPENROUTER_MODEL() {
+    return settingsService.get().openrouter?.model || process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash';
+  },
+  get OPENROUTER_TIMEOUT_MS() {
+    return parseInt(settingsService.get().openrouter?.timeoutMs || process.env.OPENROUTER_TIMEOUT_MS || '30000', 10);
+  },
 
   // Synthesis Validation & Refine Loops (Phase 5.6)
   MIN_SOURCE_CHUNK_WORDS: parseInt(process.env.MIN_SOURCE_CHUNK_WORDS || '75', 10),

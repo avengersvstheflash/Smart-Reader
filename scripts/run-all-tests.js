@@ -70,6 +70,7 @@ const SUITES = [
   'tier2_chardet_encoding_test.js',
   'import_queue_pipeline_test.js',
   'web_expanded_search_test.js',
+  'f63_settings_service_test.js',
 ];
 
 
