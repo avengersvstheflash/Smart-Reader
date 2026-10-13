@@ -340,9 +340,7 @@ class IntelligentSummarizer {
       }
 
       const isPartialSynopsis = /\[PARTIAL:[^\]]*\]/i.test(rawSynopsis) || usableWords < 50;
-      if (isPartialSynopsis) {
-        metadata.llm_flagged_partial = true;
-      }
+      metadata.llm_flagged_partial = Boolean(isPartialSynopsis);
 
       let storedSynopsisContent = rawSynopsis;
       if (/\[PARTIAL:[^\]]*\]/i.test(rawSynopsis) && rawSynopsis.trim() !== '[PARTIAL: inputs insufficient for full synopsis]') {
@@ -367,9 +365,7 @@ class IntelligentSummarizer {
       } catch (e) {
         bookMeta = {};
       }
-      if (isPartialSynopsis) {
-        bookMeta.llm_flagged_partial = true;
-      }
+      bookMeta.llm_flagged_partial = Boolean(isPartialSynopsis);
 
       const db = getDatabase();
       db.prepare('UPDATE books SET description = ?, metadata_json = ?, updated_at = ? WHERE id = ?')
@@ -866,7 +862,7 @@ OUTPUT:`;
 
 INPUTS PROVIDED:
 
-Author's preface (their own framing of the book)
+Author's preface (optional; many books have none)
 
 Table of contents
 
@@ -898,7 +894,7 @@ Do not summarize the preface — describe the book.
 
 Every sentence must be verifiable from the provided inputs. Avoid evaluative language ("reads like", "feels", "engaging"). Describe structure and content, not subjective experience.
 
-If the inputs are insufficient for a full synopsis, close with one honest line: "[PARTIAL: inputs insufficient for full synopsis]".
+Emit '[PARTIAL: inputs insufficient for full synopsis]' ONLY if the table of contents, first body chapter opening, and last body chapter opening are ALL absent or empty. A missing preface alone does NOT constitute insufficient inputs — many books have no preface and should produce a normal synopsis.
 
 INPUTS:
 ${prefaceText}
