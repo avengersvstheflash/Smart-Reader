@@ -41,6 +41,180 @@ function countWordsFast(str) {
   return count;
 }
 
+function _persistStage(tId, stageName, status) {
+  if (!tId) return;
+  try {
+    const importQueueRepository = require('../repositories/importQueueRepository');
+    importQueueRepository.updateStage(tId, stageName, status);
+  } catch (err) {
+    console.warn(`[bookService] Failed to persist stage ${stageName} for task ${tId}:`, err.message);
+  }
+}
+
+/**
+ * Post-ingest pipeline: SEMANTIC_INDEX -> CLASSIFY -> OUTLINE -> SYNOPSIS -> SYNTHESIS -> ATTRIBUTION.
+ * Blocks sequentially until all downstream pipeline operations conclude.
+ */
+async function _runPostIngestPipeline(book, options = {}) {
+  const {
+    jobId,
+    taskId,
+    chapterEntities = [],
+    totalWords = 0,
+    pipelineT0 = Date.now(),
+    stageTimings = {},
+    qualifiesForOutline = false,
+    qualifiesForSynopsis = false,
+  } = options;
+
+  try {
+    _persistStage(taskId, 'semantic_index', 'running');
+    const semanticLifecycle = require('./semantic/semanticLifecycle');
+    const indexJob = jobRepository.create({
+      book_id: book.id,
+      type: 'SEMANTIC_INDEX',
+      status: 'PROCESSING',
+      progress: 0,
+    });
+
+    const t0Index = Date.now();
+    try {
+      await semanticLifecycle.indexBook(book.id, { skipJob: false, jobId: indexJob.id });
+      stageTimings.indexMs = Date.now() - t0Index;
+      jobRepository.complete(indexJob.id);
+      _persistStage(taskId, 'semantic_index', 'done');
+      console.log(`[Pipeline] Stage 2/5: SEMANTIC_INDEX complete in ${(stageTimings.indexMs / 1000).toFixed(2)}s`);
+    } catch (err) {
+      jobRepository.fail(indexJob.id, err);
+      _persistStage(taskId, 'semantic_index', 'failed');
+      throw err;
+    }
+
+    _persistStage(taskId, 'classify', 'running');
+    console.log(`[Import] Classifying ${book.id}...`);
+    const t0Classify = Date.now();
+    const bookClassifier = require('./ai/bookClassifier');
+    try {
+      await bookClassifier.classifyBook(book.id, { fast: false });
+      stageTimings.classifyMs = Date.now() - t0Classify;
+      _persistStage(taskId, 'classify', 'done');
+      console.log(`[Pipeline] Stage 3/5: CLASSIFY complete in ${(stageTimings.classifyMs / 1000).toFixed(2)}s`);
+    } catch (classErr) {
+      console.warn(`[Import] Classification warning for ${book.id}:`, classErr.message);
+      _persistStage(taskId, 'classify', 'failed');
+    }
+
+    let outline = null;
+    if (qualifiesForOutline) {
+      _persistStage(taskId, 'outline', 'running');
+      console.log(`[Import] Generating outline for ${book.id}...`);
+      const t0Outline = Date.now();
+      const editorialService = require('./synthesis/editorialService');
+      try {
+        outline = await editorialService.generateSingleBookOutline(book.id, { fast: true });
+        stageTimings.outlineMs = Date.now() - t0Outline;
+        _persistStage(taskId, 'outline', 'done');
+        console.log(`[Pipeline] Stage 4/5: OUTLINE complete in ${(stageTimings.outlineMs / 1000).toFixed(2)}s`);
+      } catch (outErr) {
+        console.warn(`[Import] Outline warning for ${book.id}:`, outErr.message);
+        _persistStage(taskId, 'outline', 'failed');
+      }
+    } else {
+      _persistStage(taskId, 'outline', 'skipped');
+    }
+
+    if (qualifiesForSynopsis) {
+      _persistStage(taskId, 'synopsis', 'running');
+      console.log(`[Import] Generating synopsis for ${book.id}...`);
+      const t0Synopsis = Date.now();
+      const synopsisJob = jobRepository.create({
+        book_id: book.id,
+        type: 'SYNOPSIS',
+        status: 'PROCESSING',
+        progress: 0,
+      });
+      const intelligentSummarizer = require('./ai/intelligentSummarizer');
+      try {
+        await intelligentSummarizer.generateSynopsis(book.id, { jobId: synopsisJob.id });
+        stageTimings.synopsisMs = Date.now() - t0Synopsis;
+        console.log(`[Pipeline] Stage 5/5: SYNOPSIS complete in ${(stageTimings.synopsisMs / 1000).toFixed(2)}s`);
+        jobRepository.complete(synopsisJob.id);
+        _persistStage(taskId, 'synopsis', 'done');
+      } catch (err) {
+        console.warn(`[Import] Synopsis failed: ${err.message}`);
+        jobRepository.fail(synopsisJob.id, err);
+        _persistStage(taskId, 'synopsis', 'failed');
+      }
+    } else {
+      _persistStage(taskId, 'synopsis', 'skipped');
+    }
+
+    if (qualifiesForOutline) {
+      if (outline && outline.chapters && outline.chapters.length > 0) {
+        _persistStage(taskId, 'synthesis', 'running');
+        console.log(`[Import] Auto-synthesizing initial chapters for ${book.id}...`);
+        const synthesisJob = jobRepository.create({
+          book_id: book.id,
+          type: 'SYNTHESIS',
+          status: 'PROCESSING',
+          progress: 0,
+        });
+        try {
+          const editorialService = require('./synthesis/editorialService');
+          const result = await editorialService.synthesizeNextChapters(book.id, 3, { jobId: synthesisJob.id });
+          jobRepository.complete(synthesisJob.id);
+          _persistStage(taskId, 'synthesis', 'done');
+          bookRepository.update(book.id, { synthesis_completed_at: new Date().toISOString() });
+          if (result) {
+            console.log(`[Import] Auto-synthesized ${result.synthesizedCount}/3 chapters for ${book.id}`);
+          }
+        } catch (err) {
+          console.warn(`[Import] Synthesis failed: ${err.message}`);
+          jobRepository.fail(synthesisJob.id, err);
+          _persistStage(taskId, 'synthesis', 'failed');
+          bookRepository.update(book.id, { synthesis_completed_at: new Date().toISOString() });
+        }
+      } else {
+        console.warn(`[Import] No outline for ${book.id}; skipping auto-synthesis`);
+        _persistStage(taskId, 'synthesis', 'skipped');
+        bookRepository.update(book.id, { synthesis_completed_at: new Date().toISOString() });
+      }
+    } else {
+      _persistStage(taskId, 'synthesis', 'skipped');
+      bookRepository.update(book.id, { synthesis_completed_at: new Date().toISOString() });
+    }
+
+    _persistStage(taskId, 'attribution', 'running');
+    // Awaited PROVENANCE_VERIFY pass
+    const provenanceResolver = require('./semantic/provenanceResolver');
+    try {
+      const pvRes = await provenanceResolver.triggerVerificationForBook(book.id);
+      _persistStage(taskId, 'attribution', 'done');
+      bookRepository.update(book.id, { attribution_completed_at: new Date().toISOString() });
+      console.log(`[Import] Provenance verified for ${book.id}: ${pvRes ? pvRes.verifiedCount : 0} chapter(s)`);
+    } catch (pvErr) {
+      console.warn(`[Import] Provenance verification warning for ${book.id}:`, pvErr.message);
+      _persistStage(taskId, 'attribution', 'failed');
+      bookRepository.update(book.id, { attribution_completed_at: new Date().toISOString() });
+    }
+  } catch (err) {
+    console.error(`[Import] Post-ingest pipeline failed for ${book.id}:`, err.message);
+    throw err;
+  } finally {
+    const totalSec = ((Date.now() - pipelineT0) / 1000).toFixed(1);
+    console.log(
+      `\n============================================================\n` +
+      `📊 PIPELINE TELEMETRY SUMMARY: "${book.title}" (${totalSec}s total)\n` +
+      `  - 1. Ingest & Parse:   ${((stageTimings.ingestMs || 0) / 1000).toFixed(1)}s\n` +
+      `  - 2. Semantic Index:   ${((stageTimings.indexMs || 0) / 1000).toFixed(1)}s\n` +
+      `  - 3. Classification:   ${((stageTimings.classifyMs || 0) / 1000).toFixed(1)}s\n` +
+      `  - 4. Outline Gen:      ${((stageTimings.outlineMs || 0) / 1000).toFixed(1)}s\n` +
+      `  - 5. Synopsis Gen:     ${((stageTimings.synopsisMs || 0) / 1000).toFixed(1)}s\n` +
+      `============================================================\n`
+    );
+  }
+}
+
 class BookService {
   classifyPipelineStages(chapterCount, wordCount) {
     return classifyPipelineStages(chapterCount, wordCount);
@@ -75,6 +249,7 @@ class BookService {
       throw new Error('Dossier title is required.');
     }
     const id = `book-dossier-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const now = new Date().toISOString();
     return this.createBook({
       id,
       title: title.trim(),
@@ -84,12 +259,16 @@ class BookService {
       source_format: 'dossier',
       source_site: 'Multi-Source Dossier',
       status: 'active',
+      import_started_at: now,
+      import_completed_at: now,
+      synthesis_completed_at: now,
+      attribution_completed_at: now,
       metadata_json: {
         isDossier: true,
         isMultiSource: true,
         sourcesCount: 0,
         sources: [],
-        createdAt: new Date().toISOString(),
+        createdAt: now,
       },
     });
   }
@@ -237,6 +416,10 @@ class BookService {
       integrity_status: data.integrity_status || 'valid',
       integrity_warning: data.integrity_warning || '',
       metadata_json: data.metadata_json || {},
+      import_started_at: data.import_started_at || null,
+      import_completed_at: data.import_completed_at || null,
+      synthesis_completed_at: data.synthesis_completed_at || null,
+      attribution_completed_at: data.attribution_completed_at || null,
     });
   }
 
@@ -370,6 +553,7 @@ class BookService {
     text,
     fileBuffer,
     originalFilename,
+    taskId,
   }) {
     let provisionalTitle = title;
     if (!provisionalTitle && originalFilename) {
@@ -418,6 +602,7 @@ class BookService {
       ? path.extname(originalFilename).replace('.', '').toLowerCase()
       : 'text';
 
+    const importStartedAt = new Date().toISOString();
     const book = this.createBook({
       ...(id ? { id } : {}),
       title: provisionalTitle.trim(),
@@ -429,6 +614,7 @@ class BookService {
       source_format: provisionalFormat,
       original_filename: originalFilename || '',
       status: 'processing',
+      import_started_at: importStartedAt,
     });
 
     const pipelineT0 = Date.now();
@@ -535,6 +721,11 @@ class BookService {
       // 95%: after DB write
       jobRepository.update(job.id, { progress: 95 });
 
+      bookRepository.update(book.id, {
+        import_completed_at: new Date().toISOString(),
+      });
+      _persistStage(taskId, 'ingest', 'done');
+
       // 6. Complete Job (100%)
       jobRepository.complete(job.id);
 
@@ -546,125 +737,6 @@ class BookService {
         (ingestionResult.totalWordCount > 0 ||
           (chapterEntities.length > 0 &&
             chapterEntities[0].word_count > 0));
-
-/**
- * Post-ingest pipeline: SEMANTIC_INDEX -> CLASSIFY -> OUTLINE -> SYNOPSIS -> SYNTHESIS -> ATTRIBUTION.
- * Blocks sequentially until all downstream pipeline operations conclude.
- */
-async function _runPostIngestPipeline(book, options = {}) {
-  const {
-    jobId,
-    taskId,
-    chapterEntities = [],
-    totalWords = 0,
-    pipelineT0 = Date.now(),
-    stageTimings = {},
-    qualifiesForOutline = false,
-    qualifiesForSynopsis = false,
-  } = options;
-
-  try {
-    const semanticLifecycle = require('./semantic/semanticLifecycle');
-    const indexJob = jobRepository.create({
-      book_id: book.id,
-      type: 'SEMANTIC_INDEX',
-      status: 'PROCESSING',
-      progress: 0,
-    });
-
-    const t0Index = Date.now();
-    await semanticLifecycle.indexBook(book.id, { skipJob: false, jobId: indexJob.id });
-    stageTimings.indexMs = Date.now() - t0Index;
-    jobRepository.complete(indexJob.id);
-    console.log(`[Pipeline] Stage 2/5: SEMANTIC_INDEX complete in ${(stageTimings.indexMs / 1000).toFixed(2)}s`);
-
-    console.log(`[Import] Classifying ${book.id}...`);
-    const t0Classify = Date.now();
-    const bookClassifier = require('./ai/bookClassifier');
-    await bookClassifier.classifyBook(book.id, { fast: false });
-    stageTimings.classifyMs = Date.now() - t0Classify;
-    console.log(`[Pipeline] Stage 3/5: CLASSIFY complete in ${(stageTimings.classifyMs / 1000).toFixed(2)}s`);
-
-    let outline = null;
-    if (qualifiesForOutline) {
-      console.log(`[Import] Generating outline for ${book.id}...`);
-      const t0Outline = Date.now();
-      const editorialService = require('./synthesis/editorialService');
-      outline = await editorialService.generateSingleBookOutline(book.id, { fast: true });
-      stageTimings.outlineMs = Date.now() - t0Outline;
-      console.log(`[Pipeline] Stage 4/5: OUTLINE complete in ${(stageTimings.outlineMs / 1000).toFixed(2)}s`);
-    }
-
-    if (qualifiesForSynopsis) {
-      console.log(`[Import] Generating synopsis for ${book.id}...`);
-      const t0Synopsis = Date.now();
-      const synopsisJob = jobRepository.create({
-        book_id: book.id,
-        type: 'SYNOPSIS',
-        status: 'PROCESSING',
-        progress: 0,
-      });
-      const intelligentSummarizer = require('./ai/intelligentSummarizer');
-      try {
-        await intelligentSummarizer.generateSynopsis(book.id, { jobId: synopsisJob.id });
-        stageTimings.synopsisMs = Date.now() - t0Synopsis;
-        console.log(`[Pipeline] Stage 5/5: SYNOPSIS complete in ${(stageTimings.synopsisMs / 1000).toFixed(2)}s`);
-        jobRepository.complete(synopsisJob.id);
-      } catch (err) {
-        console.warn(`[Import] Synopsis failed: ${err.message}`);
-        jobRepository.fail(synopsisJob.id, err);
-      }
-    }
-
-    if (qualifiesForOutline) {
-      if (outline && outline.chapters && outline.chapters.length > 0) {
-        console.log(`[Import] Auto-synthesizing initial chapters for ${book.id}...`);
-        const synthesisJob = jobRepository.create({
-          book_id: book.id,
-          type: 'SYNTHESIS',
-          status: 'PROCESSING',
-          progress: 0,
-        });
-        try {
-          const editorialService = require('./synthesis/editorialService');
-          const result = await editorialService.synthesizeNextChapters(book.id, 3, { jobId: synthesisJob.id });
-          jobRepository.complete(synthesisJob.id);
-          if (result) {
-            console.log(`[Import] Auto-synthesized ${result.synthesizedCount}/3 chapters for ${book.id}`);
-          }
-
-          // Awaited PROVENANCE_VERIFY pass
-          const provenanceResolver = require('./semantic/provenanceResolver');
-          try {
-            const pvRes = await provenanceResolver.triggerVerificationForBook(book.id);
-            console.log(`[Import] Provenance verified for ${book.id}: ${pvRes.verifiedCount} chapter(s)`);
-          } catch (pvErr) {
-            console.warn(`[Import] Provenance verification warning for ${book.id}:`, pvErr.message);
-          }
-        } catch (err) {
-          console.warn(`[Import] Synthesis failed: ${err.message}`);
-          jobRepository.fail(synthesisJob.id, err);
-        }
-      } else {
-        console.warn(`[Import] No outline for ${book.id}; skipping auto-synthesis`);
-      }
-    }
-  } catch (err) {
-    console.error(`[Import] Post-ingest pipeline failed for ${book.id}:`, err.message);
-  } finally {
-    const totalSec = ((Date.now() - pipelineT0) / 1000).toFixed(1);
-    console.log(
-      `\n============================================================\n` +
-      `📊 PIPELINE TELEMETRY SUMMARY: "${book.title}" (${totalSec}s total)\n` +
-      `  - 1. Ingest & Parse:   ${((stageTimings.ingestMs || 0) / 1000).toFixed(1)}s\n` +
-      `  - 2. Semantic Index:   ${((stageTimings.indexMs || 0) / 1000).toFixed(1)}s\n` +
-      `  - 3. Classification:   ${((stageTimings.classifyMs || 0) / 1000).toFixed(1)}s\n` +
-      `  - 4. Outline Gen:      ${((stageTimings.outlineMs || 0) / 1000).toFixed(1)}s\n` +
-      `  - 5. Synopsis Gen:     ${((stageTimings.synopsisMs || 0) / 1000).toFixed(1)}s\n` +
-      `============================================================\n`
-    );
-  }
-}
 
       if (isValidContent) {
         if (config.USE_PYTHON_EMBEDDER) {
@@ -684,12 +756,24 @@ async function _runPostIngestPipeline(book, options = {}) {
         console.log(`[Import] Indexing ${book.id}...`);
         await _runPostIngestPipeline(book, {
           jobId: job.id,
+          taskId,
           chapterEntities,
           totalWords,
           pipelineT0,
           stageTimings,
           qualifiesForOutline,
           qualifiesForSynopsis,
+        });
+      } else {
+        _persistStage(taskId, 'semantic_index', 'skipped');
+        _persistStage(taskId, 'classify', 'skipped');
+        _persistStage(taskId, 'outline', 'skipped');
+        _persistStage(taskId, 'synopsis', 'skipped');
+        _persistStage(taskId, 'synthesis', 'skipped');
+        _persistStage(taskId, 'attribution', 'skipped');
+        bookRepository.update(book.id, {
+          synthesis_completed_at: new Date().toISOString(),
+          attribution_completed_at: new Date().toISOString(),
         });
       }
 

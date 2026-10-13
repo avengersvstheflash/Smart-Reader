@@ -11,6 +11,8 @@ class ImportQueueRepository {
     stage_label = 'Queued for processing',
     progress = 0,
     queue_order,
+    stages_json,
+    stages,
   }) {
     const db = getDatabase();
     const taskId = id || `import-task-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -21,15 +23,17 @@ class ImportQueueRepository {
       resolvedOrder = this.getNextQueueOrder();
     }
 
+    const resolvedStages = stages_json !== undefined ? stages_json : stages;
     const metaStr = typeof source_meta === 'object' ? JSON.stringify(source_meta) : (source_meta || '{}');
+    const stagesStr = typeof resolvedStages === 'object' && resolvedStages !== null ? JSON.stringify(resolvedStages) : (resolvedStages || '[]');
 
     db.prepare(`
       INSERT INTO import_queue (
         id, type, source_title, source_meta, status, stage, stage_label,
-        progress, queue_order, book_id, error, created_at, started_at, completed_at
+        progress, queue_order, book_id, error, created_at, started_at, completed_at, stages_json
       ) VALUES (
         ?, ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?, ?, ?
       )
     `).run(
       taskId,
@@ -45,7 +49,8 @@ class ImportQueueRepository {
       null,
       now,
       null,
-      null
+      null,
+      stagesStr
     );
 
     return this.getById(taskId);
@@ -77,7 +82,8 @@ class ImportQueueRepository {
 
   getQueue() {
     const all = this.getAll(150);
-    const active = all.find((t) => t.status === 'initializing' || t.status === 'processing') || null;
+    const activeTasks = all.filter((t) => t.status === 'initializing' || t.status === 'processing');
+    const active = activeTasks[0] || null;
     const queued = all.filter((t) => t.status === 'queued').sort((a, b) => a.queue_order - b.queue_order);
     const history = all.filter((t) => ['completed', 'failed', 'cancelled', 'interrupted'].includes(t.status));
 
@@ -86,7 +92,7 @@ class ImportQueueRepository {
       queued,
       history,
       totalCount: all.length,
-      pendingCount: queued.length + (active ? 1 : 0),
+      pendingCount: queued.length + activeTasks.length,
     };
   }
 
@@ -128,6 +134,12 @@ class ImportQueueRepository {
       merged.source_meta = JSON.stringify(merged.source_meta);
     }
 
+    if (updates.stages_json !== undefined && typeof updates.stages_json === 'object') {
+      merged.stages_json = JSON.stringify(updates.stages_json);
+    } else if (typeof merged.stages_json === 'object') {
+      merged.stages_json = JSON.stringify(merged.stages_json);
+    }
+
     db.prepare(`
       UPDATE import_queue
       SET status = @status,
@@ -138,12 +150,40 @@ class ImportQueueRepository {
           book_id = @book_id,
           error = @error,
           source_meta = @source_meta,
+          stages_json = @stages_json,
           started_at = @started_at,
           completed_at = @completed_at
       WHERE id = @id
     `).run(merged);
 
     return this.getById(id);
+  }
+
+  updateStage(id, stageName, status) {
+    if (!id) return null;
+    const task = this.getById(id);
+    if (!task) return null;
+    const currentStages = Array.isArray(task.stages) ? [...task.stages] : [];
+    const now = new Date().toISOString();
+    const existingIdx = currentStages.findIndex((s) => s.stage === stageName);
+    if (existingIdx >= 0) {
+      currentStages[existingIdx] = {
+        ...currentStages[existingIdx],
+        status,
+        started_at: status === 'running' ? now : (currentStages[existingIdx].started_at || now),
+        completed_at: ['done', 'failed', 'skipped'].includes(status) ? now : currentStages[existingIdx].completed_at,
+      };
+    } else {
+      currentStages.push({
+        stage: stageName,
+        status,
+        started_at: now,
+        completed_at: ['done', 'failed', 'skipped'].includes(status) ? now : null,
+      });
+    }
+    return this.update(id, {
+      stages_json: currentStages,
+    });
   }
 
   delete(id) {
@@ -226,6 +266,14 @@ class ImportQueueRepository {
     } catch {
       meta = {};
     }
+
+    let stages = [];
+    try {
+      stages = typeof row.stages_json === 'string' ? JSON.parse(row.stages_json || '[]') : (row.stages_json || []);
+    } catch {
+      stages = [];
+    }
+
     return {
       ...row,
       source_meta: meta,
@@ -234,6 +282,8 @@ class ImportQueueRepository {
       queueOrder: row.queue_order,
       bookId: row.book_id,
       stageLabel: row.stage_label,
+      stages,
+      stages_json: stages,
       createdAt: row.created_at,
       startedAt: row.started_at,
       completedAt: row.completed_at,

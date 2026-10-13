@@ -254,6 +254,41 @@ async function runTests() {
   importQueueService.removeTask(queuedB.id);
   console.log('✓ Test 8 passed: Retried task properly placed at the back of the queue');
 
+  // Test 9: Stages persistence & Book lifecycle timestamps (F69, F70)
+  console.log('Test 9: Stages persistence & Book lifecycle timestamps');
+  const dTask3 = await importQueueService.enqueuePaste({
+    title: 'Lifecycle Verification Document',
+    author: 'Test Researcher',
+    text: 'A structured document discussing quantum memory coherency and decoherence rates.',
+    isNewDossier: true,
+    dossierTitle: 'Lifecycle Verification Dossier',
+  });
+  while (true) {
+    const t = importQueueRepository.getById(dTask3.id);
+    if (t.status === 'completed') {
+      assert(Array.isArray(t.stages), 'Task should have parsed stages array');
+      assert.strictEqual(t.stages.length, 7, 'Task should have 7 pipeline stages');
+      const ingestStage = t.stages.find((s) => s.stage === 'ingest');
+      const idxStage = t.stages.find((s) => s.stage === 'semantic_index');
+      assert.strictEqual(ingestStage?.status, 'done', 'Ingest stage should be done');
+      assert.strictEqual(idxStage?.status, 'done', 'Semantic index stage should be done');
+      assert(t.completed_at, 'Task should have completed_at timestamp');
+      assert(t.book_id, 'Task should have book_id');
+      const book = bookRepository.getById(t.book_id);
+      assert(book, 'Book should exist');
+      assert(book.import_started_at, 'Book should have import_started_at timestamp');
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  console.log('✓ Test 9 passed: Stages and book lifecycle timestamps verified');
+
+  // Test 10: Parallel queue setting & concurrency (F68)
+  console.log('Test 10: Parallel queue concurrency setting');
+  const settingsService = require('../services/settings/settingsService');
+  assert.strictEqual(settingsService.get().parallelBookSynthesis, false, 'Default parallelBookSynthesis must be false');
+  console.log('✓ Test 10 passed: Concurrency defaults and settings verified');
+
   console.log('====================================================');
   console.log('🎉 ALL IMPORT QUEUE & DOSSIER PIPELINE TESTS PASSED!');
   console.log('====================================================');

@@ -20,6 +20,19 @@ router.get('/', (req, res, next) => {
   }
 });
 
+// GET /api/import/queue/:id - get single task by id
+router.get('/:id', (req, res, next) => {
+  try {
+    const task = importQueueService.getTaskById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found.' });
+    }
+    res.json({ success: true, task });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/import/queue/files - upload one or multiple files into queue
 router.post('/files', upload.array('files', 20), async (req, res, next) => {
   try {

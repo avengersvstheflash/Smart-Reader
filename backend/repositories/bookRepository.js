@@ -81,8 +81,8 @@ class BookRepository {
     const db = getDatabase();
     const bookId = book.id || `book-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const stmt = db.prepare(`
-      INSERT INTO books (id, title, author, description, cover_path, content_type, status, source_format, original_filename, page_count, metadata_json, source_url, source_site, section_count, integrity_status, integrity_warning, semantic_status, semantic_chunk_count, semantic_indexed_at, created_at, updated_at)
-      VALUES (@id, @title, @author, @description, @cover_path, @content_type, @status, @source_format, @original_filename, @page_count, @metadata_json, @source_url, @source_site, @section_count, @integrity_status, @integrity_warning, @semantic_status, @semantic_chunk_count, @semantic_indexed_at, @created_at, @updated_at)
+      INSERT INTO books (id, title, author, description, cover_path, content_type, status, source_format, original_filename, page_count, metadata_json, source_url, source_site, section_count, integrity_status, integrity_warning, semantic_status, semantic_chunk_count, semantic_indexed_at, import_started_at, import_completed_at, synthesis_completed_at, attribution_completed_at, created_at, updated_at)
+      VALUES (@id, @title, @author, @description, @cover_path, @content_type, @status, @source_format, @original_filename, @page_count, @metadata_json, @source_url, @source_site, @section_count, @integrity_status, @integrity_warning, @semantic_status, @semantic_chunk_count, @semantic_indexed_at, @import_started_at, @import_completed_at, @synthesis_completed_at, @attribution_completed_at, @created_at, @updated_at)
     `);
     stmt.run({
       id: bookId,
@@ -104,6 +104,10 @@ class BookRepository {
       semantic_status: book.semantic_status || 'unindexed',
       semantic_chunk_count: book.semantic_chunk_count || 0,
       semantic_indexed_at: book.semantic_indexed_at || null,
+      import_started_at: book.import_started_at || null,
+      import_completed_at: book.import_completed_at || null,
+      synthesis_completed_at: book.synthesis_completed_at || null,
+      attribution_completed_at: book.attribution_completed_at || null,
       created_at: book.created_at || new Date().toISOString(),
       updated_at: book.updated_at || new Date().toISOString(),
     });
@@ -127,6 +131,10 @@ class BookRepository {
       semantic_status: updates.semantic_status !== undefined ? updates.semantic_status : current.semantic_status,
       semantic_chunk_count: updates.semantic_chunk_count !== undefined ? updates.semantic_chunk_count : current.semantic_chunk_count,
       semantic_indexed_at: updates.semantic_indexed_at !== undefined ? updates.semantic_indexed_at : current.semantic_indexed_at,
+      import_started_at: updates.import_started_at !== undefined ? updates.import_started_at : current.import_started_at,
+      import_completed_at: updates.import_completed_at !== undefined ? updates.import_completed_at : current.import_completed_at,
+      synthesis_completed_at: updates.synthesis_completed_at !== undefined ? updates.synthesis_completed_at : current.synthesis_completed_at,
+      attribution_completed_at: updates.attribution_completed_at !== undefined ? updates.attribution_completed_at : current.attribution_completed_at,
       updated_at: new Date().toISOString(),
     };
 
@@ -140,7 +148,12 @@ class BookRepository {
           source_site = @source_site, section_count = @section_count,
           integrity_status = @integrity_status, integrity_warning = @integrity_warning,
           semantic_status = @semantic_status, semantic_chunk_count = @semantic_chunk_count,
-          semantic_indexed_at = @semantic_indexed_at, updated_at = @updated_at
+          semantic_indexed_at = @semantic_indexed_at,
+          import_started_at = @import_started_at,
+          import_completed_at = @import_completed_at,
+          synthesis_completed_at = @synthesis_completed_at,
+          attribution_completed_at = @attribution_completed_at,
+          updated_at = @updated_at
       WHERE id = @id
     `).run(updated);
 

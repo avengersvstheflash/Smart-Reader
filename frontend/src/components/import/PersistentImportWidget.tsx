@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useImportQueueStore } from '../../store/useImportQueueStore';
 import { QueueManager } from './QueueManager';
+import { StageChecklist } from './StageChecklist';
 
 export function PersistentImportWidget() {
   const location = useLocation();
@@ -171,6 +172,13 @@ export function PersistentImportWidget() {
             className="h-full bg-brand transition-all duration-300"
             style={{ width: `${Math.max(5, activeTask.progress)}%` }}
           />
+        </div>
+      )}
+
+      {/* Active Task Compact Stage Checklist */}
+      {activeTask && isMinimized && (
+        <div className="px-4 py-2.5 bg-surface/30 border-t border-line text-caption">
+          <StageChecklist stages={activeTask.stages} isCompleted={activeTask.status === 'completed'} />
         </div>
       )}
 

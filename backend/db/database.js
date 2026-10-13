@@ -100,6 +100,10 @@ function initSchema(db) {
       cover_path TEXT,
       content_type TEXT DEFAULT 'novel',
       status TEXT DEFAULT 'active',
+      import_started_at TEXT,
+      import_completed_at TEXT,
+      synthesis_completed_at TEXT,
+      attribution_completed_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -245,7 +249,8 @@ function initSchema(db) {
       error TEXT,
       created_at TEXT NOT NULL,
       started_at TEXT,
-      completed_at TEXT
+      completed_at TEXT,
+      stages_json TEXT DEFAULT '[]'
     );
 
     CREATE INDEX IF NOT EXISTS idx_import_queue_status_order ON import_queue(status, queue_order);
@@ -423,6 +428,23 @@ function initSchema(db) {
   }
   if (!bookCols.some(c => c.name === 'semantic_indexed_at')) {
     db.exec(`ALTER TABLE books ADD COLUMN semantic_indexed_at TEXT;`);
+  }
+  if (!bookCols.some(c => c.name === 'import_started_at')) {
+    db.exec(`ALTER TABLE books ADD COLUMN import_started_at TEXT;`);
+  }
+  if (!bookCols.some(c => c.name === 'import_completed_at')) {
+    db.exec(`ALTER TABLE books ADD COLUMN import_completed_at TEXT;`);
+  }
+  if (!bookCols.some(c => c.name === 'synthesis_completed_at')) {
+    db.exec(`ALTER TABLE books ADD COLUMN synthesis_completed_at TEXT;`);
+  }
+  if (!bookCols.some(c => c.name === 'attribution_completed_at')) {
+    db.exec(`ALTER TABLE books ADD COLUMN attribution_completed_at TEXT;`);
+  }
+
+  const queueCols = db.prepare(`PRAGMA table_info(import_queue)`).all();
+  if (!queueCols.some(c => c.name === 'stages_json')) {
+    db.exec(`ALTER TABLE import_queue ADD COLUMN stages_json TEXT DEFAULT '[]';`);
   }
 
   // F49d: Cleanup historical [PARTIAL: ...] markers in books.description and set llm_flagged_partial

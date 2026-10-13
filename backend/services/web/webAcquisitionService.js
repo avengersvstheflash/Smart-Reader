@@ -67,7 +67,7 @@ class WebAcquisitionService {
   /**
    * Imports a single web source as a new Library Item
    */
-  async importSingle({ url, customTitle, customAuthor, contentType, description }) {
+  async importSingle({ url, customTitle, customAuthor, contentType, description, taskId }) {
     if (!url) throw new Error('URL is required for web import.');
 
     const bookId = `book-web-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -81,6 +81,7 @@ class WebAcquisitionService {
     });
 
     try {
+      this._persistStage(taskId, 'ingest', 'running');
       // 2. Fetch
       jobRepository.update(job.id, { progress: 25 });
       const fetchResult = await webFetcher.fetch(url);
@@ -126,6 +127,7 @@ class WebAcquisitionService {
           detectedSectionsCount: totalSections,
           importedVia: 'Smart Reader Web Intelligence',
         },
+        import_started_at: new Date().toISOString(),
       });
 
       // 6. Create Chapters with Canonical Content
@@ -147,6 +149,11 @@ class WebAcquisitionService {
         savedChapters.push(savedCh);
       }
 
+      bookRepository.update(bookId, {
+        import_completed_at: new Date().toISOString(),
+      });
+      this._persistStage(taskId, 'ingest', 'done');
+
       jobRepository.update(job.id, {
         status: 'COMPLETED',
         progress: 100,
@@ -155,13 +162,28 @@ class WebAcquisitionService {
 
       // 7. Auto-index imported book into Semantic Memory if content is valid
       if (!isZeroContent) {
+        this._persistStage(taskId, 'semantic_index', 'running');
         try {
           const semanticLifecycle = require('../semantic/semanticLifecycle');
           await semanticLifecycle.indexBook(bookId, { skipJob: true });
+          this._persistStage(taskId, 'semantic_index', 'done');
         } catch (e) {
           console.warn('Web book indexing warning:', e.message);
+          this._persistStage(taskId, 'semantic_index', 'failed');
         }
+      } else {
+        this._persistStage(taskId, 'semantic_index', 'skipped');
       }
+
+      this._persistStage(taskId, 'classify', 'skipped');
+      this._persistStage(taskId, 'outline', 'skipped');
+      this._persistStage(taskId, 'synopsis', 'skipped');
+      this._persistStage(taskId, 'synthesis', 'skipped');
+      this._persistStage(taskId, 'attribution', 'skipped');
+      bookRepository.update(bookId, {
+        synthesis_completed_at: new Date().toISOString(),
+        attribution_completed_at: new Date().toISOString(),
+      });
 
       return {
         book: bookRepository.getById(bookId) || book,
@@ -187,10 +209,23 @@ class WebAcquisitionService {
   }
 
   /**
+   * Helper to update stages in import queue repository if taskId is present
+   */
+  _persistStage(taskId, stageName, status) {
+    if (!taskId) return;
+    try {
+      const importQueueRepository = require('../../repositories/importQueueRepository');
+      importQueueRepository.updateStage(taskId, stageName, status);
+    } catch (err) {
+      console.warn(`[webAcquisitionService] Failed to persist stage ${stageName} for task ${taskId}:`, err.message);
+    }
+  }
+
+  /**
    * Imports multiple web sources into a single structured research/document item
    * Preserves distinct source boundaries and provenance for each source.
    */
-  async importMulti({ sources, title, contentType, description }) {
+  async importMulti({ sources, title, contentType, description, taskId }) {
     if (!Array.isArray(sources) || sources.length === 0) {
       throw new Error('At least one source is required for multi-source import.');
     }
@@ -293,6 +328,7 @@ class WebAcquisitionService {
           sources: sourceProvenanceList,
           retrievalDate: new Date().toISOString(),
         },
+        import_started_at: new Date().toISOString(),
       });
 
       // Save chapters
@@ -314,6 +350,11 @@ class WebAcquisitionService {
         savedChapters.push(saved);
       }
 
+      bookRepository.update(bookId, {
+        import_completed_at: new Date().toISOString(),
+      });
+      this._persistStage(taskId, 'ingest', 'done');
+
       // Mark WEB_IMPORT job complete
       jobRepository.complete(ingestJob.id);
 
@@ -322,6 +363,7 @@ class WebAcquisitionService {
       if (isValidContent) {
         const qualifiesForOutline = savedChapters.length >= 3 && totalWords >= 2000;
 
+        this._persistStage(taskId, 'semantic_index', 'running');
         const indexJob = jobRepository.create({
           book_id: bookId,
           type: 'SEMANTIC_INDEX',
@@ -333,28 +375,39 @@ class WebAcquisitionService {
           const semanticLifecycle = require('../semantic/semanticLifecycle');
           await semanticLifecycle.indexBook(bookId, { skipJob: false, jobId: indexJob.id });
           jobRepository.complete(indexJob.id);
+          this._persistStage(taskId, 'semantic_index', 'done');
         } catch (err) {
           console.warn(`[importMulti] Indexing failed: ${err.message}`);
           jobRepository.fail(indexJob.id, err);
+          this._persistStage(taskId, 'semantic_index', 'failed');
         }
 
+        this._persistStage(taskId, 'classify', 'running');
         try {
           const bookClassifier = require('../ai/bookClassifier');
           await bookClassifier.classifyBook(bookId, { fast: false });
+          this._persistStage(taskId, 'classify', 'done');
         } catch (err) {
           console.warn(`[importMulti] Classification failed: ${err.message}`);
+          this._persistStage(taskId, 'classify', 'failed');
         }
 
         let outline = null;
         if (qualifiesForOutline) {
+          this._persistStage(taskId, 'outline', 'running');
           try {
             const editorialService = require('../synthesis/editorialService');
             outline = await editorialService.generateSingleBookOutline(bookId, { fast: true });
+            this._persistStage(taskId, 'outline', 'done');
           } catch (err) {
             console.warn(`[importMulti] Outline failed: ${err.message}`);
+            this._persistStage(taskId, 'outline', 'failed');
           }
+        } else {
+          this._persistStage(taskId, 'outline', 'skipped');
         }
 
+        this._persistStage(taskId, 'synopsis', 'running');
         const synopsisJob = jobRepository.create({
           book_id: bookId,
           type: 'SYNOPSIS',
@@ -365,12 +418,15 @@ class WebAcquisitionService {
         try {
           await intelligentSummarizer.generateSynopsis(bookId, { fast: true, jobId: synopsisJob.id });
           jobRepository.complete(synopsisJob.id);
+          this._persistStage(taskId, 'synopsis', 'done');
         } catch (err) {
           console.warn(`[importMulti] Synopsis failed: ${err.message}`);
           jobRepository.fail(synopsisJob.id, err);
+          this._persistStage(taskId, 'synopsis', 'failed');
         }
 
         if (qualifiesForOutline && outline && outline.chapters && outline.chapters.length > 0) {
+          this._persistStage(taskId, 'synthesis', 'running');
           const synthesisJob = jobRepository.create({
             book_id: bookId,
             type: 'SYNTHESIS',
@@ -381,17 +437,29 @@ class WebAcquisitionService {
           try {
             await editorialService.synthesizeNextChapters(bookId, 3, { jobId: synthesisJob.id });
             jobRepository.complete(synthesisJob.id);
+            this._persistStage(taskId, 'synthesis', 'done');
+            bookRepository.update(bookId, { synthesis_completed_at: new Date().toISOString() });
           } catch (err) {
             console.warn(`[importMulti] Synthesis failed: ${err.message}`);
             jobRepository.fail(synthesisJob.id, err);
+            this._persistStage(taskId, 'synthesis', 'failed');
+            bookRepository.update(bookId, { synthesis_completed_at: new Date().toISOString() });
           }
+        } else {
+          this._persistStage(taskId, 'synthesis', 'skipped');
+          bookRepository.update(bookId, { synthesis_completed_at: new Date().toISOString() });
         }
 
+        this._persistStage(taskId, 'attribution', 'running');
         try {
           const provenanceResolver = require('../semantic/provenanceResolver');
           await provenanceResolver.triggerVerificationForBook(bookId);
+          this._persistStage(taskId, 'attribution', 'done');
+          bookRepository.update(bookId, { attribution_completed_at: new Date().toISOString() });
         } catch (err) {
           console.warn(`[importMulti] Attribution warning: ${err.message}`);
+          this._persistStage(taskId, 'attribution', 'failed');
+          bookRepository.update(bookId, { attribution_completed_at: new Date().toISOString() });
         }
       }
 

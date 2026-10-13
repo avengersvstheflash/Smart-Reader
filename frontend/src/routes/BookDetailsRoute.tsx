@@ -20,6 +20,7 @@ import { formatAuthorList } from '../types/domain';
 import { renderInlineText } from '../components/reader/CanonicalBlock';
 import { ButtonDecor } from '../components/reader/ButtonDecor';
 import { SmartChapterList } from '../components/reader/SmartChapterList';
+import { formatRelativeTime } from '../lib/relativeTime';
 
 function formatAiProvider(raw?: string): string | null {
   if (!raw) return null;
@@ -256,6 +257,31 @@ export default function BookDetailsRoute() {
 
   const readCount = smartChapters.filter((sc) => Boolean(sc.readAt)).length;
 
+  // Lifecycle Timing Label (F70)
+  const getLifecycleTimingLabel = (): string | null => {
+    const hasStarted = Boolean(book.importStartedAt);
+    const hasImported = Boolean(book.importCompletedAt);
+    const hasSynthesized = Boolean(book.synthesisCompletedAt);
+    const hasAttributed = Boolean(book.attributionCompletedAt);
+
+    if (hasStarted && hasImported && hasSynthesized && hasAttributed) {
+      const impRel = formatRelativeTime(book.importCompletedAt);
+      const readyRel = formatRelativeTime(book.attributionCompletedAt);
+      return `Imported ${impRel} · Ready ${readyRel}`;
+    }
+
+    if (hasStarted && !hasImported && !hasSynthesized && !hasAttributed) {
+      return 'Importing…';
+    }
+
+    if (book.createdAt || book.importCompletedAt) {
+      return `Imported ${formatRelativeTime(book.createdAt || book.importCompletedAt)}`;
+    }
+
+    return null;
+  };
+  const lifecycleTimingLabel = getLifecycleTimingLabel();
+
   return (
     <div className="space-y-8 pb-16">
       {/* ── TOP BAR ── */}
@@ -360,6 +386,7 @@ export default function BookDetailsRoute() {
            <p className="text-caption text-ink-faint pt-1">
              {chapterCount} {chapterCount === 1 ? 'chapter' : 'chapters'} · {wordCount.toLocaleString()} source words
              {omniReadingCaption ? ` · ${omniReadingCaption}` : ''}
+             {lifecycleTimingLabel ? ` · ${lifecycleTimingLabel}` : ''}
            </p>
 
           {/* Action Buttons Row */}

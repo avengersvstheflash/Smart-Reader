@@ -48,6 +48,13 @@ export type ImportTaskType = 'file' | 'paste' | 'web' | 'web_multi';
 export type ImportTaskStatus = 'queued' | 'initializing' | 'processing' | 'finalizing' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
 export type ImportStageKey = 'preparing' | 'acquiring' | 'extracting' | 'structuring' | 'indexing' | 'synthesizing' | 'ready';
 
+export interface ImportTaskStage {
+  stage: string;
+  status: 'pending' | 'running' | 'done' | 'failed' | 'skipped';
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
 export interface ImportTask {
   id: string;
   type: ImportTaskType;
@@ -60,6 +67,7 @@ export interface ImportTask {
   queueOrder: number;
   bookId?: string | null;
   error?: string | null;
+  stages?: ImportTaskStage[];
   createdAt: string;
   startedAt?: string | null;
   completedAt?: string | null;
@@ -82,6 +90,8 @@ export interface RawImportTask {
   book_id?: string | null;
   bookId?: string | null;
   error?: string | null;
+  stages?: ImportTaskStage[];
+  stages_json?: ImportTaskStage[] | string;
   created_at?: string;
   createdAt?: string;
   started_at?: string | null;
@@ -103,6 +113,19 @@ export function normalizeImportTask(raw: RawImportTask): ImportTask {
     meta = rawMeta;
   }
 
+  let stages: ImportTaskStage[] = [];
+  if (Array.isArray(raw.stages)) {
+    stages = raw.stages;
+  } else if (Array.isArray(raw.stages_json)) {
+    stages = raw.stages_json;
+  } else if (typeof raw.stages_json === 'string') {
+    try {
+      stages = JSON.parse(raw.stages_json);
+    } catch {
+      stages = [];
+    }
+  }
+
   return {
     id: raw.id,
     type: (raw.type as ImportTaskType) || 'file',
@@ -115,6 +138,7 @@ export function normalizeImportTask(raw: RawImportTask): ImportTask {
     queueOrder: typeof (raw.queueOrder ?? raw.queue_order) === 'number' ? (raw.queueOrder ?? raw.queue_order)! : 0,
     bookId: raw.bookId || raw.book_id || null,
     error: raw.error || null,
+    stages,
     createdAt: raw.createdAt || raw.created_at || new Date().toISOString(),
     startedAt: raw.startedAt || raw.started_at || null,
     completedAt: raw.completedAt || raw.completed_at || null,
@@ -169,6 +193,11 @@ export interface Book {
   bibliographic?: BookBibliographic;
   metadata?: Record<string, unknown>;
   aiProvider?: string;
+  createdAt?: string;
+  importStartedAt?: string | null;
+  importCompletedAt?: string | null;
+  synthesisCompletedAt?: string | null;
+  attributionCompletedAt?: string | null;
 }
 
 export interface RawBook {
@@ -202,6 +231,16 @@ export interface RawBook {
   metadata?: { classification?: BookClassification; bibliographic?: BookBibliographic; [key: string]: unknown };
   classification?: BookClassification;
   bibliographic?: BookBibliographic;
+  created_at?: string;
+  createdAt?: string;
+  import_started_at?: string | null;
+  importStartedAt?: string | null;
+  import_completed_at?: string | null;
+  importCompletedAt?: string | null;
+  synthesis_completed_at?: string | null;
+  synthesisCompletedAt?: string | null;
+  attribution_completed_at?: string | null;
+  attributionCompletedAt?: string | null;
 }
 
 export function formatAuthorList(authors?: string[] | null, fallback: string = 'Unknown Author'): string {
@@ -274,6 +313,11 @@ export function normalizeBook(raw: RawBook): Book {
     bibliographic,
     metadata: (raw.metadata as Record<string, unknown>) || (typeof raw.metadata_json === 'object' ? raw.metadata_json as Record<string, unknown> : undefined),
     aiProvider: raw.aiProvider || raw.ai_provider,
+    createdAt: raw.createdAt || raw.created_at || undefined,
+    importStartedAt: raw.importStartedAt || raw.import_started_at || null,
+    importCompletedAt: raw.importCompletedAt || raw.import_completed_at || null,
+    synthesisCompletedAt: raw.synthesisCompletedAt || raw.synthesis_completed_at || null,
+    attributionCompletedAt: raw.attributionCompletedAt || raw.attribution_completed_at || null,
   };
 }
 

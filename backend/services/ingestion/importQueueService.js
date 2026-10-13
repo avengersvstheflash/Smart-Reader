@@ -22,9 +22,17 @@ function countWordsFast(str) {
 
 class ImportQueueService {
   constructor() {
-    this.isProcessing = false;
-    this.currentTaskId = null;
+    this.isProcessingCount = 0;
+    this.currentTaskIds = new Set();
     this.cancellationTokens = new Map(); // taskId -> { cancelled: boolean }
+  }
+
+  get isProcessing() {
+    return this.isProcessingCount > 0;
+  }
+
+  get currentTaskId() {
+    return this.currentTaskIds.values().next().value || null;
   }
 
   /**
@@ -32,6 +40,10 @@ class ImportQueueService {
    */
   getQueueStatus() {
     return importQueueRepository.getQueue();
+  }
+
+  getTaskById(id) {
+    return importQueueRepository.getById(id);
   }
 
   /**
@@ -197,26 +209,45 @@ class ImportQueueService {
    * Ensures strictly sequential execution: one task at a time.
    */
   async tick() {
-    if (this.isProcessing) return;
+    const settingsService = require('../settings/settingsService');
+    const parallelOptIn = Boolean(settingsService.get()?.parallelBookSynthesis);
+    const maxParallel = parallelOptIn ? 2 : 1;
+
+    if (this.isProcessingCount >= maxParallel) return;
 
     const nextTask = importQueueRepository.getNextQueued();
     if (!nextTask) return;
 
-    this.isProcessing = true;
-    this.currentTaskId = nextTask.id;
+    this.isProcessingCount++;
+    this.currentTaskIds.add(nextTask.id);
     this.cancellationTokens.set(nextTask.id, { cancelled: false });
 
-    console.log(`[ImportQueue] Starting task ${nextTask.id} (${nextTask.type}: "${nextTask.source_title}")`);
+    if (this.isProcessingCount < maxParallel) {
+      setImmediate(() => this.tick());
+    }
+
+    console.log(`[ImportQueue] Starting task ${nextTask.id} (${nextTask.type}: "${nextTask.source_title}") [active: ${this.isProcessingCount}/${maxParallel}]`);
 
     let bookId = null;
 
     try {
+      const initialStages = [
+        { stage: 'ingest', status: 'running', started_at: new Date().toISOString(), completed_at: null },
+        { stage: 'semantic_index', status: 'pending', started_at: null, completed_at: null },
+        { stage: 'classify', status: 'pending', started_at: null, completed_at: null },
+        { stage: 'outline', status: 'pending', started_at: null, completed_at: null },
+        { stage: 'synopsis', status: 'pending', started_at: null, completed_at: null },
+        { stage: 'synthesis', status: 'pending', started_at: null, completed_at: null },
+        { stage: 'attribution', status: 'pending', started_at: null, completed_at: null },
+      ];
+
       importQueueRepository.update(nextTask.id, {
         status: 'processing',
         stage: 'preparing',
         stage_label: 'Initializing ingestion task…',
         progress: 5,
         started_at: new Date().toISOString(),
+        stages_json: initialStages,
       });
 
       if (this._isCancelled(nextTask.id)) {
@@ -257,6 +288,7 @@ class ImportQueueService {
           contentType: meta.contentType || 'novel',
           fileBuffer,
           originalFilename: meta.originalFilename,
+          taskId: nextTask.id,
         });
 
         bookId = importResult.book?.id;
@@ -351,11 +383,18 @@ class ImportQueueService {
           book_id: targetDossierId,
         });
 
+        importQueueRepository.updateStage(nextTask.id, 'ingest', 'done');
         await bookService.addContentToDossier(targetDossierId, {
           title: meta.title,
           author: meta.author,
           text: meta.text,
         });
+        importQueueRepository.updateStage(nextTask.id, 'semantic_index', 'done');
+        importQueueRepository.updateStage(nextTask.id, 'classify', 'skipped');
+        importQueueRepository.updateStage(nextTask.id, 'outline', 'skipped');
+        importQueueRepository.updateStage(nextTask.id, 'synopsis', 'skipped');
+        importQueueRepository.updateStage(nextTask.id, 'synthesis', 'skipped');
+        importQueueRepository.updateStage(nextTask.id, 'attribution', 'skipped');
 
         if (this._isCancelled(nextTask.id)) {
           throw new Error('Task cancelled by user');
@@ -397,6 +436,7 @@ class ImportQueueService {
           customAuthor: meta.author,
           contentType: meta.contentType,
           description: meta.description,
+          taskId: nextTask.id,
         });
 
         if (this._isCancelled(nextTask.id)) {
@@ -432,6 +472,7 @@ class ImportQueueService {
           title: meta.title,
           contentType: meta.contentType,
           description: meta.description,
+          taskId: nextTask.id,
         });
 
         if (this._isCancelled(nextTask.id)) {
@@ -453,6 +494,15 @@ class ImportQueueService {
         throw new Error('Task cancelled by user');
       }
 
+      // Ensure all stages are properly updated on completion
+      const currentTask = importQueueRepository.getById(nextTask.id);
+      const currentStages = Array.isArray(currentTask?.stages) ? currentTask.stages : [];
+      const completedStages = currentStages.map((s) => ({
+        ...s,
+        status: s.status === 'skipped' ? 'skipped' : s.status === 'failed' ? 'failed' : 'done',
+        completed_at: s.completed_at || new Date().toISOString(),
+      }));
+
       // Mark Complete
       importQueueRepository.update(nextTask.id, {
         status: 'completed',
@@ -460,12 +510,21 @@ class ImportQueueService {
         stage_label: 'Ready to read',
         progress: 100,
         book_id: bookId,
+        stages_json: completedStages,
         completed_at: new Date().toISOString(),
       });
 
       console.log(`[ImportQueue] Completed task ${nextTask.id} successfully. Linked book: ${bookId}`);
     } catch (err) {
       const isCancelled = this._isCancelled(nextTask.id) || (err.message && err.message.includes('cancelled'));
+      const currentTask = importQueueRepository.getById(nextTask.id);
+      const currentStages = Array.isArray(currentTask?.stages) ? currentTask.stages : [];
+      const terminalStages = currentStages.map((s) => ({
+        ...s,
+        status: s.status === 'running' ? 'failed' : s.status,
+        completed_at: s.status === 'running' ? new Date().toISOString() : s.completed_at,
+      }));
+
       if (isCancelled) {
         // Clean up partial book if created for non-dossier single items to avoid orphans
         if (bookId && nextTask.type === 'file') {
@@ -484,6 +543,7 @@ class ImportQueueService {
         importQueueRepository.update(nextTask.id, {
           status: 'cancelled',
           stage_label: 'Import cancelled by user',
+          stages_json: terminalStages,
           completed_at: new Date().toISOString(),
         });
         console.log(`[ImportQueue] Task ${nextTask.id} marked as cancelled.`);
@@ -492,14 +552,15 @@ class ImportQueueService {
           status: 'failed',
           stage_label: 'Processing failed',
           error: err.message || 'Unknown processing error',
+          stages_json: terminalStages,
           completed_at: new Date().toISOString(),
         });
         console.error(`[ImportQueue] Task ${nextTask.id} failed:`, err.message);
       }
     } finally {
       this.cancellationTokens.delete(nextTask.id);
-      this.currentTaskId = null;
-      this.isProcessing = false;
+      this.currentTaskIds.delete(nextTask.id);
+      this.isProcessingCount = Math.max(0, this.isProcessingCount - 1);
 
       // Automatically advance to the next task in queue order!
       setImmediate(() => this.tick());

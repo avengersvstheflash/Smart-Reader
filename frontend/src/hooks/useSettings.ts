@@ -22,6 +22,7 @@ export interface Settings {
   openrouter: OpenRouterSettings;
   local: LocalSettings;
   importMaxSizeMB: number;
+  parallelBookSynthesis?: boolean;
 }
 
 export interface UpdateSettingsPayload {
@@ -29,6 +30,7 @@ export interface UpdateSettingsPayload {
   openrouter?: Partial<OpenRouterSettings>;
   local?: Partial<LocalSettings>;
   importMaxSizeMB?: number;
+  parallelBookSynthesis?: boolean;
 }
 
 export interface TestConnectionPayload {

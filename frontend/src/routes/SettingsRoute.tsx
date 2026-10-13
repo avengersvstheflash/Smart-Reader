@@ -44,6 +44,7 @@ export const SettingsRoute: React.FC = () => {
   const [showLocalKey, setShowLocalKey] = useState(false);
 
   const [importSize, setImportSize] = useState<number>(50);
+  const [parallelBookSynthesis, setParallelBookSynthesis] = useState<boolean>(false);
 
   // Diagnostic & Toast feedback state
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
@@ -73,6 +74,8 @@ export const SettingsRoute: React.FC = () => {
       if (typeof settings.importMaxSizeMB === 'number') {
         setImportSize(settings.importMaxSizeMB);
       }
+
+      setParallelBookSynthesis(Boolean(settings.parallelBookSynthesis));
     }
   }, [settings]);
 
@@ -141,6 +144,7 @@ export const SettingsRoute: React.FC = () => {
           apiKey: localApiKey,
         },
         importMaxSizeMB: importSize,
+        parallelBookSynthesis,
       });
       setToastMessage({ text: 'Settings saved successfully', type: 'ok' });
     } catch (err: any) {
@@ -591,6 +595,41 @@ export const SettingsRoute: React.FC = () => {
           <p className="text-micro text-ink-faint leading-relaxed pt-1">
             Omnitome processes and chunks documents in memory. Keeping the import threshold between 50 and 200 MB preserves system responsiveness and prevents browser tab exhaustion during heavy parsing.
           </p>
+        </div>
+      </section>
+
+      {/* ── Section: Performance ── */}
+      <section className="bg-surface/50 rounded-2xl border border-line p-6 shadow-xs space-y-5">
+        <div className="flex items-center gap-2.5">
+          <Cpu className="w-5 h-5 text-accent-ink" />
+          <h2 className="text-lg font-semibold text-ink">Performance</h2>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <label htmlFor="parallel-synthesis-toggle" className="text-ui font-medium text-ink cursor-pointer">
+                Parallel book synthesis
+              </label>
+              <p className="text-caption text-ink-muted">
+                Run background synthesis concurrently for imported queue items.
+              </p>
+            </div>
+            <input
+              id="parallel-synthesis-toggle"
+              type="checkbox"
+              checked={parallelBookSynthesis}
+              onChange={(e) => setParallelBookSynthesis(e.target.checked)}
+              className="w-5 h-5 rounded border-line text-brand focus:ring-accent cursor-pointer"
+            />
+          </div>
+
+          <div className="rounded-xl bg-subtle/70 border border-line p-3.5 flex items-start gap-2.5 text-caption text-ink-muted">
+            <AlertCircle className="w-4 h-4 text-accent-ink shrink-0 mt-0.5" aria-hidden="true" />
+            <p className="leading-relaxed">
+              Runs up to 2 books through the pipeline simultaneously. Uses significantly more CPU, RAM, and VRAM. Recommended only for machines with 16 GB RAM or more.
+            </p>
+          </div>
         </div>
       </section>
 

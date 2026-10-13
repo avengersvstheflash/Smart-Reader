@@ -53,6 +53,7 @@ function getEnvDefaults() {
       timeoutMs: parseInt(process.env.OLLAMA_TIMEOUT_MS || '30000', 10),
     },
     importMaxSizeMB: clampedImportSize,
+    parallelBookSynthesis: false,
   };
 }
 
@@ -72,6 +73,9 @@ function mergeWithDefaults(saved, defaults) {
     importMaxSizeMB: typeof saved.importMaxSizeMB === 'number'
       ? Math.min(200, Math.max(50, saved.importMaxSizeMB))
       : defaults.importMaxSizeMB,
+    parallelBookSynthesis: typeof saved.parallelBookSynthesis === 'boolean'
+      ? saved.parallelBookSynthesis
+      : (defaults.parallelBookSynthesis ?? false),
   };
 }
 
@@ -255,6 +259,12 @@ class SettingsService {
       }
     }
 
+    if (payload.parallelBookSynthesis !== undefined) {
+      if (typeof payload.parallelBookSynthesis !== 'boolean') {
+        throw new Error('parallelBookSynthesis must be a boolean');
+      }
+    }
+
     const updated = {
       ...this.cachedSettings,
       version: 1,
@@ -263,6 +273,10 @@ class SettingsService {
 
     if (payload.aiProvider !== undefined) {
       updated.aiProvider = String(payload.aiProvider).trim().toLowerCase();
+    }
+
+    if (payload.parallelBookSynthesis !== undefined) {
+      updated.parallelBookSynthesis = Boolean(payload.parallelBookSynthesis);
     }
 
     if (payload.importMaxSizeMB !== undefined) {

@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useImportQueueStore } from '../../store/useImportQueueStore';
+import { StageChecklist } from './StageChecklist';
 
 export function QueueManager() {
   const navigate = useNavigate();
@@ -133,6 +134,11 @@ export function QueueManager() {
               <span className="capitalize">Stage: {activeTask.stage}</span>
               <span className="font-mono text-ink-muted">{activeTask.progress}%</span>
             </div>
+          </div>
+
+          {/* Active Task Stage Checklist */}
+          <div className="rounded-lg bg-surface/50 border border-line p-3">
+            <StageChecklist stages={activeTask.stages} isCompleted={activeTask.status === 'completed'} />
           </div>
 
           {/* Contextual reassurance notice */}
