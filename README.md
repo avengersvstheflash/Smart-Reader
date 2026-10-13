@@ -83,6 +83,49 @@ Omnitome is engineered for local-first high-throughput reading and neural synthe
 
 ### ⚡ 1. Cross-Format Ingestion & Parsing Throughput
 
+Benchmarks below measure **parse + block extraction + chunking** only.
+Classification, semantic indexing, outline generation, and synthesis are
+excluded. For full-pipeline end-to-end timing, see the corpus gate
+(`node scripts/run-corpus-tests.js`).
+
+### Real-world document corpus (22 files, 211 MB, 6 languages)
+
+Measured against `scripts/run-juncture-benchmark.js` on an external
+document folder. Post-F62 fix (early-return when no embedded TOC).
+
+| Document | Format | Size | Chapters | Words | Chunks | Parse (ms) | Chunk (ms) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| A Misanthrope Teaches a Class for Demi-Humans, Vol. 1.epub | EPUB | 20.7 MB | 27 | 59,960 | 254 | 58 | 64 |
+| annualreportofar9925bost.pdf | PDF | 23.5 MB | 15 | 72,599 | 565 | 3,832 | 2,346 |
+| aozorabunko_02070.epub | EPUB | 25.0 KB | 29 | 4,184 | 26 | 8 | 5 |
+| chat_11.md | MARKDOWN | 1.5 MB | 75 | 214,925 | 1,110 | 2,992 | 1,588 |
+| chijinno_ai.txt | TEXT | 392.5 KB | 29 | 137,828 | 167 | 194 | 303 |
+| corpsex.pdf | PDF | 730.5 KB | 66 | 98,762 | 425 | 1,468 | 448 |
+| kaggle and code dojo 1.pdf | PDF | 5.4 MB | 2 | 4,223 | 21 | 103,612 | 6 |
+| kaggle and code dojo 2.pdf | PDF | 13.0 MB | 3 | 9,016 | 58 | 235,934 | 23 |
+| Machine-Learning-Systems-Vol1.pdf | PDF | 11.6 MB | 27 | 508,589 | 2,817 | 16,531 | 6,476 |
+| Overlord, Vol. 1 The Undead King - Kugane Maruyama (light novel).epub | EPUB | 13.0 MB | 13 | 76,960 | 345 | 47 | 56 |
+| pg1322-images-3.epub | EPUB | 839.6 KB | 378 | 124,338 | 617 | 71 | 988 |
+| pg17489-images-3.epub | EPUB | 343.8 KB | 6 | 110,567 | 556 | 70 | 474 |
+| pg25305-images-3.epub | EPUB | 426.8 KB | 4 | 84,969 | 404 | 34 | 67 |
+| pg2701-images-3.epub | EPUB | 795.0 KB | 12 | 213,708 | 1,067 | 88 | 642 |
+| pg36528-images-3.epub | EPUB | 198.1 KB | 3 | 41,806 | 209 | 21 | 23 |
+| pg83-images-3.epub | EPUB | 520.3 KB | 55 | 92,112 | 461 | 36 | 110 |
+| Practical_Machine_Learning_A_Beginner's_Guide_with....pdf | PDF | 13.9 MB | 15 | 69,399 | 380 | 1,949 | 164 |
+| research, investigations and technical mapping program 1982.pdf | PDF | 11.4 MB | 4 | 24,044 | 136 | 757 | 23 |
+| Reverend_Insanity1.epub | EPUB | 1.1 MB | 200 | 416,124 | 1,845 | 184 | 3,587 |
+| The Eminence in Shadow, Vol. 1 - Daisuke Aizawa.pdf | PDF | 14.1 MB | 16 | 57,504 | 235 | 1,588 | 72 |
+| us geological survey 2009.pdf | PDF | 24.1 MB | 16 | 28,480 | 148 | 971 | 72 |
+| Vienano_-_Esperanto_per_Esperanto,_1932.pdf | PDF | 54.2 MB | 2 | 14,380 | 87 | 1,452 | 75 |
+| **TOTAL / AGGREGATE** | **ALL** | **211.5 MB** | **997** | **2,464,477** | **11,933** | **371,897** | **17,612** |
+
+Corpus aggregates:
+- 22/22 pass, 0 failures
+- Formats: EPUB, PDF, TXT, MD
+- Languages: English, Japanese, French, German, Chinese, Esperanto
+
+### Release-corpus gate (10 fixtures, 5 formats)
+
 Measured across the **v1.0 Corpus Release Gate** (10 diverse fixtures across 5 document formats). Ingestion evaluates character encoding detection (Tier 1 BOM + Tier 2 statistical `jschardet`), layout structure recovery, canonical block generation, and chapter boundary detection:
 
 | Fixture Document | Format | File Size | Chapters | Word Count | Parse Time (Median) | Throughput (Words/s) | Transfer Rate (MB/s) |
@@ -119,7 +162,7 @@ Empirical measurements on the local Python sidecar (`/v1/embed`) with PyTorch CU
 | **16** | Standard pipeline batch | 899.0 ms | 56.2 ms | **17.8 vectors/s** |
 | **32** | High-density bulk ingestion | 1,302.5 ms | 40.7 ms | **24.6 vectors/s** |
 
-### 🎯 4. Neural Reranking Latency (BGE-Reranker-Large, FP16 CUDA)
+### 🎯 4. Neural Reranking Latency (bge-reranker-v2-m3, FP16 CUDA)
 
 Cross-encoder candidate refinement latency (`/v1/nlp/rerank` and `/v1/nlp/rerank-batch`) during editorial synthesis:
 
@@ -151,6 +194,14 @@ The F43 Lifecycle Manager enforces aggressive idle eviction to keep local consum
 | **Python Sidecar** | Idle Evicted (F43 Daemon) | 1,762.3 MB | **174.0 MB** | **476.0 MB** |
 
 > *Empirically verified: when idle for >5 minutes or on explicit unload, models auto-evict, restoring **3,257.9 MB (3.2 GB) VRAM** back to the operating system.*
+
+### 🔍 Known performance characteristics
+
+- **OCR-routed PDFs** (image-only scans with 0 selectable chars) process
+  at ~7-10 s/page via PaddleOCR. Filed as F61 for v1.x investigation.
+- **Native text PDFs** parse at 5-15 ms/block depending on block density.
+  F62 (fixed) eliminated a sidecar duplication that previously cost 30-50s
+  on large reports; post-fix, large native PDFs parse in under 4s.
 
 ---
 

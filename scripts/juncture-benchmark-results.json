@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-10-13T12:07:26.127Z",
+    "generated_at": "2026-10-13T13:41:10.530Z",
     "source_directory": "Docs for tests",
     "total_files": 22,
     "passed_files": 22,
@@ -15,8 +15,8 @@
       "chapters": 27,
       "words": 59960,
       "chunks": 254,
-      "parse_ms": 75,
-      "chunk_ms": 70,
+      "parse_ms": 58,
+      "chunk_ms": 64,
       "status": "PASS",
       "attempts": 1
     },
@@ -28,8 +28,8 @@
       "chapters": 15,
       "words": 72599,
       "chunks": 565,
-      "parse_ms": 54595,
-      "chunk_ms": 1970,
+      "parse_ms": 3832,
+      "chunk_ms": 2346,
       "status": "PASS",
       "attempts": 1
     },
@@ -41,8 +41,8 @@
       "chapters": 29,
       "words": 4184,
       "chunks": 26,
-      "parse_ms": 9,
-      "chunk_ms": 6,
+      "parse_ms": 8,
+      "chunk_ms": 5,
       "status": "PASS",
       "attempts": 1
     },
@@ -54,8 +54,8 @@
       "chapters": 75,
       "words": 214925,
       "chunks": 1110,
-      "parse_ms": 2405,
-      "chunk_ms": 1235,
+      "parse_ms": 2992,
+      "chunk_ms": 1588,
       "status": "PASS",
       "attempts": 1
     },
@@ -67,8 +67,8 @@
       "chapters": 29,
       "words": 137828,
       "chunks": 167,
-      "parse_ms": 391,
-      "chunk_ms": 282,
+      "parse_ms": 194,
+      "chunk_ms": 303,
       "status": "PASS",
       "attempts": 1
     },
@@ -80,8 +80,8 @@
       "chapters": 66,
       "words": 98762,
       "chunks": 425,
-      "parse_ms": 2633,
-      "chunk_ms": 400,
+      "parse_ms": 1468,
+      "chunk_ms": 448,
       "status": "PASS",
       "attempts": 1
     },
@@ -93,8 +93,8 @@
       "chapters": 2,
       "words": 4223,
       "chunks": 21,
-      "parse_ms": 89921,
-      "chunk_ms": 7,
+      "parse_ms": 103612,
+      "chunk_ms": 6,
       "status": "PASS",
       "attempts": 1
     },
@@ -106,7 +106,7 @@
       "chapters": 3,
       "words": 9016,
       "chunks": 58,
-      "parse_ms": 219232,
+      "parse_ms": 235934,
       "chunk_ms": 23,
       "status": "PASS",
       "attempts": 1
@@ -119,8 +119,8 @@
       "chapters": 27,
       "words": 508589,
       "chunks": 2817,
-      "parse_ms": 16868,
-      "chunk_ms": 6668,
+      "parse_ms": 16531,
+      "chunk_ms": 6476,
       "status": "PASS",
       "attempts": 1
     },
@@ -132,8 +132,8 @@
       "chapters": 13,
       "words": 76960,
       "chunks": 345,
-      "parse_ms": 53,
-      "chunk_ms": 64,
+      "parse_ms": 47,
+      "chunk_ms": 56,
       "status": "PASS",
       "attempts": 1
     },
@@ -145,8 +145,8 @@
       "chapters": 378,
       "words": 124338,
       "chunks": 617,
-      "parse_ms": 69,
-      "chunk_ms": 995,
+      "parse_ms": 71,
+      "chunk_ms": 988,
       "status": "PASS",
       "attempts": 1
     },
@@ -158,8 +158,8 @@
       "chapters": 6,
       "words": 110567,
       "chunks": 556,
-      "parse_ms": 64,
-      "chunk_ms": 472,
+      "parse_ms": 70,
+      "chunk_ms": 474,
       "status": "PASS",
       "attempts": 1
     },
@@ -171,8 +171,8 @@
       "chapters": 4,
       "words": 84969,
       "chunks": 404,
-      "parse_ms": 36,
-      "chunk_ms": 66,
+      "parse_ms": 34,
+      "chunk_ms": 67,
       "status": "PASS",
       "attempts": 1
     },
@@ -184,8 +184,8 @@
       "chapters": 12,
       "words": 213708,
       "chunks": 1067,
-      "parse_ms": 86,
-      "chunk_ms": 618,
+      "parse_ms": 88,
+      "chunk_ms": 642,
       "status": "PASS",
       "attempts": 1
     },
@@ -197,8 +197,8 @@
       "chapters": 3,
       "words": 41806,
       "chunks": 209,
-      "parse_ms": 20,
-      "chunk_ms": 29,
+      "parse_ms": 21,
+      "chunk_ms": 23,
       "status": "PASS",
       "attempts": 1
     },
@@ -210,8 +210,8 @@
       "chapters": 55,
       "words": 92112,
       "chunks": 461,
-      "parse_ms": 37,
-      "chunk_ms": 115,
+      "parse_ms": 36,
+      "chunk_ms": 110,
       "status": "PASS",
       "attempts": 1
     },
@@ -223,8 +223,8 @@
       "chapters": 15,
       "words": 69399,
       "chunks": 380,
-      "parse_ms": 4899,
-      "chunk_ms": 198,
+      "parse_ms": 1949,
+      "chunk_ms": 164,
       "status": "PASS",
       "attempts": 1
     },
@@ -236,8 +236,8 @@
       "chapters": 4,
       "words": 24044,
       "chunks": 136,
-      "parse_ms": 33530,
-      "chunk_ms": 27,
+      "parse_ms": 757,
+      "chunk_ms": 23,
       "status": "PASS",
       "attempts": 1
     },
@@ -249,8 +249,8 @@
       "chapters": 200,
       "words": 416124,
       "chunks": 1845,
-      "parse_ms": 208,
-      "chunk_ms": 3531,
+      "parse_ms": 184,
+      "chunk_ms": 3587,
       "status": "PASS",
       "attempts": 1
     },
@@ -262,8 +262,8 @@
       "chapters": 16,
       "words": 57504,
       "chunks": 235,
-      "parse_ms": 1814,
-      "chunk_ms": 88,
+      "parse_ms": 1588,
+      "chunk_ms": 72,
       "status": "PASS",
       "attempts": 1
     },
@@ -275,8 +275,8 @@
       "chapters": 16,
       "words": 28480,
       "chunks": 148,
-      "parse_ms": 8921,
-      "chunk_ms": 67,
+      "parse_ms": 971,
+      "chunk_ms": 72,
       "status": "PASS",
       "attempts": 1
     },
@@ -288,8 +288,8 @@
       "chapters": 2,
       "words": 14380,
       "chunks": 87,
-      "parse_ms": 2327,
-      "chunk_ms": 72,
+      "parse_ms": 1452,
+      "chunk_ms": 75,
       "status": "PASS",
       "attempts": 1
     }
@@ -303,8 +303,8 @@
     "chapters": 997,
     "words": 2464477,
     "chunks": 11933,
-    "parse_ms": 438193,
-    "chunk_ms": 17003
+    "parse_ms": 371897,
+    "chunk_ms": 17612
   },
   "averages": {
     "bytes": 10079555,
@@ -312,7 +312,7 @@
     "chapters": 45.3,
     "words": 112022,
     "chunks": 542.4,
-    "parse_ms": 19917.9,
-    "chunk_ms": 772.9
+    "parse_ms": 16904.4,
+    "chunk_ms": 800.5
   }
 }
