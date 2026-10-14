@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Zap, ChevronDown, RotateCw } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { useEditorialProgress } from '../../hooks/useEditorial';
+import { ButtonDecor } from '../reader/ButtonDecor';
 
 export interface ChapterSynthesisButtonProps {
   bookId: string;
@@ -208,46 +209,64 @@ export const ChapterSynthesisButton: React.FC<ChapterSynthesisButtonProps> = ({
 
   return (
     <>
-      <div className="relative inline-flex items-center rounded-md shadow-sm" ref={dropdownRef}>
-        {/* Primary Action Button */}
-        <button
-          type="button"
-          disabled={isDisabled}
-          onClick={() => handleSynthesize(primaryCount)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-ui-sm font-medium rounded-l-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-r border-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          title={
+      <div className="relative inline-flex" ref={dropdownRef}>
+        {/* Unified split button container */}
+        <div
+          className={`inline-flex items-stretch rounded-md shadow-sm transition-all group overflow-hidden ${
             isDisabled
-              ? `Generating ${currentDoneCount}/${targetDisplay} chapters…`
-              : `Synthesize next ${primaryCount} chapters`
-          }
+              ? 'opacity-50 cursor-not-allowed bg-accent text-white'
+              : 'bg-accent text-white cyber-animated-button arcane-beam-button themed-button hover:opacity-90'
+          }`}
         >
-          {isDisabled ? (
-            <>
-              <RotateCw className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-              <span>
-                Generating {currentDoneCount}/{targetDisplay}…
-              </span>
-            </>
-          ) : (
-            <>
-              <Zap className="w-3.5 h-3.5 text-accent-wash" aria-hidden="true" />
-              <span>Synthesize next {primaryCount}</span>
-            </>
-          )}
-        </button>
+          <ButtonDecor />
 
-        {/* Dropdown Toggle */}
-        <button
-          type="button"
-          disabled={isDisabled}
-          onClick={() => setIsDropdownOpen((prev) => !prev)}
-          className="inline-flex items-center px-2 py-2 text-ui-sm font-medium rounded-r-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          aria-label="Select synthesis batch size"
-          aria-haspopup="true"
-          aria-expanded={isDropdownOpen}
-        >
-          <ChevronDown className="w-4 h-4" aria-hidden="true" />
-        </button>
+          {/* Primary Action Button */}
+          <button
+            type="button"
+            disabled={isDisabled}
+            onClick={() => handleSynthesize(primaryCount)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-ui-sm font-medium bg-transparent group-hover:bg-white/10 group-active:bg-white/20 hover:bg-white/15 active:bg-white/25 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+            title={
+              isDisabled
+                ? `Generating ${currentDoneCount}/${targetDisplay} chapters…`
+                : `Synthesize next ${primaryCount} chapters`
+            }
+            aria-label={`Synthesize next ${primaryCount} chapters`}
+          >
+            {isDisabled ? (
+              <>
+                <RotateCw className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
+                <span>
+                  Generating {currentDoneCount}/${targetDisplay}…
+                </span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-3.5 h-3.5 text-accent-wash shrink-0" aria-hidden="true" />
+                <span>Synthesize next {primaryCount}</span>
+              </>
+            )}
+          </button>
+
+          {/* Dropdown Toggle Caret */}
+          <button
+            type="button"
+            disabled={isDisabled}
+            onClick={() => setIsDropdownOpen((prev) => !prev)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setIsDropdownOpen((prev) => !prev);
+              }
+            }}
+            className="inline-flex items-center px-2 py-2 text-ui-sm font-medium bg-transparent group-hover:bg-white/10 group-active:bg-white/20 hover:bg-white/20 active:bg-white/30 disabled:cursor-not-allowed transition-colors border-l border-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+            aria-label="Choose synthesis count"
+            aria-haspopup="true"
+            aria-expanded={isDropdownOpen}
+          >
+            <ChevronDown className="w-4 h-4 shrink-0" aria-hidden="true" />
+          </button>
+        </div>
 
         {/* Dropdown Menu */}
         {isDropdownOpen && (
