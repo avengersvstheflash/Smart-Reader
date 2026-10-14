@@ -101,20 +101,15 @@ class ImportQueueService {
     text,
     dossierId,
     dossierTitle,
-    isNewDossier = false,
+    isNewDossier,
   }) {
     if (!text || text.trim().length === 0) {
       throw new Error('Pasted text content is required.');
     }
-    if (!isNewDossier && !dossierId) {
-      throw new Error('A destination dossier must be selected or created.');
-    }
-    if (isNewDossier && (!dossierTitle || !dossierTitle.trim())) {
-      throw new Error('A new dossier title is required.');
-    }
 
     const trimmedText = text.trim();
     const docTitle = (title && title.trim()) || 'Pasted Research Document';
+    const resolvedDossierTitle = dossierTitle ? dossierTitle.trim() : (isNewDossier ? docTitle : null);
 
     const task = importQueueRepository.create({
       type: 'paste',
@@ -126,8 +121,8 @@ class ImportQueueService {
         charCount: trimmedText.length,
         wordCount: countWordsFast(trimmedText),
         dossierId: dossierId || null,
-        dossierTitle: dossierTitle ? dossierTitle.trim() : null,
-        isNewDossier: Boolean(isNewDossier),
+        dossierTitle: resolvedDossierTitle,
+        isNewDossier: isNewDossier !== undefined ? Boolean(isNewDossier) : undefined,
       },
       status: 'queued',
       stage: 'preparing',
@@ -368,11 +363,33 @@ class ImportQueueService {
 
         let targetDossierId = meta.dossierId;
 
-        // If user chose Option B (New Dossier) or no dossier ID provided:
-        if (meta.isNewDossier || !targetDossierId) {
+        // F58.1: Dossier dedup by ID instead of title
+        if (targetDossierId) {
+          // Rule 1: If client sends dossierId -> use directly (no lookup)
+        } else if (meta.isNewDossier === true) {
+          // Rule 2: If client sends isNewDossier=true -> always create new (no dedup)
           const candidateTitle = (meta.dossierTitle || meta.title || 'Research Dossier').trim();
+          importQueueRepository.update(nextTask.id, {
+            stage: 'structuring',
+            stage_label: `Creating research dossier "${candidateTitle}"…`,
+            progress: 40,
+          });
 
-          // Check if a dossier with this title already exists or was created in recent batch
+          if (this._isCancelled(nextTask.id)) {
+            throw new Error('Task cancelled by user');
+          }
+
+          const createdDossier = bookService.createDossier({
+            title: candidateTitle,
+            author: meta.author || 'Research Notes',
+            description: `Dossier containing research on ${meta.title}.`,
+          });
+          targetDossierId = createdDossier.id;
+        } else {
+          // Rule 3: Only fall back to title match if neither is provided AND log a console.warn about the ambiguity
+          const candidateTitle = (meta.dossierTitle || meta.title || 'Research Dossier').trim();
+          console.warn(`[ImportQueue] Ambiguous dossier destination for paste import: neither dossierId nor isNewDossier was specified. Falling back to title matching for "${candidateTitle}".`);
+
           const existingDossier = bookService.getAllDossiers().find(
             (d) => (d.title || '').trim().toLowerCase() === candidateTitle.toLowerCase()
           );

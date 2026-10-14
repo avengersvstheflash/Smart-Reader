@@ -103,7 +103,7 @@ router.post('/paste', async (req, res, next) => {
       text,
       dossierId,
       dossierTitle,
-      isNewDossier: Boolean(isNewDossier),
+      isNewDossier: isNewDossier !== undefined ? Boolean(isNewDossier) : undefined,
     });
 
     res.status(201).json({ success: true, task });

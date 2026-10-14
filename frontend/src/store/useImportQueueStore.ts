@@ -34,7 +34,7 @@ interface ImportQueueState {
     text: string;
     dossierId?: string;
     dossierTitle?: string;
-    isNewDossier: boolean;
+    isNewDossier?: boolean;
   }) => Promise<ImportTask>;
   enqueueWeb: (data: {
     url: string;

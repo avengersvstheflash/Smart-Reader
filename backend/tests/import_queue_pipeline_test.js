@@ -198,14 +198,12 @@ async function runTests() {
     title: 'Paper Section 1',
     author: 'Alice',
     text: 'First section of the neural dynamics survey discussing continuous attractors.',
-    isNewDossier: true,
     dossierTitle: 'Shared Neural Survey',
   });
   const dTask2 = await importQueueService.enqueuePaste({
     title: 'Paper Section 2',
     author: 'Bob',
     text: 'Second section of the neural dynamics survey discussing Lyapunov stability.',
-    isNewDossier: true,
     dossierTitle: 'Shared Neural Survey',
   });
 
