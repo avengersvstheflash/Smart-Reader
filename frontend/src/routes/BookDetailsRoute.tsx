@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   BookOpen,
@@ -10,6 +11,7 @@ import {
   Trash2,
   Plus,
 } from 'lucide-react';
+import { apiClient } from '../api/client';
 import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
 import { useChapters } from '../hooks/useChapters';
 import { useSmartChapters, useResumeTarget, useResynthesizeSmartChapter } from '../hooks/useSmartChapters';
@@ -139,9 +141,37 @@ export default function BookDetailsRoute() {
   const { resumeTarget } = useResumeTarget(bookId);
   const { data: lifecycleData } = useLifecycle(bookId);
 
+  const queryClient = useQueryClient();
   const { mutateAsync: resynthesizeChapter } = useResynthesizeSmartChapter(bookId);
   const [resynthesizingId, setResynthesizingId] = useState<string | null>(null);
   const [resynthesizeToast, setResynthesizeToast] = useState<string | null>(null);
+  const [isRegeneratingSynopsis, setIsRegeneratingSynopsis] = useState(false);
+  const [synopsisToast, setSynopsisToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (synopsisToast) {
+      const timer = setTimeout(() => setSynopsisToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [synopsisToast]);
+
+  const handleRegenerateSynopsis = async () => {
+    if (!bookId || isRegeneratingSynopsis) return;
+    setIsRegeneratingSynopsis(true);
+    setSynopsisToast(null);
+    try {
+      await apiClient(`/api/books/${bookId}/synopsis/regenerate`, {
+        method: 'POST',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['book-synopsis', bookId] });
+      await queryClient.invalidateQueries({ queryKey: ['book', bookId] });
+      setSynopsisToast('Synopsis regenerated successfully.');
+    } catch (err: any) {
+      setSynopsisToast(err?.message || 'Failed to regenerate synopsis.');
+    } finally {
+      setIsRegeneratingSynopsis(false);
+    }
+  };
 
   const handleResynthesize = async (smartChapterId: string) => {
     setResynthesizingId(smartChapterId);
@@ -456,15 +486,27 @@ export default function BookDetailsRoute() {
         <div className="rounded-lg border border-line bg-card p-6 shadow-xs hover:border-line-strong transition-colors">
           {synopsis && synopsis.content ? (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span id="synopsis-heading" className="text-micro font-semibold tracking-wider uppercase text-accent-ink select-none">
-                  DERIVED · SYNOPSIS
-                </span>
-                {synopsis.fellBack === true && (
-                  <span className="text-micro font-medium text-ink-muted/70 select-none">
-                    {getSynopsisBadgeText(synopsis.fallbackReason)}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span id="synopsis-heading" className="text-micro font-semibold tracking-wider uppercase text-accent-ink select-none">
+                    DERIVED · SYNOPSIS
                   </span>
-                )}
+                  {synopsis.fellBack === true && (
+                    <span className="text-micro font-medium text-ink-muted/70 select-none">
+                      {getSynopsisBadgeText(synopsis.fallbackReason)}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRegenerateSynopsis}
+                  disabled={isRegeneratingSynopsis}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-line bg-surface text-ink-muted hover:text-ink hover:bg-subtle disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
+                  title="Regenerate synopsis"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 ${isRegeneratingSynopsis ? 'animate-spin' : ''}`} aria-hidden="true" />
+                  <span>{isRegeneratingSynopsis ? 'Regenerating…' : 'Regenerate synopsis'}</span>
+                </button>
               </div>
               {synopsis.fellBack === true && (
                 <p className="text-caption text-ink-muted mt-0 mb-1">
@@ -505,11 +547,13 @@ export default function BookDetailsRoute() {
               </div>
               <button
                 type="button"
-                disabled
-                title="Available in a later phase"
-                className="inline-flex items-center justify-center px-3.5 py-1.5 text-xs font-medium rounded-md border border-line bg-subtle text-ink-muted disabled:opacity-50 disabled:cursor-not-allowed self-start sm:self-auto"
+                onClick={handleRegenerateSynopsis}
+                disabled={isRegeneratingSynopsis}
+                title="Generate synopsis"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-md border border-line bg-subtle text-ink hover:text-ink hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed self-start sm:self-auto transition-all"
               >
-                Generate synopsis
+                <RotateCw className={`w-3.5 h-3.5 ${isRegeneratingSynopsis ? 'animate-spin' : ''}`} aria-hidden="true" />
+                <span>{isRegeneratingSynopsis ? 'Generating…' : 'Generate synopsis'}</span>
               </button>
             </div>
           )}
@@ -702,6 +746,16 @@ export default function BookDetailsRoute() {
           </div>
         </div>
       </div>
+
+      {synopsisToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-lg border border-line bg-surface text-ink text-ui-sm shadow-lg transition-all animate-fade-in"
+        >
+          <span>{synopsisToast}</span>
+        </div>
+      )}
     </div>
   );
 }

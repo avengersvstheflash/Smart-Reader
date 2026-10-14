@@ -285,6 +285,42 @@ router.post('/:id/bibliographic', async (req, res, next) => {
   }
 });
 
+// POST /api/books/:id/synopsis/regenerate - regenerate grounded editorial synopsis (F54)
+router.post('/:id/synopsis/regenerate', async (req, res, next) => {
+  let book = null;
+  try {
+    book = bookService.getBook(req.params.id);
+  } catch (err) {
+    if (err.message && /not found/i.test(err.message)) {
+      return res.status(404).json({ error: `Book not found: ${req.params.id}` });
+    }
+    return next(err);
+  }
+  if (!book) {
+    return res.status(404).json({ error: `Book not found: ${req.params.id}` });
+  }
+
+  try {
+    const result = await intelligentSummarizer.generateSynopsis(req.params.id, {
+      ...req.body,
+      forceRefresh: true,
+    });
+    const updatedBook = bookService.getBook(req.params.id);
+    res.json({
+      success: true,
+      synopsis: result.representation ? result.representation.content : result.synopsis,
+      canonicalBlocks: result.canonicalBlocks,
+      representation: result.representation,
+      book: updatedBook,
+    });
+  } catch (err) {
+    if (err.message && /not found/i.test(err.message)) {
+      return res.status(404).json({ error: err.message });
+    }
+    res.status(400).json({ error: err.message || 'Failed to regenerate synopsis.' });
+  }
+});
+
 // POST /api/books/:id/synopsis - generate grounded editorial synopsis
 router.post('/:id/synopsis', async (req, res, next) => {
   try {
