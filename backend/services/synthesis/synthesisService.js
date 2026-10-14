@@ -41,6 +41,34 @@ function computeRerankerTimeout({ candidates = 5, paragraphs = 1 } = {}) {
   return Math.min(60000, Math.max(8000, ms));
 }
 
+/**
+ * Await reranker readiness before fallback (F74).
+ * Polls if LOADING up to maxWaitMs (default 30s), warms if UNLOADED.
+ *
+ * @param {object} [client] - NLP client instance
+ * @param {number} [maxWaitMs=30000] - maximum wait budget in ms
+ * @returns {Promise<boolean>} true if model is LOADED, false otherwise
+ */
+async function awaitRerankerReady(client, maxWaitMs = 30000) {
+  try {
+    const { checkModelReady, warmModel } = require('../ai/sidecarBase');
+    const targetUrl = client?.baseUrl || null;
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      const cap = await checkModelReady('reranker', targetUrl, 2000);
+      if (cap.state === 'LOADED') return true;
+      if (cap.reason === 'unreachable') return false;
+      if (cap.state === 'UNLOADED') {
+        await warmModel('reranker', targetUrl, { timeoutMs: 15000 }).catch(() => {});
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  } catch (_) {
+    return false;
+  }
+  return false;
+}
+
 class SynthesisService {
   /**
    * Synthesize an editorial chapter across source materials.
@@ -545,8 +573,7 @@ OUTPUT:`;
 
     if (normalizedChunks.length > 0 && batchInputs.length > 0 && typeof client.rerankBatchMulti === 'function') {
       try {
-        const { warmModel } = require('../ai/sidecarBase');
-        warmModel('reranker', null, { fireAndForget: true }).catch(() => {});
+        await awaitRerankerReady(client);
       } catch (_) {}
       try {
         const multiRes = await client.rerankBatchMulti(batchInputs, { timeoutMs });
@@ -1081,6 +1108,9 @@ OUTPUT:`;
 
     try {
       const client = options.nlpClient || nlpClient;
+      try {
+        await awaitRerankerReady(client);
+      } catch (_) {}
       const timeoutMs = options.timeoutMs || computeRerankerTimeout({
         candidates: normalizedCandidates.length,
         paragraphs: 1,
