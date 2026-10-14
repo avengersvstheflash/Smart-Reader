@@ -14,6 +14,7 @@ const upload = multer({
 const { getDatabase } = require('../db/database');
 const smartChapterRepository = require('../repositories/smartChapterRepository');
 const { getLifecycleHandler, readProgressHandler } = require('./lifecycleRoutes');
+const bookLifecycleRepository = require('../repositories/bookLifecycleRepository');
 
 // GET /api/books/sources - list all source items
 router.get('/sources', (req, res, next) => {
@@ -61,7 +62,11 @@ router.post('/:dossierId/append-source', upload.single('file'), async (req, res,
     const { dossierId } = req.params;
     const db = getDatabase();
     const dossier = db.prepare('SELECT * FROM books WHERE id = ?').get(dossierId);
-    if (!dossier || dossier.content_type !== 'research') {
+    const lifecycle = bookLifecycleRepository.getByBookId(dossierId);
+    const isResearch = (dossier && dossier.content_type === 'research') ||
+                       (lifecycle && lifecycle.in_research === 1);
+
+    if (!dossier || !isResearch) {
       return res.status(404).json({ error: 'Research dossier not found.' });
     }
 
