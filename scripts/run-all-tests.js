@@ -76,6 +76,7 @@ const SUITES = [
   'f54_synopsis_regenerate_test.js',
   'f58_1_dossier_dedup_test.js',
   'f81_omni_reading_time_test.js',
+  'f81_1_omni_read_fallback_test.js',
   'f79b_append_source_test.js',
 ];
 

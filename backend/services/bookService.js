@@ -408,7 +408,7 @@ class BookService {
       const hasWordCount = tableInfo.some((c) => c.name === 'word_count');
       if (hasWordCount) {
         const row = db.prepare(`
-          SELECT SUM(COALESCE(word_count, 0)) as total
+          SELECT SUM(COALESCE(word_count, LENGTH(content) / 5, 0)) as total
           FROM smart_chapters
           WHERE book_id = ? AND status = 'generated'
         `).get(id);
