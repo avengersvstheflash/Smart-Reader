@@ -25,6 +25,9 @@ class WebAcquisitionService {
    * Alias for acquireFromUrl used by ingestionService
    */
   async acquireFromUrl(url, options = {}) {
+    if (options.contentOnly || options.skipBookCreation) {
+      return this.extractFromUrl(url, options);
+    }
     return this.importSingle({
       url,
       customTitle: options.title,
@@ -32,6 +35,33 @@ class WebAcquisitionService {
       description: options.description,
       contentType: options.contentType,
     });
+  }
+
+  /**
+   * Extracts web content without creating a library book (used when appending to dossier)
+   */
+  async extractFromUrl(url, options = {}) {
+    if (!url) throw new Error('A valid URL is required.');
+
+    const fetchResult = await webFetcher.fetch(url);
+    const { metadata, canonicalDoc } = webExtractor.extract(fetchResult.html, fetchResult.url);
+    const detectedChapters = webStructureDetector.structure(canonicalDoc, metadata);
+
+    const title = (options.title && options.title.trim()) || metadata.title || 'Imported Web Document';
+    const author = (options.author && options.author.trim()) || metadata.author || 'Web Author';
+    const totalWords = detectedChapters.reduce((sum, c) => sum + (c.wordCount || 0), 0);
+    const estPages = Math.max(1, Math.ceil(totalWords / 250));
+
+    return {
+      format: 'web',
+      title,
+      author,
+      pageCount: estPages,
+      tablesCount: 0,
+      chapters: detectedChapters,
+      totalWordCount: totalWords,
+      metadata,
+    };
   }
 
   /**

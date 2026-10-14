@@ -3,6 +3,7 @@ const multer = require('multer');
 const config = require('../config');
 const bookService = require('../services/bookService');
 const webAcquisitionService = require('../services/web/webAcquisitionService');
+const importQueueService = require('../services/ingestion/importQueueService');
 
 const router = express.Router();
 const upload = multer({
@@ -49,6 +50,90 @@ router.post('/dossiers/:id/content', async (req, res, next) => {
   try {
     const result = await bookService.addContentToDossier(req.params.id, req.body);
     return res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/books/:dossierId/append-source - append source to research dossier (F79b)
+router.post('/:dossierId/append-source', upload.single('file'), async (req, res, next) => {
+  try {
+    const { dossierId } = req.params;
+    const db = getDatabase();
+    const dossier = db.prepare('SELECT * FROM books WHERE id = ?').get(dossierId);
+    if (!dossier || dossier.content_type !== 'research') {
+      return res.status(404).json({ error: 'Research dossier not found.' });
+    }
+
+    let sourceType = req.body.sourceType;
+    if (!sourceType && req.file) {
+      sourceType = 'file';
+    }
+
+    if (!['file', 'web', 'paste'].includes(sourceType)) {
+      return res.status(400).json({ error: "Invalid sourceType. Must be one of 'file', 'web', 'paste'." });
+    }
+
+    const payload = req.body.payload || req.body;
+    let task = null;
+
+    if (sourceType === 'paste') {
+      const title = payload.title || 'Pasted Research Document';
+      const text = payload.text || '';
+      const author = payload.author || '';
+      if (!text || text.trim().length === 0) {
+        return res.status(400).json({ error: 'Text content is required for paste import.' });
+      }
+      task = await importQueueService.enqueuePaste({
+        title,
+        author,
+        text,
+        dossierId: dossier.id,
+        targetDossierId: dossier.id,
+      });
+    } else if (sourceType === 'web') {
+      const url = payload.url;
+      if (!url || !url.trim()) {
+        return res.status(400).json({ error: 'URL is required for web import.' });
+      }
+      task = await importQueueService.enqueueWeb({
+        url,
+        title: payload.title,
+        author: payload.author,
+        dossierId: dossier.id,
+        targetDossierId: dossier.id,
+      });
+    } else if (sourceType === 'file') {
+      let fileBuffer = null;
+      let originalFilename = '';
+      if (req.file) {
+        fileBuffer = req.file.buffer;
+        originalFilename = req.file.originalname;
+      } else if (payload.fileBuffer) {
+        fileBuffer = Buffer.isBuffer(payload.fileBuffer)
+          ? payload.fileBuffer
+          : Buffer.from(payload.fileBuffer, 'base64');
+        originalFilename = payload.originalFilename || 'uploaded_document';
+      }
+      if (!fileBuffer) {
+        return res.status(400).json({ error: 'File buffer or file is required for file import.' });
+      }
+      task = await importQueueService.enqueueFile({
+        file: {
+          buffer: fileBuffer,
+          originalname: originalFilename,
+          size: fileBuffer.length,
+        },
+        metadata: {
+          targetDossierId: dossier.id,
+          dossierId: dossier.id,
+          title: payload.title,
+          author: payload.author,
+        },
+      });
+    }
+
+    return res.status(200).json({ taskId: task.id, dossierId: dossier.id });
   } catch (err) {
     next(err);
   }

@@ -9,6 +9,8 @@ import {
   RotateCw,
   MoreHorizontal,
   Trash2,
+  Paperclip,
+  Check,
 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
@@ -24,6 +26,7 @@ import { ButtonDecor } from '../components/reader/ButtonDecor';
 import { SmartChapterList } from '../components/reader/SmartChapterList';
 import { formatRelativeTime } from '../lib/relativeTime';
 import { ChapterSynthesisButton } from '../components/book/ChapterSynthesisButton';
+import { AttachSourceModal } from '../components/modals/AttachSourceModal';
 
 function formatAiProvider(raw?: string): string | null {
   if (!raw) return null;
@@ -147,6 +150,15 @@ export default function BookDetailsRoute() {
   const [resynthesizeToast, setResynthesizeToast] = useState<string | null>(null);
   const [isRegeneratingSynopsis, setIsRegeneratingSynopsis] = useState(false);
   const [synopsisToast, setSynopsisToast] = useState<string | null>(null);
+  const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
+  const [attachToast, setAttachToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (attachToast) {
+      const timer = setTimeout(() => setAttachToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [attachToast]);
 
   useEffect(() => {
     if (synopsisToast) {
@@ -518,6 +530,18 @@ export default function BookDetailsRoute() {
               <span>View original</span>
             </button>
 
+            {(book.contentType === 'research' || rawBook.content_type === 'research') && (
+              <button
+                type="button"
+                title="Attach source to research dossier"
+                onClick={() => setIsAttachModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-ui-sm font-medium rounded-md border border-line bg-surface text-ink hover:bg-subtle transition-all shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Paperclip className="w-4 h-4 text-muted" aria-hidden="true" />
+                <span>Attach source</span>
+              </button>
+            )}
+
             <ChapterSynthesisButton
               bookId={book.id}
               generatedCount={smartGenerated}
@@ -787,6 +811,26 @@ export default function BookDetailsRoute() {
         >
           <span>{synopsisToast}</span>
         </div>
+      )}
+
+      {attachToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-lg border border-line bg-surface text-ink text-ui-sm shadow-lg transition-all animate-fade-in"
+        >
+          <Check className="w-4 h-4 text-accent" />
+          <span>{attachToast}</span>
+        </div>
+      )}
+
+      {isAttachModalOpen && (
+        <AttachSourceModal
+          open={isAttachModalOpen}
+          onClose={() => setIsAttachModalOpen(false)}
+          dossierId={book.id}
+          onSuccessToast={(msg) => setAttachToast(msg)}
+        />
       )}
     </div>
   );

@@ -273,14 +273,14 @@ class BookService {
     });
   }
 
-  async addContentToDossier(dossierId, { title, author, text, description }) {
+  async addContentToDossier(dossierId, { title, author, text, description, fileBuffer, originalFilename, url }) {
     const dossier = this.getBook(dossierId);
-    if (!text || !text.trim()) {
-      throw new Error('Text content is required.');
+    if (!text && !fileBuffer && !url) {
+      throw new Error('Text, file, or URL content is required.');
     }
 
-    const trimmedText = text.trim();
-    const docTitle = (title && title.trim()) || 'Pasted Research Material';
+    const trimmedText = typeof text === 'string' ? text.trim() : '';
+    const docTitle = (title && title.trim()) || originalFilename || url || 'Research Material';
     const docAuthor = (author && author.trim()) || 'Unknown Author';
 
     let parsed = null;
@@ -289,10 +289,21 @@ class BookService {
         title: docTitle,
         author: docAuthor,
         rawText: trimmedText,
+        fileBuffer,
+        originalFilename,
+        url,
         contentType: 'research',
+        contentOnly: true,
       });
     } catch (err) {
+      if (!trimmedText) {
+        throw err;
+      }
       console.warn('[addContentToDossier] Ingestion fallback:', err.message);
+    }
+
+    if (!trimmedText && (!parsed || !parsed.chapters || parsed.chapters.length === 0)) {
+      throw new Error(`Failed to extract content from ${originalFilename || url || 'source'}`);
     }
 
     const existingChapters = chapterRepository.getByBookId(dossierId);
@@ -300,13 +311,14 @@ class BookService {
       ? Math.max(...existingChapters.map((c) => c.number)) + 1
       : 1;
 
+    const fallbackText = trimmedText || (parsed && parsed.chapters && parsed.chapters[0]?.content) || '';
     const chaptersToAdd = (parsed && parsed.chapters && parsed.chapters.length > 0)
       ? parsed.chapters
       : [{
           title: docTitle,
-          content: trimmedText,
-          canonicalBlocks: [{ type: 'paragraph', text: trimmedText }],
-          wordCount: countWordsFast(trimmedText),
+          content: fallbackText,
+          canonicalBlocks: [{ type: 'paragraph', text: fallbackText }],
+          wordCount: countWordsFast(fallbackText),
         }];
 
     const createdChapters = [];
@@ -319,9 +331,9 @@ class BookService {
         number: nextNumber++,
         title: ch.title || docTitle,
         structural_role: ch.structuralRole || 'chapter',
-        content: ch.content || trimmedText,
+        content: ch.content || fallbackText,
         canonical_content: ch.canonicalBlocks ? JSON.stringify(ch.canonicalBlocks) : null,
-        word_count: ch.wordCount || countWordsFast(ch.content || trimmedText),
+        word_count: ch.wordCount || countWordsFast(ch.content || fallbackText),
         metadata_json: JSON.stringify({
           sourceTitle: docTitle,
           sourceAuthor: docAuthor,

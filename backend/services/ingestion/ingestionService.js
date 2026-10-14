@@ -40,6 +40,7 @@ class IngestionService {
     originalFilename = '',
     contentType = 'novel',
     url = '',
+    contentOnly = false,
   }) {
     // 0. Web Acquisition Pipeline
     const targetUrl = url || (rawText && /^(https?:\/\/[^\s]+)$/.test(rawText.trim()) ? rawText.trim() : null);
@@ -50,17 +51,18 @@ class IngestionService {
         author,
         description,
         contentType,
+        contentOnly,
       });
 
       return {
         format: 'web',
-        title: webResult.book.title,
-        author: webResult.book.author,
-        pageCount: webResult.book.page_count,
+        title: webResult.book ? webResult.book.title : (webResult.title || title),
+        author: webResult.book ? webResult.book.author : (webResult.author || author),
+        pageCount: webResult.book ? webResult.book.page_count : (webResult.pageCount || 1),
         tablesCount: webResult.tablesCount || 0,
         chapters: webResult.chapters,
         totalWordCount: webResult.totalWordCount,
-        book: webResult.book,
+        book: webResult.book || null,
         webAcquired: true,
       };
     }

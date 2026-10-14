@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const importQueueRepository = require('../../repositories/importQueueRepository');
+const appendLogRepository = require('../../repositories/appendLogRepository');
 const bookService = require('../bookService');
 const webAcquisitionService = require('../web/webAcquisitionService');
 const config = require('../../config');
@@ -66,6 +68,7 @@ class ImportQueueService {
     }
 
     const title = metadata.title || path.basename(file.originalname, ext).replace(/[_-]/g, ' ');
+    const resolvedDossierId = metadata.targetDossierId || metadata.dossierId || null;
 
     const task = importQueueRepository.create({
       type: 'file',
@@ -77,7 +80,8 @@ class ImportQueueService {
         mimetype: file.mimetype,
         title,
         author: metadata.author || '',
-        dossierId: metadata.dossierId || null,
+        dossierId: resolvedDossierId,
+        targetDossierId: resolvedDossierId,
         contentType: metadata.contentType || 'novel',
       },
       status: 'queued',
@@ -93,6 +97,23 @@ class ImportQueueService {
   }
 
   /**
+   * Enqueue one or more files (alias / helper for single or multiple files)
+   */
+  async enqueueFiles(args = {}) {
+    if (args.file) {
+      return this.enqueueFile({ file: args.file, metadata: args.metadata || {} });
+    }
+    if (Array.isArray(args.files) && args.files.length > 0) {
+      const tasks = [];
+      for (const f of args.files) {
+        tasks.push(await this.enqueueFile({ file: f, metadata: args.metadata || {} }));
+      }
+      return tasks[0];
+    }
+    throw new Error('File payload is required.');
+  }
+
+  /**
    * Enqueue pasted text with required destination dossier
    */
   async enqueuePaste({
@@ -100,6 +121,7 @@ class ImportQueueService {
     author,
     text,
     dossierId,
+    targetDossierId,
     dossierTitle,
     isNewDossier,
   }) {
@@ -110,6 +132,7 @@ class ImportQueueService {
     const trimmedText = text.trim();
     const docTitle = (title && title.trim()) || 'Pasted Research Document';
     const resolvedDossierTitle = dossierTitle ? dossierTitle.trim() : (isNewDossier ? docTitle : null);
+    const resolvedDossierId = targetDossierId || dossierId || null;
 
     const task = importQueueRepository.create({
       type: 'paste',
@@ -120,7 +143,8 @@ class ImportQueueService {
         text: trimmedText,
         charCount: trimmedText.length,
         wordCount: countWordsFast(trimmedText),
-        dossierId: dossierId || null,
+        dossierId: resolvedDossierId,
+        targetDossierId: resolvedDossierId,
         dossierTitle: resolvedDossierTitle,
         isNewDossier: isNewDossier !== undefined ? Boolean(isNewDossier) : undefined,
       },
@@ -138,13 +162,14 @@ class ImportQueueService {
   /**
    * Enqueue single web source
    */
-  async enqueueWeb({ url, title, author, dossierId, description, contentType }) {
+  async enqueueWeb({ url, title, author, dossierId, targetDossierId, description, contentType }) {
     if (!url || !url.trim()) {
       throw new Error('A valid URL is required for web import.');
     }
 
     const cleanUrl = url.trim();
     const resolvedTitle = (title && title.trim()) || cleanUrl;
+    const resolvedDossierId = targetDossierId || dossierId || null;
 
     const task = importQueueRepository.create({
       type: 'web',
@@ -153,7 +178,8 @@ class ImportQueueService {
         url: cleanUrl,
         title: resolvedTitle,
         author: author || '',
-        dossierId: dossierId || null,
+        dossierId: resolvedDossierId,
+        targetDossierId: resolvedDossierId,
         description: description || '',
         contentType: contentType || 'web',
       },
@@ -281,6 +307,7 @@ class ImportQueueService {
       if (nextTask.type === 'file') {
         const meta = nextTask.source_meta || {};
         const stagingPath = meta.stagingPath;
+        const targetDossierId = meta.targetDossierId || meta.dossierId;
 
         if (!stagingPath || !fs.existsSync(stagingPath)) {
           throw new Error(`Staged upload file not found: ${stagingPath}`);
@@ -304,17 +331,57 @@ class ImportQueueService {
           progress: 35,
         });
 
-        // Run through full BookService pipeline
-        const importResult = await bookService.importBook({
-          title: meta.title,
-          author: meta.author,
-          contentType: meta.contentType || 'novel',
-          fileBuffer,
-          originalFilename: meta.originalFilename,
-          taskId: nextTask.id,
-        });
+        if (targetDossierId) {
+          // F79b: Append chapters to the existing dossier book (not create a new book)
+          const appendResult = await bookService.addContentToDossier(targetDossierId, {
+            title: meta.title,
+            author: meta.author,
+            fileBuffer,
+            originalFilename: meta.originalFilename,
+          });
 
-        bookId = importResult.book?.id;
+          bookId = targetDossierId;
+
+          // Record append log (F79b / F52)
+          const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+          appendLogRepository.recordAppend({
+            dossier_id: targetDossierId,
+            book_id: targetDossierId,
+            source_id: `file-${nextTask.id}`,
+            source_type: 'file',
+            file_name: meta.originalFilename,
+            file_hash: fileHash,
+            file_size: fileBuffer.length,
+            char_count: 0,
+            word_count: appendResult?.addedWords || 0,
+            appended_at: new Date().toISOString(),
+            metadata_json: {
+              title: meta.title,
+              originalFilename: meta.originalFilename,
+              taskId: nextTask.id,
+            },
+          });
+
+          importQueueRepository.updateStage(nextTask.id, 'ingest', 'done');
+          importQueueRepository.updateStage(nextTask.id, 'semantic_index', 'done');
+          importQueueRepository.updateStage(nextTask.id, 'classify', 'skipped');
+          importQueueRepository.updateStage(nextTask.id, 'outline', 'skipped');
+          importQueueRepository.updateStage(nextTask.id, 'synopsis', 'skipped');
+          importQueueRepository.updateStage(nextTask.id, 'synthesis', 'skipped');
+          importQueueRepository.updateStage(nextTask.id, 'attribution', 'skipped');
+        } else {
+          // Run through full BookService pipeline
+          const importResult = await bookService.importBook({
+            title: meta.title,
+            author: meta.author,
+            contentType: meta.contentType || 'novel',
+            fileBuffer,
+            originalFilename: meta.originalFilename,
+            taskId: nextTask.id,
+          });
+
+          bookId = importResult.book?.id;
+        }
 
         if (this._isCancelled(nextTask.id)) {
           throw new Error('Task cancelled by user');
@@ -331,20 +398,6 @@ class ImportQueueService {
         try {
           await fs.promises.unlink(stagingPath);
         } catch (_) {}
-
-        // If a dossier was specified, attach as chapter/source in dossier
-        if (meta.dossierId && bookId) {
-          try {
-            const doc = bookService.getBook(bookId);
-            await bookService.addContentToDossier(meta.dossierId, {
-              title: doc.title,
-              author: doc.author,
-              text: importResult.chapters?.map((c) => c.content).join('\n\n') || '',
-            });
-          } catch (e) {
-            console.warn(`[ImportQueue] Dossier link notice: ${e.message}`);
-          }
-        }
       }
 
       // ── TYPE: PASTE ─────────────────────────────────────────────────────────
@@ -361,7 +414,7 @@ class ImportQueueService {
           throw new Error('Task cancelled by user');
         }
 
-        let targetDossierId = meta.dossierId;
+        let targetDossierId = meta.targetDossierId || meta.dossierId;
 
         // F58.1: Dossier dedup by ID instead of title
         if (targetDossierId) {
@@ -429,11 +482,32 @@ class ImportQueueService {
         });
 
         importQueueRepository.updateStage(nextTask.id, 'ingest', 'done');
-        await bookService.addContentToDossier(targetDossierId, {
+        const appendResult = await bookService.addContentToDossier(targetDossierId, {
           title: meta.title,
           author: meta.author,
           text: meta.text,
         });
+
+        // Record append log (F79b / F52)
+        const fileHash = crypto.createHash('sha256').update(meta.text).digest('hex');
+        appendLogRepository.recordAppend({
+          dossier_id: targetDossierId,
+          book_id: targetDossierId,
+          source_id: `paste-${nextTask.id}`,
+          source_type: 'paste',
+          file_name: meta.title || 'Pasted Research Document',
+          file_hash: fileHash,
+          file_size: Buffer.byteLength(meta.text, 'utf8'),
+          char_count: meta.text.length,
+          word_count: appendResult?.addedWords ?? meta.wordCount ?? countWordsFast(meta.text),
+          appended_at: new Date().toISOString(),
+          metadata_json: {
+            title: meta.title,
+            author: meta.author,
+            taskId: nextTask.id,
+          },
+        });
+
         importQueueRepository.updateStage(nextTask.id, 'semantic_index', 'done');
         importQueueRepository.updateStage(nextTask.id, 'classify', 'skipped');
         importQueueRepository.updateStage(nextTask.id, 'outline', 'skipped');
@@ -458,6 +532,7 @@ class ImportQueueService {
       // ── TYPE: WEB ───────────────────────────────────────────────────────────
       else if (nextTask.type === 'web') {
         const meta = nextTask.source_meta || {};
+        const targetDossierId = meta.targetDossierId || meta.dossierId;
 
         importQueueRepository.update(nextTask.id, {
           stage: 'acquiring',
@@ -475,20 +550,61 @@ class ImportQueueService {
           progress: 50,
         });
 
-        const webResult = await webAcquisitionService.importSingle({
-          url: meta.url,
-          customTitle: meta.title,
-          customAuthor: meta.author,
-          contentType: meta.contentType,
-          description: meta.description,
-          taskId: nextTask.id,
-        });
+        if (targetDossierId) {
+          // F79b: Append chapters to existing dossier book
+          const appendResult = await bookService.addContentToDossier(targetDossierId, {
+            url: meta.url,
+            title: meta.title,
+            author: meta.author,
+            description: meta.description,
+          });
+
+          bookId = targetDossierId;
+
+          // Record append log (F79b / F52)
+          const fileHash = crypto.createHash('sha256').update(meta.url).digest('hex');
+          appendLogRepository.recordAppend({
+            dossier_id: targetDossierId,
+            book_id: targetDossierId,
+            source_id: `web-${nextTask.id}`,
+            source_type: 'web',
+            file_name: meta.url,
+            source_url: meta.url,
+            file_hash: fileHash,
+            file_size: 0,
+            char_count: 0,
+            word_count: appendResult?.addedWords || 0,
+            appended_at: new Date().toISOString(),
+            metadata_json: {
+              url: meta.url,
+              title: meta.title,
+              taskId: nextTask.id,
+            },
+          });
+
+          importQueueRepository.updateStage(nextTask.id, 'ingest', 'done');
+          importQueueRepository.updateStage(nextTask.id, 'semantic_index', 'done');
+          importQueueRepository.updateStage(nextTask.id, 'classify', 'skipped');
+          importQueueRepository.updateStage(nextTask.id, 'outline', 'skipped');
+          importQueueRepository.updateStage(nextTask.id, 'synopsis', 'skipped');
+          importQueueRepository.updateStage(nextTask.id, 'synthesis', 'skipped');
+          importQueueRepository.updateStage(nextTask.id, 'attribution', 'skipped');
+        } else {
+          const webResult = await webAcquisitionService.importSingle({
+            url: meta.url,
+            customTitle: meta.title,
+            customAuthor: meta.author,
+            contentType: meta.contentType,
+            description: meta.description,
+            taskId: nextTask.id,
+          });
+
+          bookId = webResult.book?.id;
+        }
 
         if (this._isCancelled(nextTask.id)) {
           throw new Error('Task cancelled by user');
         }
-
-        bookId = webResult.book?.id;
 
         importQueueRepository.update(nextTask.id, {
           stage: 'indexing',

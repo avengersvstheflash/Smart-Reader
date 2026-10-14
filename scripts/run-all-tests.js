@@ -75,6 +75,8 @@ const SUITES = [
   'f52_delete_resynthesis_recovery_test.js',
   'f54_synopsis_regenerate_test.js',
   'f58_1_dossier_dedup_test.js',
+  'f81_omni_reading_time_test.js',
+  'f79b_append_source_test.js',
 ];
 
 const NETWORK_SUITES = [

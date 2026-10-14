@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, FileText, Globe, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 import { useBook } from '../hooks/useBook';
 import { useChapters, useChapter } from '../hooks/useChapters';
 import { useLifecycle } from '../hooks/useLifecycle';
@@ -448,30 +448,41 @@ export default function ResearchViewerRoute() {
                   {lifecycleData?.append_log && lifecycleData.append_log.length > 0 ? (
                     <div className="space-y-2 text-xs">
                       {lifecycleData.append_log.map((entry) => {
-                        const dateStr = entry.appended_at ? new Date(entry.appended_at).toLocaleDateString() : '';
+                        const dateStr = entry.appended_at
+                          ? new Date(entry.appended_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })
+                          : '';
                         const hashShort = entry.file_hash ? entry.file_hash.substring(0, 8) : null;
-                        const label = entry.file_name || entry.source_url || entry.source_id;
-                        const isWeb = entry.source_type === 'web' || Boolean(entry.source_url);
+                        const type = (entry.source_type || '').toLowerCase();
+                        const badgeText = type === 'web' ? 'WEB' : type === 'paste' ? 'PST' : 'FILE';
+                        let label = entry.file_name || entry.source_url || entry.source_id;
+                        if (type === 'paste' && !label.startsWith('"')) {
+                          label = `"${label}"`;
+                        }
 
                         return (
                           <div
                             key={entry.id}
                             className="p-2 rounded border border-line bg-card/60 space-y-1"
                           >
-                            <div className="flex items-center gap-1.5 font-medium text-ink">
-                              {isWeb ? (
-                                <Globe className="w-3.5 h-3.5 text-accent shrink-0" aria-hidden="true" />
-                              ) : (
-                                <FileText className="w-3.5 h-3.5 text-brand shrink-0" aria-hidden="true" />
-                              )}
-                              <span className="truncate" title={label}>{label}</span>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider bg-subtle text-ink-muted border border-line shrink-0">
+                                {badgeText}
+                              </span>
+                              <span className="truncate font-medium text-ink text-xs" title={label}>
+                                {label}
+                              </span>
                             </div>
-                            <div className="flex items-center justify-between text-[11px] text-ink-muted">
+                            <div className="flex items-center gap-1 text-[11px] text-ink-muted pl-0.5">
                               <span>{(entry.word_count || 0).toLocaleString()} words</span>
+                              <span>·</span>
                               <span>{dateStr}</span>
                             </div>
                             {hashShort && (
-                              <div className="text-[10px] text-ink-faint font-mono">
+                              <div className="text-[10px] text-ink-faint font-mono pl-0.5">
                                 hash: {hashShort}…
                               </div>
                             )}
@@ -480,7 +491,7 @@ export default function ResearchViewerRoute() {
                       })}
                     </div>
                   ) : (
-                    <p className="text-xs text-ink-muted italic">No sources appended yet</p>
+                    <p className="text-xs text-ink-muted italic">No sources appended yet.</p>
                   )}
                 </div>
               )}
@@ -519,30 +530,41 @@ export default function ResearchViewerRoute() {
                   {lifecycleData?.append_log && lifecycleData.append_log.length > 0 ? (
                     <div className="space-y-2 text-xs">
                       {lifecycleData.append_log.map((entry) => {
-                        const dateStr = entry.appended_at ? new Date(entry.appended_at).toLocaleDateString() : '';
+                        const dateStr = entry.appended_at
+                          ? new Date(entry.appended_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })
+                          : '';
                         const hashShort = entry.file_hash ? entry.file_hash.substring(0, 8) : null;
-                        const label = entry.file_name || entry.source_url || entry.source_id;
-                        const isWeb = entry.source_type === 'web' || Boolean(entry.source_url);
+                        const type = (entry.source_type || '').toLowerCase();
+                        const badgeText = type === 'web' ? 'WEB' : type === 'paste' ? 'PST' : 'FILE';
+                        let label = entry.file_name || entry.source_url || entry.source_id;
+                        if (type === 'paste' && !label.startsWith('"')) {
+                          label = `"${label}"`;
+                        }
 
                         return (
                           <div
                             key={entry.id}
                             className="p-2 rounded border border-line bg-card/60 space-y-1"
                           >
-                            <div className="flex items-center gap-1.5 font-medium text-ink">
-                              {isWeb ? (
-                                <Globe className="w-3.5 h-3.5 text-accent shrink-0" aria-hidden="true" />
-                              ) : (
-                                <FileText className="w-3.5 h-3.5 text-brand shrink-0" aria-hidden="true" />
-                              )}
-                              <span className="truncate" title={label}>{label}</span>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider bg-subtle text-ink-muted border border-line shrink-0">
+                                {badgeText}
+                              </span>
+                              <span className="truncate font-medium text-ink text-xs" title={label}>
+                                {label}
+                              </span>
                             </div>
-                            <div className="flex items-center justify-between text-[11px] text-ink-muted">
+                            <div className="flex items-center gap-1 text-[11px] text-ink-muted pl-0.5">
                               <span>{(entry.word_count || 0).toLocaleString()} words</span>
+                              <span>·</span>
                               <span>{dateStr}</span>
                             </div>
                             {hashShort && (
-                              <div className="text-[10px] text-ink-faint font-mono">
+                              <div className="text-[10px] text-ink-faint font-mono pl-0.5">
                                 hash: {hashShort}…
                               </div>
                             )}
@@ -551,7 +573,7 @@ export default function ResearchViewerRoute() {
                       })}
                     </div>
                   ) : (
-                    <p className="text-xs text-ink-muted italic">No sources appended yet</p>
+                    <p className="text-xs text-ink-muted italic">No sources appended yet.</p>
                   )}
                 </div>
               )}
