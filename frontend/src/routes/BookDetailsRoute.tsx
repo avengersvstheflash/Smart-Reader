@@ -23,6 +23,7 @@ import { renderInlineText } from '../components/reader/CanonicalBlock';
 import { ButtonDecor } from '../components/reader/ButtonDecor';
 import { SmartChapterList } from '../components/reader/SmartChapterList';
 import { formatRelativeTime } from '../lib/relativeTime';
+import { ChapterSynthesisButton } from '../components/book/ChapterSynthesisButton';
 
 function formatAiProvider(raw?: string): string | null {
   if (!raw) return null;
@@ -495,6 +496,12 @@ export default function BookDetailsRoute() {
               <FileText className="w-4 h-4 text-muted" aria-hidden="true" />
               <span>View original</span>
             </button>
+
+            <ChapterSynthesisButton
+              bookId={book.id}
+              generatedCount={smartGenerated}
+              totalCount={smartTotal > 0 ? smartTotal : chapterCount}
+            />
           </div>
         </div>
       </section>
