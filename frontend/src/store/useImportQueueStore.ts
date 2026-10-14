@@ -22,11 +22,15 @@ interface ImportQueueState {
   isPolling: boolean;
   isMinimized: boolean;
   isDismissed: boolean;
+  isDockExpanded: boolean;
+  hasActiveWork: boolean;
   etaSeconds: number | null;
   elapsedSeconds: number;
 
   // Actions
   fetchQueue: () => Promise<void>;
+  toggleDock: () => void;
+  setDockExpanded: (val: boolean) => void;
   enqueueFiles: (files: File[], dossierId?: string) => Promise<ImportTask[]>;
   enqueuePaste: (data: {
     title: string;
@@ -73,6 +77,16 @@ const etaTracker = {
   stage: null as string | null,
   ticks: [] as ProgressTick[],
   lastMonotonicEta: null as number | null,
+};
+
+const DOCK_EXPANDED_KEY = 'omnitome.importDock.expanded';
+const getStoredDockExpanded = (): boolean => {
+  try {
+    const val = localStorage.getItem(DOCK_EXPANDED_KEY);
+    return val !== null ? JSON.parse(val) === true : true;
+  } catch {
+    return true;
+  }
 };
 
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -174,6 +188,8 @@ export const useImportQueueStore = create<ImportQueueState>((set, get) => {
     isPolling: false,
     isMinimized: true,
     isDismissed: false,
+    isDockExpanded: getStoredDockExpanded(),
+    hasActiveWork: false,
     etaSeconds: null,
     elapsedSeconds: 0,
 
@@ -188,6 +204,14 @@ export const useImportQueueStore = create<ImportQueueState>((set, get) => {
         const pendingCount = queued.length + (active ? 1 : 0);
         const { etaSeconds, elapsedSeconds } = calculateEta(active);
 
+        // Compute hasActiveWork: active OR queued OR recentFailed (within 30s)
+        const now = Date.now();
+        const recentFailed = history.some((t) => {
+          const time = t.completedAt || t.startedAt || t.createdAt;
+          return t.status === 'failed' && time && now - new Date(time).getTime() < 30000;
+        });
+        const hasActiveWork = Boolean(active || queued.length > 0 || recentFailed);
+
         // Auto undis-miss if new items appear in queue
         const shouldUnDismiss = pendingCount > 0 && get().isDismissed;
 
@@ -200,6 +224,7 @@ export const useImportQueueStore = create<ImportQueueState>((set, get) => {
           pendingCount,
           etaSeconds,
           elapsedSeconds,
+          hasActiveWork,
           isDismissed: shouldUnDismiss ? false : get().isDismissed,
         });
 
@@ -334,7 +359,21 @@ export const useImportQueueStore = create<ImportQueueState>((set, get) => {
 
     toggleMinimized: () => set((state) => ({ isMinimized: !state.isMinimized })),
     setMinimized: (val: boolean) => set({ isMinimized: val }),
+    toggleDock: () =>
+      set((state) => {
+        const next = !state.isDockExpanded;
+        try {
+          localStorage.setItem(DOCK_EXPANDED_KEY, JSON.stringify(next));
+        } catch {}
+        return { isDockExpanded: next };
+      }),
+    setDockExpanded: (val: boolean) => {
+      try {
+        localStorage.setItem(DOCK_EXPANDED_KEY, JSON.stringify(val));
+      } catch {}
+      set({ isDockExpanded: val });
+    },
     dismiss: () => set({ isDismissed: true }),
-    show: () => set({ isDismissed: false, isMinimized: false }),
+    show: () => set({ isDismissed: false, isMinimized: false, isDockExpanded: true }),
   };
 });
