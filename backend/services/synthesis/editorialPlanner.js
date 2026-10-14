@@ -722,17 +722,26 @@ class EditorialPlanner {
       const id = sec.sectionId || sec.id;
       if (!id) continue;
 
-      const explicit = t.match(/^(?:chapter|part)\s+(\d+)/i);
+      const explicit = t.match(/^(?:chapter|part)\s+(\d+)\b(?![-–\d])(?:\s*[:.—–-]\s*(.*))?$/i);
       if (explicit) {
+        // Explicit chapter/part match is trusted regardless of length
         currentChapterTitle = t;
         currentChapterNum = parseInt(explicit[1], 10);
       } else {
-        const numPrefix = t.match(/^(\d+)\.\d/);
-        if (numPrefix) {
-          const n = parseInt(numPrefix[1], 10);
-          if (currentChapterNum !== n) {
-            currentChapterNum = n;
-            currentChapterTitle = `Chapter ${n}`;
+        // Fallback numPrefix match runs only on non-prose titles
+        const isProseFragment =
+          t.length > 80 ||
+          /[;"]/.test(t) ||
+          /\.\s+[A-Z][a-z]+\s+[a-z]+\s+[A-Z][a-z]+/.test(t) ||  // multi-sentence
+          /!=|==|=>|->/.test(t);
+        if (!isProseFragment) {
+          const numPrefix = t.match(/^([1-9]\d*)\.\d+(?:\.\d+)*\s+([A-Z])/);
+          if (numPrefix) {
+            const n = parseInt(numPrefix[1], 10);
+            if (currentChapterNum !== n) {
+              currentChapterNum = n;
+              currentChapterTitle = `Chapter ${n}`;
+            }
           }
         }
       }
@@ -875,17 +884,26 @@ class EditorialPlanner {
       const id = sec.sectionId || sec.id;
       if (!id) continue;
 
-      const explicit = t.match(/^(?:chapter|part)\s+(\d+)/i);
+      const explicit = t.match(/^(?:chapter|part)\s+(\d+)\b(?![-–\d])(?:\s*[:.—–-]\s*(.*))?$/i);
       if (explicit) {
+        // Explicit chapter/part match is trusted regardless of length
         currentChapterTitle = t;
         currentChapterNum = parseInt(explicit[1], 10);
       } else {
-        const numPrefix = t.match(/^(\d+)\.\d/);
-        if (numPrefix) {
-          const n = parseInt(numPrefix[1], 10);
-          if (currentChapterNum !== n) {
-            currentChapterNum = n;
-            currentChapterTitle = `Chapter ${n}`;
+        // Fallback numPrefix match runs only on non-prose titles
+        const isProseFragment =
+          t.length > 80 ||
+          /[;"]/.test(t) ||
+          /\.\s+[A-Z][a-z]+\s+[a-z]+\s+[A-Z][a-z]+/.test(t) ||  // multi-sentence
+          /!=|==|=>|->/.test(t);
+        if (!isProseFragment) {
+          const numPrefix = t.match(/^([1-9]\d*)\.\d+(?:\.\d+)*\s+([A-Z])/);
+          if (numPrefix) {
+            const n = parseInt(numPrefix[1], 10);
+            if (currentChapterNum !== n) {
+              currentChapterNum = n;
+              currentChapterTitle = `Chapter ${n}`;
+            }
           }
         }
       }
