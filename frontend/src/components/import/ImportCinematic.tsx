@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Job, ImportTask } from '../../types/domain';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { useImportQueueStore } from '../../store/useImportQueueStore';
 
 export interface ImportCinematicProps {
   task?: ImportTask | null;
@@ -49,6 +50,7 @@ export function ImportCinematic({
 }: ImportCinematicProps) {
   const reducedMotion = useReducedMotion();
   const [ticker, setTicker] = useState(0);
+  const storeEtaSeconds = useImportQueueStore((s) => s.etaSeconds);
 
   // Live timer tick for elapsed seconds
   useEffect(() => {
@@ -87,18 +89,11 @@ export function ImportCinematic({
       }
       if (isComplete) stageIdx = STAGES.length - 1;
 
-      // Elapsed & ETA
+      // Elapsed & ETA (consumed from store F77)
       let elapsedSeconds = 0;
-      let etaSeconds: number | null = null;
       if (task.startedAt) {
         const startMs = new Date(task.startedAt).getTime();
         elapsedSeconds = Math.max(1, Math.round((Date.now() - startMs) / 1000));
-        if (progress > 5 && elapsedSeconds >= 2 && !isComplete && !isFailed) {
-          const rate = progress / elapsedSeconds;
-          if (rate > 0) {
-            etaSeconds = Math.max(2, Math.min(3600, Math.round((100 - progress) / rate)));
-          }
-        }
       }
 
       return {
@@ -110,7 +105,7 @@ export function ImportCinematic({
         isCancelled,
         errorMessage: task.error || null,
         elapsedSeconds,
-        etaSeconds,
+        etaSeconds: storeEtaSeconds,
       };
     }
 
@@ -145,7 +140,7 @@ export function ImportCinematic({
       elapsedSeconds: 0,
       etaSeconds: null,
     };
-  }, [task, jobs, activeJob, ticker]);
+  }, [task, jobs, activeJob, ticker, storeEtaSeconds]);
 
   // Radial dots for semantic indexing visualizer
   const radialDots = useMemo(() => {

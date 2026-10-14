@@ -62,34 +62,97 @@ interface ImportQueueState {
   show: () => void;
 }
 
+interface ProgressTick {
+  timestamp: number;
+  progress: number;
+}
+
+// Predictive, monotonic ETA state tracker (F77)
+const etaTracker = {
+  taskId: null as string | null,
+  stage: null as string | null,
+  ticks: [] as ProgressTick[],
+  lastMonotonicEta: null as number | null,
+};
+
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useImportQueueStore = create<ImportQueueState>((set, get) => {
-  // Internal helper to calculate dynamic ETA
+  // Internal helper to calculate dynamic ETA (F77)
   const calculateEta = (activeTask: ImportTask | null): { etaSeconds: number | null; elapsedSeconds: number } => {
-    if (!activeTask || !activeTask.startedAt) {
+    if (!activeTask || !activeTask.startedAt || activeTask.status !== 'processing') {
+      etaTracker.taskId = null;
+      etaTracker.stage = null;
+      etaTracker.ticks = [];
+      etaTracker.lastMonotonicEta = null;
       return { etaSeconds: null, elapsedSeconds: 0 };
     }
 
-    const startedMs = new Date(activeTask.startedAt).getTime();
     const now = Date.now();
+    const startedMs = new Date(activeTask.startedAt).getTime();
     const elapsedSeconds = Math.max(1, Math.round((now - startedMs) / 1000));
     const progress = activeTask.progress;
 
-    if (progress <= 5 || elapsedSeconds < 2) {
-      return { etaSeconds: null, elapsedSeconds };
+    // Reset tracking if task changed
+    if (etaTracker.taskId !== activeTask.id) {
+      etaTracker.taskId = activeTask.id;
+      etaTracker.stage = activeTask.stage;
+      etaTracker.ticks = [];
+      etaTracker.lastMonotonicEta = null;
+    } else if (etaTracker.stage !== activeTask.stage) {
+      // Rule 3: Reset rolling window when a new stage begins (preserving monotonic clamp across the task)
+      etaTracker.stage = activeTask.stage;
+      etaTracker.ticks = [];
     }
 
-    const rate = progress / elapsedSeconds; // percent per second
-    if (rate <= 0) {
-      return { etaSeconds: null, elapsedSeconds };
+    // Record progress tick (rate-limited to at most one tick per 300ms)
+    const lastTick = etaTracker.ticks[etaTracker.ticks.length - 1];
+    if (!lastTick || now - lastTick.timestamp >= 300) {
+      etaTracker.ticks.push({ timestamp: now, progress });
+      if (etaTracker.ticks.length > 10) {
+        etaTracker.ticks.shift();
+      }
     }
+
+    if (progress >= 100) {
+      etaTracker.lastMonotonicEta = 0;
+      return { etaSeconds: 0, elapsedSeconds };
+    }
+
+    // Require at least 5 ticks to compute reliable rolling rate
+    if (etaTracker.ticks.length < 5) {
+      return { etaSeconds: etaTracker.lastMonotonicEta, elapsedSeconds };
+    }
+
+    // Rule 1: Calculate rolling average progress rate over the last 5+ ticks
+    const firstTick = etaTracker.ticks[0];
+    const latestTick = etaTracker.ticks[etaTracker.ticks.length - 1];
+    const windowSeconds = (latestTick.timestamp - firstTick.timestamp) / 1000;
+    const windowProgressDelta = latestTick.progress - firstTick.progress;
 
     const remainingProgress = Math.max(0, 100 - progress);
-    const rawEta = Math.round(remainingProgress / rate);
-    const clampedEta = Math.max(3, Math.min(3600, rawEta));
 
-    return { etaSeconds: clampedEta, elapsedSeconds };
+    let observedRate: number | null = null;
+    if (windowSeconds > 0 && windowProgressDelta > 0) {
+      observedRate = windowProgressDelta / windowSeconds;
+    } else if (elapsedSeconds > 0 && progress > 0) {
+      // Fallback to cumulative average rate if progress hasn't moved within the rolling window
+      observedRate = progress / elapsedSeconds;
+    }
+
+    let finalEta: number | null = etaTracker.lastMonotonicEta;
+    if (observedRate && observedRate > 0) {
+      const rawEta = Math.max(1, Math.min(3600, Math.round(remainingProgress / observedRate)));
+      // Rule 2: Clamp to be monotonically non-increasing while a task is running (allow small jitter down, never up)
+      if (etaTracker.lastMonotonicEta !== null) {
+        finalEta = Math.min(etaTracker.lastMonotonicEta, rawEta);
+      } else {
+        finalEta = rawEta;
+      }
+    }
+
+    etaTracker.lastMonotonicEta = finalEta;
+    return { etaSeconds: finalEta, elapsedSeconds };
   };
 
   const scheduleNextPoll = (hasPendingWork: boolean) => {
