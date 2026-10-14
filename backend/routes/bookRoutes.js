@@ -185,6 +185,8 @@ router.get('/:id', (req, res, next) => {
         bibliographic: parsedMeta.bibliographic || null,
         classification: parsedMeta.classification || null,
         ai_provider: config.AI_PROVIDER,
+        omni_word_count: book.omni_word_count ?? 0,
+        omni_reading_time_minutes: book.omni_reading_time_minutes ?? 0,
       },
     });
   } catch (err) {

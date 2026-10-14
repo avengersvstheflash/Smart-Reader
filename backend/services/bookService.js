@@ -4,7 +4,7 @@ const bookRepository = require('../repositories/bookRepository');
 const chapterRepository = require('../repositories/chapterRepository');
 const jobRepository = require('../repositories/jobRepository');
 const ingestionService = require('./ingestion/ingestionService');
-const { resetAndSeedDatabase } = require('../db/database');
+const { resetAndSeedDatabase, getDatabase } = require('../db/database');
 const config = require('../config');
 
 /**
@@ -387,7 +387,39 @@ class BookService {
     if (!book) {
       throw new Error(`Book with ID '${id}' was not found.`);
     }
-    return book;
+
+    const db = getDatabase();
+    let omniWordCount = 0;
+    const hasSmartTable = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='smart_chapters'").get();
+    if (hasSmartTable) {
+      const tableInfo = db.prepare("PRAGMA table_info(smart_chapters)").all();
+      const hasWordCount = tableInfo.some((c) => c.name === 'word_count');
+      if (hasWordCount) {
+        const row = db.prepare(`
+          SELECT SUM(COALESCE(word_count, 0)) as total
+          FROM smart_chapters
+          WHERE book_id = ? AND status = 'generated'
+        `).get(id);
+        omniWordCount = row?.total ? Number(row.total) : 0;
+      } else {
+        const row = db.prepare(`
+          SELECT SUM(COALESCE(LENGTH(content), 0)) as total_len
+          FROM smart_chapters
+          WHERE book_id = ? AND status = 'generated'
+        `).get(id);
+        const totalLen = row?.total_len ? Number(row.total_len) : 0;
+        omniWordCount = Math.round(totalLen / 5);
+      }
+    }
+    const omniReadingTimeMinutes = Math.round(omniWordCount / 200);
+
+    return {
+      ...book,
+      omni_word_count: omniWordCount,
+      omni_reading_time_minutes: omniReadingTimeMinutes,
+      omniWordCount,
+      omniReadingTimeMinutes,
+    };
   }
 
   createBook(data) {

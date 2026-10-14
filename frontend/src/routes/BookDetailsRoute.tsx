@@ -293,6 +293,19 @@ export default function BookDetailsRoute() {
 
   const wordsStatValue = wordCount > 0 ? wordCount.toLocaleString() : '—';
 
+  const omniWordCount = book.omniWordCount ?? rawBook.omni_word_count ?? 0;
+  const omniMinutes = book.omniReadingTimeMinutes ?? rawBook.omni_reading_time_minutes ?? Math.round(omniWordCount / 200);
+  let omniReadTimeValue = '—';
+  if (omniWordCount > 0) {
+    if (omniMinutes >= 60) {
+      const h = Math.floor(omniMinutes / 60);
+      const m = omniMinutes % 60;
+      omniReadTimeValue = m > 0 ? `~${h}h ${m}m` : `~${h}h`;
+    } else {
+      omniReadTimeValue = `~${Math.max(1, omniMinutes)}m`;
+    }
+  }
+
 
   // Navigate to first generated Smart chapter or resume target
   const firstGeneratedSmartChapter = smartChapters.find((sc) => sc.status === 'generated');
@@ -439,8 +452,8 @@ export default function BookDetailsRoute() {
             </div>
           )}
 
-            {/* Visual Metadata Stat Blocks (F80) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3">
+            {/* Visual Metadata Stat Blocks (F80 + F81) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3">
               <div className="rounded-lg border border-line bg-card p-3.5 flex flex-col justify-center">
                 <div className="text-xl font-semibold text-ink leading-tight">
                   {chaptersStatValue}
@@ -455,6 +468,14 @@ export default function BookDetailsRoute() {
                 </div>
                 <div className="text-caption text-ink-muted mt-0.5">
                   source words
+                </div>
+              </div>
+              <div className="rounded-lg border border-line bg-card p-3.5 flex flex-col justify-center">
+                <div className="text-xl font-semibold text-ink leading-tight">
+                  {omniReadTimeValue}
+                </div>
+                <div className="text-caption text-ink-muted mt-0.5">
+                  Omni read
                 </div>
               </div>
               <div className="rounded-lg border border-line bg-card p-3.5 flex flex-col justify-center">

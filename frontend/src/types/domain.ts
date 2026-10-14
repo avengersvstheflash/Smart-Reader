@@ -198,6 +198,8 @@ export interface Book {
   importCompletedAt?: string | null;
   synthesisCompletedAt?: string | null;
   attributionCompletedAt?: string | null;
+  omniWordCount?: number;
+  omniReadingTimeMinutes?: number;
 }
 
 export interface RawBook {
@@ -227,6 +229,10 @@ export interface RawBook {
   hasSmartContent?: boolean;
   ai_provider?: string;
   aiProvider?: string;
+  omni_word_count?: number;
+  omni_reading_time_minutes?: number;
+  omniWordCount?: number;
+  omniReadingTimeMinutes?: number;
   metadata_json?: string | { classification?: BookClassification; bibliographic?: BookBibliographic; [key: string]: unknown };
   metadata?: { classification?: BookClassification; bibliographic?: BookBibliographic; [key: string]: unknown };
   classification?: BookClassification;
@@ -318,6 +324,8 @@ export function normalizeBook(raw: RawBook): Book {
     importCompletedAt: raw.importCompletedAt || raw.import_completed_at || null,
     synthesisCompletedAt: raw.synthesisCompletedAt || raw.synthesis_completed_at || null,
     attributionCompletedAt: raw.attributionCompletedAt || raw.attribution_completed_at || null,
+    omniWordCount: raw.omniWordCount ?? raw.omni_word_count ?? 0,
+    omniReadingTimeMinutes: raw.omniReadingTimeMinutes ?? raw.omni_reading_time_minutes ?? 0,
   };
 }
 
