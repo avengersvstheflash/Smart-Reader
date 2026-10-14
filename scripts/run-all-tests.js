@@ -23,7 +23,6 @@ const TIMEOUT_MS = 600_000;
 
 const SUITES = [
   'phase5_7_3_parse_test.js',
-  'build3a_test.js',
   'build3b_test.js',
   'build3b_finalization_test.js',
   'build3b_hardening_test.js',
@@ -77,13 +76,68 @@ const SUITES = [
   'f54_synopsis_regenerate_test.js',
 ];
 
+const NETWORK_SUITES = [
+  'build3a_test.js',
+];
+
+function checkOnline() {
+  if (process.env.OFFLINE === '1' || process.env.OFFLINE === 'true') {
+    return false;
+  }
+  const check = spawnSync(process.execPath, [
+    '-e',
+    'require("node:dns").lookup("en.wikipedia.org", (err) => process.exit(err ? 1 : 0))',
+  ], { timeout: 2000 });
+  return check.status === 0;
+}
 
 let passed = 0;
+let skipped = 0;
 
 for (const name of SUITES) {
   const testPath = path.join(ROOT, 'backend', 'tests', name);
 
   process.stdout.write(`\n=== ${name} ===\n`);
+
+  const result = spawnSync(process.execPath, [testPath], {
+    stdio: 'inherit',
+    cwd: ROOT,
+    timeout: TIMEOUT_MS,
+    killSignal: 'SIGTERM',
+  });
+
+  const timedOut = result.error && result.error.code === 'ETIMEDOUT';
+
+  if (timedOut) {
+    process.stderr.write(`\nFAILED: ${name} - timed out after ${TIMEOUT_MS / 1000}s\n`);
+    process.exit(1);
+  }
+
+  if (result.error) {
+    process.stderr.write(`\nFAILED: ${name} - spawn error: ${result.error.message}\n`);
+    process.exit(1);
+  }
+
+  if (result.status !== 0) {
+    process.stderr.write(`\nFAILED: ${name} - exited with code ${result.status}\n`);
+    process.exit(1);
+  }
+
+  passed += 1;
+}
+
+const isOnline = checkOnline();
+
+for (const name of NETWORK_SUITES) {
+  process.stdout.write(`\n=== ${name} ===\n`);
+
+  if (!isOnline) {
+    process.stdout.write(`SKIPPED: ${name} - network required (offline)\n`);
+    skipped += 1;
+    continue;
+  }
+
+  const testPath = path.join(ROOT, 'backend', 'tests', name);
 
   const result = spawnSync(process.execPath, [testPath], {
     stdio: 'inherit',
@@ -137,6 +191,10 @@ if (corpusResult.status !== 0) {
   process.exit(corpusResult.status || 1);
 }
 
-process.stdout.write(`\nALL ${passed} UNIT SUITES + 1 CORPUS GATE PASS\n`);
+if (skipped > 0) {
+  process.stdout.write(`\nALL ${passed} UNIT SUITES (${skipped} skipped: network required) + 1 CORPUS GATE PASS\n`);
+} else {
+  process.stdout.write(`\nALL ${passed} UNIT SUITES + 1 CORPUS GATE PASS\n`);
+}
 process.exit(0);
 
