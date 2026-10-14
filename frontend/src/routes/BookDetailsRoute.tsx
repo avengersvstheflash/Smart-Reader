@@ -254,22 +254,43 @@ export default function BookDetailsRoute() {
 
   // Cover spine theme
   const theme = getCoverTheme(book.title + book.id);
-  const wordCount = book.wordCount && book.wordCount > 0 ? book.wordCount : chapters.reduce((acc, c) => acc + (c.wordCount || 0), 0);
+  const rawBook = book as any;
+  const rawWords = rawBook.chapter_word_count || rawBook.chapterWordCount || book.wordCount || rawBook.total_words;
+  const wordCount = rawWords && rawWords > 0 ? rawWords : chapters.reduce((acc, c) => acc + (c.wordCount || 0), 0);
   const chapterCount = book.chapterCount > 0 ? book.chapterCount : chapters.length;
 
-  // Omni reading time: sum of generated smart chapter word counts
-   const omniWordCount = smartChapters
-    .filter((sc) => sc.status === 'generated')
-    .reduce((acc, sc) => acc + (sc.wordCount || 0), 0);
-   const omniMinutes = Math.max(1, Math.round(omniWordCount / 200));
-  const omniReadingCaption =
-    smartTotal > 0 &&
-    smartGenerated === smartTotal &&
-    omniWordCount > 0
-      ? omniMinutes < 60
-        ? `~${omniMinutes} min Omni read`
-        : `~${(omniMinutes / 60).toFixed(1)}h Omni read`
-      : null;
+  // Visual Metadata Stat Cards Data (F80)
+  const importedTime =
+    book.importStartedAt ||
+    rawBook.import_started_at ||
+    book.importCompletedAt ||
+    rawBook.import_completed_at ||
+    book.createdAt ||
+    rawBook.created_at;
+
+  const readyTime =
+    book.synthesisCompletedAt ||
+    rawBook.synthesis_completed_at ||
+    book.attributionCompletedAt ||
+    rawBook.attribution_completed_at;
+
+  const formattedImported = importedTime ? formatRelativeTime(importedTime) : '';
+  const formattedReady = readyTime ? formatRelativeTime(readyTime) : '';
+  const importedLabel = formattedImported ? `Imported ${formattedImported}` : 'Imported —';
+  const readyLabel = formattedReady ? `Ready ${formattedReady}` : 'Ready —';
+
+  const chaptersStatValue =
+    smartTotal > 0
+      ? smartGenerated
+      : chapterCount > 0
+      ? chapterCount
+      : '—';
+  const chaptersStatLabel =
+    smartTotal > 0
+      ? `of ${smartTotal} ${smartTotal === 1 ? 'chapter' : 'chapters'}`
+      : 'chapters';
+
+  const wordsStatValue = wordCount > 0 ? wordCount.toLocaleString() : '—';
 
 
   // Navigate to first generated Smart chapter or resume target
@@ -288,30 +309,6 @@ export default function BookDetailsRoute() {
 
   const readCount = smartChapters.filter((sc) => Boolean(sc.readAt)).length;
 
-  // Lifecycle Timing Label (F70)
-  const getLifecycleTimingLabel = (): string | null => {
-    const hasStarted = Boolean(book.importStartedAt);
-    const hasImported = Boolean(book.importCompletedAt);
-    const hasSynthesized = Boolean(book.synthesisCompletedAt);
-    const hasAttributed = Boolean(book.attributionCompletedAt);
-
-    if (hasStarted && hasImported && hasSynthesized && hasAttributed) {
-      const impRel = formatRelativeTime(book.importCompletedAt);
-      const readyRel = formatRelativeTime(book.attributionCompletedAt);
-      return `Imported ${impRel} · Ready ${readyRel}`;
-    }
-
-    if (hasStarted && !hasImported && !hasSynthesized && !hasAttributed) {
-      return 'Importing…';
-    }
-
-    if (book.createdAt || book.importCompletedAt) {
-      return `Imported ${formatRelativeTime(book.createdAt || book.importCompletedAt)}`;
-    }
-
-    return null;
-  };
-  const lifecycleTimingLabel = getLifecycleTimingLabel();
 
   // Compute pill (F52)
   const computePill = (() => {
@@ -441,11 +438,33 @@ export default function BookDetailsRoute() {
             </div>
           )}
 
-           <p className="text-caption text-ink-faint pt-1">
-             {chapterCount} {chapterCount === 1 ? 'chapter' : 'chapters'} · {wordCount.toLocaleString()} source words
-             {omniReadingCaption ? ` · ${omniReadingCaption}` : ''}
-             {lifecycleTimingLabel ? ` · ${lifecycleTimingLabel}` : ''}
-           </p>
+            {/* Visual Metadata Stat Blocks (F80) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3">
+              <div className="rounded-lg border border-line bg-card p-3.5 flex flex-col justify-center">
+                <div className="text-xl font-semibold text-ink leading-tight">
+                  {chaptersStatValue}
+                </div>
+                <div className="text-caption text-ink-muted mt-0.5">
+                  {chaptersStatLabel}
+                </div>
+              </div>
+              <div className="rounded-lg border border-line bg-card p-3.5 flex flex-col justify-center">
+                <div className="text-xl font-semibold text-ink leading-tight">
+                  {wordsStatValue}
+                </div>
+                <div className="text-caption text-ink-muted mt-0.5">
+                  source words
+                </div>
+              </div>
+              <div className="rounded-lg border border-line bg-card p-3.5 flex flex-col justify-center">
+                <div className="text-ui-sm font-semibold text-ink leading-tight">
+                  {importedLabel}
+                </div>
+                <div className="text-caption text-ink-muted mt-0.5">
+                  {readyLabel}
+                </div>
+              </div>
+            </div>
 
           {/* Action Buttons Row */}
           <div className="flex flex-wrap items-center gap-3 pt-4">
