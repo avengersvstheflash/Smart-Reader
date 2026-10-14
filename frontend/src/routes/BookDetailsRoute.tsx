@@ -9,7 +9,6 @@ import {
   RotateCw,
   MoreHorizontal,
   Trash2,
-  Plus,
 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useBook, useBookSynopsis, useSemanticStatus } from '../hooks/useBook';
@@ -712,20 +711,6 @@ export default function BookDetailsRoute() {
           </div>
 
 
-          {/* Supporting materials */}
-          <div className="space-y-2 pt-2 border-t border-line/40">
-            <h3 className="text-ui-sm font-semibold text-ink">Supporting materials</h3>
-            <button
-              type="button"
-              disabled
-              title="Available in a later phase"
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded border border-dashed border-line text-caption text-ink-faint disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Attach source</span>
-            </button>
-            <p className="text-micro text-ink-faint text-center">Available in a later phase</p>
-          </div>
 
           {/* Danger zone */}
           <div className="pt-4 border-t border-line/40">
