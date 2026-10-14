@@ -551,8 +551,8 @@ OUTPUT:`;
       try {
         const multiRes = await client.rerankBatchMulti(batchInputs, { timeoutMs });
         const latencyMs = Date.now() - startMultiMs;
-        if (latencyMs > 2000) {
-          console.warn(`[SynthesisService] Multi-batch reranker latency exceeded 2.0s: ${latencyMs}ms`);
+        if (latencyMs > (timeoutMs * 0.9)) {
+          console.warn(`[SynthesisService] Multi-batch reranker latency exceeded near-timeout threshold (${Math.round(timeoutMs * 0.9)}ms): ${latencyMs}ms`);
         }
         if (multiRes && Array.isArray(multiRes.results)) {
           multiResultsMap = new Map();
@@ -1092,8 +1092,8 @@ OUTPUT:`;
       const res = await rerankFn.call(client, paragraph, normalizedCandidates, { timeoutMs });
       const latencyMs = Date.now() - startMs;
 
-      if (latencyMs > 2000) {
-        console.warn(`[SynthesisService] Reranker latency exceeded 2.0s: ${latencyMs}ms`);
+      if (latencyMs > (timeoutMs * 0.9)) {
+        console.warn(`[SynthesisService] Reranker latency exceeded near-timeout threshold (${Math.round(timeoutMs * 0.9)}ms): ${latencyMs}ms`);
       }
 
       const scoreMap = new Map();
