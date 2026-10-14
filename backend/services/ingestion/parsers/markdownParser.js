@@ -36,6 +36,7 @@ class MarkdownParser {
     let i = 0;
 
     while (i < lines.length) {
+      const before = i;
       const line = lines[i];
       const trimmedLine = line.trim();
 
@@ -187,7 +188,7 @@ class MarkdownParser {
       while (
         i < lines.length &&
         lines[i].trim() !== '' &&
-        !lines[i].trim().startsWith('#') &&
+        !/^#{1,6}\s+/.test(lines[i].trim()) &&
         !lines[i].trim().startsWith('>') &&
         !lines[i].trim().startsWith('```') &&
         !/^[-*+]\s+/.test(lines[i].trim()) &&
@@ -205,6 +206,16 @@ class MarkdownParser {
           type: 'paragraph',
           text: paraText,
         });
+      }
+
+      if (i === before) {
+        // No handler consumed this line - prevent infinite loop
+        console.warn(`[MarkdownParser] Unhandled line at ${i}: ${lines[i].slice(0, 60)}`);
+        doc.addBlock({
+          type: 'paragraph',
+          text: this.cleanInlineMarkdown(lines[i].trim()),
+        });
+        i++;
       }
     }
 
