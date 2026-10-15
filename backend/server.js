@@ -19,6 +19,7 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const importQueueRoutes = require('./routes/importQueueRoutes');
 const lifecycleRoutes = require('./routes/lifecycleRoutes');
 const resynthesisRoutes = require('./routes/resynthesisRoutes');
+const ttsRoutes = require('./routes/ttsRoutes');
 const aiService = require('./services/ai/aiService');
 const bookService = require('./services/bookService');
 const embeddingService = require('./services/semantic/embeddingService');
@@ -75,6 +76,7 @@ app.use('/api/config', configRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/lifecycle', lifecycleRoutes);
 app.use('/api/resynthesis', resynthesisRoutes);
+app.use('/api/tts', ttsRoutes);
 
 // Development Reset & Sample Seed Endpoint
 app.post('/api/dev/reset', (req, res, next) => {
@@ -166,9 +168,11 @@ function gracefulShutdown(reason) {
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-app.listen(config.PORT, '0.0.0.0', () => {
-  console.log(`Smart Reader backend running on http://0.0.0.0:${config.PORT}`);
-});
+if (require.main === module) {
+  app.listen(config.PORT, '0.0.0.0', () => {
+    console.log(`Smart Reader backend running on http://0.0.0.0:${config.PORT}`);
+  });
+}
 
 module.exports = app;
 

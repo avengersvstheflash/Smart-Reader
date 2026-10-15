@@ -415,3 +415,14 @@ class LifecycleManager:
 # Shared singleton instance for sidecar runtime
 lifecycle_manager = LifecycleManager()
 
+try:
+    from tts.synthesize import load_engine as _load_tts, unload_engine as _unload_tts
+    lifecycle_manager.register(
+        name="tts",
+        loader=_load_tts,
+        unloader=_unload_tts,
+        idle_ttl_sec=int(os.environ.get("SIDECAR_TTS_IDLE_SEC", "300"))
+    )
+except ImportError:
+    pass
+

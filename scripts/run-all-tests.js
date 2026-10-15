@@ -78,6 +78,7 @@ const SUITES = [
   'f81_omni_reading_time_test.js',
   'f81_1_omni_read_fallback_test.js',
   'f79b_append_source_test.js',
+  'f85_kokoro_tts_sidecar_test.js',
 ];
 
 const NETWORK_SUITES = [

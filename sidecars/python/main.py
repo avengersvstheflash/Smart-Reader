@@ -26,6 +26,7 @@ from embed.routes import router as embed_router
 from parse.routes import router as parse_router
 # F31: math_router mounts /v1/math
 from pdfmath_sidecar.extract import router as math_router
+from tts.routes import router as tts_router
 
 app = FastAPI(title="Smart Reader Python Sidecar", version="1.0.0")
 
@@ -34,6 +35,7 @@ app.include_router(nlp_router)
 app.include_router(embed_router)
 app.include_router(parse_router)
 app.include_router(math_router)
+app.include_router(tts_router)
 
 @app.on_event("startup")
 def on_startup():
