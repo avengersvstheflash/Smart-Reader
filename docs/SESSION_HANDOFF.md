@@ -6,81 +6,79 @@
 
 ---
 
-## Current State (2026-10-16)
+## Current State (2026-10-16 late)
 
-**HEAD:** 4452f34 (feat(settings): TTS preferences + cold-start UX (S09, F88))  
+**HEAD:** 498a54d (feat(reader): podcast auto-advance mode (S10, F89))  
 **Tree:** clean  
 **Origin:** synced  
 **Tests:** 58 unit suites + 1 corpus gate (10 fixtures) green  
 **Latest tag:** v0.6.0  
 
 ### Phase Status
-- Phase 5.8: CLOSED
-- **Series 3 — Kokoro TTS (Phase 5.9): CLOSED** (S07 backend, S08 reader UI, S09 settings & cache)
-- **Feature freeze: ACHIEVED for v1.0**
-- F52 (Library/Research State Coordination): CLOSED — 5 sessions
-- F65-F72 (pipeline reliability arc): CLOSED
-- F42 (corpus release gate): CLOSED
-- F51 series (a–h.3.1): CLOSED
-- F49d.1 + F49d.2: CLOSED
-- F56, F58, F61, F62, F64: as noted per finding
-- All polish batches (A, B, C, D, E): CLOSED
+- Phase 5.8: CLOSED (feature freeze achieved 2026-10-15)
+- **Phase 5.9 (Series 3 — Kokoro TTS): CLOSED**
+- Series 1 (structural gate): CLOSED
+- Series 2 (pre-Tauri polish): CLOSED
+- Series 4 (Tauri packaging): NOT STARTED — next
+
+### Series 3 Ledger (Kokoro TTS)
+| Session | Commit | Scope |
+|---|---|---|
+| S07 | 8cc60da | Sidecar endpoint /v1/tts/synthesize + Node ttsClient + cache |
+| S08 | dbcf605 | Reader playback UI (dual-deck audio, sentence highlighting, auto-scroll) |
+| S09 | 4452f34 + 29c7857 | TTS settings card (voice/speed/autoScroll/cache/keepLoaded) + cold-start UX (F88) + docs close |
+| S10 | 498a54d | Podcast auto-advance mode (F89) |
 
 ### Next Session Opener
-1. Verify HEAD, tree clean, origin synced
-2. Priority: **Series 4 — Tauri packaging (5-8 sessions)** (or S10 Podcast mode if selected)
-   - Resource manager for on-demand Kokoro & BGE-M3 models
-   - Sidecar binary bundling & process lifecycle in Tauri
-   - Local filesystem sandbox bridges
-3. Then: Release (Series 5, 3 sessions)
+1. Verify HEAD = 498a54d, tree clean, origin synced
+2. Priority: **Series 4 — Tauri packaging (Phase 6)**
+   - First: read/update docs/DESIGN_TAURI_PACKAGING.md
+   - Design decisions already drafted: D1 (Windows code signing — defer to v1.0.1),
+     D2 (PyInstaller frozen sidecar), D3 (BGE-M3 download-on-first-use),
+     D4 (Windows-only v1.0), D5 (two-installer strategy), D6 (Cloudflare R2 + Pages)
+   - Add D7: Resource Manager architecture (from F90/RAM discussion)
+   - Planned session split: S11 scaffold → S12 bundle Node+Python+BGE-M3 →
+     S13 Kokoro + Resource Manager → S14 code signing → S15 GitHub Releases
+3. Then: Series 5 (Release, 3 sessions)
 
-### Findings Ledger (final)
-| ID | Name | Status | Location / Resolution |
+### Findings Ledger — Series 3 additions
+| ID | Name | Status | Location |
 |---|---|---|---|
-| F52 | Library/Research State Coordination | CLOSED | `database.js`, `bookLifecycleService.js` (5 sessions) |
-| F65 | Sequential pipeline execution | CLOSED | `bookService.js` (Node RAM drop 14.6 GB → 296 MB) |
-| F66 | "Ready" status after full pipeline | CLOSED | `importQueueService.js` |
-| F67 | Test fixture leak into data.db | CLOSED | `import_queue_pipeline_test.js` DB isolation |
-| F68 | Parallel synthesis opt-in setting | CLOSED | `settingsService.js` |
-| F69 | Rich stage checklist UX | CLOSED | `PersistentImportWidget.tsx` |
-| F70 | Book lifecycle timestamps | CLOSED | `database.js`, `bookRepository.js` |
-| F71 | Dynamic reranker timeout scaling | CLOSED | `synthesisService.js` |
-| F72 | Capacity-aware sidecar backpressure | CLOSED | `sidecarBase.js` |
-| F73 | Reranker latency threshold raised | CLOSED | `synthesisService.js` (threshold 0.9 * timeout) |
-| F74 | Await reranker LOADING state | CLOSED | `synthesisService.js` (up to 30s warm-up wait) |
-| F77 | Predictive monotonic ETA counter | CLOSED | `useImportQueueStore.ts` rolling average |
-| F54 | Synopsis regenerate button | CLOSED | `BookDetailsRoute.tsx`, `f54_synopsis_regenerate_test.js` |
-| F57 | Separate build3a into NETWORK_SUITES | CLOSED | `scripts/run-all-tests.js` offline skip |
-| F58.1 | Dossier dedup by ID instead of title | CLOSED | `importQueueService.js`, `f58_1_dossier_dedup_test.js` |
-| F78 | Persistent import widget right-side dock | CLOSED | `PersistentImportWidget.tsx` (48px rail collapse) |
-| F79a | Remove dead "Supporting materials" | CLOSED | `BookDetailsRoute.tsx` |
-| F80 | Metadata visual stat blocks layout | CLOSED | `BookDetailsRoute.tsx` (responsive grid) |
-| F82 | Split synthesize-more hero control | CLOSED | `ChapterSynthesisButton.tsx` (Option B split dropdown) |
-| F81 | Omni reading time in book metadata | CLOSED | `bookService.js`, `BookDetailsRoute.tsx`, `f81_omni_reading_time_test.js` |
-| F79b | Append source to dossier | CLOSED | `bookRoutes.js`, `AttachSourceModal.tsx`, `ResearchViewerRoute.tsx` |
-| F39.1 | Ancestor regex false-positive guard | CLOSED | `editorialPlanner.js` (prose fragment guard) |
-| F83 | markdownParser infinite loop guard | CLOSED | `markdownParser.js` (stranded `#` line guard) |
-| F81.1 | Per-row fallback for omni word count | CLOSED | `bookService.js` (`COALESCE(word_count, LENGTH(content)/5, 0)`) |
-| F82.1 | Split button visual unification + motion | CLOSED | `ChapterSynthesisButton.tsx` (shared group motion) |
-| F79b.1 | Align append-source with lifecycle | CLOSED | `bookRoutes.js` (`book_lifecycle.in_research = 1`) |
-| F85 | Kokoro TTS sidecar + Node client | CLOSED | `ttsClient.js`, `ttsRoutes.js`, `synthesize.py`, `f85_kokoro_tts_sidecar_test.js` |
-| F86 | Atomic-write temp file cleanup | CLOSED | `settingsService.js` (guaranteed cleanup + boot sweep) |
-| F87 | Voice list verification | CLOSED | Confirmed aligned, no action (S08 diagnostic) |
-| F88 | TTS settings & cold-start UX (F88a/F88b) | CLOSED | `settingsService.js`, `lifecycle.py`, `useTtsPlayer.ts`, `AudioPlayerBar.tsx`, `SettingsRoute.tsx` |
+| F85 | Kokoro TTS sidecar + Node client + cache | CLOSED | sidecars/python/tts/, backend/services/ai/ttsClient.js |
+| F86 | Settings atomic-write temp file cleanup | CLOSED | backend/services/settings/settingsService.js |
+| F87 | Voice list alignment (agent prose drift during S08 reporting) | CLOSED — no action | — |
+| F88 | Cold-start UX (warming chip + keepLoaded setting) | CLOSED | useTtsPlayer.ts, lifecycle.py |
+| F89 | Podcast auto-advance mode | CLOSED | useTtsPlayer.ts, ReaderView.tsx |
+| F90 | Ambient background music (lo-fi/reading BGM) | OPEN — v1.1 | TBD |
 
-> **Evidence Discipline Note (F87):** The S08 completion report described the voice list incorrectly (prose said af_bella/am_michael); diagnostic verified the actual code is correct (`af_heart`, `am_adam`, `bf_alice`, `bm_george`). Reminder: agent prose can drift from actual code — always verify with git grep before assuming.
+**F90 approach (v1.1):** Generate 3-5 minute loop via Google AI music tooling
+(AI Pro subscription). Archive generation date + applicable terms in
+RIGHTS.md. Bundle with app as opt-in toggle. Zero external licensing cost.
 
-### Open v1.0.1 / v1.x
-| ID | Name | Status | Effort |
-|---|---|---|---|
-| F84 | Sidecar-required tests should SKIP visibly | v1.0.1 | 30 min |
-| F89 | Podcast mode (multi-speaker dialogue) | S10 | S10 feature |
-| F90 | Ambient background music generation | v1.1 | Docs only |
-| F38.x | Dense-chapter overshoot (auto-resynth bounded) | v1.0.1 | File only |
-| F61 | OCR scan throughput (~7-10 s/page) | v1.x | Deferred |
-| F64 | Frontend bundle >500 KB | v1.x | Deferred |
+### Open v1.0.1 / v1.x / v1.1 backlog
+| ID | Name | Target |
+|---|---|---|
+| F38.x | Dense-chapter overshoot (auto-resynth bounded, no fix needed) | v1.0.1 note |
+| F61 | OCR scan throughput (~7-10 s/page) | v1.x |
+| F64 | Frontend bundle >500 KB (833 KB current) | v1.x |
+| F84 | Sidecar-required tests SKIP visibly (F57 pattern extension) | v1.0.1 |
+| F90 | Ambient background music | v1.1 |
+| — | Cache compression (Opus post-playback) | v1.1 |
+| — | Chapter audio export to MP3 | v1.1 |
 
-### Standing Rules (unchanged + one added)
+### Evidence discipline note (Series 3)
+- S08 completion report described the voice list incorrectly in prose
+  (agent wrote "af_bella/am_michael" in the summary, actual code is
+  "af_heart/am_adam/bf_alice/bm_george"). Diagnostic git grep confirmed
+  the code was correct. Reminder: verify agent prose against raw code
+  before acting on it.
+- S09 first pass silently skipped F88 (long prompt, sub-deliverable missed).
+  Second pass with plan-gate caught it. S10 plan-gate held.
+- S10 verification was a programmatic state-machine run (not real audio
+  playback). The real-playback cross-chapter test is deferred to the next
+  manual frontend walkthrough.
+
+### Standing Rules (unchanged + one note)
 - Raw evidence over summaries
 - No commits on dirty tree or red suite
 - Agents never declare phase closure
@@ -92,7 +90,8 @@
 - Every prompt includes "attempt at most N times, then stop"
 - Kill servers before running full suite
 - Diagnostic prompts must not modify files even for real bugs
-- **New:** When running the full test suite, ensure the Python sidecar is running. Suites that need it currently wait through internal timeouts silently (see F84).
+- When running the full test suite, ensure the Python sidecar is running. Suites that need it currently wait through internal timeouts silently (see F84).
+- Before approving long prompts with multiple sub-deliverables, require a plan artifact (agent enumerates every file + state field it will touch). This catches silent skips.
 
 ### Roadmap to v1.0
 Remaining:

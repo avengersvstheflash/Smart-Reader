@@ -4,7 +4,7 @@
 
 *Ingests PDFs, EPUBs, DOCX, RTF, web articles, and raw text. Enforces a clean architectural split: **Import** is the entry point, **Library** holds curated Omni Readings only, and **Research** holds immutable original sources where every compressed sentence traces deterministically to its source passage.*
 
-[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/) [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/) [![React 18.3](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/) [![SQLite](https://img.shields.io/badge/SQLite-WAL_v3_Schema-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3) [![Tests](https://img.shields.io/badge/Tests-57_Suites_%2B_Corpus_Gate-3fb950)](https://github.com/avengersvstheflash/Smart-Reader) [![Local-First](https://img.shields.io/badge/Local--First-enabled-2ea043)](https://github.com/avengersvstheflash/Smart-Reader) [![Status](https://img.shields.io/badge/Status-Feature_Freeze_v1.0-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Encoding](https://img.shields.io/badge/Encoding-Tier_1%2B2_Auto_Detect-teal)](https://github.com/avengersvstheflash/Smart-Reader) [![Lifecycle](https://img.shields.io/badge/Sidecar_Lifecycle-Idle_Unload-555555)](https://github.com/avengersvstheflash/Smart-Reader) [![Corpus](https://img.shields.io/badge/Fixture_Corpus-10_docs_3--Class_Gate-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Release](https://img.shields.io/badge/Release-v0.6.0-purple.svg)](https://github.com/avengersvstheflash/Smart-Reader/releases/tag/v0.6.0) [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/) [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/) [![React 18.3](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/) [![SQLite](https://img.shields.io/badge/SQLite-WAL_v3_Schema-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3) [![Tests](https://img.shields.io/badge/Tests-58_Suites_%2B_Corpus_Gate-3fb950)](https://github.com/avengersvstheflash/Smart-Reader) [![Local-First](https://img.shields.io/badge/Local--First-enabled-2ea043)](https://github.com/avengersvstheflash/Smart-Reader) [![Status](https://img.shields.io/badge/Status-Feature_Freeze_v1.0-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Encoding](https://img.shields.io/badge/Encoding-Tier_1%2B2_Auto_Detect-teal)](https://github.com/avengersvstheflash/Smart-Reader) [![Lifecycle](https://img.shields.io/badge/Sidecar_Lifecycle-Idle_Unload-555555)](https://github.com/avengersvstheflash/Smart-Reader) [![Corpus](https://img.shields.io/badge/Fixture_Corpus-10_docs_3--Class_Gate-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Release](https://img.shields.io/badge/Release-v0.6.0-purple.svg)](https://github.com/avengersvstheflash/Smart-Reader/releases/tag/v0.6.0) [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ---
 
@@ -12,7 +12,7 @@
 
 ```text
 Omnitome v1.0 Overall Completion:
-[███████████████████░] 92% (Phase 5.8 Complete — Feature Freeze Achieved)
+[███████████████████░] 95% (Phase 5.9 Complete — Kokoro TTS & Podcast Mode Closed)
 ```
 
 | Subsystem / Milestone | Progress | Status | Key Accomplishments |
@@ -26,8 +26,9 @@ Omnitome v1.0 Overall Completion:
 | **Persistent Queue (F58)** | `[████████████████████]` 100% | 🟢 COMPLETE | SQLite WAL queue worker, live checklist widget, expanded web discovery (arXiv/Gutenberg/IETF) |
 | **Theme & Procedural Art** | `[████████████████████]` 100% | 🟢 COMPLETE | 5 complete themes (`omni`, `spring`, `sakura`, `coffee`, `cyberpunk`), procedural book covers & sigils |
 | **UI Surfaces & Polish** | `[████████████████████]` 100% | 🟢 COMPLETE | Polish Batches A–E complete: F78 right-side dock, F82.1 unified split button, F80 stat blocks, F81.1 read time, F79b.1 append |
-| **Kokoro Local TTS** | `[░░░░░░░░░░░░░░░░░░░░]` 0% | ⏳ **CURRENT** | Series 3 (Phase 5.9): 3 sessions planned (local neural speech synthesis) |
-| **Tauri Desktop Packaging** | `[░░░░░░░░░░░░░░░░░░░░]` 0% | ⏳ QUEUED | Series 4 (Phase 6.0): 5–8 sessions desktop packaging to final v1.0 release |
+| **Kokoro Local TTS** | `[████████████████████]` 100% | 🟢 COMPLETE | Series 3 (Phase 5.9): Kokoro-82M neural TTS, gapless dual-deck player, podcast auto-advance, LRU cache |
+| **Tauri Desktop Packaging** | `[░░░░░░░░░░░░░░░░░░░░]` 0% | ⏳ **CURRENT** | Series 4 (Phase 6.0): 5–8 sessions desktop packaging to final v1.0 release |
+| **Release & Distribution** | `[░░░░░░░░░░░░░░░░░░░░]` 0% | ⏳ QUEUED | Series 5 (Phase 7.0): Cloudflare Pages + R2 zero-egress distribution |
 
 ---
 
@@ -102,6 +103,11 @@ timeline
                    : F39.1 Ancestor Prose Guard & F83 Parser Loop Guard
                    : 57 Regression Suites + 1 Corpus Gate Green
                    : Feature Freeze Achieved for v1.0
+    section Voice & Narration
+        2026-10-16 : Series 3 Kokoro Local Neural TTS (S07-S10)
+                   : Dual-Deck Gapless Playback & Highlighting
+                   : Podcast Auto-Advance Mode (F89)
+                   : 58 Regression Suites + 1 Corpus Gate Green
 ```
 
 ---
@@ -126,6 +132,8 @@ Omnitome is engineered for local-first high-throughput reading and neural synthe
 | **Reranker Timeout Governance** | Fixed 10s (timed out on large chapters) | **Dynamic 8s–60s** (F71 input-calibrated) | 🛡️ Zero false timeout fallbacks |
 | **Encoding Detection Latency** | n/a | **< 0.3 ms** (UTF-8 fast path) | ⚡ Zero statistical overhead |
 | **SQLite WAL Queue Enqueue Throughput**| n/a | **931 tasks/sec** (F58 WAL transactions) | ⚡ Sub-millisecond persistence |
+| **TTS Cold-Start (Post-Eviction)** | n/a | **~1.5–2.0 seconds** | 🔄 Transparent warm-up with UI chip |
+| **TTS Sentence Synthesis Throughput** | Multi-second (cloud API) | **~100–300 ms/sentence** (RTX 3050) | ⚡ Gapless dual-deck playback (CPU fallback) |
 
 ### 🖥️ Test Environment Specifications
 
@@ -496,9 +504,22 @@ stateDiagram-v2
     LOADED --> LOADED : Active In-Flight Requests (TTL Reset)
 ```
 
-- **Per-Model TTLs:** PaddleOCR (5 min), BGE Reranker v2 (10 min), BGE-M3 Embedder (15 min).
+- **Per-Model TTLs:** Kokoro TTS (5 min), PaddleOCR (5 min), BGE Reranker v2 (10 min), BGE-M3 Embedder (15 min).
 - **Idle Daemon:** Runs every 10 seconds in a background thread; evicts models only when active in-flight requests equal zero.
 - **VRAM Reclaim:** Reduces idle sidecar VRAM to **174 MB**, returning **3.2 GB of GPU VRAM** to the user's host workstation.
+
+---
+
+## 🎙️ Local Neural Text-to-Speech (Kokoro-82M)
+
+Omnitome features an embedded neural voice narration engine powered by Kokoro-82M:
+- **Kokoro-82M Engine:** 100% offline, local neural speech synthesis running via PyTorch FP16 CUDA acceleration with CPU fallback.
+- **Curated Neural Voices:** 4 balanced, expressive voices (`af_heart`, `am_adam`, `bf_alice`, `bm_george`) across American and British accents.
+- **Dual-Deck Audio Engine:** A/B audio deck architecture preloading adjacent sentence WAVs for gapless, zero-stutter playback.
+- **Sentence-Level Highlighting & Auto-Scroll:** Synchronized active sentence highlighting and smooth viewport auto-scroll (with manual scroll override).
+- **Podcast Auto-Advance Mode:** Hands-free chapter-to-chapter continuous listening with cross-chapter route navigation and book-end safety.
+- **Filesystem LRU Audio Cache:** Content-addressed disk cache (`storage/cache/tts/`) with LRU size-bounded eviction (500 MB default, user configurable in Settings).
+- **F43 Lifecycle Idle Eviction:** Sidecar `LifecycleManager` auto-evicts Kokoro after 5 minutes of idle time, freeing ~500 MB of VRAM back to the system; transparent ~1.5–2s warm-up on next play with visible "Warming voice engine…" UI chip (and opt-in "Always keep TTS loaded" setting).
 
 ---
 
@@ -552,6 +573,7 @@ Omnitome's engineering journey documented session-by-session from `docs/session-
 | **2026-10-13** | **Phase 5.8h.3 / F42 & F58**| `[██████████████████░░]` | **88%** | F42 3-class corpus gate (10 fixtures, Classes A, B, C); F58 persistent SQLite WAL queue, paste wizard mojibake fix | 11 | 48 + 1 gate |
 | **2026-10-14** | **Phase 5.8 / F65–72 & F52**| `[██████████████████░░]` | **89%** | F65 await barrier (**Node RAM: 14.6 GB → 296 MB, 98% drop**); dynamic timeouts (8–60s); F52 Schema v3; 52 suites green | 10 | **52 suites + 1 gate** |
 | **2026-10-15** | **Phase 5.8 Polish & Freeze**| `[███████████████████░]` | **92%** | Polish Batches A–E: F81/F81.1 Omni reading time; F79b/F79b.1 Dossier append; F78 dock; F82/F82.1 unified split button; F39.1/F83 parser guards; **Feature Freeze for v1.0** | 18 | **57 suites + 1 gate** |
+| **2026-10-16** | **Phase 5.9 (Series 3 Close)** | `[███████████████████░]` | **95%** | Kokoro TTS — Local neural voice engine, reader playback, podcast mode (commits 8cc60da..498a54d) | 4 | **58 suites + 1 gate** |
 
 ---
 
@@ -691,6 +713,16 @@ Omnitome's engineering journey documented session-by-session from `docs/session-
   - **Regression Gate:** **All 57 unit test suites + 1 corpus gate passed clean.** Feature freeze achieved for v1.0.
 - **Commits:** `14fe635`, `8b7b5bb`, `add43e7`, `33bea64`, `c2edbc4`, `dfcf6f6`, `660d9bf`, `6ccbe93`, `dc72f01`, `1b67cef`, `cafbaf5`, `7de9e9c`, `6fc850d`, `043a1be`, `655dec7`, `5b2331c`, `0cebb27`, `fd42365`, `27e33c6`.
 
+#### 🗓️ 2026-10-16 — Phase 5.9 / Series 3 (S07–S10): Kokoro Local Neural TTS & Podcast Mode
+- **Progress:** `[███████████████████░]` 95%
+- **Milestones:**
+  - **S07 Sidecar TTS & Cache (`8cc60da`):** Integrated Kokoro-82M on PyTorch in Python sidecar (`POST /v1/tts/synthesize`), Node `ttsClient.js`, and filesystem audio cache (`storage/cache/tts/`).
+  - **S08 Reader Playback UI (`dbcf605`):** Shipped dual-deck gapless audio player (`AudioPlayerBar`), sentence highlighting, and viewport auto-scroll with manual-scroll override.
+  - **S09 Settings & Cold-Start UX (`4452f34`, `29c7857`):** TTS settings card (voice, speed, cache size, keep-loaded toggle), visible "Warming voice engine…" chip (F88a), and cache-clear controls.
+  - **S10 Podcast Auto-Advance Mode (`498a54d`):** Automated hands-free cross-chapter playback (F89) with router orchestration, state persistence, and book-end safety.
+  - **Regression Gate:** **All 58 unit test suites + 1 corpus gate passed clean.**
+- **Commits:** `8cc60da`, `dbcf605`, `4452f34`, `29c7857`, `498a54d`.
+
 ---
 
 
@@ -746,7 +778,7 @@ npm run dev
 ### Running the Regression Test Suite & Benchmarks
 
 ```bash
-# Run all 57 regression suites + the 10-fixture corpus gate:
+# Run all 58 regression suites + the 10-fixture corpus gate:
 npm test
 # (Equivalent to: node scripts/run-all-tests.js)
 
@@ -781,11 +813,11 @@ node scripts/run-juncture-benchmark.js
 | **F65-72**| Sequential Pipeline Reliability Arc | 🟢 CLOSED | Await barrier (RAM 14.6GB → 296MB), dynamic reranker timeout |
 | **F52**  | Library/Research State Coordination | 🟢 CLOSED | Schema v3, 4-way delete FSM, 3-tier reading progress recovery |
 | **5.8 (A-E)**| Frontend Polish & Feature Freeze | 🟢 CLOSED | Batches A–E: F78 dock, F82.1 split button, F81.1 read time, F79b.1 append, F39.1/F83 guards |
-| **5.9**  | Kokoro Local TTS Audio Narration | ⏳ **CURRENT** | Series 3: 3 sessions planned (local neural speech synthesis) |
-| **6.0**  | Tauri Desktop Packaging → v1.0 | ⏳ QUEUED | Series 4: 5–8 sessions planned (cross-platform desktop binary) |
+| **5.9**  | Kokoro Local TTS Audio Narration | 🟢 CLOSED | Series 3: Kokoro-82M neural TTS, gapless dual-deck, podcast auto-advance |
+| **6.0**  | Tauri Desktop Packaging → v1.0 | ⏳ **CURRENT** | Series 4: 5–8 sessions planned (cross-platform desktop binary) |
 | **7.0**  | Release & Distribution | ⏳ QUEUED | Series 5: 3 sessions (Cloudflare Pages + R2, two-installer strategy) |
 
-**Current Focus:** Feature freeze achieved for v1.0. Next priority: Series 3 (Phase 5.9) Kokoro Local TTS Audio Narration.
+**Current Focus:** Series 3 (Kokoro TTS) closed. Next priority: Series 4 (Phase 6.0) Tauri Desktop Packaging.
 
 > For deep architectural insights and findings, see [`docs/SESSION_HANDOFF.md`](./docs/SESSION_HANDOFF.md) and [`docs/DESIGN_LIBRARY_RESEARCH_STATE.md`](./docs/DESIGN_LIBRARY_RESEARCH_STATE.md).
 
