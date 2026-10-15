@@ -133,6 +133,28 @@ function scrubSecret(message, secret) {
   return result;
 }
 
+function sweepOrphanedTempFiles(storageDir) {
+  try {
+    const targetDir = storageDir || STORAGE_DIR;
+    if (!fs.existsSync(targetDir)) return 0;
+    let removed = 0;
+    for (const name of fs.readdirSync(targetDir)) {
+      if (/^settings\.json\.tmp\./.test(name)) {
+        try {
+          fs.unlinkSync(path.join(targetDir, name));
+          removed++;
+        } catch (_) {}
+      }
+    }
+    if (removed > 0) {
+      console.log(`[SettingsService] Swept ${removed} orphaned temp file(s)`);
+    }
+    return removed;
+  } catch (_) {
+    return 0;
+  }
+}
+
 function writeAtomicSync(filePath, data) {
   const content = JSON.stringify(data, null, 2);
   const tempFile = `${filePath}.tmp.${Date.now()}`;
@@ -143,10 +165,10 @@ function writeAtomicSync(filePath, data) {
     } catch (_) {
       // Fallback on Windows if atomic rename is blocked
       fs.writeFileSync(filePath, content, 'utf8');
-      try { if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile); } catch (_) {}
     }
   } catch (err) {
     console.error('[Settings] Failed to write settings.json:', err.message);
+  } finally {
     try {
       if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
     } catch (_) {}
@@ -176,6 +198,8 @@ class SettingsService {
     }
 
     const dir = path.dirname(this.storagePath);
+    sweepOrphanedTempFiles(dir);
+
     if (!fs.existsSync(dir)) {
       try {
         fs.mkdirSync(dir, { recursive: true });
@@ -342,7 +366,6 @@ class SettingsService {
         try {
           await fs.promises.writeFile(tempFile, content, 'utf8');
           if (this.sequence !== currentSeq) {
-            try { if (fs.existsSync(tempFile)) await fs.promises.unlink(tempFile); } catch (_) {}
             return;
           }
           try {
@@ -350,10 +373,10 @@ class SettingsService {
           } catch (_) {
             // Windows fallback if rename is blocked
             await fs.promises.writeFile(filePath, content, 'utf8');
-            try { if (fs.existsSync(tempFile)) await fs.promises.unlink(tempFile); } catch (_) {}
           }
         } catch (err) {
           console.error('[Settings] Asynchronous save to settings.json failed:', err.message);
+        } finally {
           try {
             if (fs.existsSync(tempFile)) await fs.promises.unlink(tempFile);
           } catch (_) {}
