@@ -1,21 +1,22 @@
 # Omnitome — Session Handoff
 
-> Last updated: 2026-10-15 evening  
+> Last updated: 2026-10-16  
 > Repository: github.com/avengersvstheflash/Smart-Reader  
 > Purpose: Full orientation in one turn for any assistant. Answers: *where are we, how do we work, what is next.*
 
 ---
 
-## Current State (2026-10-15 evening)
+## Current State (2026-10-16)
 
-**HEAD:** fd42365 (fix(research): align append-source predicate with lifecycle (F79b.1))  
+**HEAD:** 4452f34 (feat(settings): TTS preferences + cold-start UX (S09, F88))  
 **Tree:** clean  
 **Origin:** synced  
-**Tests:** 57 unit suites + 1 corpus gate (10 fixtures) green  
+**Tests:** 58 unit suites + 1 corpus gate (10 fixtures) green  
 **Latest tag:** v0.6.0  
 
 ### Phase Status
 - Phase 5.8: CLOSED
+- **Series 3 — Kokoro TTS (Phase 5.9): CLOSED** (S07 backend, S08 reader UI, S09 settings & cache)
 - **Feature freeze: ACHIEVED for v1.0**
 - F52 (Library/Research State Coordination): CLOSED — 5 sessions
 - F65-F72 (pipeline reliability arc): CLOSED
@@ -26,13 +27,12 @@
 - All polish batches (A, B, C, D, E): CLOSED
 
 ### Next Session Opener
-1. Verify HEAD = fd42365, tree clean, origin synced
-2. Priority: **Series 3 — Kokoro TTS (Phase 5.9)**
-   - S1: Python sidecar /v1/tts/synthesize + Node client
-   - S2: Reader playback + sentence-level highlighting
-   - S3: Voice selection + polish
-3. Then: Tauri packaging (Series 4, 5-8 sessions)
-4. Then: Release (Series 5, 3 sessions)
+1. Verify HEAD, tree clean, origin synced
+2. Priority: **Series 4 — Tauri packaging (5-8 sessions)** (or S10 Podcast mode if selected)
+   - Resource manager for on-demand Kokoro & BGE-M3 models
+   - Sidecar binary bundling & process lifecycle in Tauri
+   - Local filesystem sandbox bridges
+3. Then: Release (Series 5, 3 sessions)
 
 ### Findings Ledger (final)
 | ID | Name | Status | Location / Resolution |
@@ -63,11 +63,19 @@
 | F81.1 | Per-row fallback for omni word count | CLOSED | `bookService.js` (`COALESCE(word_count, LENGTH(content)/5, 0)`) |
 | F82.1 | Split button visual unification + motion | CLOSED | `ChapterSynthesisButton.tsx` (shared group motion) |
 | F79b.1 | Align append-source with lifecycle | CLOSED | `bookRoutes.js` (`book_lifecycle.in_research = 1`) |
+| F85 | Kokoro TTS sidecar + Node client | CLOSED | `ttsClient.js`, `ttsRoutes.js`, `synthesize.py`, `f85_kokoro_tts_sidecar_test.js` |
+| F86 | Atomic-write temp file cleanup | CLOSED | `settingsService.js` (guaranteed cleanup + boot sweep) |
+| F87 | Voice list verification | CLOSED | Confirmed aligned, no action (S08 diagnostic) |
+| F88 | TTS settings & cold-start UX (F88a/F88b) | CLOSED | `settingsService.js`, `lifecycle.py`, `useTtsPlayer.ts`, `AudioPlayerBar.tsx`, `SettingsRoute.tsx` |
+
+> **Evidence Discipline Note (F87):** The S08 completion report described the voice list incorrectly (prose said af_bella/am_michael); diagnostic verified the actual code is correct (`af_heart`, `am_adam`, `bf_alice`, `bm_george`). Reminder: agent prose can drift from actual code — always verify with git grep before assuming.
 
 ### Open v1.0.1 / v1.x
 | ID | Name | Status | Effort |
 |---|---|---|---|
 | F84 | Sidecar-required tests should SKIP visibly | v1.0.1 | 30 min |
+| F89 | Podcast mode (multi-speaker dialogue) | S10 | S10 feature |
+| F90 | Ambient background music generation | v1.1 | Docs only |
 | F38.x | Dense-chapter overshoot (auto-resynth bounded) | v1.0.1 | File only |
 | F61 | OCR scan throughput (~7-10 s/page) | v1.x | Deferred |
 | F64 | Frontend bundle >500 KB | v1.x | Deferred |
@@ -88,11 +96,10 @@
 
 ### Roadmap to v1.0
 Remaining:
-- Kokoro TTS — 3 sessions
-- Tauri packaging — 5-8 sessions
-- Release — 3 sessions
+- Tauri packaging (Series 4) — 5-8 sessions
+- Release (Series 5) — 3 sessions
 
-Total: ~11-14 sessions. Realistic timeline: 5-8 days.
+Total: ~8-11 sessions. Realistic timeline: 4-6 days.
 
 ---
 
