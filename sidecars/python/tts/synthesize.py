@@ -40,7 +40,7 @@ _engine = None
 
 
 def get_model_path() -> str:
-    return os.path.join(MODEL_DIR, 'kokoro-v0_19.pth')
+    return os.path.join(MODEL_DIR, 'kokoro-v1_0.pth')
 
 
 def is_model_installed() -> bool:

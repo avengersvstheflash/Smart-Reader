@@ -73,3 +73,6 @@ test-*.txt
 
 # Local session handoff backups
 docs/*.md.bak-*
+
+# Kokoro / sidecar ML model weights (downloaded at runtime, not shipped in git)
+sidecars/python/models/
