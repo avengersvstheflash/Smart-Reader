@@ -136,6 +136,7 @@ export function ReaderView({
   }, []);
 
   useEffect(() => {
+    if (player.autoScroll === false) return;
     if (player.activeSentenceIndex === null || player.activeSentenceIndex === undefined) return;
     if (userIsScrolling) return;
 
@@ -151,7 +152,7 @@ export function ReaderView({
       }, 800);
       return () => clearTimeout(timer);
     }
-  }, [player.activeSentenceIndex, userIsScrolling, prefersReducedMotion]);
+  }, [player.activeSentenceIndex, player.autoScroll, userIsScrolling, prefersReducedMotion]);
 
   // Active preview card state for segment runs
   const [activePreview, setActivePreview] = useState<{

@@ -15,6 +15,15 @@ export interface LocalSettings {
   timeoutMs?: number;
 }
 
+export interface TtsSettings {
+  enabled: boolean;
+  defaultVoice: string;
+  defaultSpeed: number;
+  autoScroll: boolean;
+  cacheMaxMB: number;
+  keepLoaded: boolean;
+}
+
 export interface Settings {
   version: number;
   updatedAt: string;
@@ -23,6 +32,7 @@ export interface Settings {
   local: LocalSettings;
   importMaxSizeMB: number;
   parallelBookSynthesis?: boolean;
+  tts?: TtsSettings;
 }
 
 export interface UpdateSettingsPayload {
@@ -31,6 +41,7 @@ export interface UpdateSettingsPayload {
   local?: Partial<LocalSettings>;
   importMaxSizeMB?: number;
   parallelBookSynthesis?: boolean;
+  tts?: Partial<TtsSettings>;
 }
 
 export interface TestConnectionPayload {
@@ -94,6 +105,17 @@ export function useSettings() {
     },
   });
 
+  const clearTtsCacheMutation = useMutation<{ cleared: boolean; freedBytes: number }, Error, void>({
+    mutationFn: async () => {
+      return apiClient<{ cleared: boolean; freedBytes: number }>('/api/tts/cache/clear', {
+        method: 'POST',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ttsStatus'] });
+    },
+  });
+
   return {
     settings: query.data,
     isLoading: query.isLoading,
@@ -103,6 +125,7 @@ export function useSettings() {
     updateSettings: updateMutation,
     resetSettings: resetMutation,
     testConnection: testConnectionMutation,
+    clearTtsCache: clearTtsCacheMutation,
   };
 }
 

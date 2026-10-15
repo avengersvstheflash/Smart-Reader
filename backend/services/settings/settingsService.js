@@ -4,6 +4,8 @@ const path = require('path');
 const ROOT_DIR = path.resolve(__dirname, '..', '..', '..');
 const STORAGE_DIR = process.env.STORAGE_DIR || path.join(ROOT_DIR, 'storage');
 
+const TTS_VOICE_WHITELIST = ['af_heart', 'am_adam', 'bf_alice', 'bm_george'];
+
 // Lightweight .env loader if process.env was not populated yet
 const envPath = path.join(ROOT_DIR, '.env');
 if (fs.existsSync(envPath)) {
@@ -54,6 +56,14 @@ function getEnvDefaults() {
     },
     importMaxSizeMB: clampedImportSize,
     parallelBookSynthesis: false,
+    tts: {
+      enabled: true,
+      defaultVoice: 'af_heart',
+      defaultSpeed: 1.0,
+      autoScroll: true,
+      cacheMaxMB: 500,
+      keepLoaded: false,
+    },
   };
 }
 
@@ -76,6 +86,26 @@ function mergeWithDefaults(saved, defaults) {
     parallelBookSynthesis: typeof saved.parallelBookSynthesis === 'boolean'
       ? saved.parallelBookSynthesis
       : (defaults.parallelBookSynthesis ?? false),
+    tts: {
+      enabled: typeof saved.tts?.enabled === 'boolean'
+        ? saved.tts.enabled
+        : defaults.tts.enabled,
+      defaultVoice: (saved.tts?.defaultVoice && TTS_VOICE_WHITELIST.includes(saved.tts.defaultVoice))
+        ? saved.tts.defaultVoice
+        : defaults.tts.defaultVoice,
+      defaultSpeed: (typeof saved.tts?.defaultSpeed === 'number' && saved.tts.defaultSpeed >= 0.5 && saved.tts.defaultSpeed <= 2.0)
+        ? saved.tts.defaultSpeed
+        : defaults.tts.defaultSpeed,
+      autoScroll: typeof saved.tts?.autoScroll === 'boolean'
+        ? saved.tts.autoScroll
+        : defaults.tts.autoScroll,
+      cacheMaxMB: (typeof saved.tts?.cacheMaxMB === 'number' && saved.tts.cacheMaxMB >= 100 && saved.tts.cacheMaxMB <= 5000)
+        ? saved.tts.cacheMaxMB
+        : defaults.tts.cacheMaxMB,
+      keepLoaded: typeof saved.tts?.keepLoaded === 'boolean'
+        ? saved.tts.keepLoaded
+        : (defaults.tts.keepLoaded ?? false),
+    },
   };
 }
 
@@ -233,6 +263,7 @@ class SettingsService {
       ...this.cachedSettings,
       openrouter: { ...(this.cachedSettings.openrouter || {}) },
       local: { ...(this.cachedSettings.local || {}) },
+      tts: { ...(this.cachedSettings.tts || {}) },
     };
   }
 
@@ -289,6 +320,39 @@ class SettingsService {
       }
     }
 
+    if (payload.tts !== undefined) {
+      if (typeof payload.tts !== 'object' || payload.tts === null || Array.isArray(payload.tts)) {
+        throw new Error('tts must be an object');
+      }
+      if (payload.tts.enabled !== undefined && typeof payload.tts.enabled !== 'boolean') {
+        throw new Error('tts.enabled must be a boolean');
+      }
+      if (payload.tts.defaultVoice !== undefined) {
+        const voice = String(payload.tts.defaultVoice).trim().toLowerCase();
+        if (!TTS_VOICE_WHITELIST.includes(voice)) {
+          throw new Error("Invalid tts.defaultVoice. Must be one of: 'af_heart', 'am_adam', 'bf_alice', 'bm_george'");
+        }
+      }
+      if (payload.tts.defaultSpeed !== undefined) {
+        const speed = Number(payload.tts.defaultSpeed);
+        if (isNaN(speed) || speed < 0.5 || speed > 2.0) {
+          throw new Error('tts.defaultSpeed must be a number between 0.5 and 2.0');
+        }
+      }
+      if (payload.tts.autoScroll !== undefined && typeof payload.tts.autoScroll !== 'boolean') {
+        throw new Error('tts.autoScroll must be a boolean');
+      }
+      if (payload.tts.cacheMaxMB !== undefined) {
+        const cacheMax = Number(payload.tts.cacheMaxMB);
+        if (isNaN(cacheMax) || cacheMax < 100 || cacheMax > 5000) {
+          throw new Error('tts.cacheMaxMB must be a number between 100 and 5000');
+        }
+      }
+      if (payload.tts.keepLoaded !== undefined && typeof payload.tts.keepLoaded !== 'boolean') {
+        throw new Error('tts.keepLoaded must be a boolean');
+      }
+    }
+
     const updated = {
       ...this.cachedSettings,
       version: 1,
@@ -341,6 +405,31 @@ class SettingsService {
       }
       if (payload.local.timeoutMs !== undefined) {
         updated.local.timeoutMs = parseInt(payload.local.timeoutMs, 10) || 30000;
+      }
+    }
+
+    if (payload.tts) {
+      updated.tts = {
+        ...this.cachedSettings.tts,
+        ...payload.tts,
+      };
+      if (payload.tts.enabled !== undefined) {
+        updated.tts.enabled = Boolean(payload.tts.enabled);
+      }
+      if (payload.tts.defaultVoice !== undefined) {
+        updated.tts.defaultVoice = String(payload.tts.defaultVoice).trim().toLowerCase();
+      }
+      if (payload.tts.defaultSpeed !== undefined) {
+        updated.tts.defaultSpeed = Number(payload.tts.defaultSpeed);
+      }
+      if (payload.tts.autoScroll !== undefined) {
+        updated.tts.autoScroll = Boolean(payload.tts.autoScroll);
+      }
+      if (payload.tts.cacheMaxMB !== undefined) {
+        updated.tts.cacheMaxMB = Number(payload.tts.cacheMaxMB);
+      }
+      if (payload.tts.keepLoaded !== undefined) {
+        updated.tts.keepLoaded = Boolean(payload.tts.keepLoaded);
       }
     }
 

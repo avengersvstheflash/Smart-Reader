@@ -109,20 +109,30 @@ export function AudioPlayerBar({
     >
       {/* Left: Play/Pause, Step Backward, Step Forward */}
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => (player.isPlaying ? player.pause() : player.play())}
-          disabled={player.totalSentences === 0}
-          className="min-h-[36px] min-w-[36px] p-2 rounded-md hover:bg-subtle text-ink hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          aria-label={player.isPlaying ? 'Pause playback' : 'Start playback'}
-          title={player.isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-        >
-          {player.isPlaying ? (
-            <Pause className="w-4 h-4 fill-current" aria-hidden="true" />
-          ) : (
-            <Play className="w-4 h-4 fill-current" aria-hidden="true" />
-          )}
-        </button>
+        {player.isWarming ? (
+          <div
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-accent/10 border border-accent/20 text-xs font-mono text-accent-ink animate-pulse select-none min-h-[36px]"
+            title="Warming voice engine..."
+          >
+            <span className="text-sm">◐</span>
+            <span>Warming voice engine…</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => (player.isPlaying ? player.pause() : player.play())}
+            disabled={player.totalSentences === 0}
+            className="min-h-[36px] min-w-[36px] p-2 rounded-md hover:bg-subtle text-ink hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            aria-label={player.isPlaying ? 'Pause playback' : 'Start playback'}
+            title={player.isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+          >
+            {player.isPlaying ? (
+              <Pause className="w-4 h-4 fill-current" aria-hidden="true" />
+            ) : (
+              <Play className="w-4 h-4 fill-current" aria-hidden="true" />
+            )}
+          </button>
+        )}
 
         <button
           type="button"

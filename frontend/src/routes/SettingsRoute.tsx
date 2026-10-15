@@ -11,6 +11,8 @@ import {
   Cpu,
   Cloud,
   CheckCircle2,
+  Volume2,
+  Trash2,
 } from 'lucide-react';
 import { useSettings, TestConnectionResult } from '../hooks/useSettings';
 
@@ -19,6 +21,15 @@ const OPENROUTER_MODEL_PRESETS = [
   { label: 'Claude 3.5 Sonnet', model: 'anthropic/claude-3.5-sonnet' },
   { label: 'Llama 3.3 70B', model: 'meta-llama/llama-3.3-70b-instruct' },
 ];
+
+const TTS_VOICE_OPTIONS = [
+  { id: 'af_heart', name: 'Heart (American Female)' },
+  { id: 'am_adam', name: 'Adam (American Male)' },
+  { id: 'bf_alice', name: 'Alice (British Female)' },
+  { id: 'bm_george', name: 'George (British Male)' },
+];
+
+const TTS_SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5, 2.0];
 
 export const SettingsRoute: React.FC = () => {
   const {
@@ -29,6 +40,7 @@ export const SettingsRoute: React.FC = () => {
     updateSettings,
     resetSettings,
     testConnection,
+    clearTtsCache,
   } = useSettings();
 
   // Form state
@@ -45,6 +57,15 @@ export const SettingsRoute: React.FC = () => {
 
   const [importSize, setImportSize] = useState<number>(50);
   const [parallelBookSynthesis, setParallelBookSynthesis] = useState<boolean>(false);
+
+  // TTS Form state
+  const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
+  const [ttsDefaultVoice, setTtsDefaultVoice] = useState<string>('af_heart');
+  const [ttsDefaultSpeed, setTtsDefaultSpeed] = useState<number>(1.0);
+  const [ttsAutoScroll, setTtsAutoScroll] = useState<boolean>(true);
+  const [ttsCacheMaxMB, setTtsCacheMaxMB] = useState<number>(500);
+  const [ttsKeepLoaded, setTtsKeepLoaded] = useState<boolean>(false);
+  const [showClearCacheConfirm, setShowClearCacheConfirm] = useState<boolean>(false);
 
   // Diagnostic & Toast feedback state
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
@@ -76,6 +97,15 @@ export const SettingsRoute: React.FC = () => {
       }
 
       setParallelBookSynthesis(Boolean(settings.parallelBookSynthesis));
+
+      if (settings.tts) {
+        setTtsEnabled(settings.tts.enabled ?? true);
+        setTtsDefaultVoice(settings.tts.defaultVoice || 'af_heart');
+        setTtsDefaultSpeed(settings.tts.defaultSpeed ?? 1.0);
+        setTtsAutoScroll(settings.tts.autoScroll ?? true);
+        setTtsCacheMaxMB(settings.tts.cacheMaxMB ?? 500);
+        setTtsKeepLoaded(Boolean(settings.tts.keepLoaded));
+      }
     }
   }, [settings]);
 
@@ -145,10 +175,30 @@ export const SettingsRoute: React.FC = () => {
         },
         importMaxSizeMB: importSize,
         parallelBookSynthesis,
+        tts: {
+          enabled: ttsEnabled,
+          defaultVoice: ttsDefaultVoice,
+          defaultSpeed: ttsDefaultSpeed,
+          autoScroll: ttsAutoScroll,
+          cacheMaxMB: ttsCacheMaxMB,
+          keepLoaded: ttsKeepLoaded,
+        },
       });
       setToastMessage({ text: 'Settings saved successfully', type: 'ok' });
     } catch (err: any) {
       setToastMessage({ text: err.message || 'Failed to save settings', type: 'err' });
+    }
+  };
+
+  const handleClearCache = async () => {
+    setShowClearCacheConfirm(false);
+    setToastMessage(null);
+    try {
+      const res = await clearTtsCache.mutateAsync();
+      const freedMB = (res.freedBytes / (1024 * 1024)).toFixed(1);
+      setToastMessage({ text: `TTS cache cleared (${freedMB} MB freed)`, type: 'ok' });
+    } catch (err: any) {
+      setToastMessage({ text: err.message || 'Failed to clear TTS cache', type: 'err' });
     }
   };
 
@@ -633,6 +683,207 @@ export const SettingsRoute: React.FC = () => {
         </div>
       </section>
 
+      {/* ── Section: Text-to-Speech (Kokoro) ── */}
+      <section className="bg-surface rounded-2xl border border-line p-6 shadow-xs space-y-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
+              <Volume2 className="w-5 h-5 text-accent" />
+              <span>Text-to-Speech (Kokoro TTS)</span>
+            </h2>
+            <p className="text-caption text-ink-muted mt-1">
+              On-device neural voice generation via Kokoro-82M in the Python sidecar.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="tts-enabled-toggle" className="text-ui-sm font-medium text-ink cursor-pointer">
+              Enable TTS
+            </label>
+            <input
+              id="tts-enabled-toggle"
+              type="checkbox"
+              checked={ttsEnabled}
+              onChange={(e) => setTtsEnabled(e.target.checked)}
+              className="w-5 h-5 rounded border-line text-brand focus:ring-accent cursor-pointer"
+            />
+          </div>
+        </div>
+
+        {ttsEnabled && (
+          <div className="space-y-5 pt-2 border-t border-line/50">
+            {/* Voice & Speed Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="tts-default-voice" className="block text-ui-sm font-medium text-ink mb-1.5">
+                  Default Voice
+                </label>
+                <select
+                  id="tts-default-voice"
+                  value={ttsDefaultVoice}
+                  onChange={(e) => setTtsDefaultVoice(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl text-ui-sm bg-subtle border border-line text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  {TTS_VOICE_OPTIONS.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-micro text-ink-faint mt-1">
+                  Default voice applied to newly opened books.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="tts-default-speed" className="block text-ui-sm font-medium text-ink mb-1.5">
+                  Default Speed
+                </label>
+                <select
+                  id="tts-default-speed"
+                  value={ttsDefaultSpeed}
+                  onChange={(e) => setTtsDefaultSpeed(parseFloat(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl text-ui-sm bg-subtle border border-line text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  {TTS_SPEED_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {s.toFixed(2)}x
+                    </option>
+                  ))}
+                </select>
+                <p className="text-micro text-ink-faint mt-1">
+                  Playback rate multiplier (0.50x – 2.00x).
+                </p>
+              </div>
+            </div>
+
+            {/* Auto-scroll toggle */}
+            <div className="flex items-center justify-between gap-4 pt-2">
+              <div>
+                <label htmlFor="tts-autoscroll-toggle" className="text-ui font-medium text-ink cursor-pointer">
+                  Auto-scroll to active sentence
+                </label>
+                <p className="text-caption text-ink-muted">
+                  Smoothly scrolls the reader view to center each sentence as it speaks.
+                </p>
+              </div>
+              <input
+                id="tts-autoscroll-toggle"
+                type="checkbox"
+                checked={ttsAutoScroll}
+                onChange={(e) => setTtsAutoScroll(e.target.checked)}
+                className="w-5 h-5 rounded border-line text-brand focus:ring-accent cursor-pointer"
+              />
+            </div>
+
+            {/* Always keep TTS loaded (F88b) */}
+            <div className="flex items-center justify-between gap-4 pt-2 border-t border-line/40">
+              <div>
+                <label htmlFor="tts-keep-loaded-toggle" className="text-ui font-medium text-ink cursor-pointer">
+                  Always keep TTS loaded (zero cold-start)
+                </label>
+                <p className="text-caption text-ink-muted">
+                  Bypasses idle memory eviction for Kokoro TTS. Eliminates the 1.5–2s initial synthesis lag at the cost of ~450 MB background RAM.
+                </p>
+              </div>
+              <input
+                id="tts-keep-loaded-toggle"
+                type="checkbox"
+                checked={ttsKeepLoaded}
+                onChange={(e) => setTtsKeepLoaded(e.target.checked)}
+                className="w-5 h-5 rounded border-line text-brand focus:ring-accent cursor-pointer"
+              />
+            </div>
+
+            {/* Cache limit slider & clear cache */}
+            <div className="pt-2 border-t border-line/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label htmlFor="tts-cache-size-input" className="text-ui-sm font-medium text-ink">
+                    TTS Audio Disk Cache Ceiling
+                  </label>
+                  <p className="text-caption text-ink-muted">
+                    Maximum disk space for pre-rendered WAV sentences in storage/tts.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    id="tts-cache-size-input"
+                    type="number"
+                    min={100}
+                    max={5000}
+                    step={100}
+                    value={ttsCacheMaxMB}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val)) setTtsCacheMaxMB(val);
+                    }}
+                    onBlur={() => {
+                      setTtsCacheMaxMB((prev) => Math.min(5000, Math.max(100, prev || 500)));
+                    }}
+                    className="w-20 px-2 py-0.5 text-right font-mono text-ui font-semibold text-accent-ink bg-accent/10 border border-accent/20 rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
+                    aria-label="TTS cache size in megabytes"
+                  />
+                  <span className="font-mono text-ui font-semibold text-accent-ink">MB</span>
+                </div>
+              </div>
+
+              <input
+                type="range"
+                min={100}
+                max={5000}
+                step={100}
+                value={ttsCacheMaxMB}
+                onChange={(e) => setTtsCacheMaxMB(parseInt(e.target.value, 10))}
+                className="w-full accent-accent cursor-pointer h-2 bg-subtle rounded-lg"
+              />
+
+              <div className="flex justify-between text-micro font-mono text-ink-faint">
+                <span>100 MB</span>
+                <span>500 MB (Default)</span>
+                <span>5,000 MB (5 GB)</span>
+              </div>
+
+              {/* Clear Cache Action */}
+              <div className="pt-2 flex items-center justify-between">
+                <p className="text-caption text-ink-muted">
+                  Flushes pre-synthesized audio files to reclaim disk space.
+                </p>
+                {showClearCacheConfirm ? (
+                  <div className="flex items-center gap-2 p-1.5 rounded-xl bg-subtle border border-line">
+                    <span className="text-xs text-ink-muted px-2">Delete all cached TTS audio?</span>
+                    <button
+                      type="button"
+                      disabled={clearTtsCache.isPending}
+                      onClick={handleClearCache}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-err text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                    >
+                      {clearTtsCache.isPending ? 'Clearing…' : 'Confirm'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowClearCacheConfirm(false)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium text-ink-muted hover:text-ink"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={clearTtsCache.isPending}
+                    onClick={() => setShowClearCacheConfirm(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-ui-sm font-medium text-ink-muted hover:text-err hover:bg-err/10 border border-line transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Clear TTS Cache</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* ── Section 3: Privacy Disclosure Panel ── */}
       <section className="bg-surface/50 rounded-2xl border border-line p-6 shadow-xs space-y-4">
         <div className="flex items-center gap-2.5">
@@ -661,6 +912,12 @@ export const SettingsRoute: React.FC = () => {
             <span className="w-1.5 h-1.5 rounded-full bg-ok mt-2 shrink-0" />
             <div>
               <strong className="text-ink font-medium">BGE-M3 Embeddings</strong>: Computed 100% locally on port 8765.
+            </div>
+          </li>
+          <li className="flex items-start gap-2.5 text-ink-muted">
+            <span className="w-1.5 h-1.5 rounded-full bg-ok mt-2 shrink-0" />
+            <div>
+              <strong className="text-ink font-medium">Kokoro TTS</strong>: Synthesized 100% locally on port 8765. Zero audio egress.
             </div>
           </li>
           <li className="flex items-start gap-2.5 text-ink-muted">

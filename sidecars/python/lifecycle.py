@@ -78,6 +78,37 @@ class LifecycleManager:
         self._stop_event = threading.Event()
         self._daemon_interval_sec = float(daemon_interval_sec)
         self._atexit_registered = False
+        self._keep_warm_models: set = set()
+
+    def set_keep_warm(self, model_name: str, keep_warm: bool = True):
+        """Configures in-memory keep-warm override bypassing idle eviction."""
+        with self._global_lock:
+            if keep_warm:
+                self._keep_warm_models.add(model_name)
+            else:
+                self._keep_warm_models.discard(model_name)
+
+    def is_keep_warm(self, model_name: str) -> bool:
+        """Checks if a model has keep-warm enabled in-memory, via env, or in settings.json."""
+        with self._global_lock:
+            if model_name in self._keep_warm_models:
+                return True
+        if model_name == "tts":
+            env_val = os.environ.get("TTS_KEEP_LOADED", "").strip().lower()
+            if env_val in ("true", "1", "yes", "on"):
+                return True
+            try:
+                import json
+                root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+                settings_path = os.path.join(root_dir, "storage", "settings.json")
+                if os.path.exists(settings_path):
+                    with open(settings_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if data.get("tts", {}).get("keepLoaded") is True:
+                            return True
+            except Exception:
+                pass
+        return False
 
     @property
     def models(self) -> Dict[str, ModelRegistration]:
@@ -353,6 +384,8 @@ class LifecycleManager:
                         if info.state != ModelState.LOADED:
                             continue
                         if info.in_flight_requests > 0:
+                            continue
+                        if self.is_keep_warm(name):
                             continue
                         idle_seconds = time.time() - info.last_accessed_timestamp
                         if info.idle_ttl_sec is not None and idle_seconds >= info.idle_ttl_sec:

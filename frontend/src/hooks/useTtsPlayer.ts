@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSettings } from './useSettings';
 
 export interface TtsPlayer {
   isPlaying: boolean;
+  isWarming: boolean;
+  autoScroll: boolean;
   activeSentenceIndex: number | null;
   totalSentences: number;
   currentDurationMs: number;
@@ -23,22 +26,27 @@ interface AudioData {
   durationMs: number;
 }
 
-function loadTtsPref(bookId: string): { voice: string; speed: number } {
+function loadTtsPref(
+  bookId: string,
+  fallbackVoice = 'af_heart',
+  fallbackSpeed = 1.0
+): { voice: string; speed: number; hasSaved: boolean } {
   try {
     if (typeof window !== 'undefined' && window.localStorage && bookId) {
       const saved = localStorage.getItem(`omnitome:reader:tts-pref:${bookId}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
-          voice: typeof parsed.voice === 'string' ? parsed.voice : 'af_heart',
-          speed: typeof parsed.speed === 'number' ? parsed.speed : 1.0,
+          voice: typeof parsed.voice === 'string' ? parsed.voice : fallbackVoice,
+          speed: typeof parsed.speed === 'number' ? parsed.speed : fallbackSpeed,
+          hasSaved: true,
         };
       }
     }
   } catch {
     // Ignore storage parse errors
   }
-  return { voice: 'af_heart', speed: 1.0 };
+  return { voice: fallbackVoice, speed: fallbackSpeed, hasSaved: false };
 }
 
 function saveTtsPref(bookId: string, voice: string, speed: number) {
@@ -59,13 +67,45 @@ export function useTtsPlayer(
   bookId: string,
   chapterId: string
 ): TtsPlayer {
-  const pref = loadTtsPref(bookId);
+  const { settings } = useSettings();
+  const defaultVoice = settings?.tts?.defaultVoice || 'af_heart';
+  const defaultSpeed = settings?.tts?.defaultSpeed ?? 1.0;
+  const autoScroll = settings?.tts?.autoScroll ?? true;
+
+  const pref = loadTtsPref(bookId, defaultVoice, defaultSpeed);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isWarming, setIsWarming] = useState<boolean>(false);
   const [activeSentenceIndex, setActiveSentenceIndex] = useState<number | null>(null);
   const [currentDurationMs, setCurrentDurationMs] = useState<number>(0);
   const [speed, setSpeedState] = useState<number>(pref.speed);
   const [voice, setVoiceState] = useState<string>(pref.voice);
   const [error, setError] = useState<string | null>(null);
+
+  const warmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearWarmingTimer = useCallback(() => {
+    if (warmTimerRef.current) {
+      clearTimeout(warmTimerRef.current);
+      warmTimerRef.current = null;
+    }
+    setIsWarming(false);
+  }, []);
+
+  const startWarmingTimer = useCallback(() => {
+    if (warmTimerRef.current) clearTimeout(warmTimerRef.current);
+    warmTimerRef.current = setTimeout(() => {
+      setIsWarming(true);
+    }, 400);
+  }, []);
+
+  // Sync settings defaults if no per-book override exists
+  useEffect(() => {
+    const currentPref = loadTtsPref(bookId, defaultVoice, defaultSpeed);
+    if (!currentPref.hasSaved) {
+      setVoiceState(defaultVoice);
+      setSpeedState(defaultSpeed);
+    }
+  }, [bookId, defaultVoice, defaultSpeed]);
 
   const sentencesRef = useRef<string[]>(sentences);
   sentencesRef.current = sentences;
@@ -166,6 +206,7 @@ export function useTtsPlayer(
   const stopInternal = useCallback(() => {
     sessionRef.current += 1;
     abortInFlight();
+    clearWarmingTimer();
     if (deckRefA.current) {
       deckRefA.current.pause();
       deckRefA.current.currentTime = 0;
@@ -179,20 +220,21 @@ export function useTtsPlayer(
     loadedDeckIndexRef.current = { A: null, B: null };
     setIsPlaying(false);
     isPlayingRef.current = false;
-  }, [abortInFlight]);
+  }, [abortInFlight, clearWarmingTimer]);
 
   // Clean up and reload preferences when bookId or chapterId changes
   useEffect(() => {
     stopInternal();
     revokeAllBlobs();
+    clearWarmingTimer();
     setActiveSentenceIndex(null);
     activeIndexRef.current = null;
     setError(null);
 
-    const p = loadTtsPref(bookId);
+    const p = loadTtsPref(bookId, defaultVoice, defaultSpeed);
     setVoiceState(p.voice);
     setSpeedState(p.speed);
-  }, [bookId, chapterId, stopInternal, revokeAllBlobs]);
+  }, [bookId, chapterId, stopInternal, revokeAllBlobs, clearWarmingTimer, defaultVoice, defaultSpeed]);
 
   // Fetch audio helper for a specific sentence index
   const fetchSentenceAudio = useCallback(
@@ -393,7 +435,16 @@ export function useTtsPlayer(
 
       try {
         // 1. Fetch / get audio for targetIndex
-        const audio = await fetchSentenceAudio(targetIndex, session);
+        const needsFetch = !blobMapRef.current.has(targetIndex);
+        if (needsFetch) {
+          startWarmingTimer();
+        }
+        let audio: AudioData | null = null;
+        try {
+          audio = await fetchSentenceAudio(targetIndex, session);
+        } finally {
+          clearWarmingTimer();
+        }
         if (session !== sessionRef.current) return;
 
         if (!audio) {
@@ -532,11 +583,12 @@ export function useTtsPlayer(
   const pause = useCallback(() => {
     sessionRef.current += 1;
     abortInFlight();
+    clearWarmingTimer();
     if (deckRefA.current) deckRefA.current.pause();
     if (deckRefB.current) deckRefB.current.pause();
     setIsPlaying(false);
     isPlayingRef.current = false;
-  }, [abortInFlight]);
+  }, [abortInFlight, clearWarmingTimer]);
 
   const stop = useCallback(() => {
     stopInternal();
@@ -641,6 +693,8 @@ export function useTtsPlayer(
 
   return {
     isPlaying,
+    isWarming,
+    autoScroll,
     activeSentenceIndex,
     totalSentences: sentences.length,
     currentDurationMs,
