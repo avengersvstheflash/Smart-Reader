@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Chapter,
   ChapterRepresentation,
@@ -6,10 +6,13 @@ import {
   parseRepresentationMetadata,
   groupSegmentsIntoRuns,
 } from '../../types/domain';
-import { CanonicalBlock } from './CanonicalBlock';
+import { CanonicalBlock, extractSentencesFromBlock } from './CanonicalBlock';
 import { SmartEmptyState } from './SmartEmptyState';
 import { useProvenance } from '../../hooks/useProvenance';
 import { ProvenancePreview } from './ProvenancePreview';
+import { useTtsPlayer } from '../../hooks/useTtsPlayer';
+import { AudioPlayerBar } from './AudioPlayerBar';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 
 export interface ReaderViewProps {
   chapter: Chapter;
@@ -66,6 +69,89 @@ export function ReaderView({
   const repText = representation?.content ?? '';
   const smartWordCount = repText.trim() ? repText.trim().split(/\s+/).length : 0;
   const smartMinutes = Math.max(1, Math.round(smartWordCount / 200));
+
+  // Compute sentence array & offsets for TTS
+  const activeBlocks = mode === 'smart' ? smartBlocks : blocks;
+
+  const blockSentenceOffsets = useMemo(() => {
+    const offsets: number[] = [];
+    let cur = 0;
+    for (const blk of activeBlocks) {
+      offsets.push(cur);
+      cur += extractSentencesFromBlock(blk).length;
+    }
+    return offsets;
+  }, [activeBlocks]);
+
+  const allSentences = useMemo(() => {
+    const all: string[] = [];
+    for (const blk of activeBlocks) {
+      all.push(...extractSentencesFromBlock(blk));
+    }
+    return all;
+  }, [activeBlocks]);
+
+  const bookId = chapter.bookId || representation?.book_id || '';
+  const chapterId = chapter.id;
+  // Composite ID ensures player resets when toggling between smart and original modes
+  const ttsChapterKey = `${chapterId}:${mode}`;
+  const player = useTtsPlayer(allSentences, bookId, ttsChapterKey);
+
+  const [isBarVisible, setIsBarVisible] = useState(true);
+  useEffect(() => {
+    setIsBarVisible(true);
+  }, [chapter.id]);
+
+  useEffect(() => {
+    if (player.isPlaying) {
+      setIsBarVisible(true);
+    }
+  }, [player.isPlaying]);
+
+  const prefersReducedMotion = useReducedMotion();
+  const [userIsScrolling, setUserIsScrolling] = useState(false);
+  const isProgrammaticScrollRef = useRef(false);
+  const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const handleUserScroll = () => {
+      if (isProgrammaticScrollRef.current) return;
+      setUserIsScrolling(true);
+      if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+      userScrollTimeoutRef.current = setTimeout(() => {
+        setUserIsScrolling(false);
+      }, 5000);
+    };
+
+    window.addEventListener('wheel', handleUserScroll, { passive: true });
+    window.addEventListener('touchstart', handleUserScroll, { passive: true });
+    window.addEventListener('touchmove', handleUserScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('wheel', handleUserScroll);
+      window.removeEventListener('touchstart', handleUserScroll);
+      window.removeEventListener('touchmove', handleUserScroll);
+      if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (player.activeSentenceIndex === null || player.activeSentenceIndex === undefined) return;
+    if (userIsScrolling) return;
+
+    const el = document.querySelector(`[data-sentence-index="${player.activeSentenceIndex}"]`);
+    if (el) {
+      isProgrammaticScrollRef.current = true;
+      el.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'center',
+      });
+      const timer = setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [player.activeSentenceIndex, userIsScrolling, prefersReducedMotion]);
 
   // Active preview card state for segment runs
   const [activePreview, setActivePreview] = useState<{
@@ -133,11 +219,25 @@ export function ReaderView({
   let smartParagraphCounter = 0;
 
   return (
-    <article
-      className="prose prose-reader source-text"
-      data-mode={mode}
-      style={{ '--reading-size': `${fontSize}px`, textAlign: align } as React.CSSProperties}
-    >
+    <>
+      {isBarVisible && allSentences.length > 0 && (
+        <div className="sticky top-0 z-10 mb-4">
+          <AudioPlayerBar
+            player={player}
+            onDismiss={() => {
+              player.stop();
+              setIsBarVisible(false);
+            }}
+            isAutoScrollPaused={userIsScrolling}
+            onResumeAutoScroll={() => setUserIsScrolling(false)}
+          />
+        </div>
+      )}
+      <article
+        className="prose prose-reader source-text"
+        data-mode={mode}
+        style={{ '--reading-size': `${fontSize}px`, textAlign: align } as React.CSSProperties}
+      >
       {mode === 'original' ? (
         <div className="reader-original">
           <div className="source-label text-micro tracking-wide uppercase text-faint font-medium select-none">
@@ -204,7 +304,17 @@ export function ReaderView({
                   data-chunk-id={chunkId || undefined}
                   className={blockClasses}
                 >
-                  <CanonicalBlock block={block} isTtsActive={false} />
+                  <CanonicalBlock
+                    block={block}
+                    sentenceOffset={blockSentenceOffsets[i]}
+                    activeSentenceIndex={player.activeSentenceIndex}
+                    onSentenceClick={(globalIdx) => {
+                      setIsBarVisible(true);
+                      setUserIsScrolling(false);
+                      player.seekToSentence(globalIdx);
+                    }}
+                    isTtsActive={false}
+                  />
                 </div>
               );
             })
@@ -267,6 +377,13 @@ export function ReaderView({
               >
                 <CanonicalBlock
                   block={block}
+                  sentenceOffset={blockSentenceOffsets[i]}
+                  activeSentenceIndex={player.activeSentenceIndex}
+                  onSentenceClick={(globalIdx) => {
+                    setIsBarVisible(true);
+                    setUserIsScrolling(false);
+                    player.seekToSentence(globalIdx);
+                  }}
                   isTtsActive={false}
                   provenanceRow={provenanceRow}
                   activeRunIndex={
@@ -386,5 +503,6 @@ export function ReaderView({
         />
       )}
     </article>
-  );
+  </>
+);
 }

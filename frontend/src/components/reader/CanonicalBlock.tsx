@@ -119,9 +119,33 @@ function getAlignClass(align?: string): string | undefined {
   return undefined;
 }
 
+export function extractSentencesFromBlock(block: CanonicalBlockType): string[] {
+  if (block.type !== 'paragraph') return [];
+  const p = block as ParagraphBlock;
+  const cleaned = (p.text || '')
+    .replace(/\s*\[Source \d+\]/g, '')
+    .replace(/\s*\(Sources? \d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\)/g, '')
+    .trim();
+  if (!cleaned) return [];
+  if (p.sentences && p.sentences.length > 0) {
+    return (p.sentences as ParagraphSentence[])
+      .map((s) =>
+        (s.text || '')
+          .replace(/\s*\[Source \d+\]/g, '')
+          .replace(/\s*\(Sources? \d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\)/g, '')
+          .trim()
+      )
+      .filter(Boolean);
+  }
+  return splitIntoSentences(cleaned);
+}
+
 export interface CanonicalBlockProps {
   block: CanonicalBlockType;
   isTtsActive?: boolean;
+  activeSentenceIndex?: number | null;
+  sentenceOffset?: number;
+  onSentenceClick?: (globalIndex: number) => void;
   provenanceRow?: ParagraphAttribution | null;
   activeRunIndex?: number | null;
   hoveredRunIndex?: number | null;
@@ -134,6 +158,9 @@ export interface CanonicalBlockProps {
 interface CanonicalParagraphProps {
   block: ParagraphBlock;
   isTtsActive?: boolean;
+  activeSentenceIndex?: number | null;
+  sentenceOffset?: number;
+  onSentenceClick?: (globalIndex: number) => void;
   provenanceRow?: ParagraphAttribution | null;
   activeRunIndex?: number | null;
   hoveredRunIndex?: number | null;
@@ -146,6 +173,9 @@ interface CanonicalParagraphProps {
 function CanonicalParagraph({
   block,
   isTtsActive,
+  activeSentenceIndex,
+  sentenceOffset = 0,
+  onSentenceClick,
   provenanceRow,
   activeRunIndex,
   hoveredRunIndex,
@@ -156,21 +186,13 @@ function CanonicalParagraph({
 }: CanonicalParagraphProps) {
   const paragraphRef = React.useRef<HTMLParagraphElement>(null);
 
-  // Strip inline [Source N] citation markers — backend provenance
-  // bookkeeping, not reader UX. Same for [Source N][Source M] chains
-  // and parenthetical (Sources N-M) variants.
-  const cleaned = (block.text || '')
-    .replace(/\s*\[Source \d+\]/g, '')
-    .replace(/\s*\(Sources? \d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\)/g, '')
-    .trim();
+  const sentences = extractSentencesFromBlock(block);
+  const runs = provenanceRow && provenanceRow.grounded !== false && provenanceRow.method !== 'ungrounded'
+    ? groupSegmentsIntoRuns(provenanceRow.segments)
+    : [];
 
   const isUngrounded =
     provenanceRow?.grounded === false || provenanceRow?.method === 'ungrounded';
-  const hasPrecomputedSentences = Boolean(block.sentences && block.sentences.length > 0);
-  const sentences = hasPrecomputedSentences
-    ? (block.sentences as ParagraphSentence[]).map((s) => s.text)
-    : splitIntoSentences(cleaned);
-  const runs = provenanceRow && !isUngrounded ? groupSegmentsIntoRuns(provenanceRow.segments) : [];
 
   React.useEffect(() => {
     if (import.meta.env.DEV && paragraphRef.current && provenanceRow && !isUngrounded) {
@@ -187,17 +209,26 @@ function CanonicalParagraph({
   const hasActiveChip =
     (activeRunIndex !== null && activeRunIndex !== undefined) || Boolean(isSingleChipActive);
 
+  const isAnySentenceActive =
+    activeSentenceIndex !== null &&
+    activeSentenceIndex !== undefined &&
+    activeSentenceIndex >= sentenceOffset &&
+    activeSentenceIndex < sentenceOffset + sentences.length;
+  const isParagraphTtsActive = Boolean(isTtsActive || isAnySentenceActive);
+
   if (provenanceRow) {
     if (runs.length > 0) {
       return (
         <p
           ref={paragraphRef}
           className="reader-paragraph"
-          data-tts-active={isTtsActive ? 'true' : 'false'}
+          data-tts-active={isParagraphTtsActive ? 'true' : 'false'}
           data-source-page={block.sourcePage !== undefined ? block.sourcePage : undefined}
           data-has-active-chip={hasActiveChip ? 'true' : undefined}
         >
           {sentences.map((sent, sIdx) => {
+            const globalIdx = sentenceOffset + sIdx;
+            const isTtsCurrent = activeSentenceIndex === globalIdx;
             const matchingRuns = runs.filter(
               (r) => Math.min(r.sentenceEnd, sentences.length - 1) === sIdx
             );
@@ -221,8 +252,11 @@ function CanonicalParagraph({
             return (
               <React.Fragment key={sIdx}>
                 <span
-                  data-sentence-index={sIdx}
-                  className={`sentence-span ${isHighlighted ? 'segment-highlighted' : ''}`}
+                  data-sentence-index={globalIdx}
+                  className={`sentence-span ${isHighlighted ? 'segment-highlighted' : ''} ${
+                    isTtsCurrent ? 'tts-active' : ''
+                  } ${onSentenceClick ? 'cursor-pointer' : ''}`.trim()}
+                  onClick={() => onSentenceClick?.(globalIdx)}
                   onMouseEnter={() => {
                     if (runForSentence) onHoverRun?.(runForSentence.runIndex);
                   }}
@@ -274,17 +308,27 @@ function CanonicalParagraph({
         <p
           ref={paragraphRef}
           className="reader-paragraph"
-          data-tts-active={isTtsActive ? 'true' : 'false'}
+          data-tts-active={isParagraphTtsActive ? 'true' : 'false'}
           data-source-page={block.sourcePage !== undefined ? block.sourcePage : undefined}
         >
-          {sentences.map((sent, sIdx) => (
-            <React.Fragment key={sIdx}>
-              <span data-sentence-index={sIdx} className="sentence-span">
-                {renderInlineText(sent)}
-              </span>
-              {sIdx < sentences.length - 1 ? ' ' : ''}
-            </React.Fragment>
-          ))}
+          {sentences.map((sent, sIdx) => {
+            const globalIdx = sentenceOffset + sIdx;
+            const isTtsCurrent = activeSentenceIndex === globalIdx;
+            return (
+              <React.Fragment key={sIdx}>
+                <span
+                  data-sentence-index={globalIdx}
+                  className={`sentence-span ${isTtsCurrent ? 'tts-active' : ''} ${
+                    onSentenceClick ? 'cursor-pointer' : ''
+                  }`.trim()}
+                  onClick={() => onSentenceClick?.(globalIdx)}
+                >
+                  {renderInlineText(sent)}
+                </span>
+                {sIdx < sentences.length - 1 ? ' ' : ''}
+              </React.Fragment>
+            );
+          })}
         </p>
       );
     }
@@ -294,18 +338,28 @@ function CanonicalParagraph({
       <p
         ref={paragraphRef}
         className="reader-paragraph"
-        data-tts-active={isTtsActive ? 'true' : 'false'}
+        data-tts-active={isParagraphTtsActive ? 'true' : 'false'}
         data-source-page={block.sourcePage !== undefined ? block.sourcePage : undefined}
         data-has-active-chip={hasActiveChip ? 'true' : undefined}
       >
-        {sentences.map((sent, sIdx) => (
-          <React.Fragment key={sIdx}>
-            <span data-sentence-index={sIdx} className="sentence-span">
-              {renderInlineText(sent)}
-            </span>
-            {sIdx < sentences.length - 1 ? ' ' : ''}
-          </React.Fragment>
-        ))}
+        {sentences.map((sent, sIdx) => {
+          const globalIdx = sentenceOffset + sIdx;
+          const isTtsCurrent = activeSentenceIndex === globalIdx;
+          return (
+            <React.Fragment key={sIdx}>
+              <span
+                data-sentence-index={globalIdx}
+                className={`sentence-span ${isTtsCurrent ? 'tts-active' : ''} ${
+                  onSentenceClick ? 'cursor-pointer' : ''
+                }`.trim()}
+                onClick={() => onSentenceClick?.(globalIdx)}
+              >
+                {renderInlineText(sent)}
+              </span>
+              {sIdx < sentences.length - 1 ? ' ' : ''}
+            </React.Fragment>
+          );
+        })}
         <button
           type="button"
           onClick={(e) => {
@@ -326,10 +380,36 @@ function CanonicalParagraph({
     <p
       ref={paragraphRef}
       className="reader-paragraph"
-      data-tts-active={isTtsActive ? 'true' : 'false'}
+      data-tts-active={isParagraphTtsActive ? 'true' : 'false'}
       data-source-page={block.sourcePage !== undefined ? block.sourcePage : undefined}
     >
-      {renderInlineText(cleaned)}
+      {sentences.length > 0 ? (
+        sentences.map((sent, sIdx) => {
+          const globalIdx = sentenceOffset + sIdx;
+          const isTtsCurrent = activeSentenceIndex === globalIdx;
+          return (
+            <React.Fragment key={sIdx}>
+              <span
+                data-sentence-index={globalIdx}
+                className={`sentence-span ${isTtsCurrent ? 'tts-active' : ''} ${
+                  onSentenceClick ? 'cursor-pointer' : ''
+                }`.trim()}
+                onClick={() => onSentenceClick?.(globalIdx)}
+              >
+                {renderInlineText(sent)}
+              </span>
+              {sIdx < sentences.length - 1 ? ' ' : ''}
+            </React.Fragment>
+          );
+        })
+      ) : (
+        renderInlineText(
+          (block.text || '')
+            .replace(/\s*\[Source \d+\]/g, '')
+            .replace(/\s*\(Sources? \d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\)/g, '')
+            .trim()
+        )
+      )}
     </p>
   );
 }
@@ -337,6 +417,9 @@ function CanonicalParagraph({
 export function CanonicalBlock({
   block,
   isTtsActive = false,
+  activeSentenceIndex,
+  sentenceOffset = 0,
+  onSentenceClick,
   provenanceRow,
   activeRunIndex,
   hoveredRunIndex,
@@ -351,6 +434,9 @@ export function CanonicalBlock({
         <CanonicalParagraph
           block={block as ParagraphBlock}
           isTtsActive={isTtsActive}
+          activeSentenceIndex={activeSentenceIndex}
+          sentenceOffset={sentenceOffset}
+          onSentenceClick={onSentenceClick}
           provenanceRow={provenanceRow}
           activeRunIndex={activeRunIndex}
           hoveredRunIndex={hoveredRunIndex}
