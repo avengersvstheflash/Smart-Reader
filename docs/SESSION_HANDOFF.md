@@ -1,80 +1,78 @@
 # Omnitome — Session Handoff
 
-> Last updated: 2026-10-14  
+> Last updated: 2026-10-15 evening  
 > Repository: github.com/avengersvstheflash/Smart-Reader  
 > Purpose: Full orientation in one turn for any assistant. Answers: *where are we, how do we work, what is next.*
 
 ---
 
-## Current State (2026-10-14)
+## Current State (2026-10-15 evening)
 
-**HEAD:** 9888bed (chore(f52): remove duplicate route aliases and migrate
-          catalog filters to SQL JOIN)
-**Tree:** clean
-**Origin:** synced
-**Tests:** 52 unit suites + 1 corpus gate (10 fixtures) green
-**Latest tag:** v0.6.0
+**HEAD:** fd42365 (fix(research): align append-source predicate with lifecycle (F79b.1))  
+**Tree:** clean  
+**Origin:** synced  
+**Tests:** 57 unit suites + 1 corpus gate (10 fixtures) green  
+**Latest tag:** v0.6.0  
 
 ### Phase Status
-- Phase 5.8: IN PROGRESS (close to complete)
-- F51 series (a–h.3.1): CLOSED
+- Phase 5.8: CLOSED
+- **Feature freeze: ACHIEVED for v1.0**
 - F52 (Library/Research State Coordination): CLOSED — 5 sessions
-- F56 (section classifier bound): CLOSED
-- F58 (persistent import queue): CLOSED
+- F65-F72 (pipeline reliability arc): CLOSED
 - F42 (corpus release gate): CLOSED
-- F49d + F49d.1 + F49d.2: CLOSED
-- F65–F72 (pipeline reliability arc): CLOSED
-- 5.8a–5.8m: CLOSED
+- F51 series (a–h.3.1): CLOSED
+- F49d.1 + F49d.2: CLOSED
+- F56, F58, F61, F62, F64: as noted per finding
+- All polish batches (A, B, C, D, E): CLOSED
 
 ### Next Session Opener
-1. Verify HEAD = 9888bed, tree clean, origin synced
-2. Priority 1: **5.8i — frontend walkthrough**
-   - Boot all three servers
-   - Click through every route: Library, Research, Import, Reader,
-     Settings, Help
-   - Screenshot anomalies
-   - Verify F52 surfaces: 4-option delete modal, "Synthesize Omni Reading"
-     button, Compute pill on BookDetails, Dossier Manifest on ResearchViewer
-   - Verify F66/F69: stage checklist and "Book ready" state
-   - Produce a bug list, do not fix in-session
-3. Priority 2: Small polish batch (F73, F74, F54, F57, F58.1, F39.1)
-4. Priority 3: Kokoro TTS (Phase 5.9, 3 sessions)
-5. Priority 4: Tauri (Phase 6, 5–8 sessions)
-6. Priority 5: Release (3 sessions)
+1. Verify HEAD = fd42365, tree clean, origin synced
+2. Priority: **Series 3 — Kokoro TTS (Phase 5.9)**
+   - S1: Python sidecar /v1/tts/synthesize + Node client
+   - S2: Reader playback + sentence-level highlighting
+   - S3: Voice selection + polish
+3. Then: Tauri packaging (Series 4, 5-8 sessions)
+4. Then: Release (Series 5, 3 sessions)
 
-### Findings Ledger (recent)
-| ID | Name | Status | Location |
+### Findings Ledger (final)
+| ID | Name | Status | Location / Resolution |
 |---|---|---|---|
-| F42 | Corpus release gate | CLOSED | scripts/run-corpus-tests.js |
-| F49d | [PARTIAL] strip from stored synopsis | CLOSED | intelligentSummarizer.js |
-| F49d.1 | [PARTIAL] trigger too aggressive | CLOSED | intelligentSummarizer.js |
-| F49d.2 | Migration ordering: metadata_json ref before ALTER | CLOSED | database.js |
-| F51h.3.1 | Non-TOC prologue/epilogue classification | CLOSED | documentStructureEngine.js |
-| F52 | Library/Research State Coordination | CLOSED | database.js, bookLifecycleService.js |
-| F56 | Section classifier LLM bound + fast path | CLOSED | sectionClassifier.js |
-| F57 | build3a network hang | OPEN | build3a_test.js |
-| F58 | Persistent import queue + expanded web | CLOSED | importQueueService.js |
-| F58.1 | Dossier dedup by title collides | OPEN | importQueueService.js |
-| F61 | OCR scan throughput (~7–10 s/page) | v1.x | sidecars/python/ocr |
-| F62 | Sidecar structure detection dup work | CLOSED | parse/structure.py |
-| F64 | Frontend bundle >500 KB | v1.x | frontend build |
-| F65 | Sequential pipeline | CLOSED | bookService.js |
-| F66 | "Ready" after full pipeline | CLOSED | importQueueService.js |
-| F67 | Test fixture leak into data.db | CLOSED | import_queue_pipeline_test.js |
-| F68 | Parallel synthesis opt-in setting | CLOSED | settingsService.js |
-| F69 | Rich stage labels | CLOSED | PersistentImportWidget.tsx |
-| F70 | Book lifecycle timestamps | CLOSED | database.js |
-| F71 | Dynamic reranker timeout | CLOSED | synthesisService.js |
-| F72 | Capacity-aware sidecar | CLOSED | sidecarBase.js |
-| F73 | 2.0s latency warning too aggressive | OPEN | synthesisService.js |
-| F74 | LOADING state race in reranker | OPEN | synthesisService.js |
-| F75 | Duplicate route aliases | CLOSED | lifecycleRoutes.js |
-| F76 | JS-side catalog filter | CLOSED | bookRepository.js |
-| F39.1 | Ancestor regex false-positive on prose | OPEN | editorialPlanner.js |
-| F38.11.x | Lone-fragment dropping for narrative | OBSERVATION | semanticChunker.js |
-| F54 | Synopsis re-synthesize button | OPEN | BookDetailsRoute.tsx |
+| F52 | Library/Research State Coordination | CLOSED | `database.js`, `bookLifecycleService.js` (5 sessions) |
+| F65 | Sequential pipeline execution | CLOSED | `bookService.js` (Node RAM drop 14.6 GB → 296 MB) |
+| F66 | "Ready" status after full pipeline | CLOSED | `importQueueService.js` |
+| F67 | Test fixture leak into data.db | CLOSED | `import_queue_pipeline_test.js` DB isolation |
+| F68 | Parallel synthesis opt-in setting | CLOSED | `settingsService.js` |
+| F69 | Rich stage checklist UX | CLOSED | `PersistentImportWidget.tsx` |
+| F70 | Book lifecycle timestamps | CLOSED | `database.js`, `bookRepository.js` |
+| F71 | Dynamic reranker timeout scaling | CLOSED | `synthesisService.js` |
+| F72 | Capacity-aware sidecar backpressure | CLOSED | `sidecarBase.js` |
+| F73 | Reranker latency threshold raised | CLOSED | `synthesisService.js` (threshold 0.9 * timeout) |
+| F74 | Await reranker LOADING state | CLOSED | `synthesisService.js` (up to 30s warm-up wait) |
+| F77 | Predictive monotonic ETA counter | CLOSED | `useImportQueueStore.ts` rolling average |
+| F54 | Synopsis regenerate button | CLOSED | `BookDetailsRoute.tsx`, `f54_synopsis_regenerate_test.js` |
+| F57 | Separate build3a into NETWORK_SUITES | CLOSED | `scripts/run-all-tests.js` offline skip |
+| F58.1 | Dossier dedup by ID instead of title | CLOSED | `importQueueService.js`, `f58_1_dossier_dedup_test.js` |
+| F78 | Persistent import widget right-side dock | CLOSED | `PersistentImportWidget.tsx` (48px rail collapse) |
+| F79a | Remove dead "Supporting materials" | CLOSED | `BookDetailsRoute.tsx` |
+| F80 | Metadata visual stat blocks layout | CLOSED | `BookDetailsRoute.tsx` (responsive grid) |
+| F82 | Split synthesize-more hero control | CLOSED | `ChapterSynthesisButton.tsx` (Option B split dropdown) |
+| F81 | Omni reading time in book metadata | CLOSED | `bookService.js`, `BookDetailsRoute.tsx`, `f81_omni_reading_time_test.js` |
+| F79b | Append source to dossier | CLOSED | `bookRoutes.js`, `AttachSourceModal.tsx`, `ResearchViewerRoute.tsx` |
+| F39.1 | Ancestor regex false-positive guard | CLOSED | `editorialPlanner.js` (prose fragment guard) |
+| F83 | markdownParser infinite loop guard | CLOSED | `markdownParser.js` (stranded `#` line guard) |
+| F81.1 | Per-row fallback for omni word count | CLOSED | `bookService.js` (`COALESCE(word_count, LENGTH(content)/5, 0)`) |
+| F82.1 | Split button visual unification + motion | CLOSED | `ChapterSynthesisButton.tsx` (shared group motion) |
+| F79b.1 | Align append-source with lifecycle | CLOSED | `bookRoutes.js` (`book_lifecycle.in_research = 1`) |
 
-### Standing Rules (unchanged)
+### Open v1.0.1 / v1.x
+| ID | Name | Status | Effort |
+|---|---|---|---|
+| F84 | Sidecar-required tests should SKIP visibly | v1.0.1 | 30 min |
+| F38.x | Dense-chapter overshoot (auto-resynth bounded) | v1.0.1 | File only |
+| F61 | OCR scan throughput (~7-10 s/page) | v1.x | Deferred |
+| F64 | Frontend bundle >500 KB | v1.x | Deferred |
+
+### Standing Rules (unchanged + one added)
 - Raw evidence over summaries
 - No commits on dirty tree or red suite
 - Agents never declare phase closure
@@ -86,16 +84,15 @@
 - Every prompt includes "attempt at most N times, then stop"
 - Kill servers before running full suite
 - Diagnostic prompts must not modify files even for real bugs
+- **New:** When running the full test suite, ensure the Python sidecar is running. Suites that need it currently wait through internal timeouts silently (see F84).
 
 ### Roadmap to v1.0
-Remaining (approximate):
-- 5.8i frontend walkthrough (1 session)
-- Small polish batch (F73, F74, F54, F57, F58.1, F39.1) — 1.5 sessions
-- Kokoro TTS (Phase 5.9) — 3 sessions
-- Tauri packaging (Phase 6) — 5–8 sessions
-- Release (Series 5) — 3 sessions
+Remaining:
+- Kokoro TTS — 3 sessions
+- Tauri packaging — 5-8 sessions
+- Release — 3 sessions
 
-Total: ~13–17 sessions. Realistic timeline: 6–9 days at current pace.
+Total: ~11-14 sessions. Realistic timeline: 5-8 days.
 
 ---
 
@@ -172,6 +169,8 @@ The ingestion pipeline executes sequentially across five stages:
 
 ## 7. Reference
 
+- `docs/session-logs/2026-10-15.md` — Post-session-close polish arc + design decisions
+- `docs/session-logs/2026-10-14.md` — F52 architecture + F65–F72 pipeline reliability
 - `docs/session-logs/2026-10-13.md` — F51h arc close + F58 super-prompt + F42 corpus gate
 - `docs/session-logs/2026-10-12.md` — F51 series close + Aozora/Japanese ingestion end-to-end
 - `docs/session-logs/2026-10-10.md` — F43 close, F38 polish, cross-format validation
