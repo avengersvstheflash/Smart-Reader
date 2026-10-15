@@ -10,6 +10,10 @@ export interface TtsPlayer {
   currentDurationMs: number;
   speed: number;
   voice: string;
+  autoAdvance: boolean;
+  setAutoAdvance: (enabled: boolean) => void;
+  resumeAtSentence0: () => void;
+  onChapterComplete?: () => void;
   play: (startIndex?: number) => void;
   pause: () => void;
   stop: () => void;
@@ -29,8 +33,9 @@ interface AudioData {
 function loadTtsPref(
   bookId: string,
   fallbackVoice = 'af_heart',
-  fallbackSpeed = 1.0
-): { voice: string; speed: number; hasSaved: boolean } {
+  fallbackSpeed = 1.0,
+  fallbackAutoAdvance = false
+): { voice: string; speed: number; autoAdvance: boolean; hasSaved: boolean } {
   try {
     if (typeof window !== 'undefined' && window.localStorage && bookId) {
       const saved = localStorage.getItem(`omnitome:reader:tts-pref:${bookId}`);
@@ -39,6 +44,7 @@ function loadTtsPref(
         return {
           voice: typeof parsed.voice === 'string' ? parsed.voice : fallbackVoice,
           speed: typeof parsed.speed === 'number' ? parsed.speed : fallbackSpeed,
+          autoAdvance: typeof parsed.autoAdvance === 'boolean' ? parsed.autoAdvance : fallbackAutoAdvance,
           hasSaved: true,
         };
       }
@@ -46,15 +52,15 @@ function loadTtsPref(
   } catch {
     // Ignore storage parse errors
   }
-  return { voice: fallbackVoice, speed: fallbackSpeed, hasSaved: false };
+  return { voice: fallbackVoice, speed: fallbackSpeed, autoAdvance: fallbackAutoAdvance, hasSaved: false };
 }
 
-function saveTtsPref(bookId: string, voice: string, speed: number) {
+function saveTtsPref(bookId: string, voice: string, speed: number, autoAdvance: boolean) {
   try {
     if (typeof window !== 'undefined' && window.localStorage && bookId) {
       localStorage.setItem(
         `omnitome:reader:tts-pref:${bookId}`,
-        JSON.stringify({ voice, speed })
+        JSON.stringify({ voice, speed, autoAdvance })
       );
     }
   } catch {
@@ -62,10 +68,15 @@ function saveTtsPref(bookId: string, voice: string, speed: number) {
   }
 }
 
+export interface UseTtsPlayerOptions {
+  onChapterComplete?: () => void;
+}
+
 export function useTtsPlayer(
   sentences: string[],
   bookId: string,
-  chapterId: string
+  chapterId: string,
+  options?: UseTtsPlayerOptions
 ): TtsPlayer {
   const { settings } = useSettings();
   const defaultVoice = settings?.tts?.defaultVoice || 'af_heart';
@@ -79,6 +90,7 @@ export function useTtsPlayer(
   const [currentDurationMs, setCurrentDurationMs] = useState<number>(0);
   const [speed, setSpeedState] = useState<number>(pref.speed);
   const [voice, setVoiceState] = useState<string>(pref.voice);
+  const [autoAdvance, setAutoAdvanceState] = useState<boolean>(pref.autoAdvance);
   const [error, setError] = useState<string | null>(null);
 
   const warmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,8 +116,19 @@ export function useTtsPlayer(
     if (!currentPref.hasSaved) {
       setVoiceState(defaultVoice);
       setSpeedState(defaultSpeed);
+      setAutoAdvanceState(false);
     }
   }, [bookId, defaultVoice, defaultSpeed]);
+
+  const autoAdvanceRef = useRef<boolean>(autoAdvance);
+  autoAdvanceRef.current = autoAdvance;
+
+  const isWaitingForChapterRef = useRef<boolean>(false);
+
+  const onChapterCompleteRef = useRef<(() => void) | undefined>(options?.onChapterComplete);
+  useEffect(() => {
+    onChapterCompleteRef.current = options?.onChapterComplete;
+  }, [options?.onChapterComplete]);
 
   const sentencesRef = useRef<string[]>(sentences);
   sentencesRef.current = sentences;
@@ -234,6 +257,7 @@ export function useTtsPlayer(
     const p = loadTtsPref(bookId, defaultVoice, defaultSpeed);
     setVoiceState(p.voice);
     setSpeedState(p.speed);
+    setAutoAdvanceState(p.autoAdvance);
   }, [bookId, chapterId, stopInternal, revokeAllBlobs, clearWarmingTimer, defaultVoice, defaultSpeed]);
 
   // Fetch audio helper for a specific sentence index
@@ -369,6 +393,23 @@ export function useTtsPlayer(
     async (nextIdx: number) => {
       const sents = sentencesRef.current;
       if (nextIdx >= sents.length) {
+        if (autoAdvanceRef.current) {
+          isWaitingForChapterRef.current = true;
+          if (deckRefA.current) {
+            deckRefA.current.pause();
+            deckRefA.current.currentTime = 0;
+            deckRefA.current.src = '';
+          }
+          if (deckRefB.current) {
+            deckRefB.current.pause();
+            deckRefB.current.currentTime = 0;
+            deckRefB.current.src = '';
+          }
+          loadedDeckIndexRef.current = { A: null, B: null };
+          onChapterCompleteRef.current?.();
+          return;
+        }
+
         // Chapter finished
         setIsPlaying(false);
         isPlayingRef.current = false;
@@ -581,6 +622,7 @@ export function useTtsPlayer(
   );
 
   const pause = useCallback(() => {
+    isWaitingForChapterRef.current = false;
     sessionRef.current += 1;
     abortInFlight();
     clearWarmingTimer();
@@ -591,6 +633,7 @@ export function useTtsPlayer(
   }, [abortInFlight, clearWarmingTimer]);
 
   const stop = useCallback(() => {
+    isWaitingForChapterRef.current = false;
     stopInternal();
     setActiveSentenceIndex(null);
     activeIndexRef.current = null;
@@ -598,6 +641,42 @@ export function useTtsPlayer(
     setError(null);
     revokeAllBlobs();
   }, [stopInternal, revokeAllBlobs]);
+
+  const resumeAtSentence0 = useCallback(() => {
+    const sents = sentencesRef.current;
+    if (sents.length === 0) return;
+
+    isWaitingForChapterRef.current = false;
+    const session = ++sessionRef.current;
+    abortInFlight();
+
+    // Reset decks
+    if (deckRefA.current) {
+      deckRefA.current.pause();
+      deckRefA.current.currentTime = 0;
+      deckRefA.current.src = '';
+    }
+    if (deckRefB.current) {
+      deckRefB.current.pause();
+      deckRefB.current.currentTime = 0;
+      deckRefB.current.src = '';
+    }
+    loadedDeckIndexRef.current = { A: null, B: null };
+
+    setActiveSentenceIndex(0);
+    activeIndexRef.current = 0;
+    setIsPlaying(true);
+    isPlayingRef.current = true;
+    setError(null);
+
+    playSentence(0, session, 'A');
+  }, [abortInFlight, playSentence]);
+
+  const setAutoAdvance = useCallback((enabled: boolean) => {
+    setAutoAdvanceState(enabled);
+    autoAdvanceRef.current = enabled;
+    saveTtsPref(bookIdRef.current, voiceRef.current, speedRef.current, enabled);
+  }, []);
 
   const seekToSentence = useCallback(
     (index: number) => {
@@ -641,7 +720,7 @@ export function useTtsPlayer(
     (newSpeed: number) => {
       setSpeedState(newSpeed);
       speedRef.current = newSpeed;
-      saveTtsPref(bookIdRef.current, voiceRef.current, newSpeed);
+      saveTtsPref(bookIdRef.current, voiceRef.current, newSpeed, autoAdvanceRef.current);
 
       // Abort background lookahead and clear future blob cache so subsequent sentences use new speed
       abortInFlight();
@@ -668,7 +747,7 @@ export function useTtsPlayer(
     (newVoice: string) => {
       setVoiceState(newVoice);
       voiceRef.current = newVoice;
-      saveTtsPref(bookIdRef.current, newVoice, speedRef.current);
+      saveTtsPref(bookIdRef.current, newVoice, speedRef.current, autoAdvanceRef.current);
 
       // Abort background lookahead and clear future blob cache so subsequent sentences use new voice
       abortInFlight();
@@ -691,7 +770,7 @@ export function useTtsPlayer(
     [abortInFlight, revokeAllBlobs, triggerLookahead]
   );
 
-  return {
+  const playerObj: TtsPlayer = {
     isPlaying,
     isWarming,
     autoScroll,
@@ -700,6 +779,9 @@ export function useTtsPlayer(
     currentDurationMs,
     speed,
     voice,
+    autoAdvance,
+    setAutoAdvance,
+    resumeAtSentence0,
     play,
     pause,
     stop,
@@ -710,4 +792,17 @@ export function useTtsPlayer(
     setVoice,
     error,
   };
+
+  Object.defineProperty(playerObj, 'onChapterComplete', {
+    get() {
+      return onChapterCompleteRef.current;
+    },
+    set(fn: (() => void) | undefined) {
+      onChapterCompleteRef.current = fn;
+    },
+    enumerable: true,
+    configurable: true,
+  });
+
+  return playerObj;
 }

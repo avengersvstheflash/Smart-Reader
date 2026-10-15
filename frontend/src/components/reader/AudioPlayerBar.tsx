@@ -8,6 +8,7 @@ import {
   X,
   ChevronDown,
   AlertCircle,
+  Headphones,
 } from 'lucide-react';
 import { TtsPlayer } from '../../hooks/useTtsPlayer';
 
@@ -205,8 +206,25 @@ export function AudioPlayerBar({
         ) : null}
       </div>
 
-      {/* Right: Speed, Voice, Dismiss */}
+      {/* Right: Auto-advance, Speed, Voice, Dismiss */}
       <div className="flex items-center gap-2">
+        {/* Auto-advance Toggle */}
+        <button
+          type="button"
+          onClick={() => player.setAutoAdvance(!player.autoAdvance)}
+          className={`min-h-[32px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            player.autoAdvance
+              ? 'bg-accent/15 text-accent-ink border border-accent/40 font-medium'
+              : 'bg-subtle/50 hover:bg-subtle text-ink-muted hover:text-ink border border-line'
+          }`}
+          aria-label="Automatically continue to the next chapter"
+          title="Automatically continue to the next chapter"
+          aria-pressed={player.autoAdvance}
+        >
+          <Headphones className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span>Auto-advance</span>
+        </button>
+
         {/* Speed Selector */}
         <div className="relative inline-flex items-center">
           <select

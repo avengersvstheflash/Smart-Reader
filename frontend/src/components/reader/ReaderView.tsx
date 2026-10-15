@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Chapter,
   ChapterRepresentation,
@@ -11,8 +12,55 @@ import { SmartEmptyState } from './SmartEmptyState';
 import { useProvenance } from '../../hooks/useProvenance';
 import { ProvenancePreview } from './ProvenancePreview';
 import { useTtsPlayer } from '../../hooks/useTtsPlayer';
+import { useSmartChapters } from '../../hooks/useSmartChapters';
 import { AudioPlayerBar } from './AudioPlayerBar';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
+
+interface PendingAutoAdvance {
+  bookId: string;
+  targetChapterId: string;
+  timestamp: number;
+}
+
+const PENDING_ADVANCE_KEY = 'omnitome:reader:pending-auto-advance';
+let modulePendingAdvance: PendingAutoAdvance | null = null;
+
+function getPendingAdvance(): PendingAutoAdvance | null {
+  if (modulePendingAdvance) return modulePendingAdvance;
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      const raw = sessionStorage.getItem(PENDING_ADVANCE_KEY);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    }
+  } catch {
+    // Ignore storage parse errors
+  }
+  return null;
+}
+
+function setPendingAdvance(token: PendingAutoAdvance) {
+  modulePendingAdvance = token;
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      sessionStorage.setItem(PENDING_ADVANCE_KEY, JSON.stringify(token));
+    }
+  } catch {
+    // Ignore storage write errors
+  }
+}
+
+function clearPendingAdvance() {
+  modulePendingAdvance = null;
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      sessionStorage.removeItem(PENDING_ADVANCE_KEY);
+    }
+  } catch {
+    // Ignore storage remove errors
+  }
+}
 
 export interface ReaderViewProps {
   chapter: Chapter;
@@ -96,6 +144,66 @@ export function ReaderView({
   // Composite ID ensures player resets when toggling between smart and original modes
   const ttsChapterKey = `${chapterId}:${mode}`;
   const player = useTtsPlayer(allSentences, bookId, ttsChapterKey);
+
+  const navigate = useNavigate();
+  const { chapters: smartChapters } = useSmartChapters(bookId);
+  const chapters = useMemo(
+    () =>
+      (smartChapters || [])
+        .filter((c) => c.status === 'generated')
+        .sort((a, b) => a.sequence - b.sequence),
+    [smartChapters]
+  );
+
+  const handleChapterComplete = useCallback(() => {
+    const currentChapterIndex = chapters.findIndex((c) => c.id === chapterId);
+    const nextChapter = chapters[currentChapterIndex + 1];
+    if (!nextChapter) {
+      // Book end — stop playback, do NOT navigate
+      clearPendingAdvance();
+      player.stop();
+      return;
+    }
+
+    setPendingAdvance({
+      bookId,
+      targetChapterId: nextChapter.id,
+      timestamp: Date.now(),
+    });
+    navigate(`/read/${bookId}/${nextChapter.id}`);
+  }, [chapters, chapterId, bookId, navigate, player]);
+
+  player.onChapterComplete = handleChapterComplete;
+
+  // Detect when sentences array is ready for the new chapter
+  useEffect(() => {
+    const token = getPendingAdvance();
+    if (!token) return;
+
+    if (Date.now() - token.timestamp > 15000) {
+      clearPendingAdvance();
+      return;
+    }
+
+    if (token.bookId !== bookId || token.targetChapterId !== chapterId) {
+      clearPendingAdvance();
+      return;
+    }
+
+    if (!player.autoAdvance) {
+      clearPendingAdvance();
+      return;
+    }
+
+    if (allSentences.length === 0) {
+      clearPendingAdvance();
+      player.stop();
+      return;
+    }
+
+    clearPendingAdvance();
+    player.resumeAtSentence0();
+  }, [chapterId, allSentences.length, bookId, player]);
 
   const [isBarVisible, setIsBarVisible] = useState(true);
   useEffect(() => {
@@ -226,6 +334,7 @@ export function ReaderView({
           <AudioPlayerBar
             player={player}
             onDismiss={() => {
+              clearPendingAdvance();
               player.stop();
               setIsBarVisible(false);
             }}
