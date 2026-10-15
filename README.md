@@ -4,7 +4,7 @@
 
 *Ingests PDFs, EPUBs, DOCX, RTF, web articles, and raw text. Enforces a clean architectural split: **Import** is the entry point, **Library** holds curated Omni Readings only, and **Research** holds immutable original sources where every compressed sentence traces deterministically to its source passage.*
 
-[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/) [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/) [![React 18.3](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/) [![SQLite](https://img.shields.io/badge/SQLite-WAL_v3_Schema-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3) [![Tests](https://img.shields.io/badge/Tests-52_Suites_%2B_Corpus_Gate-3fb950)](https://github.com/avengersvstheflash/Smart-Reader) [![Local-First](https://img.shields.io/badge/Local--First-enabled-2ea043)](https://github.com/avengersvstheflash/Smart-Reader) [![Status](https://img.shields.io/badge/Status-Phase_5.8_F52%2FF65--72_Complete-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Encoding](https://img.shields.io/badge/Encoding-Tier_1%2B2_Auto_Detect-teal)](https://github.com/avengersvstheflash/Smart-Reader) [![Lifecycle](https://img.shields.io/badge/Sidecar_Lifecycle-Idle_Unload-555555)](https://github.com/avengersvstheflash/Smart-Reader) [![Corpus](https://img.shields.io/badge/Fixture_Corpus-10_docs_3--Class_Gate-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Release](https://img.shields.io/badge/Release-v0.6.0-purple.svg)](https://github.com/avengersvstheflash/Smart-Reader/releases/tag/v0.6.0) [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Node.js 22](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)](https://nodejs.org/) [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/) [![React 18.3](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/) [![SQLite](https://img.shields.io/badge/SQLite-WAL_v3_Schema-003B57?logo=sqlite&logoColor=white)](https://github.com/WiseLibs/better-sqlite3) [![Tests](https://img.shields.io/badge/Tests-57_Suites_%2B_Corpus_Gate-3fb950)](https://github.com/avengersvstheflash/Smart-Reader) [![Local-First](https://img.shields.io/badge/Local--First-enabled-2ea043)](https://github.com/avengersvstheflash/Smart-Reader) [![Status](https://img.shields.io/badge/Status-Feature_Freeze_v1.0-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Encoding](https://img.shields.io/badge/Encoding-Tier_1%2B2_Auto_Detect-teal)](https://github.com/avengersvstheflash/Smart-Reader) [![Lifecycle](https://img.shields.io/badge/Sidecar_Lifecycle-Idle_Unload-555555)](https://github.com/avengersvstheflash/Smart-Reader) [![Corpus](https://img.shields.io/badge/Fixture_Corpus-10_docs_3--Class_Gate-blue)](https://github.com/avengersvstheflash/Smart-Reader) [![Release](https://img.shields.io/badge/Release-v0.6.0-purple.svg)](https://github.com/avengersvstheflash/Smart-Reader/releases/tag/v0.6.0) [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ---
 
@@ -12,12 +12,12 @@
 
 ```text
 Omnitome v1.0 Overall Completion:
-[██████████████████░░] 89% (Phase 5.8 complete — 5.8i Frontend Walkthrough next)
+[███████████████████░] 92% (Phase 5.8 Complete — Feature Freeze Achieved)
 ```
 
 | Subsystem / Milestone | Progress | Status | Key Accomplishments |
 | :--- | :---: | :---: | :--- |
-| **Ingestion & Parsing Engine** | `[████████████████████]` 100% | 🟢 COMPLETE | 5 formats (PDF/EPUB/DOCX/RTF/TXT), Tier 1+2 statistical encoding sniffer, Aozora Japanese |
+| **Ingestion & Parsing Engine** | `[████████████████████]` 100% | 🟢 COMPLETE | 5 formats (PDF/EPUB/DOCX/RTF/TXT), Tier 1+2 statistical encoding sniffer, Aozora Japanese, F83 loop guard |
 | **Neural Sidecar & Vectors** | `[████████████████████]` 100% | 🟢 COMPLETE | BGE-M3 (FP16 CUDA, 1.1GB VRAM), BGE Reranker v2, bounded embed attention (62x speedup) |
 | **Sidecar Lifecycle Manager** | `[████████████████████]` 100% | 🟢 COMPLETE | F43 auto-eviction daemon freeing 3.2 GB idle VRAM; transparent ~6.5s auto-reload |
 | **State Coordination (F52)** | `[████████████████████]` 100% | 🟢 COMPLETE | SQLite Schema v3, `book_lifecycle`, 4-way delete semantics, 3-tier reading progress recovery |
@@ -25,9 +25,9 @@ Omnitome v1.0 Overall Completion:
 | **Corpus Release Gate (F42)** | `[████████████████████]` 100% | 🟢 COMPLETE | 10 fixtures, 3-class assertion engine (A: invariants, B: tolerance bands, C: bug locks) |
 | **Persistent Queue (F58)** | `[████████████████████]` 100% | 🟢 COMPLETE | SQLite WAL queue worker, live checklist widget, expanded web discovery (arXiv/Gutenberg/IETF) |
 | **Theme & Procedural Art** | `[████████████████████]` 100% | 🟢 COMPLETE | 5 complete themes (`omni`, `spring`, `sakura`, `coffee`, `cyberpunk`), procedural book covers & sigils |
-| **UI Surfaces & Settings** | `[██████████████████░░]` 92% | 🟡 IN PROGRESS | Library, Research, Reader, Settings, Help live; Phase 5.8i full frontend walkthrough queued |
-| **Kokoro Local TTS** | `[░░░░░░░░░░░░░░░░░░░░]` 0% | ⏳ QUEUED | Phase 5.9 (3 sessions planned post-walkthrough) |
-| **Tauri Desktop Wrap** | `[░░░░░░░░░░░░░░░░░░░░]` 0% | ⏳ QUEUED | Phase 6.0 desktop packaging to final v1.0 release |
+| **UI Surfaces & Polish** | `[████████████████████]` 100% | 🟢 COMPLETE | Polish Batches A–E complete: F78 right-side dock, F82.1 unified split button, F80 stat blocks, F81.1 read time, F79b.1 append |
+| **Kokoro Local TTS** | `[░░░░░░░░░░░░░░░░░░░░]` 0% | ⏳ **CURRENT** | Series 3 (Phase 5.9): 3 sessions planned (local neural speech synthesis) |
+| **Tauri Desktop Packaging** | `[░░░░░░░░░░░░░░░░░░░░]` 0% | ⏳ QUEUED | Series 4 (Phase 6.0): 5–8 sessions desktop packaging to final v1.0 release |
 
 ---
 
@@ -94,7 +94,14 @@ timeline
                    : Dynamic Reranker Timeout Scaling (8s to 60s)
                    : F52 Library/Research State Coordination (Schema v3)
                    : 4-Way Delete Semantics & 3-Tier Reading Progress Recovery
-                   : 52 Regression Suites + 1 Corpus Gate Green
+    section Polish & Freeze
+        2026-10-15 : Polish Batches A–E (F73, F74, F77, F54, F57, F58.1)
+                   : F78 Persistent Right-Side Import Dock (48px rail)
+                   : F80 Visual Stat Blocks & F82.1 Unified Split Button
+                   : F81/F81.1 Omni Reading Time & F79b/F79b.1 Dossier Append
+                   : F39.1 Ancestor Prose Guard & F83 Parser Loop Guard
+                   : 57 Regression Suites + 1 Corpus Gate Green
+                   : Feature Freeze Achieved for v1.0
 ```
 
 ---
@@ -544,6 +551,7 @@ Omnitome's engineering journey documented session-by-session from `docs/session-
 | **2026-10-12** | **Phase 5.8h / F51** | `[█████████████████░░░]` | **86%** | Aozora Bunko Japanese end-to-end; Tier 1+2 charset sniffer (<0.3ms); bounded attention (**62x speedup** on worst-case) | 13 | 48 |
 | **2026-10-13** | **Phase 5.8h.3 / F42 & F58**| `[██████████████████░░]` | **88%** | F42 3-class corpus gate (10 fixtures, Classes A, B, C); F58 persistent SQLite WAL queue, paste wizard mojibake fix | 11 | 48 + 1 gate |
 | **2026-10-14** | **Phase 5.8 / F65–72 & F52**| `[██████████████████░░]` | **89%** | F65 await barrier (**Node RAM: 14.6 GB → 296 MB, 98% drop**); dynamic timeouts (8–60s); F52 Schema v3; 52 suites green | 10 | **52 suites + 1 gate** |
+| **2026-10-15** | **Phase 5.8 Polish & Freeze**| `[███████████████████░]` | **92%** | Polish Batches A–E: F81/F81.1 Omni reading time; F79b/F79b.1 Dossier append; F78 dock; F82/F82.1 unified split button; F39.1/F83 parser guards; **Feature Freeze for v1.0** | 18 | **57 suites + 1 gate** |
 
 ---
 
@@ -673,7 +681,18 @@ Omnitome's engineering journey documented session-by-session from `docs/session-
   - **Regression Gate:** **All 52 unit test suites + 1 corpus gate passed clean.**
 - **Commits:** `32e3ea9`, `b076dd8`, `63b9be4`, `9498815`, `d047d59`, `1b5f402`, `5d7b87d`, `a9fe14d`, `9888bed`, `8c54ea2`.
 
+#### 🗓️ 2026-10-15 — Phase 5.8 Polish Batches (A–E) & v1.0 Feature Freeze
+- **Progress:** `[███████████████████░]` 92%
+- **Milestones:**
+  - **UI & Ingestion Polish (Batches A & B):** Persistent import widget transformed into a right-side dock with 48px icon rail and mobile fallback (F78); unified split synthesize control in hero with shared hover/motion styling (F82, F82.1); dead supporting materials removed (F79a); metadata visual stat blocks (F80); predictive monotonic ETA (F77); synopsis regenerate action (F54); and ID-based dossier deduplication (F58.1).
+  - **Reading Time & Dossier Append (Sessions C & E):** Computed Omni reading time with per-row NULL fallback (F81, F81.1); multi-source dossier append pipeline (`file`, `web`, `paste`) with timeline manifest and lifecycle-aligned predicate (F79b, F79b.1).
+  - **Parser & Synthesis Integrity (Session D):** Hardened ancestor regex against prose fragments and version number false-positives (F39.1, chat_11 contamination dropped from 20/20 to 0/20); added infinite loop guard in `markdownParser.js` for stranded `#` lines (F83).
+  - **Architectural Decisions (D5 & D6):** Locked two-installer packaging strategy (lightweight on-demand vs. full offline bundled) and Cloudflare Pages + R2 zero-egress hosting distribution in `docs/DESIGN_TAURI_PACKAGING.md`.
+  - **Regression Gate:** **All 57 unit test suites + 1 corpus gate passed clean.** Feature freeze achieved for v1.0.
+- **Commits:** `14fe635`, `8b7b5bb`, `add43e7`, `33bea64`, `c2edbc4`, `dfcf6f6`, `660d9bf`, `6ccbe93`, `dc72f01`, `1b67cef`, `cafbaf5`, `7de9e9c`, `6fc850d`, `043a1be`, `655dec7`, `5b2331c`, `0cebb27`, `fd42365`, `27e33c6`.
+
 ---
+
 
 ## 🛠️ Getting Started
 
@@ -727,7 +746,7 @@ npm run dev
 ### Running the Regression Test Suite & Benchmarks
 
 ```bash
-# Run all 52 regression suites + the 10-fixture corpus gate:
+# Run all 57 regression suites + the 10-fixture corpus gate:
 npm test
 # (Equivalent to: node scripts/run-all-tests.js)
 
@@ -761,12 +780,12 @@ node scripts/run-juncture-benchmark.js
 | **F58**  | Persistent SQLite Import Queue | 🟢 CLOSED | Background WAL queue, stage checklist, web discovery |
 | **F65-72**| Sequential Pipeline Reliability Arc | 🟢 CLOSED | Await barrier (RAM 14.6GB → 296MB), dynamic reranker timeout |
 | **F52**  | Library/Research State Coordination | 🟢 CLOSED | Schema v3, 4-way delete FSM, 3-tier reading progress recovery |
-| **5.8j-k**| Settings & Help Pages | 🟢 CLOSED | `/settings` + `/help` routes, token cost accounting ($0.00 Ollama) |
-| **5.8i** | Full Frontend Walkthrough | ⏳ **CURRENT** | Verification of all routes, modals, and stage indicators |
-| **5.9**  | Kokoro Local TTS Audio Narration | ⏳ QUEUED | 3 sessions planned (local neural speech synthesis) |
-| **6.0**  | Tauri Desktop Packaging → v1.0 | ⏳ QUEUED | 5–8 sessions planned (cross-platform desktop binary) |
+| **5.8 (A-E)**| Frontend Polish & Feature Freeze | 🟢 CLOSED | Batches A–E: F78 dock, F82.1 split button, F81.1 read time, F79b.1 append, F39.1/F83 guards |
+| **5.9**  | Kokoro Local TTS Audio Narration | ⏳ **CURRENT** | Series 3: 3 sessions planned (local neural speech synthesis) |
+| **6.0**  | Tauri Desktop Packaging → v1.0 | ⏳ QUEUED | Series 4: 5–8 sessions planned (cross-platform desktop binary) |
+| **7.0**  | Release & Distribution | ⏳ QUEUED | Series 5: 3 sessions (Cloudflare Pages + R2, two-installer strategy) |
 
-**Current Focus:** Phase 5.8i full frontend route and modal walkthrough preparing for v1.0 desktop packaging.
+**Current Focus:** Feature freeze achieved for v1.0. Next priority: Series 3 (Phase 5.9) Kokoro Local TTS Audio Narration.
 
 > For deep architectural insights and findings, see [`docs/SESSION_HANDOFF.md`](./docs/SESSION_HANDOFF.md) and [`docs/DESIGN_LIBRARY_RESEARCH_STATE.md`](./docs/DESIGN_LIBRARY_RESEARCH_STATE.md).
 
