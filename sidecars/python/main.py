@@ -134,4 +134,26 @@ def lifecycle_unload(model: str):
     return {"ok": ok, "previous_state": prev_state, "current_state": curr_state}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8765)
+    import argparse
+    import socket
+
+    parser = argparse.ArgumentParser(description="Omnitome Python Sidecar")
+    parser.add_argument("--port", type=int, default=8765, help="Port to listen on (0 for ephemeral)")
+    args = parser.parse_args()
+
+    if args.port == 0:
+        # Zero-TOCTOU socket allocation: bind, listen, and hand live socket directly to Uvicorn
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(("127.0.0.1", 0))
+        sock.listen(5)
+        actual_port = sock.getsockname()[1]
+
+        # Emit deterministic handshake line
+        print(f"__OMNITOME_BOOT__ python-sidecar port={actual_port}", flush=True)
+
+        cfg = uvicorn.Config(app, host="127.0.0.1", log_level="info")
+        srv = uvicorn.Server(cfg)
+        srv.run(sockets=[sock])
+    else:
+        print(f"__OMNITOME_BOOT__ python-sidecar port={args.port}", flush=True)
+        uvicorn.run(app, host="127.0.0.1", port=args.port)

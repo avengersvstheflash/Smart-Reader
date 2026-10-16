@@ -169,8 +169,23 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 if (require.main === module) {
-  app.listen(config.PORT, '0.0.0.0', () => {
-    console.log(`Smart Reader backend running on http://0.0.0.0:${config.PORT}`);
+  // Parse optional --port <N> CLI argument; fallback to config.PORT or 3000 if falsy
+  const args = process.argv.slice(2);
+  const portArgIndex = args.indexOf('--port');
+  let requestedPort = config.PORT || 3000;
+  if (portArgIndex !== -1 && args[portArgIndex + 1] !== undefined) {
+    const parsed = parseInt(args[portArgIndex + 1], 10);
+    if (!isNaN(parsed)) {
+      requestedPort = parsed;
+    }
+  }
+
+  const host = requestedPort === 0 ? '127.0.0.1' : '0.0.0.0';
+
+  const server = app.listen(requestedPort, host, () => {
+    const actualPort = server.address().port;
+    console.log(`__OMNITOME_BOOT__ node-backend port=${actualPort}`);
+    console.log(`Smart Reader backend running on http://${host}:${actualPort}`);
   });
 }
 
