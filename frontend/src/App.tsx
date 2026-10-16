@@ -23,6 +23,23 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
+  const isTauri = typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== 'undefined';
+  const nodePort = (window as unknown as { __OMNITOME__?: { nodePort?: number } }).__OMNITOME__?.nodePort;
+
+  if (isTauri && !nodePort) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-paper p-8 text-ink">
+        <h1 className="text-xl font-bold text-red-600">Omnitome Boot Error</h1>
+        <p className="mt-2 text-sm text-ink-muted">
+          Backend service port handshake failed during application launch.
+        </p>
+        <p className="mt-4 text-xs font-mono bg-subtle p-3 rounded">
+          Check logs at: %LOCALAPPDATA%\Omnitome\logs\node.log
+        </p>
+      </div>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

@@ -6,24 +6,24 @@
 
 ---
 
-## Current State (2026-10-16 late)
+## Current State (2026-10-17)
 
-**HEAD:** 1f0aabd (chore(tauri): scaffold tauri v2 shell (S11))  
+**HEAD:** 93ecf87 (feat(tauri): rust process supervisor, logging, and frontend dynamic port bootstrap (S12c))  
 **Tree:** clean  
-**Origin:** synced  
+**Origin:** unpushed (S12a, S12b, S12c local)  
 **Tests:** 58 unit suites + 1 corpus gate (10 fixtures) green  
 **Latest tag:** v0.6.0  
 
-Series 4 (Tauri packaging) IN PROGRESS — S11 scaffolded  
-src-tauri/ created with minimal supervisor shell  
-Next: S12 PyInstaller sidecar freeze + dynamic ports  
+Series 4 (Tauri packaging) IN PROGRESS — S11 and S12 complete  
+Sidecar frozen with PyInstaller onedir, dynamic ephemeral ports (--port 0), sentinel handshake, Rust supervisor with %LOCALAPPDATA%\Omnitome\logs logging and atomic PID management, and frontend dynamic port bootstrap  
+Next: S13 Kokoro ONNX model packaging + Resource Manager  
 
 ### Phase Status
 - Phase 5.8: CLOSED (feature freeze achieved 2026-10-15)
 - **Phase 5.9 (Series 3 — Kokoro TTS): CLOSED**
 - Series 1 (structural gate): CLOSED
 - Series 2 (pre-Tauri polish): CLOSED
-- **Series 4 (Tauri packaging): IN PROGRESS — S11 scaffolded**
+- **Series 4 (Tauri packaging): IN PROGRESS — S11 & S12 complete**
 
 ### Series 3 Ledger (Kokoro TTS)
 | Session | Commit | Scope |
@@ -36,14 +36,19 @@ Next: S12 PyInstaller sidecar freeze + dynamic ports
 ### Series 4 Ledger (Tauri Packaging)
 | Session | Commit | Scope |
 |---|---|---|
-| S11 | 1f0aabd | Tauri v2 scaffold + minimal Rust process supervisor (F91) |
+| S11 | 8801469 | Tauri v2 scaffold + minimal Rust process supervisor (F91) |
+| F93 | db34cf8 | Real Omnitome icons from sigil SVG |
+| F93.1 | a0303a8 | App icon replaced with layered book emblem (904x904 crop -> 1024 squircle) |
+| S12a | fe7e45a | PyInstaller onedir freeze of Python sidecar + OMNITOME_MODEL_DIR |
+| S12b | eca3bea | Ephemeral port 0 allocation + sentinel handshake contract |
+| S12c | 93ecf87 | Rust process supervisor, log rotation, atomic PIDs, webview sequencing, frontend dynamic API routing |
 
 ### Next Session Opener
 1. Verify HEAD, tree clean, origin synced
-2. Priority: **Series 4 — S12 PyInstaller sidecar freeze + dynamic ports**
-   - Package Python sidecar with PyInstaller onedir
-   - Dynamic port selection (port 0 assignment + stdout parsing in Rust supervisor)
-3. Then: S13 Kokoro + Resource Manager → S14 code signing → S15 GitHub Releases
+2. Priority: **Series 4 — S13 Kokoro ONNX model packaging + Resource Manager**
+   - Package Kokoro ONNX model files & voices
+   - Resource manager for external model downloads/updates
+3. Then: S14 installer pipeline (NSIS) + code signing → S15 GitHub Releases
 
 ### Findings Ledger — Series 3 & 4 additions
 | ID | Name | Status | Location |

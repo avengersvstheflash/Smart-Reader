@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSettings } from './useSettings';
+import { apiUrl } from '../api/client';
 
 export interface TtsPlayer {
   isPlaying: boolean;
@@ -288,7 +289,7 @@ export function useTtsPlayer(
           const currentVoice = voiceRef.current;
           const currentSpeed = speedRef.current;
 
-          const res = await fetch('/api/tts/synthesize', {
+          const res = await fetch(apiUrl('/api/tts/synthesize'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -313,7 +314,7 @@ export function useTtsPlayer(
           const data = await res.json();
           if (session !== sessionRef.current) return null;
 
-          const wavRes = await fetch(data.audioUrl, {
+          const wavRes = await fetch(apiUrl(data.audioUrl), {
             signal: controller.signal,
           });
           if (session !== sessionRef.current) return null;

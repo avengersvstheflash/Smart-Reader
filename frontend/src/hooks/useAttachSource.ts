@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiUrl } from '../api/client';
 
 export interface AttachSourcePayload {
   sourceType: 'file' | 'web' | 'paste';
@@ -28,7 +29,7 @@ export function useAttachSource(dossierId: string) {
         if (payload.title) formData.append('title', payload.title);
         if (payload.author) formData.append('author', payload.author);
 
-        const res = await fetch(`/api/books/${dossierId}/append-source`, {
+        const res = await fetch(apiUrl(`/api/books/${dossierId}/append-source`), {
           method: 'POST',
           body: formData,
         });
@@ -40,7 +41,7 @@ export function useAttachSource(dossierId: string) {
         return res.json();
       }
 
-      const res = await fetch(`/api/books/${dossierId}/append-source`, {
+      const res = await fetch(apiUrl(`/api/books/${dossierId}/append-source`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { apiClient } from '../api/client';
+import { apiClient, apiUrl } from '../api/client';
 import { ImportTask, RawImportTask, normalizeImportTask } from '../types/domain';
 
 interface QueueApiResponse {
@@ -244,7 +244,7 @@ export const useImportQueueStore = create<ImportQueueState>((set, get) => {
 
       set({ isDismissed: false });
 
-      const res = await fetch('/api/import/queue/files', {
+      const res = await fetch(apiUrl('/api/import/queue/files'), {
         method: 'POST',
         body: formData,
       });

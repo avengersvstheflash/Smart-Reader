@@ -281,3 +281,4 @@ runTests().catch((err) => {
   console.error('[FAIL] s12b_boot_handshake_test failed:', err);
   process.exit(1);
 });
+
