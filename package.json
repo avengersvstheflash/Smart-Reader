@@ -1,7 +1,7 @@
 {
-  "name": "smart-reader",
+  "name": "omnitome",
   "version": "1.0.0",
-  "description": "AI-powered manga and novel reader with summaries and anime-style voiceovers!",
+  "description": "A local-first neural reading library. Turns your documents into loss-bounded, provenance-traceable Omni Readings with on-device text-to-speech. Compression, not summarization. Native desktop app — no cloud, no egress.",
   "main": "backend/server.js",
   "scripts": {
     "dev": "node backend/server.js",
@@ -9,8 +9,6 @@
     "test": "node scripts/run-all-tests.js",
     "db:reset": "node -e \"require('./backend/db/database').resetAndSeedDatabase(); console.log('Database reset and seeded successfully.');\"",
     "db:seed": "node -e \"require('./backend/db/database').resetAndSeedDatabase(); console.log('Database reset and seeded successfully.');\"",
-    "lint": "node -e \"console.log('No lint errors found')\"",
-    "build": "node -e \"console.log('Build complete')\"",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
   },
