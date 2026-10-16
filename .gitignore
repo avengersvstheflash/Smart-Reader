@@ -79,3 +79,7 @@ sidecars/python/models/
 
 # Tauri build artifacts
 src-tauri/target/
+
+# PyInstaller sidecar build artifacts
+dist-sidecar/
+build-sidecar/

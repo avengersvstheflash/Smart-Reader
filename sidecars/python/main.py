@@ -1,13 +1,35 @@
 import os
 import sys
+
+# Ensure module directory is in sys.path (supports both dev and PyInstaller frozen mode)
+if getattr(sys, 'frozen', False):
+    bundle_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+else:
+    bundle_dir = os.path.dirname(os.path.abspath(__file__))
+
+if bundle_dir not in sys.path:
+    sys.path.insert(0, bundle_dir)
+
+# Model cache directory isolation (S12a)
+# Guarantees neural models write to %LOCALAPPDATA%\Omnitome\models\ rather than install directory
+model_dir = os.environ.get("OMNITOME_MODEL_DIR")
+if not model_dir:
+    if getattr(sys, "frozen", False):
+        local_app_data = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+        model_dir = os.path.join(local_app_data, "Omnitome", "models")
+    else:
+        model_dir = os.path.join(bundle_dir, "models")
+
+os.makedirs(model_dir, exist_ok=True)
+os.environ.setdefault("OMNITOME_MODEL_DIR", model_dir)
+os.environ.setdefault("HF_HOME", os.path.join(model_dir, "huggingface"))
+os.environ.setdefault("SENTENCE_TRANSFORMERS_HOME", os.path.join(model_dir, "sentence_transformers"))
+os.environ.setdefault("PADDLE_HOME", os.path.join(model_dir, "paddle"))
+os.environ.setdefault("PADDLEOCR_HOME", os.path.join(model_dir, "paddleocr"))
+
 import torch  # noqa: F401 — load before PaddleOCR to avoid WinError 127
 
 os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
-
-# Ensure sidecars/python directory is in sys.path
-sys_path_dir = os.path.dirname(os.path.abspath(__file__))
-if sys_path_dir not in sys.path:
-    sys.path.insert(0, sys_path_dir)
 
 import threading
 from common import setup_system_io
