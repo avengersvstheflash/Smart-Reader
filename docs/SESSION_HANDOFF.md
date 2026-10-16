@@ -8,18 +8,22 @@
 
 ## Current State (2026-10-16 late)
 
-**HEAD:** 498a54d (feat(reader): podcast auto-advance mode (S10, F89))  
+**HEAD:** 1f0aabd (chore(tauri): scaffold tauri v2 shell (S11))  
 **Tree:** clean  
 **Origin:** synced  
 **Tests:** 58 unit suites + 1 corpus gate (10 fixtures) green  
 **Latest tag:** v0.6.0  
+
+Series 4 (Tauri packaging) IN PROGRESS — S11 scaffolded  
+src-tauri/ created with minimal supervisor shell  
+Next: S12 PyInstaller sidecar freeze + dynamic ports  
 
 ### Phase Status
 - Phase 5.8: CLOSED (feature freeze achieved 2026-10-15)
 - **Phase 5.9 (Series 3 — Kokoro TTS): CLOSED**
 - Series 1 (structural gate): CLOSED
 - Series 2 (pre-Tauri polish): CLOSED
-- Series 4 (Tauri packaging): NOT STARTED — next
+- **Series 4 (Tauri packaging): IN PROGRESS — S11 scaffolded**
 
 ### Series 3 Ledger (Kokoro TTS)
 | Session | Commit | Scope |
@@ -29,19 +33,19 @@
 | S09 | 4452f34 + 29c7857 | TTS settings card (voice/speed/autoScroll/cache/keepLoaded) + cold-start UX (F88) + docs close |
 | S10 | 498a54d | Podcast auto-advance mode (F89) |
 
-### Next Session Opener
-1. Verify HEAD = 498a54d, tree clean, origin synced
-2. Priority: **Series 4 — Tauri packaging (Phase 6)**
-   - First: read/update docs/DESIGN_TAURI_PACKAGING.md
-   - Design decisions already drafted: D1 (Windows code signing — defer to v1.0.1),
-     D2 (PyInstaller frozen sidecar), D3 (BGE-M3 download-on-first-use),
-     D4 (Windows-only v1.0), D5 (two-installer strategy), D6 (Cloudflare R2 + Pages)
-   - Add D7: Resource Manager architecture (from F90/RAM discussion)
-   - Planned session split: S11 scaffold → S12 bundle Node+Python+BGE-M3 →
-     S13 Kokoro + Resource Manager → S14 code signing → S15 GitHub Releases
-3. Then: Series 5 (Release, 3 sessions)
+### Series 4 Ledger (Tauri Packaging)
+| Session | Commit | Scope |
+|---|---|---|
+| S11 | 1f0aabd | Tauri v2 scaffold + minimal Rust process supervisor (F91) |
 
-### Findings Ledger — Series 3 additions
+### Next Session Opener
+1. Verify HEAD, tree clean, origin synced
+2. Priority: **Series 4 — S12 PyInstaller sidecar freeze + dynamic ports**
+   - Package Python sidecar with PyInstaller onedir
+   - Dynamic port selection (port 0 assignment + stdout parsing in Rust supervisor)
+3. Then: S13 Kokoro + Resource Manager → S14 code signing → S15 GitHub Releases
+
+### Findings Ledger — Series 3 & 4 additions
 | ID | Name | Status | Location |
 |---|---|---|---|
 | F85 | Kokoro TTS sidecar + Node client + cache | CLOSED | sidecars/python/tts/, backend/services/ai/ttsClient.js |
@@ -50,6 +54,7 @@
 | F88 | Cold-start UX (warming chip + keepLoaded setting) | CLOSED | useTtsPlayer.ts, lifecycle.py |
 | F89 | Podcast auto-advance mode | CLOSED | useTtsPlayer.ts, ReaderView.tsx |
 | F90 | Ambient background music (lo-fi/reading BGM) | OPEN — v1.1 | TBD |
+| F91 | Tauri packaging begins (S11 scaffold complete) | CLOSED | src-tauri/, package.json |
 
 **F90 approach (v1.1):** Generate 3-5 minute loop via Google AI music tooling
 (AI Pro subscription). Archive generation date + applicable terms in

@@ -76,3 +76,6 @@ docs/*.md.bak-*
 
 # Kokoro / sidecar ML model weights (downloaded at runtime, not shipped in git)
 sidecars/python/models/
+
+# Tauri build artifacts
+src-tauri/target/
