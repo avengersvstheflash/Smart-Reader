@@ -1,114 +1,29 @@
-# Omnitome — Session Handoff
+# Smart Reader / Omnitome — Session Handoff
 
-> Last updated: 2026-10-16  
+> Last updated: 2026-10-17 (post-S12)  
 > Repository: github.com/avengersvstheflash/Smart-Reader  
 > Purpose: Full orientation in one turn for any assistant. Answers: *where are we, how do we work, what is next.*
 
 ---
 
-## Current State (2026-10-17)
+## 1. Current State
 
-**HEAD:** 93ecf87 (feat(tauri): rust process supervisor, logging, and frontend dynamic port bootstrap (S12c))  
-**Tree:** clean  
-**Origin:** unpushed (S12a, S12b, S12c local)  
-**Tests:** 58 unit suites + 1 corpus gate (10 fixtures) green  
-**Latest tag:** v0.6.0  
+- **HEAD:** `9750d72` (`feat(tauri): rust process supervisor, logging, and frontend dynamic port bootstrap (S12c)`)
+- **Tree:** clean
+- **Origin:** synced with `main`
+- **Tests:** 58 unit suites + 1 corpus gate (10/10 fixtures) green
+- **Latest tag:** `v0.6.0`
 
-Series 4 (Tauri packaging) IN PROGRESS — S11 and S12 complete  
-Sidecar frozen with PyInstaller onedir, dynamic ephemeral ports (--port 0), sentinel handshake, Rust supervisor with %LOCALAPPDATA%\Omnitome\logs logging and atomic PID management, and frontend dynamic port bootstrap  
-Next: S13 Kokoro ONNX model packaging + Resource Manager  
-
-### Phase Status
-- Phase 5.8: CLOSED (feature freeze achieved 2026-10-15)
-- **Phase 5.9 (Series 3 — Kokoro TTS): CLOSED**
-- Series 1 (structural gate): CLOSED
-- Series 2 (pre-Tauri polish): CLOSED
-- **Series 4 (Tauri packaging): IN PROGRESS — S11 & S12 complete**
-
-### Series 3 Ledger (Kokoro TTS)
-| Session | Commit | Scope |
-|---|---|---|
-| S07 | 8cc60da | Sidecar endpoint /v1/tts/synthesize + Node ttsClient + cache |
-| S08 | dbcf605 | Reader playback UI (dual-deck audio, sentence highlighting, auto-scroll) |
-| S09 | 4452f34 + 29c7857 | TTS settings card (voice/speed/autoScroll/cache/keepLoaded) + cold-start UX (F88) + docs close |
-| S10 | 498a54d | Podcast auto-advance mode (F89) |
-
-### Series 4 Ledger (Tauri Packaging)
-| Session | Commit | Scope |
-|---|---|---|
-| S11 | 8801469 | Tauri v2 scaffold + minimal Rust process supervisor (F91) |
-| F93 | db34cf8 | Real Omnitome icons from sigil SVG |
-| F93.1 | a0303a8 | App icon replaced with layered book emblem (904x904 crop -> 1024 squircle) |
-| S12a | fe7e45a | PyInstaller onedir freeze of Python sidecar + OMNITOME_MODEL_DIR |
-| S12b | eca3bea | Ephemeral port 0 allocation + sentinel handshake contract |
-| S12c | 93ecf87 | Rust process supervisor, log rotation, atomic PIDs, webview sequencing, frontend dynamic API routing |
-
-### Next Session Opener
-1. Verify HEAD, tree clean, origin synced
-2. Priority: **Series 4 — S13 Kokoro ONNX model packaging + Resource Manager**
-   - Package Kokoro ONNX model files & voices
-   - Resource manager for external model downloads/updates
-3. Then: S14 installer pipeline (NSIS) + code signing → S15 GitHub Releases
-
-### Findings Ledger — Series 3 & 4 additions
-| ID | Name | Status | Location |
-|---|---|---|---|
-| F85 | Kokoro TTS sidecar + Node client + cache | CLOSED | sidecars/python/tts/, backend/services/ai/ttsClient.js |
-| F86 | Settings atomic-write temp file cleanup | CLOSED | backend/services/settings/settingsService.js |
-| F87 | Voice list alignment (agent prose drift during S08 reporting) | CLOSED — no action | — |
-| F88 | Cold-start UX (warming chip + keepLoaded setting) | CLOSED | useTtsPlayer.ts, lifecycle.py |
-| F89 | Podcast auto-advance mode | CLOSED | useTtsPlayer.ts, ReaderView.tsx |
-| F90 | Ambient background music (lo-fi/reading BGM) | OPEN — v1.1 | TBD |
-| F91 | Tauri packaging begins (S11 scaffold complete) | CLOSED | src-tauri/, package.json |
-
-**F90 approach (v1.1):** Generate 3-5 minute loop via Google AI music tooling
-(AI Pro subscription). Archive generation date + applicable terms in
-RIGHTS.md. Bundle with app as opt-in toggle. Zero external licensing cost.
-
-### Open v1.0.1 / v1.x / v1.1 backlog
-| ID | Name | Target |
-|---|---|---|
-| F38.x | Dense-chapter overshoot (auto-resynth bounded, no fix needed) | v1.0.1 note |
-| F61 | OCR scan throughput (~7-10 s/page) | v1.x |
-| F64 | Frontend bundle >500 KB (833 KB current) | v1.x |
-| F84 | Sidecar-required tests SKIP visibly (F57 pattern extension) | v1.0.1 |
-| F90 | Ambient background music | v1.1 |
-| — | Cache compression (Opus post-playback) | v1.1 |
-| — | Chapter audio export to MP3 | v1.1 |
-
-### Evidence discipline note (Series 3)
-- S08 completion report described the voice list incorrectly in prose
-  (agent wrote "af_bella/am_michael" in the summary, actual code is
-  "af_heart/am_adam/bf_alice/bm_george"). Diagnostic git grep confirmed
-  the code was correct. Reminder: verify agent prose against raw code
-  before acting on it.
-- S09 first pass silently skipped F88 (long prompt, sub-deliverable missed).
-  Second pass with plan-gate caught it. S10 plan-gate held.
-- S10 verification was a programmatic state-machine run (not real audio
-  playback). The real-playback cross-chapter test is deferred to the next
-  manual frontend walkthrough.
-
-### Standing Rules (unchanged + one note)
-- Raw evidence over summaries
-- No commits on dirty tree or red suite
-- Agents never declare phase closure
-- One workstream per commit (not per day)
-- VS Code closed during Antigravity edits
-- Never git add -f on gitignored files
-- Compress evidence before transmitting to LLM
-- Prefer targeted git checkout HEAD -- <file> over destructive reset
-- Every prompt includes "attempt at most N times, then stop"
-- Kill servers before running full suite
-- Diagnostic prompts must not modify files even for real bugs
-- When running the full test suite, ensure the Python sidecar is running. Suites that need it currently wait through internal timeouts silently (see F84).
-- Before approving long prompts with multiple sub-deliverables, require a plan artifact (agent enumerates every file + state field it will touch). This catches silent skips.
-
-### Roadmap to v1.0
-Remaining:
-- Tauri packaging (Series 4) — 5-8 sessions
-- Release (Series 5) — 3 sessions
-
-Total: ~8-11 sessions. Realistic timeline: 4-6 days.
+### Recent Commit Trail
+- `9750d72` — S12c: Rust supervisor + frontend bootstrap
+- `eca3bea` — S12b: dynamic ports + boot handshake
+- `fe7e45a` — S12a: PyInstaller onedir freeze
+- `a0303a8` — F93.1: layered book emblem as app icon
+- `db34cf8` — F93: sigil-on-gradient icons (superseded)
+- `986db1a` — F92: package.json metadata refresh
+- `8801469` — S11: Tauri v2 scaffold
+- `b6f5d06` — docs: Tauri packaging spec
+- `9a46973` — Series 3 close (Kokoro TTS S07–S10)
 
 ---
 
@@ -120,79 +35,151 @@ Total: ~8-11 sessions. Realistic timeline: 4-6 days.
 - **The Two-Representation Invariant:**
   - **Original Reading:** Immutable source. Authoritative. Lives in Research.
   - **Omni Reading:** Derived, compressed, traceable. Lives in Library. **This is the product.**
-  - *Rule:* Omni is the product; Original is the proof. The reader defaults to Omni; Original is reached contextually via provenance.
+  - *Rule:* Omni is the product; Original is the proof.
 - **Three Design Laws:**
   1. *Source is paper:* Original feels neutral, calm, book-like.
-  2. *The lens is tinted:* Omni carries a quiet derived identity (no sparkles, no wands).
+  2. *The lens is tinted:* Omni carries a quiet derived identity.
   3. *Derivation never masquerades as source:* Every Omni claim retains a provenance path.
-- **Compression, not summarization:** Preserves distinct concepts, arguments, factual claims, and causal relationships at ~7:1 density (~250–360 words per chapter from 1,500–2,500 source words).
-- **Local-first by design:** Local execution is a deliberate architecture decision, not a constraint. Zero egress for private libraries; deterministic latency.
 
 ---
 
 ## 3. Architecture
 
-- **Node + Python Hybrid Ownership Boundaries:**
-  - *Node:* API / HTTP, Orchestration, SQLite (sole writer), Application lifecycle, LLM capability routing.
-  - *Python sidecar (127.0.0.1:8765):* PaddleOCR, pysbd sentence splitting, BGE-M3 embeddings (FP16 CUDA), BGE reranker v2, DOCX/RTF parsing, PyMuPDF structure detection, pdfmath extraction, Lifecycle Manager (idle unload daemon).
-  - *Hard boundary:* Node is the sole SQLite writer. Python never writes directly to SQLite.
-- **Provider Abstraction:**
-  - OpenRouter (cloud fallback) OR Local (OpenAI-compatible: Ollama at `http://localhost:11434/v1`, LM Studio, llama.cpp, vLLM).
-  - *Principle:* Ollama-first UX, OpenAI-compatible architecture.
-- **Trust Boundaries:** Node owns LLM routing and provider selection. Python NEVER calls an LLM. Local-only configurations never make outbound cloud calls.
-- **Architecture Additions (F51 & F48–F50 Series):**
-  - **Encoding detection layer:** Tier 1 BOM sniffing + UTF-8 validation + iconv fallback, plus Tier 2 `jschardet` sampling (64KB sample, <0.3ms UTF-8 fast-path, confidence threshold 0.15).
-  - **CJK-aware word counting:** Unified `countWords()` helper (space tokens + CJK chars * 0.7) guarding pre-LLM filters, chunker merge floors, and synthesis bounds.
-  - **Aozora structural detection:** Heading classification (`AOZORA_HEADING_REGEX` + `JAPANESE_CHAPTER_REGEX`) segmenting single-line annotations without dropping canonical block content.
-  - **Bounded embed attention:** Sidecar configuration (`max_seq_length = 2048`, `batch_size = 4`) avoiding quadratic VRAM explosion on large Japanese chapters.
-  - **Synopsis circular refresh:** Fire-and-forget synopsis regeneration triggered upon chapter synthesis completion to eliminate input starvation.
+- **Node + Python Hybrid:**
+  - *Node:* API/HTTP, orchestration, SQLite (sole writer), lifecycle, LLM routing.
+  - *Python sidecar (127.0.0.1, dynamic port):* PaddleOCR, pysbd, BGE-M3, BGE reranker v2, DOCX/RTF parsing, PyMuPDF structure, pdfmath, Kokoro TTS.
+  - *Hard boundary:* Node is sole SQLite writer. Python never writes to SQLite. Python never calls an LLM.
+- **Tauri supervisor (S12c):**
+  - Rust spawns Python sidecar on `--port 0`, parses `__OMNITOME_BOOT__ python-sidecar port=<N>`.
+  - Sets `OMNITOME_SIDECAR_PORT`, spawns Node on `--port 0`, parses `__OMNITOME_BOOT__ node-backend port=<N>`.
+  - Creates WebView only after both sentinels received.
+  - Injects `window.__OMNITOME__ = { nodePort, sidecarPort }`.
+  - Logs to `%LOCALAPPDATA%\Omnitome\logs\{sidecar,node}.log` with 5 MB rotation.
+  - Atomic `pids.json` + stale-PID sweep on startup.
+- **Model cache:** `%LOCALAPPDATA%\Omnitome\models\` (env: `OMNITOME_MODEL_DIR`).
+- **Frozen binary:** `dist-sidecar/omnitome-sidecar/omnitome-sidecar.exe` (4,558 MB, 11,322 files, ~10 min build).
 
 ---
 
-## 4. Pipeline (current)
+## 4. Phase Status (current)
 
-The ingestion pipeline executes sequentially across five stages:
-1. **Stage 1: Ingest & Parse (`ingestionService.js`):** Format detection, encoding detection (`decodeTextBuffer`), structure extraction (TOC/heuristics/Aozora), OCR fallback on image-only PDFs, chapter building.
-2. **Stage 2: Semantic Indexing (`semanticLifecycle.js`):** Chunking (merge-back floor 75w, max chunk size guard 8K chars) & BGE-M3 embedding (batch size 16, FP16 CUDA, bounded attention). Reuses identical vectors via content-hash caching. Await barrier ensures downstream stages execute on complete indexed data.
-3. **Stage 3: Classification (`bookClassifier.js`):** Front-matter detection, structural roles, section classification.
-4. **Stage 4: Outline Generation (`editorialService.js`):** Single-book or multi-book outline planning with chapter deduplication (`deduplicateChapterTitles`).
-5. **Stage 5: Synopsis & Synthesis (`intelligentSummarizer.js`, `synthesisService.js`):** Opening prose extraction, initial chapters auto-synthesized within range [150, 500] words with `[TITLE: ...]` generation and prior-draft retry context. Non-blocking provenance verification pass links claims to source chunks.
-
----
-
-## 5. Sidecar Lifecycle (F43)
-
-- **Architecture:** Documented in `docs/DESIGN_SIDECAR_LIFECYCLE.md`. Central `LifecycleManager` coordinates model acquisition, state transitions (`UNLOADED`, `LOADING`, `LOADED`, `UNLOADING`), and idle eviction.
-- **Idle Thresholds:** Per-model configuration:
-  - PaddleOCR: 300s (5m, `SIDECAR_OCR_IDLE_SEC`)
-  - BGE Reranker: 600s (10m, `SIDECAR_RERANKER_IDLE_SEC`)
-  - BGE-M3 Embedder: 900s (15m, `SIDECAR_EMBED_IDLE_SEC`)
-- **Daemon Loop:** Background thread running on a 10s tick; evicts models exceeding TTL only when `in_flight == 0`. Controlled by master toggle `SIDECAR_IDLE_UNLOAD_ENABLED` (default true).
-- **Measured Impact:**
-  - Eviction frees **3,256 MiB GPU VRAM** (3,359 MiB → 103 MiB) and **543 MB RSS**.
-  - Transparent auto-reload on demand: cold embedding request loads BGE-M3 in **~6.5s**.
+- **Phase 5:** CLOSED
+- **Phase 5.7 / 5.7.2 / 5.7.3:** CLOSED
+- **Phase 5.8:** IN PROGRESS (Feature freeze achieved)
+  - `5.8.0` Compression Contract Repair: CLOSED
+  - `5.8a` Omnitome Rebrand: CLOSED
+  - `5.8c` Omni Theme Identity: CLOSED
+  - `5.8i` Frontend Walkthrough: QUEUED
+- **Phase 5.9 (Series 3):** Kokoro TTS — CLOSED (S07–S10)
+- **Series 4 (Tauri packaging):**
+  - `S11` Tauri v2 scaffold: CLOSED
+  - `S12a` PyInstaller freeze: CLOSED
+  - `S12b` Dynamic ports + handshake: CLOSED
+  - `S12c` Rust supervisor + bootstrap: CLOSED
+  - `S12c` orphan verification: **PENDING** (tomorrow)
+  - `S13` Resource Manager + Kokoro packaging: NEXT
+  - `S14` Dual-installer pipeline: QUEUED
+  - `S15` Release + distribution: QUEUED
 
 ---
 
-## 6. Deferred to v1.x / v1.5
+## 5. Licensing and Distribution Plan
 
-- **F40 — Layout-aware PDF parsing (Marker / LayoutParser style):** Current PyMuPDF + TOC pipeline handles Reddi ML Systems (508K words) without issue. Reopening layout parsing adds architectural complexity without justified gain. Deferred to v1.5.
-- **F41 — Hardware-aware model routing:** Superseded by F43 LifecycleManager idle eviction, which drops VRAM to 103 MiB automatically. Deferred to v1.5.
-- **F44 — Raise import size cap:** Superseded by F45 configurable `IMPORT_MAX_SIZE_MB` (50–200 MB).
-- **F51a Tier 3 — Deep learning encoding detection:** Tier 1 + Tier 2 (BOM + UTF-8 + `jschardet`) cleanly solve all target formats without neural model overhead.
+**Decision:** Closed-source commercial for v1.0.
+
+### Distribution targets
+- **Primary:** Lemon Squeezy (5% + $0.50, MoR, tax handled)
+- **Secondary:** itch.io (0–10% self-set)
+- **Steam:** DROPPED (SDK conflicts with AGPL; not needed)
+- **Product Hunt:** launch channel only
+
+### Pricing
+- Base: **$29 one-time**
+- Launch window: **$19 for first 2–4 weeks**
+- Model: one-time (local-first, no server costs)
+
+### Licensing blocker: PyMuPDF (AGPL-3.0)
+- Incompatible with closed-source distribution.
+- Resolution: replace with `pypdfium2` (Apache-2.0) before v1.0.
+- Filed as F94. Blocks S14.
+
+### Note
+PyInstaller Python bundles are trivially extractable. "Closed source" is a legal position, not technical. Applies equally to all Python desktop apps.
 
 ---
 
-## 7. Reference
+## 6. Active Findings Ledger
 
-- `docs/session-logs/2026-10-15.md` — Post-session-close polish arc + design decisions
-- `docs/session-logs/2026-10-14.md` — F52 architecture + F65–F72 pipeline reliability
-- `docs/session-logs/2026-10-13.md` — F51h arc close + F58 super-prompt + F42 corpus gate
-- `docs/session-logs/2026-10-12.md` — F51 series close + Aozora/Japanese ingestion end-to-end
-- `docs/session-logs/2026-10-10.md` — F43 close, F38 polish, cross-format validation
-- `docs/PRODUCT_VISION.md` — Core thesis, invariants, three design laws
-- `docs/CONTINUITY.md` — 60-second orientation for new chats/assistants
-- `docs/ROADMAP_2026-09.md` — Long-term phase map
-- `docs/ARCHITECTURE_AUDIT.md` — Backend subsystem architecture
-- `docs/DESIGN_SIDECAR_LIFECYCLE.md` — F43 sidecar lifecycle architecture
-- `docs/session-logs/` — Detailed chronological build logs
+| ID | Name | Status |
+|---|---|---|
+| F18 | Heading ancestor skipping | CLOSED |
+| F20 | Synopsis sampler index leak | OPEN (low) |
+| F23 | PDF legacy PUA glyph mapping | CLOSED |
+| F24 | Chat-log document classification | CLOSED |
+| F29 | KaTeX LaTeX rendering | CLOSED |
+| F31 | PDF math extraction (pdfmath) | CLOSED, gated OFF |
+| F32 | Hybrid section classifier | CLOSED |
+| F37 | Python BGE-M3 embedder default | CLOSED |
+| F38 | Chapter synthesis quality | CLOSED |
+| F39 | TOC-listing leakage | CLOSED |
+| F42 | Corpus release gate | CLOSED (10 fixtures) |
+| F43 | Model lifecycle manager | CLOSED |
+| F49 | Synopsis quality | CLOSED |
+| F51 | Japanese/Aozora ingestion | CLOSED |
+| F52 | Library/Research coordination | CLOSED |
+| F58 | Persistent import queue | CLOSED |
+| F65–F72 | Pipeline reliability | CLOSED |
+| F85 | Kokoro TTS sidecar | CLOSED |
+| F86 | Settings temp-file leak | CLOSED |
+| F88 | TTS cold-start UX | CLOSED |
+| F89 | Podcast auto-advance | CLOSED |
+| F90 | Ambient music | DEFERRED v1.1 |
+| F92 | Package metadata | CLOSED |
+| F93 / F93.1 | App icons (sigil → emblem) | CLOSED |
+| F94 | PyMuPDF → pypdfium2 swap | OPEN, blocks S14 |
+| F95 | Repo relicense + private | OPEN, before v1.0 tag |
+| F96 | NOTICE.md + attribution | OPEN, blocks distribution |
+| F97 | Landing page + checkout | OPEN, pre-PH launch |
+| F98 | Bundle size 4.6 GB | ACCEPTED for v1.0 |
+| F99 | HF cache dedup (21.8 GB → ~5 GB) | OPEN, pre-S13 |
+| F100 | Frozen binary test in dev mode | OPEN, pre-S14 |
+
+---
+
+## 7. Next Session Opener
+
+1. Verify HEAD = `9750d72`, tree clean.
+2. **Complete S12c verification:** run `npm run tauri:dev`, close window, verify no orphan `node`/`python`/`omnitome-sidecar` processes remain.
+3. Optional: warm-path embed verification (wait 30s+ after boot, re-probe `/v1/embed/batch`).
+4. Then **S13** — Kokoro ONNX packaging + Resource Manager.
+
+---
+
+## 8. Standing Rules
+
+- **Raw Evidence Over Summaries:** Every test claim requires verbatim terminal output.
+- **No Commits on Dirty Tree or Red Suite.**
+- **Agents Never Declare Phase Closure.**
+- **Strict Blast Radius:** Provisional extension clause applies — stop and propose before touching out-of-scope files.
+- **Node Owns SQLite & LLM Routing.**
+- **Verify-Before-Stage:** Check file byte counts before staging.
+- **Never `git reset --hard`:** Use targeted `git checkout HEAD -- <file>`.
+- **Every prompt includes "attempt at most N times, then stop."**
+- **Kill servers before running full suite.**
+- **VS Code closed during Antigravity/writer-script edits.**
+- **Compress evidence before transmitting to an LLM.**
+- **Attempt at most 3 times, then stop and report.**
+
+---
+
+## 9. Reference
+
+- `docs/PRODUCT_VISION.md` — Core thesis
+- `docs/CONTINUITY.md` — 60-second orientation
+- `docs/DESIGN_TAURI_PACKAGING.md` — Series 4 architecture
+- `docs/DESIGN_SIDECAR_LIFECYCLE.md` — Model lifecycle
+- `docs/DESIGN_KOKORO_TTS.md` — TTS design
+- `docs/ARCHITECTURE_AUDIT.md` — Backend history
+- `docs/RIGHTS.md` — Licensing and fixtures
+- `docs/ROADMAP_2026-09.md` — Long-term map
+- `docs/session-logs/2026-10-17.md` — This session's full log
