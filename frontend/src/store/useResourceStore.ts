@@ -18,6 +18,8 @@ interface ResourceState {
   clearError: () => void;
 }
 
+let fetchStatusPromise: Promise<void> | null = null;
+
 export const useResourceStore = create<ResourceState>((set, get) => ({
   status: null,
   isLoading: true,
@@ -29,17 +31,31 @@ export const useResourceStore = create<ResourceState>((set, get) => ({
   clearError: () => set({ error: null, diskSpaceError: null }),
 
   fetchStatus: async () => {
-    set({ isLoading: true });
-    try {
-      const data = await apiClient<ResourceStatusResponse>('/api/resources/status');
-      set({ status: data, isLoading: false, error: null });
-      if (data.allInstalled) {
-        get().disconnectSSE();
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to query resource status';
-      set({ error: msg, isLoading: false });
+    if (fetchStatusPromise) {
+      return fetchStatusPromise;
     }
+
+    if (!get().status) {
+      set({ isLoading: true });
+    }
+
+    fetchStatusPromise = (async () => {
+      try {
+        const data = await apiClient<ResourceStatusResponse>('/api/resources/status');
+        console.log('[useResourceStore] Fetched /api/resources/status:', data);
+        set({ status: data, isLoading: false, error: null });
+        if (data.allInstalled) {
+          get().disconnectSSE();
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to query resource status';
+        set({ error: msg, isLoading: false });
+      } finally {
+        fetchStatusPromise = null;
+      }
+    })();
+
+    return fetchStatusPromise;
   },
 
   connectSSE: () => {

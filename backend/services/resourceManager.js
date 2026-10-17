@@ -88,33 +88,64 @@ class ResourceManager {
     const checkHost = (host) => {
       return new Promise((resolve) => {
         let settled = false;
-        const timer = setTimeout(() => {
+        let timer = null;
+
+        const onAbort = () => {
           if (!settled) {
             settled = true;
+            if (timer) clearTimeout(timer);
             resolve(false);
           }
-        }, 2500);
+        };
+
+        let signal = null;
+        try {
+          signal = AbortSignal.timeout(2000);
+          signal.addEventListener('abort', onAbort, { once: true });
+        } catch (_) {}
+
+        timer = setTimeout(onAbort, 2000);
 
         dns.lookup(host)
           .then(() => {
             if (!settled) {
               settled = true;
-              clearTimeout(timer);
+              if (timer) clearTimeout(timer);
               resolve(true);
             }
           })
           .catch(() => {
             if (!settled) {
               settled = true;
-              clearTimeout(timer);
+              if (timer) clearTimeout(timer);
               resolve(false);
             }
           });
       });
     };
 
-    if (await checkHost('huggingface.co')) return true;
-    return await checkHost('github.com');
+    try {
+      const overallSignal = AbortSignal.timeout(2000);
+      const pingPromise = Promise.any([
+        checkHost('huggingface.co').then((ok) => (ok ? true : Promise.reject())),
+        checkHost('github.com').then((ok) => (ok ? true : Promise.reject())),
+      ]).catch(() => false);
+
+      let overallTimer = null;
+      const timeoutPromise = new Promise((resolve) => {
+        overallSignal.addEventListener('abort', () => {
+          if (overallTimer) clearTimeout(overallTimer);
+          resolve(false);
+        }, { once: true });
+        overallTimer = setTimeout(() => resolve(false), 2000);
+      });
+
+      const result = await Promise.race([pingPromise, timeoutPromise]);
+      if (overallTimer) clearTimeout(overallTimer);
+      return result;
+    } catch (_) {
+      return false;
+    }
   }
 
   async getDiskSpace() {
@@ -189,7 +220,23 @@ class ResourceManager {
   }
 
   async getStatus() {
-    const isOnline = await this.isOnline();
+    let isOnline = false;
+    try {
+      const statusSignal = AbortSignal.timeout(2000);
+      const pingPromise = this.isOnline();
+      let timer = null;
+      const timeoutPromise = new Promise((resolve) => {
+        statusSignal.addEventListener('abort', () => {
+          if (timer) clearTimeout(timer);
+          resolve(false);
+        }, { once: true });
+        timer = setTimeout(() => resolve(false), 2000);
+      });
+      isOnline = await Promise.race([pingPromise, timeoutPromise]);
+      if (timer) clearTimeout(timer);
+    } catch (_) {
+      isOnline = false;
+    }
     const { availableBytes } = await this.getDiskSpace();
     const lockdata = this._loadLockfile();
 
