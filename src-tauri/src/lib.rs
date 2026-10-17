@@ -25,25 +25,31 @@ struct PidsFile {
 struct ProcessManager {
     sidecar: Mutex<Option<Child>>,
     node: Mutex<Option<Child>>,
+    sidecar_pid: u32,
+    node_pid: u32,
     app_dir: PathBuf,
 }
 
 impl ProcessManager {
     fn shutdown(&self) {
-        // Terminate Node backend
-        if let Ok(mut lock) = self.node.lock() {
-            if let Some(mut child) = lock.take() {
-                let _ = child.kill();
-            }
-        }
-        // Terminate Python sidecar
+        // Forcefully terminate Python sidecar and all sub-processes (PaddleOCR, Uvicorn, etc.)
+        kill_pid(self.sidecar_pid);
         if let Ok(mut lock) = self.sidecar.lock() {
             if let Some(mut child) = lock.take() {
+                kill_pid(child.id());
                 let _ = child.kill();
             }
         }
-        // Clean up PID record
-        let _ = fs::remove_file(self.app_dir.join("pids.json"));
+        // Forcefully terminate Node backend and any child processes
+        kill_pid(self.node_pid);
+        if let Ok(mut lock) = self.node.lock() {
+            if let Some(mut child) = lock.take() {
+                kill_pid(child.id());
+                let _ = child.kill();
+            }
+        }
+        // Sweep any recorded PIDs from disk
+        cleanup_stale_pids(&self.app_dir);
     }
 }
 
@@ -72,16 +78,25 @@ fn rotate_log_if_needed(log_path: &Path) {
 }
 
 fn kill_pid(pid: u32) {
+    if pid == 0 {
+        return;
+    }
     #[cfg(windows)]
     {
         let mut cmd = Command::new("taskkill");
-        cmd.args(["/F", "/PID", &pid.to_string()]);
+        cmd.args(["/F", "/T", "/PID", &pid.to_string()]);
         cmd.creation_flags(CREATE_NO_WINDOW);
+        cmd.stdout(Stdio::null());
+        cmd.stderr(Stdio::null());
         let _ = cmd.status();
     }
     #[cfg(not(windows))]
     {
-        let _ = Command::new("kill").args(["-9", &pid.to_string()]).status();
+        let mut cmd = Command::new("kill");
+        cmd.args(["-9", &pid.to_string()]);
+        cmd.stdout(Stdio::null());
+        cmd.stderr(Stdio::null());
+        let _ = cmd.status();
     }
 }
 
@@ -319,6 +334,8 @@ fn setup_supervisor(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     app.manage(ProcessManager {
         sidecar: Mutex::new(Some(sidecar_child)),
         node: Mutex::new(Some(node_child)),
+        sidecar_pid,
+        node_pid,
         app_dir,
     });
 
@@ -342,6 +359,13 @@ fn setup_supervisor(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                if let Some(pm) = window.app_handle().try_state::<ProcessManager>() {
+                    pm.shutdown();
+                }
+            }
+        })
         .setup(|app| {
             setup_supervisor(app)?;
             Ok(())
@@ -351,12 +375,17 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         match event {
-            tauri::RunEvent::ExitRequested { .. } => {
+            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
                 if let Some(pm) = app_handle.try_state::<ProcessManager>() {
                     pm.shutdown();
                 }
             }
             tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::CloseRequested { .. }, .. } => {
+                if let Some(pm) = app_handle.try_state::<ProcessManager>() {
+                    pm.shutdown();
+                }
+            }
+            tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::Destroyed, .. } => {
                 if let Some(pm) = app_handle.try_state::<ProcessManager>() {
                     pm.shutdown();
                 }

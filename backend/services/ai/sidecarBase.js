@@ -136,7 +136,7 @@ async function waitForReady(arg1, arg2, arg3) {
  * @param {string} modelName - Model name (e.g., 'embed', 'ocr', 'reranker')
  * @param {string|object} [baseUrl]
  * @param {object} [options]
- * @param {number} [options.timeoutMs=30000]
+ * @param {number} [options.timeoutMs=120000]
  * @param {boolean} [options.fireAndForget=false]
  * @returns {Promise<{ ok: boolean, previous_state?: string, current_state?: string, error?: string }>}
  */
@@ -146,7 +146,7 @@ async function warmModel(modelName, baseUrl, options = {}) {
     baseUrl = undefined;
   }
   const targetUrl = resolveBaseUrl(baseUrl);
-  const timeoutMs = options?.timeoutMs || 30000;
+  const timeoutMs = options?.timeoutMs || 120000;
   const url = `${targetUrl}/v1/lifecycle/warm?model=${encodeURIComponent(modelName)}&check=/ready`;
 
   if (options?.fireAndForget) {
