@@ -66,7 +66,7 @@ BGE-M3 is the strongest open multilingual retriever as of 2026. Key advantages:
 - **1024 dimensions** — 4x semantic resolution over current 256d
 - **8192 token context** — whole sections can be embedded as one unit
 - **Prefix-free** — unlike E5 models, no `"query: "` / `"passage: "` prefix required
-- **MIT licensed** — commercial use fine
+- **Permissively licensed (MIT)** — commercial use fine
 - **INT8 quantization** brings it to ~571 MB, cached after first download
 - **Cross-lingual** — query in English retrieves Japanese content, and vice versa
 

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A local-first neural reading library. Turns your documents into loss-bounded, provenance-traceable Omni Readings with on-device text-to-speech. Compression, not summarization. Native desktop app — no cloud, no egress.",
   "main": "backend/server.js",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "node backend/server.js",
     "start": "node backend/server.js",

@@ -4,6 +4,7 @@ version = "1.0.0"
 description = "Omnitome - Local-first neural reading library"
 edition = "2021"
 rust-version = "1.77"
+license = "AGPL-3.0-only"
 
 [lib]
 name = "omnitome_lib"

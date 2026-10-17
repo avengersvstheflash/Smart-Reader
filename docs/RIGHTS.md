@@ -6,8 +6,14 @@
 
 ## Repo license
 
-MIT (see LICENSE). Applies to code only. Does not supersede the
+AGPL-3.0-only (see LICENSE). Applies to code only. Does not supersede the
 licenses of third-party fixtures committed to the repo.
+
+### Licensing Transition (2026-10-18)
+
+- **Prior to 2026-10-18:** Versions of this repository tagged before 2026-10-18 were released under original MIT terms.
+- **v1.0 & Subsequent:** Commencing with the v1.0 release and F95 transition, the public Omnitome codebase and all subsequent versions are licensed under AGPL-3.0-only.
+- **Private MIT Escape Hatch:** A private repository mirror (Omnitome-Private) retains perpetual MIT rights for proprietary and commercial distribution flexibility.
 
 ## Current stage
 
@@ -116,5 +122,5 @@ resolvable commit IDs.
 
 **Rule:** license-check any fixture before `git add`. CC-BY-NC and CC-BY-NC-ND
 fixtures must never be committed to a public repository.
-- `backend/tests/fixtures/sample.docx`: Sample DOCX file, generated locally for tests. MIT License. Author: Project.
-- `backend/tests/fixtures/sample.rtf`: Sample RTF file, hand-authored for tests. MIT License. Author: Project.
+- `backend/tests/fixtures/sample.docx`: Sample DOCX file, generated locally for tests. AGPL-3.0-only. Author: Project.
+- `backend/tests/fixtures/sample.rtf`: Sample RTF file, hand-authored for tests. AGPL-3.0-only. Author: Project.
