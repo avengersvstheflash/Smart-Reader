@@ -28,7 +28,13 @@ export const useResourceStore = create<ResourceState>((set, get) => ({
   diskSpaceError: null,
   eventSource: null,
 
-  clearError: () => set({ error: null, diskSpaceError: null }),
+  clearError: () => {
+    set({
+      error: null,
+      diskSpaceError: null,
+      isDownloading: false,
+    });
+  },
 
   fetchStatus: async () => {
     if (fetchStatusPromise) {
@@ -149,16 +155,60 @@ export const useResourceStore = create<ResourceState>((set, get) => ({
     es.addEventListener('error', (e: MessageEvent) => {
       try {
         if (e.data) {
-          const payload = JSON.parse(e.data) as { error?: string };
-          if (payload.error) {
-            set({ error: payload.error, isDownloading: false });
+          const payload = JSON.parse(e.data) as { modelId?: string; code?: string; error?: string };
+          const errorMessage = payload.error || 'Download failed';
+          const current = get().status;
+
+          let updatedModels = current?.models;
+          if (current) {
+            updatedModels = current.models.map((m: ModelResource) => {
+              if (payload.modelId ? m.id === payload.modelId : (m.status === 'downloading' || m.status === 'verifying')) {
+                return {
+                  ...m,
+                  status: 'error' as const,
+                  speedBps: 0,
+                  etaSeconds: 0,
+                  error: errorMessage,
+                };
+              }
+              return m;
+            });
           }
+
+          set({
+            error: errorMessage,
+            isDownloading: false,
+            status: current ? { ...current, models: updatedModels || current.models } : null,
+          });
         }
       } catch (_) {}
     });
 
     es.onerror = () => {
-      // EventSource reconnects automatically on network drops
+      // If EventSource is closed or failed while download was active, don't leave UI hanging at 100%
+      if (es.readyState === 2 && get().isDownloading) {
+        const current = get().status;
+        let updatedModels = current?.models;
+        if (current) {
+          updatedModels = current.models.map((m: ModelResource) => {
+            if (m.status === 'downloading' || m.status === 'verifying') {
+              return {
+                ...m,
+                status: 'error' as const,
+                speedBps: 0,
+                etaSeconds: 0,
+                error: 'Connection to download service lost',
+              };
+            }
+            return m;
+          });
+        }
+        set({
+          error: 'Connection to download service was lost. Please retry.',
+          isDownloading: false,
+          status: current ? { ...current, models: updatedModels || current.models } : null,
+        });
+      }
     };
 
     set({ eventSource: es });
@@ -173,7 +223,23 @@ export const useResourceStore = create<ResourceState>((set, get) => ({
   },
 
   startDownload: async (modelIds?: string[]) => {
-    set({ error: null, diskSpaceError: null, isDownloading: true });
+    const current = get().status;
+    let updatedModels = current?.models;
+    if (current) {
+      updatedModels = current.models.map((m: ModelResource) => {
+        if (m.status === 'error') {
+          return { ...m, status: 'missing' as const, error: null };
+        }
+        return m;
+      });
+    }
+
+    set({
+      error: null,
+      diskSpaceError: null,
+      isDownloading: true,
+      status: current ? { ...current, models: updatedModels || current.models } : null,
+    });
     get().connectSSE();
 
     try {

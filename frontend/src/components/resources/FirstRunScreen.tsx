@@ -58,6 +58,7 @@ export const FirstRunScreen: React.FC = () => {
   const currentDownloadingModel = models.find((m) => m.status === 'downloading');
   const activeSpeed = currentDownloadingModel?.speedBps || 0;
   const activeEta = currentDownloadingModel?.etaSeconds || 0;
+  const hasErrors = models.some((m) => m.status === 'error');
 
   return (
     <div className="min-h-screen bg-paper flex flex-col justify-center items-center p-6 text-ink selection:bg-accent/20">
@@ -132,12 +133,24 @@ export const FirstRunScreen: React.FC = () => {
                 <span className="font-semibold">Download Failed</span>
                 <p className="text-xs text-ink/70 mt-0.5">{error}</p>
               </div>
-              <button
-                onClick={clearError}
-                className="text-xs px-2 py-1 bg-red-500/20 hover:bg-red-500/30 rounded transition-colors"
-              >
-                Dismiss
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    clearError();
+                    startDownload();
+                  }}
+                  className="text-xs px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 font-medium rounded transition-colors flex items-center gap-1 text-red-600 dark:text-red-400"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Retry
+                </button>
+                <button
+                  onClick={clearError}
+                  className="text-xs px-2 py-1 bg-red-500/10 hover:bg-red-500/20 rounded transition-colors text-red-600 dark:text-red-400"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           )}
 
@@ -222,7 +235,10 @@ export const FirstRunScreen: React.FC = () => {
                     )}
 
                     {model.status === 'error' && (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-red-600 font-medium bg-red-500/10 px-2.5 py-1 rounded-lg">
+                      <span
+                        title={model.error || 'Download failed'}
+                        className="inline-flex items-center gap-1.5 text-xs text-red-600 font-medium bg-red-500/10 px-2.5 py-1 rounded-lg"
+                      >
                         <XCircle className="w-3.5 h-3.5" />
                         Failed
                       </span>
@@ -265,6 +281,11 @@ export const FirstRunScreen: React.FC = () => {
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Checking...
+                  </>
+                ) : hasErrors ? (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Retry Download ({formatBytes(totalSize)})
                   </>
                 ) : (
                   <>

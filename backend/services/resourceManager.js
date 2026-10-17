@@ -6,6 +6,8 @@ const dns = require('dns').promises;
 const tar = require('tar');
 const AdmZip = require('adm-zip');
 
+const activeManagers = new Set();
+
 class ResourceManager {
   constructor(customModelsDir = null) {
     this.modelsDir = customModelsDir || this._resolveDefaultModelsDir();
@@ -17,6 +19,7 @@ class ResourceManager {
     this.sseClients = new Set();
     this.isDownloadingAll = false;
     this.cancelRequested = false;
+    activeManagers.add(this);
   }
 
   _resolveDefaultModelsDir() {
@@ -322,8 +325,10 @@ class ResourceManager {
   cancelDownload(modelId = null) {
     if (modelId) {
       const active = this.activeDownloads.get(modelId);
-      if (active) {
-        active.controller.abort();
+      if (active && !active.isDone && !active.controller.signal.aborted) {
+        try {
+          active.controller.abort();
+        } catch (_) {}
       }
       this.modelStates.set(modelId, {
         status: 'missing',
@@ -339,9 +344,11 @@ class ResourceManager {
     } else {
       this.cancelRequested = true;
       for (const [id, active] of this.activeDownloads.entries()) {
-        try {
-          active.controller.abort();
-        } catch (_) {}
+        if (!active.isDone && !active.controller.signal.aborted) {
+          try {
+            active.controller.abort();
+          } catch (_) {}
+        }
         this.modelStates.set(id, {
           status: 'missing',
           bytesDownloaded: 0,
@@ -366,13 +373,15 @@ class ResourceManager {
 
     const controller = new AbortController();
     let fileStream = null;
+    let streamDone = false;
+    let fileStreamError = null;
 
     try {
-      fileStream = fs.createWriteStream(tmpPath);
-      fileStream.on('error', () => {
-        // Prevent uncaught exception crash on stream close/unlink
+      fileStream = fs.createWriteStream(tmpPath, { highWaterMark: 1024 * 1024 });
+      fileStream.on('error', (err) => {
+        fileStreamError = err;
       });
-      this.activeDownloads.set(model.id, { controller, fileStream, tmpPath });
+      this.activeDownloads.set(model.id, { controller, fileStream, tmpPath, isDone: false });
 
       this.modelStates.set(model.id, {
         status: 'downloading',
@@ -401,63 +410,120 @@ class ResourceManager {
       let speedBps = 0;
       let etaSeconds = 0;
 
-      for await (const chunk of response.body) {
-        if (controller.signal.aborted || this.cancelRequested) {
-          const abortErr = new Error('AbortError');
-          abortErr.name = 'AbortError';
-          throw abortErr;
+      const reader = response.body.getReader();
+
+      try {
+        while (true) {
+          if (controller.signal.aborted || this.cancelRequested) {
+            const abortErr = new Error('AbortError');
+            abortErr.name = 'AbortError';
+            throw abortErr;
+          }
+
+          if (fileStreamError) {
+            throw fileStreamError;
+          }
+
+          const { done, value } = await reader.read();
+          if (done) {
+            streamDone = true;
+            const activeEntry = this.activeDownloads.get(model.id);
+            if (activeEntry) {
+              activeEntry.isDone = true;
+            }
+            break;
+          }
+
+          const chunk = value;
+          downloadedBytes += chunk.length;
+          hash.update(chunk);
+
+          if (!fileStream.write(chunk)) {
+            await new Promise((resolve, reject) => {
+              fileStream.once('drain', resolve);
+              fileStream.once('error', reject);
+            });
+          }
+
+          const now = Date.now();
+          const deltaMs = now - lastTime;
+          if (deltaMs >= 200) {
+            const deltaBytes = downloadedBytes - lastBytes;
+            speedBps = Math.round((deltaBytes / deltaMs) * 1000);
+            const remainingBytes = Math.max(0, contentLength - downloadedBytes);
+            etaSeconds = speedBps > 0 ? Math.round(remainingBytes / speedBps) : 0;
+            lastTime = now;
+            lastBytes = downloadedBytes;
+
+            const progress = Number(((downloadedBytes / contentLength) * 100).toFixed(1));
+            const overallDownloaded = (overallContext.priorDownloaded || 0) + downloadedBytes;
+            const overallTotal = overallContext.totalBytes || contentLength;
+            const overallProgress = Number(((overallDownloaded / overallTotal) * 100).toFixed(1));
+
+            this.modelStates.set(model.id, {
+              status: 'downloading',
+              bytesDownloaded: downloadedBytes,
+              totalBytes: contentLength,
+              progress,
+              speedBps,
+              etaSeconds,
+              error: null,
+            });
+
+            this.broadcastSSE('progress', {
+              modelId: model.id,
+              status: 'downloading',
+              bytesDownloaded: downloadedBytes,
+              totalBytes: contentLength,
+              progress,
+              speedBps,
+              etaSeconds,
+              overallBytesDownloaded: overallDownloaded,
+              overallTotalBytes: overallTotal,
+              overallProgress,
+            });
+          }
         }
-
-        downloadedBytes += chunk.length;
-        hash.update(chunk);
-
-        if (!fileStream.write(chunk)) {
-          await new Promise((resolve) => fileStream.once('drain', resolve));
-        }
-
-        const now = Date.now();
-        const deltaMs = now - lastTime;
-        if (deltaMs >= 200) {
-          const deltaBytes = downloadedBytes - lastBytes;
-          speedBps = Math.round((deltaBytes / deltaMs) * 1000);
-          const remainingBytes = Math.max(0, contentLength - downloadedBytes);
-          etaSeconds = speedBps > 0 ? Math.round(remainingBytes / speedBps) : 0;
-          lastTime = now;
-          lastBytes = downloadedBytes;
-
-          const progress = Number(((downloadedBytes / contentLength) * 100).toFixed(1));
-          const overallDownloaded = (overallContext.priorDownloaded || 0) + downloadedBytes;
-          const overallTotal = overallContext.totalBytes || contentLength;
-          const overallProgress = Number(((overallDownloaded / overallTotal) * 100).toFixed(1));
-
-          this.modelStates.set(model.id, {
-            status: 'downloading',
-            bytesDownloaded: downloadedBytes,
-            totalBytes: contentLength,
-            progress,
-            speedBps,
-            etaSeconds,
-            error: null,
-          });
-
-          this.broadcastSSE('progress', {
-            modelId: model.id,
-            status: 'downloading',
-            bytesDownloaded: downloadedBytes,
-            totalBytes: contentLength,
-            progress,
-            speedBps,
-            etaSeconds,
-            overallBytesDownloaded: overallDownloaded,
-            overallTotalBytes: overallTotal,
-            overallProgress,
-          });
-        }
+      } finally {
+        try {
+          reader.releaseLock();
+        } catch (_) {}
       }
 
+      // Final progress broadcast upon stream completion
+      const finalOverallDownloaded = (overallContext.priorDownloaded || 0) + downloadedBytes;
+      const finalOverallTotal = overallContext.totalBytes || contentLength;
+      const finalOverallProgress = finalOverallTotal > 0
+        ? Number(((finalOverallDownloaded / finalOverallTotal) * 100).toFixed(1))
+        : 100.0;
+
+      this.modelStates.set(model.id, {
+        status: 'downloading',
+        bytesDownloaded: downloadedBytes,
+        totalBytes: contentLength,
+        progress: 100.0,
+        speedBps: 0,
+        etaSeconds: 0,
+        error: null,
+      });
+
+      this.broadcastSSE('progress', {
+        modelId: model.id,
+        status: 'downloading',
+        bytesDownloaded: downloadedBytes,
+        totalBytes: contentLength,
+        progress: 100.0,
+        speedBps: 0,
+        etaSeconds: 0,
+        overallBytesDownloaded: finalOverallDownloaded,
+        overallTotalBytes: finalOverallTotal,
+        overallProgress: finalOverallProgress,
+      });
+
       await new Promise((resolve, reject) => {
-        fileStream.on('error', reject);
-        fileStream.on('close', resolve);
+        if (fileStream.closed) return resolve();
+        fileStream.once('error', reject);
+        fileStream.once('close', resolve);
         fileStream.end();
       });
 
@@ -503,6 +569,13 @@ class ResourceManager {
       });
 
     } catch (err) {
+      const isAborted = this.cancelRequested || err.name === 'AbortError' || err.message === 'AbortError' || controller.signal.aborted;
+
+      if (!streamDone && this.cancelRequested && !controller.signal.aborted) {
+        try {
+          controller.abort();
+        } catch (_) {}
+      }
       if (fileStream && !fileStream.destroyed) {
         try { fileStream.destroy(); } catch (_) {}
       }
@@ -512,7 +585,6 @@ class ResourceManager {
         }
       } catch (_) {}
 
-      const isAborted = err.name === 'AbortError' || err.message === 'AbortError' || controller.signal.aborted || this.cancelRequested;
       if (isAborted) {
         this.modelStates.set(model.id, {
           status: 'missing',
@@ -726,6 +798,15 @@ class ResourceManager {
 
           this._triggerSidecarWarmup();
         }
+      } catch (queueErr) {
+        console.error('[ResourceManager] Unexpected queue error:', queueErr.message);
+        const activeTarget = targets.find((t) => this.modelStates.get(t.id)?.status === 'downloading');
+        const activeId = activeTarget ? activeTarget.id : (targets[0] ? targets[0].id : null);
+        this.broadcastSSE('error', {
+          modelId: activeId,
+          code: 'DOWNLOAD_FAILED',
+          error: queueErr.message || 'Unexpected download error',
+        });
       } finally {
         this.isDownloadingAll = false;
         this.cancelRequested = false;
@@ -770,6 +851,66 @@ class ResourceManager {
 }
 
 const defaultManager = new ResourceManager();
+
+if (typeof process !== 'undefined' && !process._omnitomeUndiciHandlerInstalled) {
+  process._omnitomeUndiciHandlerInstalled = true;
+  process.on('uncaughtException', (err) => {
+    const isUndiciAssert = err && (
+      (typeof err.message === 'string' && err.message.includes('assert(!this.paused)')) ||
+      (err.code === 'ERR_ASSERTION' && String(err.stack).includes('undici'))
+    );
+
+    if (isUndiciAssert) {
+      console.error('[ResourceManager] Intercepted undici stream assertion cleanly:', err.message);
+
+      let hadActive = false;
+      for (const mgr of activeManagers) {
+        for (const [id, active] of mgr.activeDownloads.entries()) {
+          hadActive = true;
+          try {
+            if (active.fileStream && !active.fileStream.destroyed) {
+              active.fileStream.destroy();
+            }
+          } catch (_) {}
+          try {
+            if (active.tmpPath && fs.existsSync(active.tmpPath)) {
+              fs.rmSync(active.tmpPath, { force: true });
+            }
+          } catch (_) {}
+
+          mgr.modelStates.set(id, {
+            status: 'error',
+            bytesDownloaded: 0,
+            progress: 0.0,
+            error: 'Network stream terminated unexpectedly. Please retry.',
+          });
+
+          mgr.broadcastSSE('error', {
+            modelId: id,
+            code: 'STREAM_ERROR',
+            error: 'Network stream terminated unexpectedly. Please retry.',
+          });
+        }
+
+        mgr.activeDownloads.clear();
+        mgr.isDownloadingAll = false;
+        mgr.cancelRequested = false;
+      }
+
+      if (!hadActive) {
+        defaultManager.broadcastSSE('error', {
+          code: 'STREAM_ERROR',
+          error: 'Network stream terminated unexpectedly. Please retry.',
+        });
+      }
+      return;
+    }
+
+    console.error('[Process] Uncaught exception:', err);
+    process.exit(1);
+  });
+}
+
 module.exports = defaultManager;
 module.exports.ResourceManager = ResourceManager;
 
