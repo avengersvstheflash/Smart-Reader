@@ -93,11 +93,7 @@ export default function App() {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-paper bg-surface p-8 text-ink selection:bg-accent/20">
         <div className="flex flex-col items-center gap-4 text-center">
-<<<<<<< HEAD
-          <div className="relative flex items-center justify-center">
-=======
           <div className="relative flex items-center justify-center transition-opacity duration-700 ease-in-out">
->>>>>>> 960446f (fix(ui): finalize App.tsx loading state polish)
             <div className="absolute inset-0 rounded-full bg-accent/20 blur-md animate-pulse" />
             <svg
               className="w-12 h-12 relative select-none animate-pulse transition-opacity duration-700"
