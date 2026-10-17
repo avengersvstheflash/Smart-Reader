@@ -49,11 +49,16 @@ async function warmup() {
     const start = Date.now();
     while (Date.now() - start < 120000) {
       try {
-        await embedClient.embedBatch(['warmup']);
+        await embedClient.embedBatch(['warmup'], { timeoutMs: 120000 });
         return;
       } catch (err) {
-        if (err.code === 'EMBED_MODEL_WARMING') {
-          await new Promise(r => setTimeout(r, 1000));
+        if (
+          err.code === 'EMBED_MODEL_WARMING' ||
+          err.code === 'EMBED_MODEL_UNAVAILABLE' ||
+          err?.message?.includes('warming up') ||
+          err?.message?.includes('not available')
+        ) {
+          await new Promise((r) => setTimeout(r, 1000));
         } else {
           throw err;
         }

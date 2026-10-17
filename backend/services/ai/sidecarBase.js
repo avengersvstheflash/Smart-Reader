@@ -13,7 +13,7 @@
 
 const config = require('../../config');
 
-const DEFAULT_MAX_WAIT_MS = 60000;
+const DEFAULT_MAX_WAIT_MS = 120000;
 
 /**
  * Resolves the effective base URL for the sidecar service.
@@ -151,7 +151,18 @@ async function warmModel(modelName, baseUrl, options = {}) {
 
   if (options?.fireAndForget) {
     fetch(url, { method: 'POST', signal: AbortSignal.timeout(timeoutMs) }).catch((err) => {
-      console.warn(`[sidecarBase] Background warmModel('${modelName}') failed:`, err?.message || err);
+      const msg = err?.message || String(err || '');
+      const causeMsg = err?.cause?.message || '';
+      const code = err?.code || err?.cause?.code || '';
+      const isExpectedShutdownError =
+        code === 'ECONNREFUSED' ||
+        code === 'ECONNRESET' ||
+        msg.includes('fetch failed') ||
+        msg.includes('ECONNREFUSED') ||
+        causeMsg.includes('ECONNREFUSED');
+      if (!isExpectedShutdownError) {
+        console.warn(`[sidecarBase] Background warmModel('${modelName}') failed:`, msg);
+      }
     });
     return { ok: true };
   }

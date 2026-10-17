@@ -59,7 +59,7 @@ async function checkOcrReady(baseUrl, timeoutMs = 2000) {
  * @param {number} [timeoutMs=30000]
  * @returns {Promise<{ ready: boolean, reason?: 'down' | 'warming' }>}
  */
-async function warmOcr(baseUrl, timeoutMs = 30000) {
+async function warmOcr(baseUrl, timeoutMs = 120000) {
   const targetUrl = resolveBaseUrl(baseUrl);
   try {
     const res = await warmModel('ocr', targetUrl, { timeoutMs });
@@ -108,7 +108,7 @@ async function ocrPdf(pdfBuffer, options = {}) {
         await new Promise((r) => setTimeout(r, 400 + Math.random() * 400));
         await checkModelReady('ocr', targetUrl, 2000);
       } else if (!ocrStatus.ready && ocrStatus.state === 'UNLOADED') {
-        await warmModel('ocr', targetUrl, { timeoutMs: 15000 });
+        await warmModel('ocr', targetUrl, { timeoutMs: Math.max(120000, timeoutMs) });
       }
     } catch (_) {
       // Non-blocking: proceed directly to /v1/ocr/pdf

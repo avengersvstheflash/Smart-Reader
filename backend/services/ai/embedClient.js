@@ -8,7 +8,7 @@ const config = require('../../config');
 const { resolveBaseUrl, waitForReady, warmModel, checkModelReady } = require('./sidecarBase');
 
 const DEFAULT_BATCH_SIZE = process.env.EMBED_BATCH_SIZE ? parseInt(process.env.EMBED_BATCH_SIZE, 10) : 16;
-const WARMING_RETRY_INTERVALS_MS = [2000, 4000, 8000];
+const WARMING_RETRY_INTERVALS_MS = [2000, 4000, 8000, 10000, 15000, 20000, 20000, 20000, 20000];
 
 async function embedBatch(texts, options = {}) {
   if (!Array.isArray(texts) || texts.length === 0) {
@@ -59,7 +59,7 @@ async function embedBatch(texts, options = {}) {
       await new Promise((r) => setTimeout(r, 400 + Math.random() * 400));
       await checkModelReady('embed', targetUrl, 2000);
     } else if (!embedStatus.ready && embedStatus.state !== 'DOWN') {
-      await warmModel('embed', targetUrl, { timeoutMs: 15000 });
+      await warmModel('embed', targetUrl, { timeoutMs });
     }
   } catch (_warmErr) {
     // Non-blocking: batch fetch loop handles on-demand loading or retry
