@@ -22,6 +22,36 @@ EMBED_GPU_BATCH_SIZE = int(os.environ.get("EMBED_GPU_BATCH_SIZE", "4"))
 router = APIRouter(prefix="", tags=["embed"])
 
 
+def get_embed_model_path() -> str:
+    model_dir = os.environ.get("OMNITOME_MODEL_DIR")
+    if not model_dir:
+        if sys.platform == "win32":
+            local_app_data = os.environ.get("LOCALAPPDATA", os.path.expanduser("~\\AppData\\Local"))
+            candidate = os.path.join(local_app_data, "Omnitome", "models")
+            if os.path.exists(candidate):
+                model_dir = candidate
+        if not model_dir:
+            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            model_dir = os.path.join(base, "models")
+    return os.path.join(model_dir, "sentence_transformers", "models--BAAI--bge-m3")
+
+
+def is_embed_installed() -> bool:
+    local_path = get_embed_model_path()
+    if (
+        os.path.exists(local_path)
+        and os.path.exists(os.path.join(local_path, "model.safetensors"))
+        and os.path.exists(os.path.join(local_path, "config.json"))
+    ):
+        return True
+    model_dir = os.environ.get("OMNITOME_MODEL_DIR")
+    if model_dir:
+        hf_hub = os.path.join(model_dir, "huggingface", "hub", "models--BAAI--bge-m3")
+        if os.path.exists(hf_hub):
+            return True
+    return False
+
+
 def _load_embedder():
     import torch
     from sentence_transformers import SentenceTransformer
@@ -30,7 +60,9 @@ def _load_embedder():
     print(f"[Embed Warmup] Loading BGE-M3 (device={device}, fp16={device == 'cuda'})...")
     t0 = time.time()
     try:
-        model = SentenceTransformer("BAAI/bge-m3", model_kwargs=model_kwargs, device=device)
+        local_path = get_embed_model_path()
+        model_id_or_path = local_path if os.path.exists(local_path) else "BAAI/bge-m3"
+        model = SentenceTransformer(model_id_or_path, model_kwargs=model_kwargs, device=device, local_files_only=True)
         model.max_seq_length = EMBED_MAX_SEQ_LENGTH
         print(f"[Embed Warmup] BGE-M3 ready on {device} in {round(time.time() - t0, 2)}s (max_seq_length={EMBED_MAX_SEQ_LENGTH})")
         return model
@@ -80,6 +112,17 @@ def embed_batch(req: EmbedBatchRequest):
                 "status": "error",
                 "code": "EMBED_BATCH_TOO_LARGE",
                 "message": f"Batch size {len(req.texts)} exceeds server limit 32",
+            }
+        )
+
+    if not is_embed_installed():
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "error",
+                "code": "MODELS_NOT_INSTALLED",
+                "message": "Model 'bge-m3' is not installed. Please download required models via the Resource Manager.",
+                "model": "embed"
             }
         )
 

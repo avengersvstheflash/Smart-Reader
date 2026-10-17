@@ -1,0 +1,59 @@
+{
+  "version": "1.0.0",
+  "minFreeDiskSpaceBytes": 4500000000,
+  "models": [
+    {
+      "id": "bge-m3",
+      "name": "BGE-M3 Embedding Engine",
+      "description": "Dense multilingual vector embedding (1024d) for semantic indexing and chunk search.",
+      "version": "1.0.0",
+      "sizeBytes": 2240000000,
+      "sha256": null,
+      "url": "https://github.com/omnitome/omnitome/releases/download/v1.0.0-models/bge-m3.tar.gz",
+      "targetSubdir": "sentence_transformers/models--BAAI--bge-m3",
+      "format": "tar.gz",
+      "markerFiles": ["model.safetensors", "config.json"],
+      "required": true
+    },
+    {
+      "id": "bge-reranker",
+      "name": "BGE Reranker v2-m3",
+      "description": "Cross-encoder scoring engine for synthesis refinement and precision passage retrieval.",
+      "version": "1.0.0",
+      "sizeBytes": 1120000000,
+      "sha256": null,
+      "url": "https://github.com/omnitome/omnitome/releases/download/v1.0.0-models/bge-reranker-v2-m3.tar.gz",
+      "targetSubdir": "sentence_transformers/models--BAAI--bge-reranker-v2-m3",
+      "format": "tar.gz",
+      "markerFiles": ["model.safetensors", "config.json"],
+      "required": true
+    },
+    {
+      "id": "paddleocr",
+      "name": "PaddleOCR v4 Document Engine",
+      "description": "High-efficiency on-device document OCR (detection, recognition, and classification).",
+      "version": "1.0.0",
+      "sizeBytes": 17500000,
+      "sha256": null,
+      "url": "https://paddleocr.bj.bcebos.com/PP-OCRv4/chinese/ch_PP-OCRv4_rec_infer.tar",
+      "targetSubdir": "paddleocr/whl/rec/ch/ch_PP-OCRv4_rec_infer",
+      "format": "tar",
+      "markerFiles": ["inference.pdmodel", "inference.pdiparams"],
+      "required": true
+    },
+    {
+      "id": "kokoro",
+      "name": "Kokoro-82M TTS Voice Engine",
+      "description": "Neural text-to-speech engine generating 24kHz studio audio for immersive narration.",
+      "version": "1.0.0",
+      "sizeBytes": 327212226,
+      "sha256": null,
+      "url": "https://github.com/hexgrad/kokoro/releases/download/v1.0/kokoro-v1_0.pth",
+      "targetSubdir": "kokoro",
+      "format": "direct",
+      "markerFiles": ["kokoro-v1_0.pth"],
+      "required": true
+    }
+  ]
+}
+

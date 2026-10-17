@@ -15,6 +15,36 @@ import os
 from lifecycle import lifecycle_manager, ModelState
 
 
+def get_reranker_model_path() -> str:
+    model_dir = os.environ.get("OMNITOME_MODEL_DIR")
+    if not model_dir:
+        if sys.platform == "win32":
+            local_app_data = os.environ.get("LOCALAPPDATA", os.path.expanduser("~\\AppData\\Local"))
+            candidate = os.path.join(local_app_data, "Omnitome", "models")
+            if os.path.exists(candidate):
+                model_dir = candidate
+        if not model_dir:
+            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            model_dir = os.path.join(base, "models")
+    return os.path.join(model_dir, "sentence_transformers", "models--BAAI--bge-reranker-v2-m3")
+
+
+def is_reranker_installed() -> bool:
+    local_path = get_reranker_model_path()
+    if (
+        os.path.exists(local_path)
+        and os.path.exists(os.path.join(local_path, "model.safetensors"))
+        and os.path.exists(os.path.join(local_path, "config.json"))
+    ):
+        return True
+    model_dir = os.environ.get("OMNITOME_MODEL_DIR")
+    if model_dir:
+        hf_hub = os.path.join(model_dir, "huggingface", "hub", "models--BAAI--bge-reranker-v2-m3")
+        if os.path.exists(hf_hub):
+            return True
+    return False
+
+
 def _load_reranker():
     print("[Warmup] Starting BGE reranker (bge-reranker-v2-m3) background warm-up...")
     try:
@@ -34,7 +64,9 @@ def _load_reranker():
             device = "cpu"
             print("[Warmup] Reranker using CPU (no GPU detected — expect slower inference)")
 
-        model = CrossEncoder("BAAI/bge-reranker-v2-m3", device=device)
+        local_path = get_reranker_model_path()
+        model_id_or_path = local_path if os.path.exists(local_path) else "BAAI/bge-reranker-v2-m3"
+        model = CrossEncoder(model_id_or_path, device=device, local_files_only=True)
 
         # 5.8.0i: run a dummy scoring pass to trigger JIT/kernel compilation
         # and lazy memory allocation. Without this, the FIRST real call is
@@ -434,6 +466,17 @@ def nlp_rerank(req: RerankRequest):
             }
         )
 
+    if not is_reranker_installed():
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "error",
+                "code": "MODELS_NOT_INSTALLED",
+                "message": "Model 'bge-reranker-v2-m3' is not installed. Please download required models via the Resource Manager.",
+                "model": "reranker"
+            }
+        )
+
     if lifecycle_manager.get_state("reranker") == ModelState.LOADING.value:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -494,6 +537,17 @@ def nlp_rerank_batch(req: RerankBatchRequest):
             "scores": [],
             "warning": None
         }
+
+    if not is_reranker_installed():
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "error",
+                "code": "MODELS_NOT_INSTALLED",
+                "message": "Model 'bge-reranker-v2-m3' is not installed. Please download required models via the Resource Manager.",
+                "model": "reranker"
+            }
+        )
 
     if lifecycle_manager.get_state("reranker") == ModelState.LOADING.value:
         return JSONResponse(
@@ -559,6 +613,17 @@ def nlp_rerank_batch_multi(req: RerankMultiBatchRequest):
             "results": [],
             "warning": None
         }
+
+    if not is_reranker_installed():
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "error",
+                "code": "MODELS_NOT_INSTALLED",
+                "message": "Model 'bge-reranker-v2-m3' is not installed. Please download required models via the Resource Manager.",
+                "model": "reranker"
+            }
+        )
 
     if lifecycle_manager.get_state("reranker") == ModelState.LOADING.value:
         return JSONResponse(

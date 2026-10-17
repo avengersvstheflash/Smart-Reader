@@ -24,7 +24,8 @@
     "iconv-lite": "^0.7.3",
     "jschardet": "^4.0.0",
     "multer": "^2.3.0",
-    "pdfjs-dist": "^6.3.289"
+    "pdfjs-dist": "^6.3.289",
+    "tar": "^7.5.11"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",

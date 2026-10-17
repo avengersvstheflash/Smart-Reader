@@ -11,7 +11,10 @@ import { ResearchRoute } from './routes/ResearchRoute';
 import ResearchViewerRoute from './routes/ResearchViewerRoute';
 import { SettingsRoute } from './routes/SettingsRoute';
 import { HelpRoute } from './routes/HelpRoute';
+import { useEffect } from 'react';
 import { ThemeDecor } from './components/decor/ThemeDecor';
+import { useResourceStore } from './store/useResourceStore';
+import { FirstRunScreen } from './components/resources/FirstRunScreen';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,6 +29,12 @@ export default function App() {
   const isTauri = typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== 'undefined';
   const nodePort = (window as unknown as { __OMNITOME__?: { nodePort?: number } }).__OMNITOME__?.nodePort;
 
+  const { status, fetchStatus } = useResourceStore();
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
   if (isTauri && !nodePort) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-paper p-8 text-ink">
@@ -38,6 +47,18 @@ export default function App() {
         </p>
       </div>
     );
+  }
+
+  if (!status) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-paper p-8 text-ink">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!status.allInstalled) {
+    return <FirstRunScreen />;
   }
 
   return (

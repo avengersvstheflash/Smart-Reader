@@ -20,23 +20,29 @@ const importQueueRoutes = require('./routes/importQueueRoutes');
 const lifecycleRoutes = require('./routes/lifecycleRoutes');
 const resynthesisRoutes = require('./routes/resynthesisRoutes');
 const ttsRoutes = require('./routes/ttsRoutes');
+const resourceRoutes = require('./routes/resourceRoutes');
 const aiService = require('./services/ai/aiService');
 const bookService = require('./services/bookService');
 const embeddingService = require('./services/semantic/embeddingService');
+const resourceManager = require('./services/resourceManager');
 const jobRepository = require('./repositories/jobRepository');
 const importQueueService = require('./services/ingestion/importQueueService');
 
 const app = express();
 
-// Warm up BGE-M3 model in background
-const t0 = Date.now();
-embeddingService.warmup()
-  .then((res) => {
-    if (res !== false) {
-      console.log(`[Boot] BGE-M3 ready in ${Date.now() - t0}ms`);
-    }
-  })
-  .catch((err) => console.error('[Boot] BGE-M3 warmup failed:', err.message));
+// Warm up BGE-M3 model in background if resources are installed
+if (resourceManager.areAllInstalled()) {
+  const t0 = Date.now();
+  embeddingService.warmup()
+    .then((res) => {
+      if (res !== false) {
+        console.log(`[Boot] BGE-M3 ready in ${Date.now() - t0}ms`);
+      }
+    })
+    .catch((err) => console.error('[Boot] BGE-M3 warmup failed:', err.message));
+} else {
+  console.log('[Boot] Neural models missing or incomplete. Deferring warmup to Resource Manager.');
+}
 
 // Initialize DB schema
 getDatabase();
@@ -81,6 +87,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/lifecycle', lifecycleRoutes);
 app.use('/api/resynthesis', resynthesisRoutes);
 app.use('/api/tts', ttsRoutes);
+app.use('/api/resources', resourceRoutes);
 
 // Development Reset & Sample Seed Endpoint
 app.post('/api/dev/reset', (req, res, next) => {

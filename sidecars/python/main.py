@@ -18,7 +18,12 @@ if not model_dir:
         local_app_data = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
         model_dir = os.path.join(local_app_data, "Omnitome", "models")
     else:
-        model_dir = os.path.join(bundle_dir, "models")
+        if sys.platform == "win32":
+            local_app_data = os.environ.get("LOCALAPPDATA", os.path.expanduser("~\\AppData\\Local"))
+            candidate = os.path.join(local_app_data, "Omnitome", "models")
+            model_dir = candidate if os.path.exists(candidate) else os.path.join(bundle_dir, "models")
+        else:
+            model_dir = os.path.join(bundle_dir, "models")
 
 os.makedirs(model_dir, exist_ok=True)
 os.environ.setdefault("OMNITOME_MODEL_DIR", model_dir)
@@ -26,6 +31,9 @@ os.environ.setdefault("HF_HOME", os.path.join(model_dir, "huggingface"))
 os.environ.setdefault("SENTENCE_TRANSFORMERS_HOME", os.path.join(model_dir, "sentence_transformers"))
 os.environ.setdefault("PADDLE_HOME", os.path.join(model_dir, "paddle"))
 os.environ.setdefault("PADDLEOCR_HOME", os.path.join(model_dir, "paddleocr"))
+os.environ.setdefault("OMNITOME_KOKORO_DIR", os.path.join(model_dir, "kokoro"))
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
 import torch  # noqa: F401 — load before PaddleOCR to avoid WinError 127
 
@@ -43,7 +51,7 @@ from lifecycle import lifecycle_manager
 
 from ocr.routes import router as ocr_router, is_ocr_ready
 from nlp.routes import router as nlp_router
-from embed.routes import router as embed_router
+from embed.routes import router as embed_router, is_embed_installed
 # F32.1: parse_router mounts /v1/parse (docx, rtf, and structure detection)
 from parse.routes import router as parse_router
 # F31: math_router mounts /v1/math
@@ -61,10 +69,13 @@ app.include_router(tts_router)
 
 @app.on_event("startup")
 def on_startup():
-    # Warm BGE-M3 in background on startup so first import doesn't pay warmup penalty.
+    # Warm BGE-M3 in background on startup only if model weights are installed.
     # Other models (reranker, ocr, tts) are loaded lazily on their first request
     # to eliminate VRAM thrashing and CUDA allocator contention on 4GB GPUs (RTX 3050).
-    threading.Thread(target=lambda: lifecycle_manager.warm('embed'), daemon=True).start()
+    if is_embed_installed():
+        threading.Thread(target=lambda: lifecycle_manager.warm('embed'), daemon=True).start()
+    else:
+        print("[Boot] BGE-M3 model weights missing — skipping startup warmup thread.")
     # F43 Phase 3: Start background daemon eviction tick
     lifecycle_manager.start_daemon()
 

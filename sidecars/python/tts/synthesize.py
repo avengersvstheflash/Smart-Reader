@@ -13,10 +13,23 @@ import unicodedata
 import sys
 from typing import Optional
 
-MODEL_DIR = os.environ.get(
-    'OMNITOME_KOKORO_DIR',
-    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'models', 'kokoro'))
-)
+def _resolve_kokoro_dir() -> str:
+    if os.environ.get('OMNITOME_KOKORO_DIR'):
+        return os.environ['OMNITOME_KOKORO_DIR']
+    model_dir = os.environ.get('OMNITOME_MODEL_DIR')
+    if model_dir:
+        candidate = os.path.join(model_dir, 'kokoro')
+        if os.path.exists(candidate) or not os.path.exists(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'models', 'kokoro'))):
+            return candidate
+    if sys.platform == 'win32':
+        local_app_data = os.environ.get("LOCALAPPDATA", os.path.expanduser("~\\AppData\\Local"))
+        candidate = os.path.join(local_app_data, "Omnitome", "models", "kokoro")
+        if os.path.exists(candidate):
+            return candidate
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'models', 'kokoro'))
+
+
+MODEL_DIR = _resolve_kokoro_dir()
 
 VOICE_WHITELIST = ['af_heart', 'am_adam', 'bf_alice', 'bm_george']
 
