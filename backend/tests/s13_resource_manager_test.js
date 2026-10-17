@@ -103,6 +103,7 @@ async function runS13Tests() {
 
     const bgeM3 = manifest.models.find((m) => m.id === 'bge-m3');
     assert.ok(bgeM3, 'bge-m3 must exist in manifest');
+    assert.strictEqual(bgeM3.format, 'tar.gz', 'bge-m3 format must be tar.gz');
     assert.strictEqual(bgeM3.targetSubdir, 'sentence_transformers/models--BAAI--bge-m3');
     assert.strictEqual(bgeM3.sha256, null, 'bge-m3 initial sha256 must be null');
     const validBgeWeights = ['model.safetensors', 'pytorch_model.bin'];
@@ -221,6 +222,7 @@ async function runS13Tests() {
     const tarFixtureDir = path.join(testTmpBase, 'tar_fixture');
     fs.mkdirSync(tarFixtureDir, { recursive: true });
     fs.writeFileSync(path.join(tarFixtureDir, 'model.safetensors'), 'dummy-model-safetensors');
+    fs.writeFileSync(path.join(tarFixtureDir, 'pytorch_model.bin'), 'dummy-model-bin');
     fs.writeFileSync(path.join(tarFixtureDir, 'config.json'), '{"architectures":["XLMRobertaModel"]}');
 
     const tarGzPath = path.join(testTmpBase, 'test_model.tar.gz');
@@ -230,14 +232,15 @@ async function runS13Tests() {
         file: tarGzPath,
         cwd: tarFixtureDir,
       },
-      ['model.safetensors', 'config.json']
+      ['model.safetensors', 'pytorch_model.bin', 'config.json']
     );
 
+    const bgeManifestModel = manifest.models.find((m) => m.id === 'bge-m3');
     const testTarModel = {
       id: 'bge-m3',
       format: 'tar.gz',
       targetSubdir: 'sentence_transformers/models--BAAI--bge-m3',
-      markerFiles: ['model.safetensors', 'config.json'],
+      markerFiles: bgeManifestModel?.markerFiles || ['model.safetensors', 'config.json'],
     };
 
     await manager._unpackAndPromote(testTarModel, tarGzPath);
