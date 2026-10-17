@@ -153,8 +153,8 @@ Omnitome v1.0 Overall Completion:
 | **Theme & Procedural Art** | `[████████████████████]` 100% | 🟢 COMPLETE | 5 complete themes (`omni`, `spring`, `sakura`, `coffee`, `cyberpunk`), procedural book covers & sigils |
 | **UI Surfaces & Polish** | `[████████████████████]` 100% | 🟢 COMPLETE | Polish Batches A–E complete: F78 right-side dock, F82.1 unified split button, F80 stat blocks, F81.1 read time, F79b.1 append |
 | **Kokoro Local TTS** | `[████████████████████]` 100% | 🟢 COMPLETE | Series 3 (Phase 5.9): Kokoro-82M neural TTS, gapless dual-deck player, podcast auto-advance, LRU cache |
-| **Tauri Desktop Packaging** | `[░░░░░░░░░░░░░░░░░░░░]` 0% | ⏳ **CURRENT** | Series 4 (Phase 6.0): Desktop supervisor & dynamic port handshake |
-| **Release & Distribution** | `[░░░░░░░░░░░░░░░░░░░░]` 0% | ⏳ QUEUED | Series 5 (Phase 7.0): Cloudflare Pages + R2 zero-egress distribution |
+| **Tauri Desktop Packaging** | `[██████████████░░░░░]` 70% | 🚧 **IN PROGRESS** | Series 4: S11 scaffold, S12 supervisor, S13 resource manager complete; S14 installer in progress |
+| **Release & Distribution** | `[░░░░░░░░░░░░░░░░░░░░]` 0% | ⏳ QUEUED | Series 5: Cloudflare Pages + R2 zero-egress distribution |
 
 ---
 
@@ -209,6 +209,15 @@ timeline
                    : Dual-Deck Gapless Playback & Highlighting
                    : Podcast Auto-Advance Mode (F89)
                    : 58 Regression Suites + 1 Corpus Gate Green
+    section Desktop Packaging & Resources
+        2026-10-17 : Series 4 S11 Tauri v2 Desktop Scaffold
+                   : Series 4 S12 PyInstaller Freeze & Rust Supervisor
+                   : Taskkill process tree termination & dynamic port handshake
+                   : Layered book emblem app icon & AGPL-3.0 licensing transition
+        2026-10-18 : Series 4 S13 Resource Manager & First-Run UX
+                   : Streaming model downloads & dynamic lockfile pinning
+                   : events.once listener leak fix & undici assertion recovery
+                   : 59 Regression Suites + 1 Corpus Gate Green
 ```
 
 ---
@@ -244,6 +253,8 @@ timeline
 | **2026-10-14** | **Phase 5.8 / F65–72 & F52**| `[██████████████████░░]` | **89%** | F65 await barrier (**Node RAM: 14.6 GB → 296 MB, 98% drop**); dynamic timeouts (8–60s); F52 Schema v3; 52 suites green | 10 | **52 suites + 1 gate** |
 | **2026-10-15** | **Phase 5.8 Polish & Freeze**| `[███████████████████░]` | **92%** | Polish Batches A–E: F81/F81.1 Omni reading time; F79b/F79b.1 Dossier append; F78 dock; F82/F82.1 unified split button; F39.1/F83 parser guards; **Feature Freeze for v1.0** | 18 | **57 suites + 1 gate** |
 | **2026-10-16** | **Phase 5.9 (Series 3 Close)** | `[███████████████████░]` | **95%** | Kokoro TTS — Local neural voice engine, reader playback, podcast mode (commits 8cc60da..498a54d) | 4 | **58 suites + 1 gate** |
+| **2026-10-17** | **Series 4 (S11 & S12)** | `[███████████████████░]` | **96%** | Tauri v2 desktop scaffold; PyInstaller onedir sidecar freeze (4.5GB); Rust supervisor with dynamic port handshake; `taskkill /F /T` orphan cleanup; AGPL-3.0 licensing transition; layered book emblem app icon | 8 | **58 suites + 1 gate** |
+| **2026-10-18** | **Series 4 (S13 Close)** | `[████████████████████]` | **98%** | Resource Manager pipeline: `FirstRunScreen.tsx` UX; streaming downloads with `AbortController`; `manifest.lock.json` dynamic SHA-256 pinning; `tar`/`adm-zip` staging extraction; `events.once` listener leak elimination; 2s boot timeout | 10 | **59 suites + 1 gate** |
 
 ---
 
@@ -393,12 +404,34 @@ timeline
   - **Regression Gate:** **All 58 unit test suites + 1 corpus gate passed clean.**
 - **Commits:** `8cc60da`, `dbcf605`, `4452f34`, `29c7857`, `498a54d`.
 
+#### 🗓️ 2026-10-17 — Series 4 (S11–S12): Tauri Desktop Shell, PyInstaller Freeze & Process Supervisor
+- **Progress:** `[███████████████████░]` 96%
+- **Milestones:**
+  - **S11 Tauri v2 Scaffold (`8801469`):** Scaffolded native desktop shell with Tauri v2; integrated custom layered book emblem squircle app icons across 6 resolutions (`a0303a8`).
+  - **S12a PyInstaller Freeze (`fe7e45a`):** Froze Python FastAPI sidecar into onedir bundle (4.5GB, 11,322 files) with PyTorch FP16 CUDA acceleration.
+  - **S12b Dynamic Ports & Boot Handshake (`eca3bea`):** Implemented `--port 0` dynamic allocation and stdout handshake sentinels (`__OMNITOME_BOOT__`).
+  - **S12c Rust Supervisor (`9750d72`):** Built Rust lifecycle supervisor managing child processes, window close events with `taskkill /F /T` orphan prevention, and rotated logging.
+  - **Licensing Transition:** Transitioned public repository to AGPL-3.0-only; established MIT escape hatch for private enterprise codebase.
+  - **Regression Gate:** **All 58 unit test suites + 1 corpus gate passed clean.**
+- **Commits:** `986db1a`, `8801469`, `db34cf8`, `a0303a8`, `fe7e45a`, `eca3bea`, `9750d72`.
+
+#### 🗓️ 2026-10-18 — Series 4 (S13 Close): Resource Manager & First-Run UX
+- **Progress:** `[████████████████████]` 98%
+- **Milestones:**
+  - **Resource Manager Backend (`93499aa`):** Multi-model declarative manifest (`models.json`) managing BGE-M3, BGE Reranker v2, PaddleOCR, and Kokoro TTS; pre-flight disk space validation (>4.5 GB) via `fs.promises.statfs`.
+  - **Streaming Downloads & AbortController:** Native Node 22 `fetch` streaming direct to disk with live SSE progress, download speed (MB/s), and ETA calculation; immediate cleanup on user abort.
+  - **Staging Archive Extraction & Pinning:** Safe extraction of `.tar.gz`, `.tar`, and `.zip` archives into isolated `.staging/` directories with atomic promotion; dynamic SHA-256 recording via `manifest.lock.json`.
+  - **First-Run UX:** `FirstRunScreen.tsx` blocks app boot when neural models are missing, providing live inventory status, progress bar, and offline error recovery.
+  - **Reliability & Listener Leak Fix (`73bb7ca`):** Replaced backpressure polling with `events.once(fileStream, 'drain')` to eliminate `MaxListenersExceededWarning`; intercepted Node 22 undici `assert(!this.paused)` stream crashes; added 2-second timeout guard on boot connectivity probes.
+  - **Regression Gate:** **All 59 unit test suites + 1 corpus gate passed clean.**
+- **Commits:** `93499aa`, `fa71cc6`, `fef19c2`, `0f47062`, `6ec9086`, `021196c`, `e277afc`, `73bb7ca`, `8881344`.
+
 ---
 
 ## 🧪 Benchmark & Verification Suite Execution
 
 ```bash
-# Run all 58 regression suites + the 10-fixture corpus gate:
+# Run all 59 regression suites + the 10-fixture corpus gate:
 npm test
 # (Equivalent to: node scripts/run-all-tests.js)
 
