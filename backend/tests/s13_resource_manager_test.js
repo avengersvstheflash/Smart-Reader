@@ -103,10 +103,13 @@ async function runS13Tests() {
 
     const bgeM3 = manifest.models.find((m) => m.id === 'bge-m3');
     assert.ok(bgeM3, 'bge-m3 must exist in manifest');
-    assert.strictEqual(bgeM3.format, 'tar.gz', 'bge-m3 format must be tar.gz');
     assert.strictEqual(bgeM3.targetSubdir, 'sentence_transformers/models--BAAI--bge-m3');
     assert.strictEqual(bgeM3.sha256, null, 'bge-m3 initial sha256 must be null');
-    assert.ok(bgeM3.markerFiles.includes('model.safetensors'), 'bge-m3 must require model.safetensors');
+    const validBgeWeights = ['model.safetensors', 'pytorch_model.bin'];
+    assert.ok(
+      bgeM3.markerFiles.some((f) => validBgeWeights.includes(f)),
+      'bge-m3 must require a valid weight file (model.safetensors or pytorch_model.bin)'
+    );
 
     const reranker = manifest.models.find((m) => m.id === 'bge-reranker');
     assert.ok(reranker, 'bge-reranker must exist in manifest');

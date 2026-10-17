@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const dns = require('dns').promises;
 const tar = require('tar');
 const AdmZip = require('adm-zip');
+const { once } = require('events');
 
 const activeManagers = new Set();
 
@@ -439,10 +440,7 @@ class ResourceManager {
           hash.update(chunk);
 
           if (!fileStream.write(chunk)) {
-            await new Promise((resolve, reject) => {
-              fileStream.once('drain', resolve);
-              fileStream.once('error', reject);
-            });
+            await once(fileStream, 'drain');
           }
 
           const now = Date.now();
@@ -520,12 +518,13 @@ class ResourceManager {
         overallProgress: finalOverallProgress,
       });
 
-      await new Promise((resolve, reject) => {
-        if (fileStream.closed) return resolve();
-        fileStream.once('error', reject);
-        fileStream.once('close', resolve);
+      if (!fileStream.closed) {
+        const closePromise = once(fileStream, 'close');
         fileStream.end();
-      });
+        await closePromise;
+      } else {
+        fileStream.end();
+      }
 
       const computedSha256 = hash.digest('hex');
       const lockdata = this._loadLockfile();
