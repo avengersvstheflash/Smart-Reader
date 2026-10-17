@@ -20,7 +20,7 @@
 - Source: Project-authored development session transcript (this repository)
 - Slice boundary: bytes 0 through end of Turn 4
 - Encoding: UTF-8
-- License: MIT (same as repository)
+- License: AGPL-3.0-only (same as repository)
 - Purpose: Exercises F56 (markdown fast-path classification), F49d (no
   [PARTIAL] markers), and the section classifier circuit breaker on
   real conversational markdown.
@@ -33,7 +33,7 @@ regenerated from external machine paths.
 - Author: Project-authored synthetic fixture
 - Slice boundary: N/A (complete file)
 - Encoding: UTF-8
-- License: MIT (same as repository)
+- License: AGPL-3.0-only (same as repository)
 - Purpose: Exercises Class C guard C3 (prologue preservation, F51h.3).
   Contains an explicit ## Prologue heading that must be classified as a
   narrative chapter, not front_matter.
