@@ -29,7 +29,7 @@ export default function App() {
   const isTauri = typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== 'undefined';
   const nodePort = (window as unknown as { __OMNITOME__?: { nodePort?: number } }).__OMNITOME__?.nodePort;
 
-  const { status, isLoading, fetchStatus } = useResourceStore();
+  const { status, isLoading, error, fetchStatus } = useResourceStore();
 
   useEffect(() => {
     console.log('[App] Calling fetchStatus()...');
@@ -50,11 +50,54 @@ export default function App() {
     );
   }
 
+  if (error && !status) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-paper bg-surface p-8 text-ink selection:bg-accent/20">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+          <div className="p-3 bg-red-500/10 text-red-500 rounded-xl">
+            <svg
+              className="w-8 h-8"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold tracking-tight text-ink">
+              Initialization Failed
+            </h2>
+            <p className="text-xs text-ink-muted leading-relaxed">
+              {error}
+            </p>
+          </div>
+          <button
+            onClick={() => fetchStatus()}
+            className="px-4 py-2 text-xs font-medium rounded-lg bg-accent text-accent-contrast hover:opacity-90 transition-opacity"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading || !status) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-paper bg-surface p-8 text-ink selection:bg-accent/20">
         <div className="flex flex-col items-center gap-4 text-center">
+<<<<<<< HEAD
           <div className="relative flex items-center justify-center">
+=======
+          <div className="relative flex items-center justify-center transition-opacity duration-700 ease-in-out">
+>>>>>>> 960446f (fix(ui): finalize App.tsx loading state polish)
             <div className="absolute inset-0 rounded-full bg-accent/20 blur-md animate-pulse" />
             <svg
               className="w-12 h-12 relative select-none animate-pulse transition-opacity duration-700"
