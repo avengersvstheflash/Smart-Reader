@@ -9,7 +9,8 @@ const { resolveBaseUrl, waitForReady, warmModel, checkModelReady } = require('./
 
 const DEFAULT_BATCH_SIZE = process.env.EMBED_BATCH_SIZE ? parseInt(process.env.EMBED_BATCH_SIZE, 10) : 16;
 const WARMING_RETRY_INTERVALS_MS = [
-  2000, 4000, 8000, 10000, 15000, 20000, 20000, 20000, 20000, 20000, 20000, 20000
+  2000, 4000, 8000, 10000, 15000, 20000, 20000, 20000, 20000, 20000, 20000, 20000,
+  20000, 20000, 20000, 20000, 20000, 20000
 ];
 
 async function embedBatch(texts, options = {}) {
@@ -152,7 +153,7 @@ async function embedBatch(texts, options = {}) {
 
           // Actively wait for embed model to transition out of LOADING/UNLOADED before retrying this specific batch
           const waitStartTime = Date.now();
-          const maxWaitMs = timeoutMs || 180000;
+          const maxWaitMs = timeoutMs || 300000;
           let modelReady = false;
 
           while (Date.now() - waitStartTime < maxWaitMs && attempt < maxRetries) {

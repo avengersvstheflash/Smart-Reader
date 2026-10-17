@@ -31,7 +31,11 @@ const app = express();
 // Warm up BGE-M3 model in background
 const t0 = Date.now();
 embeddingService.warmup()
-  .then(() => console.log(`[Boot] BGE-M3 ready in ${Date.now() - t0}ms`))
+  .then((res) => {
+    if (res !== false) {
+      console.log(`[Boot] BGE-M3 ready in ${Date.now() - t0}ms`);
+    }
+  })
   .catch((err) => console.error('[Boot] BGE-M3 warmup failed:', err.message));
 
 // Initialize DB schema

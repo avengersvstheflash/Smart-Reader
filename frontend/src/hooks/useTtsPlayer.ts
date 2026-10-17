@@ -194,8 +194,8 @@ export function useTtsPlayer(
     if (typeof Audio !== 'undefined') {
       const a = new Audio();
       const b = new Audio();
-      a.preload = 'auto';
-      b.preload = 'auto';
+      a.preload = 'none';
+      b.preload = 'none';
       deckRefA.current = a;
       deckRefB.current = b;
     }
@@ -349,6 +349,7 @@ export function useTtsPlayer(
   // Trigger background lookahead prefetching (sentence k+1 into inactive deck, k+2 into cache)
   const triggerLookahead = useCallback(
     (currentIdx: number, inactiveDeckId: 'A' | 'B', session: number) => {
+      if (!isPlayingRef.current) return;
       const sents = sentencesRef.current;
       const inactiveDeck = inactiveDeckId === 'A' ? deckRefA.current : deckRefB.current;
 
@@ -617,6 +618,8 @@ export function useTtsPlayer(
 
       const session = ++sessionRef.current;
       abortInFlight();
+      setIsPlaying(true);
+      isPlayingRef.current = true;
       playSentence(clamped, session, 'A');
     },
     [abortInFlight, playSentence, triggerLookahead]

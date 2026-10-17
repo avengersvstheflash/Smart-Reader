@@ -47,10 +47,10 @@ async function embed(texts, options = {}) {
 async function warmup() {
   if (config.USE_PYTHON_EMBEDDER) {
     const start = Date.now();
-    while (Date.now() - start < 180000) {
+    while (Date.now() - start < 300000) {
       try {
-        await embedClient.embedBatch(['warmup'], { timeoutMs: 180000 });
-        return;
+        await embedClient.embedBatch(['warmup'], { timeoutMs: 300000 });
+        return true;
       } catch (err) {
         const msg = err?.message || String(err || '');
         const causeMsg = err?.cause?.message || '';
@@ -72,7 +72,8 @@ async function warmup() {
         }
       }
     }
-    throw new Error('Timeout waiting for Python embedder to warm up');
+    console.warn('[Boot] Background BGE-M3 warmup exceeded 5m, proceeding lazily.');
+    return false;
   }
   await loadModel();
 }
