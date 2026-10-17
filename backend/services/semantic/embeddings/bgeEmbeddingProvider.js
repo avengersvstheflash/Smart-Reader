@@ -47,17 +47,25 @@ async function embed(texts, options = {}) {
 async function warmup() {
   if (config.USE_PYTHON_EMBEDDER) {
     const start = Date.now();
-    while (Date.now() - start < 120000) {
+    while (Date.now() - start < 180000) {
       try {
-        await embedClient.embedBatch(['warmup'], { timeoutMs: 120000 });
+        await embedClient.embedBatch(['warmup'], { timeoutMs: 180000 });
         return;
       } catch (err) {
-        if (
-          err.code === 'EMBED_MODEL_WARMING' ||
-          err.code === 'EMBED_MODEL_UNAVAILABLE' ||
-          err?.message?.includes('warming up') ||
-          err?.message?.includes('not available')
-        ) {
+        const msg = err?.message || String(err || '');
+        const causeMsg = err?.cause?.message || '';
+        const code = err?.code || err?.cause?.code || '';
+        const isTransient =
+          code === 'EMBED_MODEL_WARMING' ||
+          code === 'EMBED_MODEL_UNAVAILABLE' ||
+          code === 'ECONNREFUSED' ||
+          code === 'ECONNRESET' ||
+          msg.includes('warming up') ||
+          msg.includes('not available') ||
+          msg.includes('fetch failed') ||
+          causeMsg.includes('ECONNREFUSED');
+
+        if (isTransient) {
           await new Promise((r) => setTimeout(r, 1000));
         } else {
           throw err;

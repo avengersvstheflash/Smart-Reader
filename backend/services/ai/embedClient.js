@@ -8,7 +8,9 @@ const config = require('../../config');
 const { resolveBaseUrl, waitForReady, warmModel, checkModelReady } = require('./sidecarBase');
 
 const DEFAULT_BATCH_SIZE = process.env.EMBED_BATCH_SIZE ? parseInt(process.env.EMBED_BATCH_SIZE, 10) : 16;
-const WARMING_RETRY_INTERVALS_MS = [2000, 4000, 8000, 10000, 15000, 20000, 20000, 20000, 20000];
+const WARMING_RETRY_INTERVALS_MS = [
+  2000, 4000, 8000, 10000, 15000, 20000, 20000, 20000, 20000, 20000, 20000, 20000
+];
 
 async function embedBatch(texts, options = {}) {
   if (!Array.isArray(texts) || texts.length === 0) {
@@ -148,12 +150,31 @@ async function embedBatch(texts, options = {}) {
           // Trigger warming in case model was in UNLOADED state
           warmModel('embed', targetUrl, { fireAndForget: true }).catch(() => {});
 
-          if (attempt < maxRetries) {
-            const delay = retryIntervals[attempt] !== undefined ? retryIntervals[attempt] : 1000;
+          // Actively wait for embed model to transition out of LOADING/UNLOADED before retrying this specific batch
+          const waitStartTime = Date.now();
+          const maxWaitMs = timeoutMs || 180000;
+          let modelReady = false;
+
+          while (Date.now() - waitStartTime < maxWaitMs && attempt < maxRetries) {
+            const delay = retryIntervals[attempt] !== undefined ? retryIntervals[attempt] : 2000;
             await new Promise((r) => setTimeout(r, delay));
             attempt++;
-            continue;
+
+            try {
+              const status = await checkModelReady('embed', targetUrl, 2000);
+              if (status.state === 'LOADED') {
+                modelReady = true;
+                break;
+              }
+            } catch (_) {
+              // Sidecar may be briefly unreachable or busy
+            }
           }
+
+          if (modelReady || attempt < maxRetries) {
+            continue; // Retry this specific batch now that model is ready
+          }
+
           const err = new Error('Embedding model is still warming up');
           err.code = 'EMBED_MODEL_WARMING';
           throw err;

@@ -61,12 +61,9 @@ app.include_router(tts_router)
 
 @app.on_event("startup")
 def on_startup():
-    # Warm OCR via lifecycle manager in background
-    threading.Thread(target=lambda: lifecycle_manager.warm('ocr'), daemon=True).start()
-    # 5.8.0i: warm the BGE reranker at boot so early synthesis calls
-    # don't pay the 503 RERANKER_WARMING penalty during import.
-    threading.Thread(target=lambda: lifecycle_manager.warm('reranker'), daemon=True).start()
-    # Warm BGE-M3 in FP16 so first import doesn't pay warmup penalty
+    # Warm BGE-M3 in background on startup so first import doesn't pay warmup penalty.
+    # Other models (reranker, ocr, tts) are loaded lazily on their first request
+    # to eliminate VRAM thrashing and CUDA allocator contention on 4GB GPUs (RTX 3050).
     threading.Thread(target=lambda: lifecycle_manager.warm('embed'), daemon=True).start()
     # F43 Phase 3: Start background daemon eviction tick
     lifecycle_manager.start_daemon()

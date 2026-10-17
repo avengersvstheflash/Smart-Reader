@@ -109,8 +109,8 @@ module.exports = {
 
   // Python Sidecar OCR Configuration (Phase 5.7.1)
   PYTHON_SIDECAR_URL: process.env.PYTHON_SIDECAR_URL || (process.env.OMNITOME_SIDECAR_PORT ? `http://127.0.0.1:${process.env.OMNITOME_SIDECAR_PORT}` : 'http://127.0.0.1:8765'),
-  // Base timeout for OCR requests (120s base; multi-page PDFs scale dynamically in ocrClient and pdfjsParser).
-  PYTHON_SIDECAR_TIMEOUT_MS: parseInt(process.env.PYTHON_SIDECAR_TIMEOUT_MS, 10) || 120000,
+  // Base timeout for sidecar requests (180s base; multi-page PDFs scale dynamically in ocrClient and pdfjsParser).
+  PYTHON_SIDECAR_TIMEOUT_MS: parseInt(process.env.PYTHON_SIDECAR_TIMEOUT_MS, 10) || 180000,
 
   // Python Sidecar Embedding Configuration (Phase 5.7.2 / F37)
   // Default true: use Python sidecar for BGE-M3 embeddings (GPU-accelerated).

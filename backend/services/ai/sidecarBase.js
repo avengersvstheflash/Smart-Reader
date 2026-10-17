@@ -13,7 +13,7 @@
 
 const config = require('../../config');
 
-const DEFAULT_MAX_WAIT_MS = 120000;
+const DEFAULT_MAX_WAIT_MS = 180000;
 
 /**
  * Resolves the effective base URL for the sidecar service.
@@ -146,7 +146,7 @@ async function warmModel(modelName, baseUrl, options = {}) {
     baseUrl = undefined;
   }
   const targetUrl = resolveBaseUrl(baseUrl);
-  const timeoutMs = options?.timeoutMs || 120000;
+  const timeoutMs = options?.timeoutMs || 180000;
   const url = `${targetUrl}/v1/lifecycle/warm?model=${encodeURIComponent(modelName)}&check=/ready`;
 
   if (options?.fireAndForget) {
