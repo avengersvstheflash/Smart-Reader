@@ -29,7 +29,7 @@ export default function App() {
   const isTauri = typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== 'undefined';
   const nodePort = (window as unknown as { __OMNITOME__?: { nodePort?: number } }).__OMNITOME__?.nodePort;
 
-  const { status, fetchStatus } = useResourceStore();
+  const { status, isLoading, fetchStatus } = useResourceStore();
 
   useEffect(() => {
     fetchStatus();
@@ -37,7 +37,7 @@ export default function App() {
 
   if (isTauri && !nodePort) {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-paper p-8 text-ink">
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-paper bg-surface p-8 text-ink">
         <h1 className="text-xl font-bold text-red-600">Omnitome Boot Error</h1>
         <p className="mt-2 text-sm text-ink-muted">
           Backend service port handshake failed during application launch.
@@ -49,10 +49,20 @@ export default function App() {
     );
   }
 
-  if (!status) {
+  if (isLoading || !status) {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-paper p-8 text-ink">
-        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-paper bg-surface p-8 text-ink selection:bg-accent/20">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold tracking-tight text-ink">
+              Initializing Omnitome...
+            </h2>
+            <p className="text-xs text-ink-muted">
+              Checking local neural models and system readiness
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
