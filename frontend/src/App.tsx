@@ -92,39 +92,37 @@ export default function App() {
   if (isLoading || !status) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-paper bg-surface p-8 text-ink selection:bg-accent/20">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <div className="relative flex items-center justify-center transition-opacity duration-700 ease-in-out">
-            <div className="absolute inset-0 rounded-full bg-accent/20 blur-md animate-pulse" />
-            <svg
-              className="w-12 h-12 relative select-none animate-pulse transition-opacity duration-700"
-              viewBox="0 0 48 48"
-              fill="none"
-              aria-hidden="true"
-            >
-              <circle cx="24" cy="24" r="22" stroke="#d8b4fe" strokeWidth="1.5" strokeDasharray="3 2" />
-              <circle cx="24" cy="24" r="16" stroke="#c084fc" strokeWidth="1" />
-              <rect x="10.5" y="10.5" width="27" height="27" stroke="#a855f7" strokeWidth="1.2" />
-              <rect x="10.5" y="10.5" width="27" height="27" stroke="#a855f7" strokeWidth="1.2" transform="rotate(45 24 24)" />
-              <circle cx="24" cy="24" r="7.5" stroke="#f472b6" strokeWidth="1.2" />
-              <polygon points="24,19 28,24 24,29 20,24" fill="#ffffff" />
-              <circle cx="24" cy="2" r="1.8" fill="#f472b6" />
-              <circle cx="24" cy="46" r="1.8" fill="#f472b6" />
-              <circle cx="2" cy="24" r="1.8" fill="#f472b6" />
-              <circle cx="46" cy="24" r="1.8" fill="#f472b6" />
-              <circle cx="8.4" cy="8.4" r="1.2" fill="#c084fc" />
-              <circle cx="39.6" cy="8.4" r="1.2" fill="#c084fc" />
-              <circle cx="8.4" cy="39.6" r="1.2" fill="#c084fc" />
-              <circle cx="39.6" cy="39.6" r="1.2" fill="#c084fc" />
-            </svg>
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-base font-semibold tracking-tight text-ink">
-              Initializing Omnitome...
-            </h2>
-            <p className="text-xs text-ink-muted">
-              Checking local neural models and system readiness
-            </p>
-          </div>
+        <div className="relative flex items-center justify-center transition-opacity duration-700 ease-in-out">
+          <div className="absolute inset-0 rounded-full bg-accent/20 blur-md animate-pulse" />
+          <svg
+            className="w-12 h-12 relative select-none animate-pulse transition-opacity duration-700"
+            viewBox="0 0 48 48"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle cx="24" cy="24" r="22" stroke="#d8b4fe" strokeWidth="1.5" strokeDasharray="3 2" />
+            <circle cx="24" cy="24" r="16" stroke="#c084fc" strokeWidth="1" />
+            <rect x="10.5" y="10.5" width="27" height="27" stroke="#a855f7" strokeWidth="1.2" />
+            <rect x="10.5" y="10.5" width="27" height="27" stroke="#a855f7" strokeWidth="1.2" transform="rotate(45 24 24)" />
+            <circle cx="24" cy="24" r="7.5" stroke="#f472b6" strokeWidth="1.2" />
+            <polygon points="24,19 28,24 24,29 20,24" fill="#ffffff" />
+            <circle cx="24" cy="2" r="1.8" fill="#f472b6" />
+            <circle cx="24" cy="46" r="1.8" fill="#f472b6" />
+            <circle cx="2" cy="24" r="1.8" fill="#f472b6" />
+            <circle cx="46" cy="24" r="1.8" fill="#f472b6" />
+            <circle cx="8.4" cy="8.4" r="1.2" fill="#c084fc" />
+            <circle cx="39.6" cy="8.4" r="1.2" fill="#c084fc" />
+            <circle cx="8.4" cy="39.6" r="1.2" fill="#c084fc" />
+            <circle cx="39.6" cy="39.6" r="1.2" fill="#c084fc" />
+          </svg>
+        </div>
+        <div className="space-y-1 text-center mt-6">
+          <h2 className="text-base font-semibold tracking-tight text-ink">
+            Initializing Omnitome...
+          </h2>
+          <p className="text-xs text-ink-muted">
+            Checking local neural models and system readiness
+          </p>
         </div>
       </div>
     );
